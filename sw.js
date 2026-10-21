@@ -1,4 +1,4 @@
-const CACHE_NAME = "ephone-tuk-cache-v12";
+const CACHE_NAME = "ephone-tuk-cache-v14";
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
@@ -8,9 +8,7 @@ const ASSETS_TO_CACHE = [
   "./icon-192.png",
   "./icon-512.png",
   "./apple-touch-icon.png",
-  "./icon.svg",
-  "./main-app.js",
-  "./peer-manager.js"
+  "./icon.svg"
 ];
 
 self.addEventListener("install", event => {

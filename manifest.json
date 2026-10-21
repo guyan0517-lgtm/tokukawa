@@ -1,9 +1,9 @@
 {
   "id": "./",
   "scope": "./",
-  "name": "四半世紀",
-  "short_name": "四半世紀",
-  "start_url": "index.html",
+  "name": "箱庭物语",
+  "short_name": "箱庭物语",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f5f5f7",
   "theme_color": "#f5f5f7",
