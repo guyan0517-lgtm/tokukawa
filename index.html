@@ -190,6 +190,111 @@
       display: block !important;
       flex-shrink: 0 !important;
     }
+    .persona-folder-group {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+    .persona-folder-header {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      padding: 11px 14px !important;
+      background: var(--secondary-bg);
+      cursor: pointer;
+      user-select: none;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text-primary);
+    }
+    .persona-folder-header-left {
+      display: flex !important;
+      align-items: center !important;
+      gap: 8px !important;
+    }
+    .persona-folder-arrow {
+      width: 16px;
+      height: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s ease;
+      color: var(--accent-color);
+    }
+    .persona-folder-group.collapsed .persona-folder-arrow {
+      transform: rotate(-90deg);
+    }
+    .persona-folder-body {
+      padding: 8px 10px !important;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .persona-folder-group.collapsed .persona-folder-body {
+      display: none !important;
+    }
+    .script-top-btn-grid {
+      display: grid !important;
+      grid-template-columns: repeat(4, 1fr) !important;
+      gap: 6px !important;
+      width: 100% !important;
+      margin-top: 8px !important;
+    }
+    .script-top-btn-grid .moe-btn {
+      width: 100% !important;
+      justify-content: center !important;
+      padding: 6px 4px !important;
+      font-size: 12px !important;
+    }
+    .vn-script-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 8px 10px !important;
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 6px !important;
+    }
+    .vn-script-card.has-typo {
+      border-color: var(--accent-color);
+    }
+    .vn-script-row-top {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      gap: 6px !important;
+      flex-wrap: wrap !important;
+    }
+    .vn-script-row-left {
+      display: flex !important;
+      align-items: center !important;
+      gap: 6px !important;
+      flex-wrap: wrap !important;
+      flex: 1 !important;
+      min-width: 180px !important;
+    }
+    .vn-script-row-actions {
+      display: flex !important;
+      align-items: center !important;
+      gap: 4px !important;
+      flex-shrink: 0 !important;
+    }
+    .vn-play-tri-btn {
+      width: 32px !important;
+      min-width: 32px !important;
+      height: 30px !important;
+      min-height: 30px !important;
+      padding: 0 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+    .vn-play-tri-btn.cached {
+      border-color: var(--accent-color) !important;
+      color: var(--accent-color) !important;
+    }
   </style>
   <style id="custom-theme-style-tag"></style>
   <script src="/node_modules/dexie/dist/dexie.js"></script>
@@ -410,7 +515,7 @@
         <span class="app-header-title">角色</span>
         <div class="app-header-actions">
           <button type="button" class="moe-btn secondary" onclick="document.getElementById('persona-import-pack-input').click()">导包</button>
-          <input type="file" id="persona-import-pack-input" accept=".json" style="display:none;" onchange="importSingleCharacterPack(event)" />
+          <input type="file" id="persona-import-pack-input" accept=".zip,.json" style="display:none;" onchange="importSingleCharacterPack(event)" />
           <button type="button" class="moe-btn secondary" onclick="ensureNarratorCharacterAndSelect()">旁白</button>
           <button type="button" class="moe-btn" onclick="createNewBlankCharacter()">新增</button>
         </div>
@@ -734,9 +839,9 @@
               <div class="form-group" style="padding:8px 10px;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:8px;margin-bottom:0;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
                   <label style="color:var(--text-primary);font-size:12px;">第二排：特征细节还原度</label>
-                  <span id="char-lock-fid-val" style="font-size:12px;font-weight:700;color:var(--accent-color);">0.50</span>
+                  <span id="char-lock-fid-val" style="font-size:12px;font-weight:700;color:var(--accent-color);">0.78</span>
                 </div>
-                <input type="range" id="tachie-char-lock-fidelity" min="0.1" max="1" step="0.05" value="0.50" oninput="saveStudioSliderValue('tachie-char-lock-fidelity', 'char-lock-fid-val', this.value)" />
+                <input type="range" id="tachie-char-lock-fidelity" min="0.1" max="1" step="0.05" value="0.78" oninput="saveStudioSliderValue('tachie-char-lock-fidelity', 'char-lock-fid-val', this.value)" />
                 <div style="display:flex;align-items:center;gap:8px;padding-top:4px;margin-top:4px;border-top:1px dashed var(--border-color);">
                   <span style="font-size:11px;font-weight:600;color:var(--text-secondary);flex-shrink:0;">最近种子</span>
                   <input type="number" id="tachie-lock-seed" class="moe-input" style="min-height:30px;height:30px;padding:2px 8px;width:130px;" value="-1" readonly />
@@ -1279,6 +1384,7 @@
         <button type="button" class="sub-tab-btn" data-sub="set-sub-nai" onclick="switchSubPage('screen-settings', 'set-sub-nai')">生图</button>
         <button type="button" class="sub-tab-btn" data-sub="set-sub-music" onclick="switchSubPage('screen-settings', 'set-sub-music');renderSettingsMusicPanel();">音乐</button>
         <button type="button" class="sub-tab-btn" data-sub="set-sub-minimax" onclick="switchSubPage('screen-settings', 'set-sub-minimax')">语音</button>
+        <button type="button" class="sub-tab-btn" data-sub="set-sub-local" onclick="switchSubPage('screen-settings', 'set-sub-local')">本地</button>
         <button type="button" class="sub-tab-btn" data-sub="set-sub-console" onclick="switchSubPage('screen-settings', 'set-sub-console')">日志</button>
       </div>
 
@@ -1762,6 +1868,51 @@
           <div id="api-console-log-list"></div>
         </div>
       </div>
+
+      <!-- 子页6：安卓 Termux 与电脑本地文件无损直存 -->
+      <div id="set-sub-local" class="app-subpage">
+        <div class="moe-card">
+          <div class="moe-card-header">
+            <span class="moe-card-title">本地无损文件直存 安卓Termux</span>
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="moe-btn secondary" onclick="testLocalBridgeConnectionUI()">检测</button>
+              <button type="button" class="moe-btn" onclick="syncAllAssetsToLocalBridgeUI()">同步</button>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-item-center">
+              <div class="setting-item-title">默认无损直存图片与音频到本地</div>
+              <div class="setting-item-sub">开启后所有生图与配音零压缩直接写入手机本地文件夹，释放浏览器内存防卡顿</div>
+            </div>
+            <div class="setting-item-right">
+              <input type="checkbox" id="local-bridge-enable-switch" checked onchange="localStorage.setItem('local-bridge-enabled', this.checked ? 'true' : 'false')" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:8px;">
+            <label>本地存储服务地址</label>
+            <input type="text" id="local-bridge-url-input" class="moe-input" value="http://127.0.0.1:8765" onchange="localStorage.setItem('local-bridge-url', this.value.trim())" />
+          </div>
+          <div class="form-group">
+            <label>安卓 Termux 一键启动命令 点右侧复制后粘贴到 Termux 回车即可</label>
+            <div style="display:flex;gap:6px;align-items:stretch;">
+              <textarea id="termux-local-bridge-cmd" class="moe-input" style="min-height:74px;font-size:11px;font-family:monospace;flex:1;" readonly>pkg install -y python &amp;&amp; termux-setup-storage &amp;&amp; python3 -c "import os,json,base64,http.server;root=os.path.expanduser('~/storage/shared/HakoniwaData');os.makedirs(root,exist_ok=True);
+class H(http.server.BaseHTTPRequestHandler):
+ def _cors(s):s.send_header('Access-Control-Allow-Origin','*');s.send_header('Access-Control-Allow-Methods','GET,POST,OPTIONS');s.send_header('Access-Control-Allow-Headers','Content-Type')
+ def do_OPTIONS(s):s.send_response(200);s._cors();s.end_headers()
+ def do_GET(s):
+  if s.path=='/ping':s.send_response(200);s._cors();s.end_headers();s.wfile.write(b'ok');return
+  p=os.path.join(root,s.path.lstrip('/'));
+  if os.path.isfile(p):s.send_response(200);s._cors();s.end_headers();s.wfile.write(open(p,'rb').read())
+  else:s.send_response(404);s._cors();s.end_headers()
+ def do_POST(s):
+  d=json.loads(s.rfile.read(int(s.headers['Content-Length'])));rel=d.get('path','file.bin').lstrip('/');fp=os.path.join(root,rel);os.makedirs(os.path.dirname(fp),exist_ok=True);raw=d.get('dataUrl','');b64=raw.split(',',1)[1] if ',' in raw else raw;open(fp,'wb').write(base64.b64decode(b64));s.send_response(200);s._cors();s.end_headers();s.wfile.write(json.dumps({'ok':True,'url':'http://127.0.0.1:8765/'+rel}).encode())
+http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
+              <button type="button" class="moe-btn" onclick="copyTermuxLocalBridgeCmd()">复制</button>
+            </div>
+          </div>
+          <div id="local-bridge-status-box" style="font-size:12px;color:var(--text-secondary);padding:10px;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:8px;">在 Termux 运行上方命令后点右上角检测即可连接手机本地存储目录 HakoniwaData</div>
+        </div>
+      </div>
     </section>
 
     <!-- ==================== 10. 建图 App：餐桌 | 家具 | 地图 ==================== -->
@@ -2142,8 +2293,8 @@
           <div class="moe-card-header">
             <span class="moe-card-title">第一步：选择或新建模组回放工程</span>
             <div style="display:flex;gap:6px;">
-              <button type="button" class="moe-btn secondary" onclick="document.getElementById('replay-import-pack-input').click()">导包</button>
-              <input type="file" id="replay-import-pack-input" accept=".json" style="display:none;" onchange="importReplayProjectJson(event)" />
+              <button type="button" class="moe-btn secondary" onclick="document.getElementById('replay-import-pack-input').click()">导入</button>
+              <input type="file" id="replay-import-pack-input" accept=".zip,.json" style="display:none;" onchange="importReplayProjectJson(event)" />
               <button type="button" class="moe-btn secondary" onclick="exportCurrentReplayProjectJson()">导出</button>
               <button type="button" class="moe-btn secondary" onclick="deleteCurrentReplayProject()">删除</button>
             </div>
@@ -2243,52 +2394,6 @@
       <!-- 子页3：轻便文游剧本控制台、提示词编辑、错字校对、弹幕专区与舞台可视化编辑入口 -->
       <div id="replay-sub-script" class="app-subpage">
         <div class="moe-card">
-          <div class="moe-card-header">
-            <span class="moe-card-title">章节剧本控制台</span>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button type="button" class="moe-btn" id="replay-gen-script-btn" onclick="generateCurrentChapterScriptViaAi()">整理</button>
-              <button type="button" class="moe-btn secondary" onclick="toggleScriptPromptEditor()">提示</button>
-              <button type="button" class="moe-btn secondary" id="replay-typo-btn" onclick="toggleTypoReviewPanel()">错字</button>
-              <button type="button" class="moe-btn secondary" id="replay-danmaku-btn" onclick="toggleDanmakuReviewPanel()">弹幕</button>
-              <button type="button" class="moe-btn secondary" onclick="openTheaterStageEditorForCurrentChapter()">舞台</button>
-              <button type="button" class="moe-btn" onclick="openTheaterForCurrentChapter()">播放</button>
-            </div>
-          </div>
-
-          <div id="replay-script-prompt-box" style="display:none;margin-bottom:8px;padding:10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
-              <span style="font-size:12px;font-weight:800;color:var(--text-primary);">单章一次整理默认提示词 含人称优化、表情、音效、音乐起止、错字与CG插点</span>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                <button type="button" class="moe-btn secondary" id="replay-jp-trans-btn" onclick="translateCurrentChapterToJapanese()">日译</button>
-                <button type="button" class="moe-btn secondary" id="replay-bgm-resolve-btn" onclick="autoResolveCurrentChapterBgm()">搜歌</button>
-                <button type="button" class="moe-btn secondary" id="replay-batch-tts-btn" onclick="batchSynthesizeCurrentChapterTts()">配音</button>
-                <button type="button" class="moe-btn secondary" onclick="appendNewScriptLineAtEnd()">加行</button>
-                <button type="button" class="moe-btn secondary" onclick="resetCustomScriptPrompt()">恢复</button>
-                <button type="button" class="moe-btn" onclick="saveCustomScriptPrompt()">保存</button>
-              </div>
-            </div>
-            <textarea id="replay-script-prompt-textarea" class="moe-input" style="min-height:150px;font-size:11px;line-height:1.5;"></textarea>
-          </div>
-
-          <div id="replay-typo-review-box" style="display:none;margin-bottom:8px;padding:10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-              <span style="font-size:12px;font-weight:800;color:var(--text-primary);">AI标记的疑似错字列表 觉得对再点采纳，没问题直接忽略保留原文</span>
-              <button type="button" class="moe-btn secondary" onclick="toggleTypoReviewPanel()">收起</button>
-            </div>
-            <div id="replay-typo-list-items" style="display:flex;flex-direction:column;gap:6px;"></div>
-          </div>
-
-          <div id="replay-danmaku-review-box" style="display:none;margin-bottom:8px;padding:10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
-              <span style="font-size:12px;font-weight:800;color:var(--text-primary);">独立场外弹幕区域 自动提取自中文括号与明确场外发言，不混入下方正文</span>
-              <div style="display:flex;gap:6px;">
-                <button type="button" class="moe-btn secondary" onclick="addManualDanmakuItem()">加幕</button>
-                <button type="button" class="moe-btn secondary" onclick="toggleDanmakuReviewPanel()">收起</button>
-              </div>
-            </div>
-            <div id="replay-danmaku-list-items" style="display:flex;flex-direction:column;gap:6px;"></div>
-          </div>
-
           <div style="display:flex;gap:8px;align-items:center;">
             <div class="form-group" style="flex:1;margin-bottom:0;">
               <label>当前章节</label>
@@ -2302,12 +2407,58 @@
               </select>
             </div>
           </div>
-          <div id="replay-script-status-bar" style="font-size:11px;color:var(--accent-color);font-weight:700;margin-top:6px;">
-            点击任意一行台词即可展开修改，或点击上方舞台按钮像播放一样边看立绘边改台词与表情差分
+
+          <div class="script-top-btn-grid">
+            <button type="button" class="moe-btn" id="replay-gen-script-btn" onclick="generateCurrentChapterScriptViaAi()">整理</button>
+            <button type="button" class="moe-btn secondary" id="replay-jp-trans-btn" onclick="translateCurrentChapterToJapanese()">日译</button>
+            <button type="button" class="moe-btn secondary" id="replay-batch-tts-btn" onclick="batchSynthesizeCurrentChapterTts()">配音</button>
+            <button type="button" class="moe-btn" onclick="openTheaterForCurrentChapter()">播放</button>
+            <button type="button" class="moe-btn secondary" onclick="openTheaterStageEditorForCurrentChapter()">舞台</button>
+            <button type="button" class="moe-btn secondary" onclick="switchSubPage('screen-replay', 'replay-sub-cg')">插图</button>
+            <button type="button" class="moe-btn secondary" id="replay-danmaku-btn" onclick="toggleDanmakuReviewPanel()">弹幕</button>
+            <button type="button" class="moe-btn secondary" id="replay-typo-btn" onclick="toggleTypoReviewPanel()">错字</button>
+            <button type="button" class="moe-btn secondary" id="replay-bgm-resolve-btn" onclick="autoResolveCurrentChapterBgm()">搜歌</button>
+            <button type="button" class="moe-btn secondary" onclick="appendNewScriptLineAtEnd()">加行</button>
+            <button type="button" class="moe-btn secondary" onclick="toggleScriptPromptEditor()">提示</button>
+            <button type="button" class="moe-btn secondary" onclick="exportCurrentReplayProjectJson()">导出</button>
+          </div>
+
+          <div id="replay-script-prompt-box" style="display:none;margin-top:8px;padding:10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
+              <span style="font-size:12px;font-weight:800;color:var(--text-primary);">单章整理默认提示词</span>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button type="button" class="moe-btn secondary" onclick="resetCustomScriptPrompt()">恢复</button>
+                <button type="button" class="moe-btn" onclick="saveCustomScriptPrompt()">保存</button>
+              </div>
+            </div>
+            <textarea id="replay-script-prompt-textarea" class="moe-input" style="min-height:150px;font-size:11px;line-height:1.5;"></textarea>
+          </div>
+
+          <div id="replay-typo-review-box" style="display:none;margin-top:8px;padding:10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <span style="font-size:12px;font-weight:800;color:var(--text-primary);">疑似错字列表</span>
+              <button type="button" class="moe-btn secondary" onclick="toggleTypoReviewPanel()">收起</button>
+            </div>
+            <div id="replay-typo-list-items" style="display:flex;flex-direction:column;gap:6px;"></div>
+          </div>
+
+          <div id="replay-danmaku-review-box" style="display:none;margin-top:8px;padding:10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
+              <span style="font-size:12px;font-weight:800;color:var(--text-primary);">独立场外弹幕区域</span>
+              <div style="display:flex;gap:6px;">
+                <button type="button" class="moe-btn secondary" onclick="addManualDanmakuItem()">加幕</button>
+                <button type="button" class="moe-btn secondary" onclick="toggleDanmakuReviewPanel()">收起</button>
+              </div>
+            </div>
+            <div id="replay-danmaku-list-items" style="display:flex;flex-direction:column;gap:6px;"></div>
+          </div>
+
+          <div id="replay-script-status-bar" style="font-size:11px;color:var(--accent-color);font-weight:700;margin-top:8px;">
+            核对每一句说话人、立绘表情、中文台词与日语分段词；点右侧小三角图标即可合成并缓存该句语音
           </div>
         </div>
 
-        <div id="replay-script-lines-container" style="display:flex;flex-direction:column;gap:6px;"></div>
+        <div id="replay-script-lines-container" style="display:flex;flex-direction:column;gap:8px;"></div>
       </div>
 
       <!-- 子页4：本章人物底图柜、根据上下文写CG提示词与场景CG生图工坊 -->
@@ -2981,16 +3132,19 @@
         document.body.classList.add('landscape-game-active');
         renderMapStage();
       } else if (normalizedApp === 'theater') {
-        appState.inLandscapeGame = true;
-        document.body.classList.add('landscape-game-active');
-        initTheaterScreen();
-      } else {
-        if (appState.inLandscapeGame && normalizedApp !== 'replay') {
-          document.body.classList.add('landscape-game-active');
-        } else {
+        const lobby = document.getElementById('vn-theater-selector-lobby');
+        const isLobbyOpen = lobby && lobby.classList.contains('active');
+        if (isLobbyOpen) {
           appState.inLandscapeGame = false;
           document.body.classList.remove('landscape-game-active');
+        } else {
+          appState.inLandscapeGame = true;
+          document.body.classList.add('landscape-game-active');
         }
+        initTheaterScreen();
+      } else {
+        appState.inLandscapeGame = false;
+        document.body.classList.remove('landscape-game-active');
         if (normalizedApp === 'builder') {
           initBuilderModuleUI();
         } else if (normalizedApp === 'settings') {
@@ -4270,31 +4424,127 @@
       }
     }
 
+    // ==================== 安卓 Termux 与本地无损文件直存桥接 ====================
+    function getLocalBridgeBaseUrl() {
+      const el = document.getElementById('local-bridge-url-input');
+      return (el?.value || localStorage.getItem('local-bridge-url') || 'http://127.0.0.1:8765').trim().replace(/\/+$/, '');
+    }
+
+    function isLocalBridgeEnabled() {
+      const chk = document.getElementById('local-bridge-enable-switch');
+      if (chk) return chk.checked;
+      return localStorage.getItem('local-bridge-enabled') !== 'false';
+    }
+
+    async function saveAssetToLocalBridge(relPath, dataUrl) {
+      if (!dataUrl || !isLocalBridgeEnabled()) return dataUrl;
+      if (!dataUrl.startsWith('data:')) return dataUrl;
+      const baseUrl = getLocalBridgeBaseUrl();
+      try {
+        const res = await fetch(baseUrl + '/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: relPath, dataUrl })
+        });
+        if (res.ok) {
+          const info = await res.json();
+          if (info && info.url) {
+            return dataUrl;
+          }
+        }
+      } catch (_) {}
+      return dataUrl;
+    }
+
+    function copyTermuxLocalBridgeCmd() {
+      const ta = document.getElementById('termux-local-bridge-cmd');
+      const statusBox = document.getElementById('local-bridge-status-box');
+      if (!ta) return;
+      ta.select();
+      navigator.clipboard?.writeText(ta.value).catch(() => {
+        document.execCommand('copy');
+      });
+      if (statusBox) {
+        statusBox.textContent = '已复制 Termux 启动命令！请打开手机 Termux 粘贴并回车运行，随后点击右上角检测。';
+      }
+    }
+
+    async function testLocalBridgeConnectionUI() {
+      const statusBox = document.getElementById('local-bridge-status-box');
+      const baseUrl = getLocalBridgeBaseUrl();
+      if (statusBox) statusBox.textContent = '正在检测本地存储服务连接...';
+      try {
+        const res = await fetch(baseUrl + '/ping');
+        if (res.ok) {
+          if (statusBox) statusBox.textContent = '连接成功！后续所有生成的立绘、插图与配音都将零压缩自动存入手机 HakoniwaData 文件夹。';
+        } else {
+          if (statusBox) statusBox.textContent = '未检测到响应，请确认已在 Termux 中运行上方命令。';
+        }
+      } catch (_) {
+        if (statusBox) statusBox.textContent = '未能连接本地服务，请确认已在 Termux 运行命令并保持后台常驻。';
+      }
+    }
+
+    async function syncAllAssetsToLocalBridgeUI() {
+      const statusBox = document.getElementById('local-bridge-status-box');
+      if (statusBox) statusBox.textContent = '正在将当前角色立绘、章节CG与配音同步写入本地文件夹...';
+      let count = 0;
+      for (const c of (appState.characters || [])) {
+        const safeName = (c.name || c.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
+        if (c.tachieBase && c.tachieBase.startsWith('data:image')) {
+          await saveAssetToLocalBridge(`characters/${safeName}/base.png`, c.tachieBase);
+          count++;
+        }
+        for (const [exp, url] of Object.entries(c.tachieExpressions || {})) {
+          if (url && url.startsWith('data:image')) {
+            await saveAssetToLocalBridge(`characters/${safeName}/${exp}.png`, url);
+            count++;
+          }
+        }
+      }
+      for (const proj of (appState.replayProjects || [])) {
+        const safeProj = (proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
+        for (const ch of (proj.chapters || [])) {
+          for (const sc of (ch.scenes || [])) {
+            if (sc.imageUrl && sc.imageUrl.startsWith('data:image')) {
+              await saveAssetToLocalBridge(`projects/${safeProj}/scenes/${sc.id}.png`, sc.imageUrl);
+              count++;
+            }
+          }
+          for (const cg of (ch.cgNodes || [])) {
+            if (cg.imageUrl && cg.imageUrl.startsWith('data:image')) {
+              await saveAssetToLocalBridge(`projects/${safeProj}/cgs/${cg.id}.png`, cg.imageUrl);
+              count++;
+            }
+          }
+        }
+      }
+      const ttsList = await db.ttsCache.toArray();
+      for (const item of ttsList) {
+        if (item.audioDataUrl && item.audioDataUrl.startsWith('data:audio')) {
+          const safeId = String(item.id || 'tts').replace(/[\\/:*?"<>|]/g, '_');
+          await saveAssetToLocalBridge(`audio/${safeId}.mp3`, item.audioDataUrl);
+          count++;
+        }
+      }
+      if (statusBox) {
+        statusBox.textContent = `同步完成！共将 ${count} 个无损图片与语音文件写入手机本地 HakoniwaData 目录。`;
+      }
+    }
+
     async function normalizeImageForNovelAiRef(dataUrl) {
       return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
-          const ratio = img.width / img.height;
-          let targetW = 1024, targetH = 1536;
-          if (Math.abs(ratio - 1) < 0.18) {
-            targetW = 1472;
-            targetH = 1472;
-          } else if (ratio > 1) {
-            targetW = 1536;
-            targetH = 1024;
-          }
+          const targetW = img.width || 1024;
+          const targetH = img.height || 1536;
           const canvas = document.createElement('canvas');
           canvas.width = targetW;
           canvas.height = targetH;
           const ctx = canvas.getContext('2d');
           ctx.fillStyle = '#FFFFFF';
           ctx.fillRect(0, 0, targetW, targetH);
-          const scale = Math.min(targetW / img.width, targetH / img.height);
-          const drawW = Math.round(img.width * scale);
-          const drawH = Math.round(img.height * scale);
-          const dx = Math.round((targetW - drawW) / 2);
-          const dy = Math.round((targetH - drawH) / 2);
-          ctx.drawImage(img, dx, dy, drawW, drawH);
+          ctx.drawImage(img, 0, 0, targetW, targetH);
           resolve(canvas.toDataURL('image/png'));
         };
         img.onerror = () => resolve(dataUrl);
@@ -4382,9 +4632,9 @@
       if (options.charRefImage && options.charRefImage.base64) {
         const normalizedCharUrl = await normalizeImageForNovelAiRef(options.charRefImage.base64);
         const cleanCharB64 = normalizedCharUrl.replace(/^data:image\/[^;]+;base64,/, '');
-        const cStrength = Number(options.charRefImage.strength ?? 0.75);
-        const cFidelity = Number(options.charRefImage.fidelity ?? 0.8);
-        const baseCap = options.charRefImage.characterOnly ? 'character' : 'character&style';
+        const cStrength = Number(options.charRefImage.strength ?? 0.65);
+        const cFidelity = Number(options.charRefImage.fidelity ?? 0.78);
+        const baseCap = options.charRefImage.characterOnly !== false ? 'character' : 'character&style';
         commonParams.director_reference_images = [cleanCharB64];
         commonParams.director_reference_descriptions = [{
           caption: { base_caption: baseCap, char_captions: [] },
@@ -4392,8 +4642,10 @@
         }];
         commonParams.director_reference_information_extracted = [1];
         commonParams.director_reference_strength_values = [cStrength];
-        commonParams.director_reference_secondary_strength_values = [1 - cFidelity];
+        commonParams.director_reference_secondary_strength_values = [Math.max(0, Number((1 - cFidelity).toFixed(2)))];
       }
+
+      const effectiveCfgRescale = Number(options.cfgRescale ?? settings.cfg_rescale ?? (options.charRefImage ? 0.25 : 0));
 
       let requestBody;
       if (model.includes('nai-diffusion-4') || model.includes('nai-diffusion-5')) {
@@ -4409,7 +4661,7 @@
             deliberate_euler_ancestral_bug: false,
             prefer_brownian: settings.brownian !== false,
             add_original_image: true,
-            cfg_rescale: Number(settings.cfg_rescale ?? 0),
+            cfg_rescale: effectiveCfgRescale,
             dynamic_thresholding: Boolean(settings.decrisper),
             legacy: false,
             legacy_uc: false,
@@ -4440,7 +4692,7 @@
             dynamic_thresholding: Boolean(settings.decrisper),
             noise_schedule: settings.noise_schedule || 'native',
             add_original_image: false,
-            cfg_rescale: Number(settings.cfg_rescale ?? 0)
+            cfg_rescale: effectiveCfgRescale
           }
         };
       }
@@ -5281,11 +5533,11 @@
     function loadSavedStudioSliders() {
       STUDIO_PERSISTED_SLIDERS.forEach(({ sliderId, spanId }) => {
         let saved = localStorage.getItem('studio-slider-' + sliderId);
-        if (sliderId === 'tachie-char-lock-fidelity' && saved !== null && parseFloat(saved) >= 0.72) {
-          saved = '0.50';
+        if (sliderId === 'tachie-char-lock-fidelity' && (saved === null || saved === '0.50')) {
+          saved = '0.78';
           localStorage.setItem('studio-slider-' + sliderId, saved);
         }
-        if (sliderId === 'tachie-char-lock-strength' && saved !== null && parseFloat(saved) >= 0.74) {
+        if (sliderId === 'tachie-char-lock-strength' && saved !== null && parseFloat(saved) >= 0.78) {
           saved = '0.62';
           localStorage.setItem('studio-slider-' + sliderId, saved);
         }
@@ -8145,22 +8397,13 @@ ZH: 修改后的纯客观中文服装配饰清单`
       }
     }
 
-    // 规范化上传的参考图片为标准 PNG Base64，兼容任意手机相册格式及 NovelAI V4.5 参考图规范
-    function normalizeUploadedImageForNai(rawDataUrl, maxSide = 1024) {
+    // 规范化上传的参考图片为无损原始分辨率 PNG Base64，不做任何缩小或有损压缩
+    function normalizeUploadedImageForNai(rawDataUrl) {
       return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
-          let w = img.width || 512;
-          let h = img.height || 512;
-          if (w > maxSide || h > maxSide) {
-            if (w >= h) {
-              h = Math.round((h * maxSide) / w);
-              w = maxSide;
-            } else {
-              w = Math.round((w * maxSide) / h);
-              h = maxSide;
-            }
-          }
+          const w = img.width || 832;
+          const h = img.height || 1216;
           const canvas = document.createElement('canvas');
           canvas.width = w;
           canvas.height = h;
@@ -8458,7 +8701,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
         if (charObj) {
           charObj.tachieSeed = seed;
           charObj.tachieBase = cleaned;
-          const normLock = await normalizeUploadedImageForNai(dataUrl, 1024);
+          const normLock = await normalizeUploadedImageForNai(dataUrl);
           charObj.charLockImg = normLock;
           appState.charLockBase64 = normLock;
           const thumbEl = document.getElementById('tachie-char-lock-thumb');
@@ -8468,6 +8711,9 @@ ZH: 修改后的纯客观中文服装配饰清单`
           charObj.tachieExpressions['默认'] = cleaned;
           charObj.tachieRawExpressions['默认'] = appState.tachieAlignedRawDataUrl || dataUrl;
           await db.characters.put(charObj);
+          const safeCharName = (charObj.name || charObj.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
+          await saveAssetToLocalBridge(`characters/${safeCharName}/base.png`, cleaned);
+          await saveAssetToLocalBridge(`characters/${safeCharName}/默认.png`, cleaned);
         }
 
         appState.selectedTachieExp = '默认';
@@ -8493,7 +8739,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
       }
     }
 
-    // 生成后续表情或动作差分：可自由勾选是否「参考首图」，不勾选参考首图时直接用默认纯外貌衣服底词拼接对应动作与表情提示词生成
+    // 生成后续表情或动作差分：可自由勾选是否「参考首图」，使用 characterOnly 锁脸锁衣模式与防偏色参数，彻底解决泛黄偏色问题
     async function generateLockedExpressionViaNai() {
       const expName = appState.selectedTachieExp || '默认';
       if (expName === '默认') {
@@ -8514,11 +8760,11 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const useStyle = document.getElementById('tachie-enable-style-ref')?.checked;
       const useFirstRef = document.getElementById('tachie-use-first-ref-chk') ? document.getElementById('tachie-use-first-ref-chk').checked : true;
       const rawLockStrength = parseFloat(document.getElementById('tachie-char-lock-strength')?.value || '0.62') || 0.62;
-      const rawLockFidelity = parseFloat(document.getElementById('tachie-char-lock-fidelity')?.value || '0.50') || 0.50;
-      const charLockStrength = Math.min(rawLockStrength, 0.68);
-      const charLockFidelity = Math.min(rawLockFidelity, 0.55);
+      const rawLockFidelity = parseFloat(document.getElementById('tachie-char-lock-fidelity')?.value || '0.78') || 0.78;
+      const charLockStrength = Math.min(rawLockStrength, 0.75);
+      const charLockFidelity = Math.min(rawLockFidelity, 0.88);
       const charCustomNeg = (document.getElementById('tachie-char-neg-prompt')?.value || charObj?.customNegativePrompt || '').trim();
-      const antiModernNeg = 'expressionless, neutral expression, static pose, stiff standing, ' + (getNovelAISettings().default_negative || '') + (charCustomNeg ? `, ${charCustomNeg}` : '') + ', wide margin, empty space, small subject, distant, multiple people, multipleboys, multiplegirls, 2boys, 2girls, crowd, extra head, floating head, small heads, side portraits, face inset, portrait inset, headshot inset, inset, picture in picture, multiple expressions, expression chart, expression sheet, facial expressions, character sheet, reference sheet, concept art, artbook page, character profile, multiple views, multi-panel, split screen, comic panel, border, frame, text, sneakers, running shoes, tennis shoes, athletic shoes, canvas shoes, trainers';
+      const antiModernNeg = 'yellow tint, warm color cast, sepia, oversaturated, burnt colors, color shift, blue tint, pink tint, expressionless, neutral expression, static pose, stiff standing, ' + (getNovelAISettings().default_negative || '') + (charCustomNeg ? `, ${charCustomNeg}` : '') + ', wide margin, empty space, small subject, distant, multiple people, multipleboys, multiplegirls, 2boys, 2girls, crowd, extra head, floating head, small heads, side portraits, face inset, portrait inset, headshot inset, inset, picture in picture, multiple expressions, expression chart, expression sheet, facial expressions, character sheet, reference sheet, concept art, artbook page, character profile, multiple views, multi-panel, split screen, comic panel, border, frame, text, sneakers, running shoes, tennis shoes, athletic shoes, canvas shoes, trainers';
 
       if (btn) {
         btn.textContent = '生成中';
@@ -8533,17 +8779,18 @@ ZH: 修改后的纯客观中文服装配饰清单`
           appState.charLockBase64
         ];
         const defaultBaseImg = candidateImgs.find((u) => typeof u === 'string' && u.length > 20 && !u.startsWith('data:image/svg+xml')) || null;
-        // 默认纯外貌衣服底词拼接上当前动作与表情提示词；若未勾选「参考首图」，则 charRefImage 传 null
-        const diffFullPrompt = `solo, single character, {{{{${expTag}}}}}, ${pureAppearanceAndOutfitPrompt}, full body, head to toe, shoes in frame, filling frame, large subject, close-up full body, no margin, simple background, pure white background`;
+        const diffFullPrompt = `solo, single character, {${expTag}}, ${pureAppearanceAndOutfitPrompt}, full body, head to toe, shoes in frame, filling frame, large subject, close-up full body, no margin, simple background, pure white background`;
         const { dataUrl, seed } = await callNovelAiDirect(diffFullPrompt, {
           resolution: '832x1216',
           seed: -1,
+          cfgRescale: 0.28,
           negativePrompt: antiModernNeg,
           vibeImages: useStyle ? appState.styleRefList : [],
           charRefImage: (useFirstRef && defaultBaseImg) ? {
             base64: defaultBaseImg,
             strength: charLockStrength,
-            fidelity: charLockFidelity
+            fidelity: charLockFidelity,
+            characterOnly: true
           } : null,
           caller: `立绘差分生图·${charObj?.name || ''}·${expName}`
         });
@@ -8562,6 +8809,8 @@ ZH: 修改后的纯客观中文服装配饰清单`
           charObj.tachieExpressions[expName] = cleaned;
           charObj.tachieRawExpressions[expName] = appState.tachieAlignedRawDataUrl || dataUrl;
           await db.characters.put(charObj);
+          const safeCharName = (charObj.name || charObj.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
+          await saveAssetToLocalBridge(`characters/${safeCharName}/${expName}.png`, cleaned);
         }
         setTachieBrushMode('none');
         renderTachieActionPlanList();
@@ -10364,6 +10613,17 @@ ZH: 修改后的纯客观中文服装配饰清单`
       switchSubPage('screen-persona', 'persona-list');
     }
 
+    const _collapsedPersonaFolders = new Set();
+
+    function togglePersonaFolderGroup(folderKey) {
+      if (_collapsedPersonaFolders.has(folderKey)) {
+        _collapsedPersonaFolders.delete(folderKey);
+      } else {
+        _collapsedPersonaFolders.add(folderKey);
+      }
+      renderPersonaGrid();
+    }
+
     function renderPersonaGrid() {
       populatePersonaModuleFilterSelect();
       const grid = document.getElementById('persona-char-grid');
@@ -10390,38 +10650,113 @@ ZH: 修改后的纯客观中文服装配饰清单`
         return;
       }
 
-      filtered.forEach((c) => {
-        const cm = c.heightCm || DEFAULT_HEIGHT_MAP[c.id] || 175;
-        const tType = c.trpgType || (c.name === '旁白' ? '旁白' : '调查员');
-        const isUniv = c.isUniversal !== false;
-        const scopeLabel = isUniv ? '跨模组通用' : (c.moduleTitle ? `模组·${c.moduleTitle}` : '本模组专属');
-        const vBadge = c.voiceId ? `音色 ${c.voiceId}` : '未设音色';
-        const expCount = c.tachieExpressions ? Object.keys(c.tachieExpressions).length : 1;
-        const bodyNote = c.body ? c.body.slice(0, 26) : '待自己填写外貌';
+      // 将角色按所属模组归档分桶，每个模组一个可折叠档案夹，「通用」放在最后
+      const folderGroups = [];
+      const moduleMap = new Map();
+      (appState.replayProjects || []).forEach((proj) => {
+        moduleMap.set(proj.id, {
+          key: `mod_${proj.id}`,
+          title: proj.title || '未命名模组',
+          chars: []
+        });
+      });
+      const unboundModuleGroup = {
+        key: 'mod_unbound',
+        title: '模组专属角色',
+        chars: []
+      };
+      const universalGroup = {
+        key: 'universal_last',
+        title: '通用',
+        chars: []
+      };
 
-        const item = document.createElement('div');
-        item.className = 'setting-item';
-        item.style.cursor = 'pointer';
-        item.onclick = () => {
-          selectPersonaForEdit(c.id);
-          switchSubPage('screen-persona', 'persona-basic');
-        };
-        item.innerHTML = `
-          <div class="setting-item-left">
-            <img src="${c.tachieBase || c.chibiImg}" alt="${c.name}" style="width:100%;height:100%;object-fit:contain;" />
+      filtered.forEach((c) => {
+        const isUniv = c.isUniversal !== false;
+        if (isUniv) {
+          universalGroup.chars.push(c);
+        } else if (c.moduleId && moduleMap.has(c.moduleId)) {
+          moduleMap.get(c.moduleId).chars.push(c);
+        } else if (c.moduleTitle) {
+          const customKey = `mod_title_${c.moduleTitle}`;
+          if (!moduleMap.has(customKey)) {
+            moduleMap.set(customKey, { key: customKey, title: c.moduleTitle, chars: [] });
+          }
+          moduleMap.get(customKey).chars.push(c);
+        } else {
+          unboundModuleGroup.chars.push(c);
+        }
+      });
+
+      moduleMap.forEach((grp) => {
+        if (grp.chars.length > 0) folderGroups.push(grp);
+      });
+      if (unboundModuleGroup.chars.length > 0) {
+        folderGroups.push(unboundModuleGroup);
+      }
+      // 通用档案永远排在最后
+      if (universalGroup.chars.length > 0) {
+        folderGroups.push(universalGroup);
+      }
+
+      folderGroups.forEach((grp) => {
+        const isCollapsed = _collapsedPersonaFolders.has(grp.key);
+        const folderEl = document.createElement('div');
+        folderEl.className = 'persona-folder-group' + (isCollapsed ? ' collapsed' : '');
+
+        const headerEl = document.createElement('div');
+        headerEl.className = 'persona-folder-header';
+        headerEl.onclick = () => togglePersonaFolderGroup(grp.key);
+        headerEl.innerHTML = `
+          <div class="persona-folder-header-left">
+            <span class="persona-folder-arrow">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </span>
+            <span>${grp.title}</span>
           </div>
-          <div class="setting-item-center">
-            <div class="setting-item-title">${c.name} · ${tType} · ${scopeLabel} · ${cm}cm</div>
-            <div class="setting-item-sub">差分 ${expCount}/25 · ${vBadge} · ${bodyNote}</div>
-          </div>
-          <div class="setting-item-right">
-            <button type="button" class="moe-btn ${isUniv ? '' : 'secondary'}" onclick="event.stopPropagation();toggleCharacterUniversalStatus('${c.id}')">通用</button>
-            <button type="button" class="moe-btn secondary" onclick="event.stopPropagation();exportSingleCharacterPack('${c.id}')">导出</button>
-            <button type="button" class="moe-btn secondary" onclick="event.stopPropagation();openCharacterInTachieStudio('${c.id}')">立绘</button>
-            <button type="button" class="moe-btn secondary">编辑</button>
-          </div>
+          <span style="font-size:11px;font-weight:700;color:var(--text-secondary);">${grp.chars.length} 人</span>
         `;
-        grid.appendChild(item);
+
+        const bodyEl = document.createElement('div');
+        bodyEl.className = 'persona-folder-body';
+
+        grp.chars.forEach((c) => {
+          const cm = c.heightCm || DEFAULT_HEIGHT_MAP[c.id] || 175;
+          const tType = c.trpgType || (c.name === '旁白' ? '旁白' : '调查员');
+          const isUniv = c.isUniversal !== false;
+          const vBadge = c.voiceId ? `音色 ${c.voiceId}` : '未设音色';
+          const expCount = c.tachieExpressions ? Object.keys(c.tachieExpressions).length : 1;
+          const bodyNote = c.body ? c.body.slice(0, 22) : '待写外貌';
+
+          const item = document.createElement('div');
+          item.className = 'setting-item';
+          item.style.cursor = 'pointer';
+          item.style.marginBottom = '0';
+          item.onclick = () => {
+            selectPersonaForEdit(c.id);
+            switchSubPage('screen-persona', 'persona-basic');
+          };
+          item.innerHTML = `
+            <div class="setting-item-left">
+              <img src="${c.tachieBase || c.chibiImg}" alt="${c.name}" style="width:100%;height:100%;object-fit:contain;" />
+            </div>
+            <div class="setting-item-center">
+              <div class="setting-item-title">${c.name} · ${tType} · ${cm}cm</div>
+              <div class="setting-item-sub">差分 ${expCount}/25 · ${vBadge} · ${bodyNote}</div>
+            </div>
+            <div class="setting-item-right">
+              <button type="button" class="moe-btn" onclick="event.stopPropagation();selectPersonaForEdit('${c.id}');switchSubPage('screen-persona', 'persona-basic')">编辑</button>
+              <button type="button" class="moe-btn secondary" onclick="event.stopPropagation();openCharacterInTachieStudio('${c.id}')">立绘</button>
+              <button type="button" class="moe-btn secondary" onclick="event.stopPropagation();exportSingleCharacterPack('${c.id}')">导出</button>
+              <button type="button" class="moe-btn ${isUniv ? '' : 'secondary'}" onclick="event.stopPropagation();toggleCharacterUniversalStatus('${c.id}')">通用</button>
+            </div>
+          `;
+          bodyEl.appendChild(item);
+        });
+
+        folderEl.appendChild(headerEl);
+        folderEl.appendChild(bodyEl);
+        grid.appendChild(folderEl);
       });
     }
 
@@ -12495,12 +12830,73 @@ ${BUILTIN_CSS_TEMPLATE}`;
       return false;
     }
 
-    // 把玩家或NPC段落在不修改原句文笔的前提下，拆分为「第一人称亲口台词」与「仅替换我为角色名的KP第三人称旁白描述」
+    // 将超过单屏两行字数的长段落按自然标点拆分成两句或多句连续台词，避免在剧场对话框里堆成三四行
+    function splitOverlongSegmentIntoChunks(type, speaker, rawText, maxChars = 46) {
+      const clean = String(rawText || '').trim();
+      if (!clean) return [];
+      if (clean.length <= maxChars) {
+        return [{ type, speaker, text: clean }];
+      }
+      const chunks = [];
+      let remaining = clean;
+      while (remaining.length > maxChars) {
+        const mid = Math.min(maxChars, Math.floor(remaining.length / 2) + 6);
+        const searchStart = Math.max(14, mid - 18);
+        const searchEnd = Math.min(remaining.length - 6, maxChars + 8);
+        let splitPos = -1;
+        // 优先在句号、叹号、问号、分号处切分
+        for (let i = mid; i >= searchStart; i--) {
+          if (/[。！？!?；;…]/.test(remaining[i])) {
+            splitPos = i + 1;
+            break;
+          }
+        }
+        if (splitPos === -1) {
+          for (let i = mid + 1; i <= searchEnd; i++) {
+            if (/[。！？!?；;…]/.test(remaining[i])) {
+              splitPos = i + 1;
+              break;
+            }
+          }
+        }
+        // 次选在逗号、顿号处切分
+        if (splitPos === -1) {
+          for (let i = mid; i >= searchStart; i--) {
+            if (/[，,、：:]/.test(remaining[i])) {
+              splitPos = i + 1;
+              break;
+            }
+          }
+        }
+        if (splitPos === -1) {
+          for (let i = mid + 1; i <= searchEnd; i++) {
+            if (/[，,、：:]/.test(remaining[i])) {
+              splitPos = i + 1;
+              break;
+            }
+          }
+        }
+        if (splitPos === -1) {
+          splitPos = maxChars;
+        }
+        const firstPart = remaining.slice(0, splitPos).trim();
+        if (firstPart) {
+          chunks.push({ type, speaker, text: firstPart });
+        }
+        remaining = remaining.slice(splitPos).replace(/^[，,、；;：:\s]+/, '').trim();
+      }
+      if (remaining) {
+        chunks.push({ type, speaker, text: remaining });
+      }
+      return chunks;
+    }
+
+    // 把玩家或NPC段落在不修改原句文笔的前提下，拆分为「第一人称亲口台词」与「仅替换我为角色名的KP第三人称旁白描述」，并自动把过长段落拆成两句显示
     function splitBlockIntoStrictFirstPersonDialogueAndThirdPersonKp(speakerName, rawParagraph) {
       const para = String(rawParagraph || '').trim();
       if (!para) return [];
       if (speakerName === '旁白') {
-        return [{ type: 'narration', speaker: '旁白', text: para }];
+        return splitOverlongSegmentIntoChunks('narration', '旁白', para);
       }
 
       // 将我替换为角色真名，但绝不改动任何其他描写字句
@@ -12523,9 +12919,9 @@ ${BUILTIN_CSS_TEMPLATE}`;
         // 如果整句没有引号：判断是否为动作描写开头，否则视为角色直接说出的第一人称台词
         const looksLikeActionNarration = /^(?:我|他|她|转身|走|看向|拿起|打开|推开|点头|摇头|叹了口气|皱起眉|环顾|检查|翻开|举起|退后|上前)/.test(para) && !/^[“"「『]/.test(para) && para.length > 18 && !/[？?！!吧呢吗啊呀]$/.test(para);
         if (looksLikeActionNarration) {
-          return [{ type: 'narration', speaker: '旁白', text: replaceFirstPersonPronounOnly(para) }];
+          return splitOverlongSegmentIntoChunks('narration', '旁白', replaceFirstPersonPronounOnly(para));
         }
-        return [{ type: 'dialogue', speaker: speakerName, text: para }];
+        return splitOverlongSegmentIntoChunks('dialogue', speakerName, para);
       }
 
       const resultSegments = [];
@@ -12536,34 +12932,22 @@ ${BUILTIN_CSS_TEMPLATE}`;
         const spokenContent = m[1].trim();
         const beforeText = para.slice(lastIdx, start).replace(/^[\s,，。：:；;—\-]+|[\s,，。：:；;—\-]+$/g, '').trim();
         if (beforeText && !/^(?:说|道|说道|开口道|回答道|问道|低声说|喊道)$/.test(beforeText)) {
-          resultSegments.push({
-            type: 'narration',
-            speaker: '旁白',
-            text: replaceFirstPersonPronounOnly(beforeText)
-          });
+          resultSegments.push(...splitOverlongSegmentIntoChunks('narration', '旁白', replaceFirstPersonPronounOnly(beforeText)));
         }
         if (spokenContent) {
-          resultSegments.push({
-            type: 'dialogue',
-            speaker: speakerName,
-            text: spokenContent
-          });
+          resultSegments.push(...splitOverlongSegmentIntoChunks('dialogue', speakerName, spokenContent));
         }
         lastIdx = start + m[0].length;
       }
 
       const afterText = para.slice(lastIdx).replace(/^[\s,，。：:；;—\-]+|[\s,，。：:；;—\-]+$/g, '').trim();
       if (afterText) {
-        resultSegments.push({
-          type: 'narration',
-          speaker: '旁白',
-          text: replaceFirstPersonPronounOnly(afterText)
-        });
+        resultSegments.push(...splitOverlongSegmentIntoChunks('narration', '旁白', replaceFirstPersonPronounOnly(afterText)));
       }
 
       return resultSegments.length > 0
         ? resultSegments
-        : [{ type: 'dialogue', speaker: speakerName, text: para }];
+        : splitOverlongSegmentIntoChunks('dialogue', speakerName, para);
     }
 
     async function loadSampleTrpgLog() {
@@ -13704,15 +14088,16 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
 规则五：立绘表情切换、立绘抖动与环境音效必须遵循正式视觉小说的自然克制节奏，适当点缀即可，绝对不要频繁切换表情、不要频繁抖动、不要滥用音效！绝大多数日常平静对话保持上一句表情或默认、微笑，音效填无，演出特效填 none；只有在情绪发生明显转折或遭遇重大剧情冲击时，才切换对应表情、添加音效或使用抖动震屏特效。
 规则六：不仅要在氛围起承处标记推荐音乐开始 BGM_REC，还必须在紧张解除、场景转换或音乐应当结束的那一行标记 BGM_STOP，明确音乐在哪里停止。
 规则七：如果发现某行台词或旁白里有明显错别字，不要擅自直接篡改原句，必须用 TYPO_MARK 单独标记出来供用户自己核对决定是否修改。
-规则八：在本章关键高潮画面处决定哪些行需要插入CG插画，只用 CG_MARK 标记行号、简短画面说明和在场人物，此阶段绝对不要编写NovelAI英文生图提示词。
+规则八：在本章关键高潮画面处决定哪些行需要插入插图，只用 CG_MARK 标记行号、简短画面说明和在场人物，此阶段绝对不要编写NovelAI英文生图提示词。
+规则九：每一条角色亲口说出的对话台词 dialogue 必须同时在 LINE_UPDATE 的最后一个字段翻译为地道、自然、贴合该角色性格语气的日语配音台词，供声优语音合成使用；旁白 narration 若无需日语配音可留空或同步翻译。单行文字若超过四十五个字显得太长，请精炼切分避免单次显示三四行。
 
 从头到尾严禁使用任何圆括号或方括号，严格按以下行格式输出：
 SCENE_BG: 场景编号如scene_1|场所中文名称|纯景物横版背景NovelAI英文提示词
-LINE_UPDATE: L行号|类型dialogue或narration或ooc|说话人姓名或旁白|表情名称|音效名称或无|演出特效none或blackout或shake_char或zoom_char或jump_char或shake_screen|只做人称优化且剔除检定理智字样的中文台词
+LINE_UPDATE: L行号|类型dialogue或narration或ooc|说话人姓名或旁白|表情名称|音效名称或无|演出特效none或blackout或shake_char或zoom_char或jump_char或shake_screen|只做人称优化且剔除检定理智字样的中文台词|地道日语配音台词
 BGM_REC: L行号|歌曲名称|歌手或作曲家名称|氛围分类如悬疑或日常或战斗
 BGM_STOP: L行号
 TYPO_MARK: L行号|疑似错字原词|建议修改词|简短原因
-CG_MARK: L行号|CG简短剧情画面说明|在场角色姓名用顿号分隔`;
+CG_MARK: L行号|插图简短剧情画面说明|在场角色姓名用顿号分隔`;
 
     function getCustomOrDefaultScriptPrompt() {
       return localStorage.getItem('replay-custom-script-prompt') || DEFAULT_REPLAY_SCRIPT_PROMPT;
@@ -14006,13 +14391,19 @@ ${numberedChapterPreview}`;
                     }
                   }
                   if (parts[6]) {
-                    const cleanedAiText = parts.slice(6).join('|')
+                    const cleanedAiText = parts[6]
                       .replace(/已完成鉴定[。！!，,\s]*/g, '')
                       .replace(/已完成检定[。！!，,\s]*/g, '')
                       .replace(/进行了理智扣除检定[。！!，,\s]*/g, '')
                       .trim();
                     if (cleanedAiText) {
                       baseLines[idx].text = cleanedAiText;
+                    }
+                  }
+                  if (parts[7]) {
+                    const jpCandidate = parts.slice(7).join('|').trim();
+                    if (jpCandidate && jpCandidate !== '无' && jpCandidate !== 'none') {
+                      baseLines[idx].jpText = jpCandidate;
                     }
                   }
                 }
@@ -14081,7 +14472,7 @@ ${numberedChapterPreview}`;
           });
         }
 
-        // 将AI识别出的无括号漏网场外句子移入独立弹幕区 chap.danmakuList，保持正文纯粹
+        // 将AI识别出的无括号漏网场外句子移入独立弹幕区 chap.danmakuList，并对超过48字的长段落自动拆成两行连续台词
         if (!Array.isArray(chap.danmakuList)) chap.danmakuList = [];
         const filteredStoryLines = [];
         baseLines.forEach((l, origIdx) => {
@@ -14099,8 +14490,67 @@ ${numberedChapterPreview}`;
             }
             return;
           }
-          filteredStoryLines.push(l);
+          const subChunks = splitOverlongSegmentIntoChunks(l.type, l.speaker, l.text, 46);
+          if (subChunks.length <= 1) {
+            filteredStoryLines.push(l);
+          } else {
+            subChunks.forEach((sc, sIdx) => {
+              filteredStoryLines.push({
+                ...l,
+                id: sIdx === 0 ? l.id : `${l.id}_part_${sIdx}`,
+                text: sc.text,
+                jpText: sIdx === 0 ? (l.jpText || '') : '',
+                cgId: sIdx === 0 ? (l.cgId || '') : '',
+                bgmTag: sIdx === 0 ? (l.bgmTag || '') : '',
+                hudEvents: sIdx === 0 ? (l.hudEvents || []) : []
+              });
+            });
+          }
         });
+
+        // 自动检查是否还有未生成日语配音台词的角色对话行，若有则自动补全翻译为日语
+        const untranslatedDialogues = filteredStoryLines
+          .map((l, idx) => ({ l, idx }))
+          .filter((item) => item.l.type === 'dialogue' && item.l.text && (!item.l.jpText || !item.l.jpText.trim()));
+        if (untranslatedDialogues.length > 0) {
+          if (statusEl) {
+            statusEl.textContent = `正在为本章 ${untranslatedDialogues.length} 句角色对话自动补全日语配音台词...`;
+          }
+          const BATCH_SIZE = 40;
+          for (let b = 0; b < untranslatedDialogues.length; b += BATCH_SIZE) {
+            const chunk = untranslatedDialogues.slice(b, b + BATCH_SIZE);
+            const chunkPromptLines = chunk.map((item) => `L${item.idx}|${item.l.speaker}|${item.l.text}`).join('\n');
+            try {
+              const jpReply = await callLlmCompletion(
+                [
+                  {
+                    role: 'system',
+                    content: '你是日本视觉小说声优台本翻译总监。请将以下每一行中文对话台词翻译为地道、自然、贴合角色语气的日语配音台词。严禁使用任何括号，严格按 L行号|日语台词 格式逐行输出，绝不漏行。'
+                  },
+                  {
+                    role: 'user',
+                    content: chunkPromptLines
+                  }
+                ],
+                null,
+                { caller: `章节整理自动补全日语台词·${chap.title}`, preferSubApi: true }
+              );
+              if (jpReply) {
+                jpReply.split('\n').forEach((rLine) => {
+                  const p = rLine.trim().split('|');
+                  if (p.length >= 2) {
+                    const m = p[0].match(/L?(\d+)/i);
+                    const lIdx = m ? parseInt(m[1], 10) : -1;
+                    const jp = p.slice(1).join('|').trim();
+                    if (lIdx >= 0 && lIdx < filteredStoryLines.length && jp) {
+                      filteredStoryLines[lIdx].jpText = jp;
+                    }
+                  }
+                });
+              }
+            } catch (_) {}
+          }
+        }
 
         if (scenes.length === 0) {
           scenes.push({
@@ -14272,7 +14722,18 @@ ${numberedChapterPreview}`;
       renderTheaterCurrentLine();
     }
 
-    // 轻便整洁的文游剧本控制台：默认单行紧凑展示，只放纯正文，弹幕独立在弹幕面板，检定与理智变化显示为右上角动效角标
+    function jumpToCgNodeFromScriptLine(cgId) {
+      switchSubPage('screen-replay', 'replay-sub-cg');
+      renderReplayCgStudio();
+      setTimeout(() => {
+        const el = document.getElementById('cg-card-' + cgId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 80);
+    }
+
+    // 清晰分条的文游剧本列表：上方直接下拉选说话人与对应立绘表情，右侧小三角矢量图标合成并播放本地缓存语音，插图仅做节点标记与跳页调试
     function renderReplayScriptEditor() {
       const box = document.getElementById('replay-script-lines-container');
       if (!box) return;
@@ -14288,100 +14749,90 @@ ${numberedChapterPreview}`;
         return;
       }
 
-      const expOptions = (typeof TACHIE_25_EXPRESSIONS !== 'undefined' && Array.isArray(TACHIE_25_EXPRESSIONS))
+      const defaultExpOptions = (typeof TACHIE_25_EXPRESSIONS !== 'undefined' && Array.isArray(TACHIE_25_EXPRESSIONS))
         ? TACHIE_25_EXPRESSIONS
         : ['默认','微笑','大笑','温柔','害羞','脸红','调侃','惊讶','震惊','慌乱','沉思','冷漠','嘲讽','生气','暴怒','难过','哭泣','流泪','绝望','崩溃','微醺','尴尬','备战','出招','决胜'];
+
+      const baseSpeakerList = ['旁白', ...(appState.characters || []).filter((c) => c.id !== 'narrator_kp' && c.name !== '旁白').map((c) => c.name)];
 
       box.innerHTML = '';
       chap.scriptLines.forEach((line, idx) => {
         const hasCg = Boolean(line.cgId);
         const cgObj = hasCg ? (chap.cgNodes || []).find((g) => g.id === line.cgId) : null;
-        const isExpanded = _expandedConsoleLineIdx === idx;
         const hasTypo = Boolean(line.typoInfo && line.typoInfo.wrongWord);
+
+        const speakerNames = [...baseSpeakerList];
+        if (line.speaker && !speakerNames.includes(line.speaker)) {
+          speakerNames.push(line.speaker);
+        }
+
+        const expList = [...defaultExpOptions];
+        const spkChar = (appState.characters || []).find((c) => c.name === line.speaker);
+        if (spkChar) {
+          Object.keys(spkChar.tachieExpressionPrompts || {}).forEach((k) => {
+            if (!expList.includes(k)) expList.push(k);
+          });
+          Object.keys(spkChar.tachieExpressions || {}).forEach((k) => {
+            if (!expList.includes(k)) expList.push(k);
+          });
+        }
+        if (line.exp && !expList.includes(line.exp)) {
+          expList.push(line.exp);
+        }
 
         const badges = [];
         if (Array.isArray(line.hudEvents) && line.hudEvents.length > 0) {
-          badges.push(`<span class="vn-console-badge">骰子动效·${line.hudEvents.length}</span>`);
-        }
-        if (line.exp && line.exp !== '默认') {
-          badges.push(`<span class="vn-console-badge">${line.exp}</span>`);
-        }
-        if (line.sfxTag) {
-          badges.push(`<span class="vn-console-badge">音效·${line.sfxTag}</span>`);
+          badges.push(`<span class="vn-console-badge">检定·${line.hudEvents.length}</span>`);
         }
         if (line.bgmTag === '停止') {
           badges.push(`<span class="vn-console-badge accent">停乐</span>`);
         } else if (line.bgmTag) {
-          badges.push(`<span class="vn-console-badge">音乐·${line.bgmTag}</span>`);
-        }
-        if (line.effect && line.effect !== 'none') {
-          const fxNameMap = { blackout: '黑幕', shake_char: '抖动', zoom_char: '放大', jump_char: '跳动', shake_screen: '震屏' };
-          badges.push(`<span class="vn-console-badge">${fxNameMap[line.effect] || line.effect}</span>`);
+          badges.push(`<span class="vn-console-badge">乐·${line.bgmTag}</span>`);
         }
         if (hasCg) {
-          badges.push(`<span class="vn-console-badge accent">CG${cgObj?.imageUrl ? '已绘' : '插点'}</span>`);
+          badges.push(`<span class="vn-console-badge accent">插图${cgObj?.imageUrl ? '已绘' : '节点'}</span>`);
         }
         if (hasTypo) {
           badges.push(`<span class="vn-console-badge accent">错字·${line.typoInfo.wrongWord}</span>`);
         }
 
-        const row = document.createElement('div');
-        row.className = 'vn-console-row' + (isExpanded ? ' expanded' : '') + (hasTypo ? ' has-typo' : '');
-        row.innerHTML = `
-          <div class="vn-console-main" onclick="toggleConsoleRowExpand(${idx})">
-            <span class="vn-console-idx">#${idx + 1}</span>
-            <span class="vn-console-speaker">${line.speaker || '旁白'}</span>
-            <div class="vn-console-text">${line.text || ''}</div>
-            <div class="vn-console-badges">${badges.join('')}</div>
-          </div>
-          <div class="vn-console-inline-edit" onclick="event.stopPropagation()">
-            ${hasTypo ? `
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;border-radius:8px;background:var(--secondary-bg);font-size:11px;">
-                <span>AI发现疑似错字：「${line.typoInfo.wrongWord}」 建议改为：「${line.typoInfo.suggestWord}」</span>
-                <div style="display:flex;gap:4px;">
-                  <button type="button" class="moe-btn" onclick="acceptLineTypoFix(${idx})">采纳</button>
-                  <button type="button" class="moe-btn secondary" onclick="ignoreLineTypoFix(${idx})">忽略</button>
-                </div>
-              </div>
-            ` : ''}
-            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-              <select class="moe-input" style="width:82px;" onchange="updateReplayScriptLineField(${idx}, 'type', this.value)">
-                <option value="dialogue" ${line.type === 'dialogue' ? 'selected' : ''}>对话</option>
-                <option value="narration" ${line.type === 'narration' ? 'selected' : ''}>旁白</option>
+        const card = document.createElement('div');
+        card.className = 'vn-script-card' + (hasTypo ? ' has-typo' : '');
+        card.innerHTML = `
+          <div class="vn-script-row-top">
+            <div class="vn-script-row-left">
+              <span class="vn-console-idx">#${idx + 1}</span>
+              <select class="moe-input" style="width:auto;min-width:92px;height:30px;min-height:30px;padding:0 22px 0 8px;font-size:12px;font-weight:700;" onchange="updateReplayScriptLineField(${idx}, 'speaker', this.value)">
+                ${speakerNames.map((n) => `<option value="${n.replace(/"/g, '&quot;')}" ${n === (line.speaker || '旁白') ? 'selected' : ''}>${n}</option>`).join('')}
               </select>
-              <input type="text" class="moe-input" value="${(line.speaker || '旁白').replace(/"/g, '&quot;')}" style="width:92px;height:32px;min-height:32px;font-size:12px;" placeholder="说话人" onchange="updateReplayScriptLineField(${idx}, 'speaker', this.value)" />
-              <select class="moe-input" style="width:96px;" onchange="updateReplayScriptLineField(${idx}, 'exp', this.value)">
-                ${expOptions.map((e) => `<option value="${e}" ${(line.exp || '默认') === e ? 'selected' : ''}>${e}</option>`).join('')}
+              <select class="moe-input" style="width:auto;min-width:84px;height:30px;min-height:30px;padding:0 22px 0 8px;font-size:12px;" title="选择对应立绘差分" onchange="updateReplayScriptLineField(${idx}, 'exp', this.value)">
+                ${expList.map((e) => `<option value="${e}" ${(line.exp || '默认') === e ? 'selected' : ''}>${e}</option>`).join('')}
               </select>
-              <select class="moe-input" style="width:98px;" onchange="updateReplayScriptLineField(${idx}, 'sfxTag', this.value)">
-                <option value="" ${!line.sfxTag ? 'selected' : ''}>无音效</option>
-                ${['敲门','脚步','翻书','雷声','心跳','玻璃碎裂','剑击','枪声','钟声','风雨'].map((s) => `<option value="${s}" ${line.sfxTag === s ? 'selected' : ''}>${s}</option>`).join('')}
-              </select>
-              <select class="moe-input" style="width:98px;" onchange="updateReplayScriptLineField(${idx}, 'effect', this.value)">
-                <option value="none" ${(!line.effect || line.effect === 'none') ? 'selected' : ''}>无特效</option>
-                <option value="blackout" ${line.effect === 'blackout' ? 'selected' : ''}>黑幕浮字</option>
-                <option value="shake_char" ${line.effect === 'shake_char' ? 'selected' : ''}>立绘抖动</option>
-                <option value="zoom_char" ${line.effect === 'zoom_char' ? 'selected' : ''}>立绘放大</option>
-                <option value="jump_char" ${line.effect === 'jump_char' ? 'selected' : ''}>立绘跳动</option>
-                <option value="shake_screen" ${line.effect === 'shake_screen' ? 'selected' : ''}>画面震动</option>
-              </select>
-              <input type="text" class="moe-input" value="${(line.bgmTag || '').replace(/"/g, '&quot;')}" placeholder="音乐或填停止" style="width:124px;height:32px;min-height:32px;font-size:11px;" onchange="updateReplayScriptLineField(${idx}, 'bgmTag', this.value)" />
-              <button type="button" class="moe-btn secondary" onclick="updateReplayScriptLineField(${idx}, 'bgmTag', '停止')">停乐</button>
+              <div class="vn-console-badges">${badges.join('')}</div>
             </div>
-            <input type="text" class="moe-input" value="${(line.text || '').replace(/"/g, '&quot;')}" placeholder="中文台词或KP旁白" style="font-size:12px;" onchange="updateReplayScriptLineField(${idx}, 'text', this.value)" />
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;">
-              <input type="text" class="moe-input" value="${(line.jpText || '').replace(/"/g, '&quot;')}" placeholder="日语配音词" style="flex:1;min-width:160px;font-size:11px;color:var(--text-secondary);" onchange="updateReplayScriptLineField(${idx}, 'jpText', this.value)" />
-              <div style="display:flex;gap:4px;flex-wrap:wrap;">
-                <button type="button" class="moe-btn secondary" onclick="openTheaterStageEditorAtLine(${idx})">舞台</button>
-                <button type="button" class="moe-btn secondary" id="line-tts-btn-${idx}" onclick="playSingleScriptLineTts(${idx}, false)">试听</button>
-                <button type="button" class="moe-btn ${hasCg ? '' : 'secondary'}" id="line-add-cg-btn-${idx}" onclick="addManualCgForScriptLine(${idx})">${hasCg ? '撤图' : '插图'}</button>
-                <button type="button" class="moe-btn secondary" onclick="insertScriptLineAfter(${idx})">插行</button>
-                <button type="button" class="moe-btn secondary" onclick="deleteScriptLineByIdx(${idx})">删行</button>
-              </div>
+            <div class="vn-script-row-actions">
+              <button type="button" class="moe-btn secondary vn-play-tri-btn" id="line-tts-btn-${idx}" onclick="playSingleScriptLineTts(${idx}, false)" title="合成并播放本句语音">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+              </button>
+              <button type="button" class="moe-btn ${hasCg ? '' : 'secondary'}" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" id="line-add-cg-btn-${idx}" onclick="addManualCgForScriptLine(${idx})">${hasCg ? '撤图' : '插图'}</button>
+              ${hasCg ? `<button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onclick="jumpToCgNodeFromScriptLine('${line.cgId}')">调图</button>` : ''}
+              <button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onclick="insertScriptLineAfter(${idx})">插行</button>
+              <button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onclick="deleteScriptLineByIdx(${idx})">删行</button>
             </div>
           </div>
+          ${hasTypo ? `
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 8px;border-radius:8px;background:var(--secondary-bg);font-size:11px;">
+              <span>疑似错字：「${line.typoInfo.wrongWord}」 建议改为：「${line.typoInfo.suggestWord}」</span>
+              <div style="display:flex;gap:4px;">
+                <button type="button" class="moe-btn" style="height:26px;min-height:26px;padding:0 8px;font-size:11px;" onclick="acceptLineTypoFix(${idx})">采纳</button>
+                <button type="button" class="moe-btn secondary" style="height:26px;min-height:26px;padding:0 8px;font-size:11px;" onclick="ignoreLineTypoFix(${idx})">忽略</button>
+              </div>
+            </div>
+          ` : ''}
+          <input type="text" class="moe-input" value="${(line.text || '').replace(/"/g, '&quot;')}" placeholder="中文台词或旁白文本" style="height:32px;min-height:32px;font-size:12px;" onchange="updateReplayScriptLineField(${idx}, 'text', this.value)" />
+          <input type="text" class="moe-input" value="${(line.jpText || '').replace(/"/g, '&quot;')}" placeholder="日语配音分段台词" style="height:30px;min-height:30px;font-size:11px;color:var(--text-secondary);" onchange="updateReplayScriptLineField(${idx}, 'jpText', this.value)" />
         `;
-        box.appendChild(row);
+        box.appendChild(card);
       });
     }
 
@@ -14392,6 +14843,8 @@ ${numberedChapterPreview}`;
       chap.scriptLines[lineIdx][field] = val;
       if (field === 'type' && val === 'narration') {
         chap.scriptLines[lineIdx].speaker = '旁白';
+      } else if (field === 'speaker') {
+        chap.scriptLines[lineIdx].type = val === '旁白' ? 'narration' : 'dialogue';
       }
       if (field === 'bgmTag') {
         const cleanVal = String(val || '').trim();
@@ -14667,6 +15120,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
           const presentLabel = Array.isArray(cg.presentNames) && cg.presentNames.length > 0 ? cg.presentNames.join('、') : '待定';
 
           const card = document.createElement('div');
+          card.id = 'cg-card-' + cg.id;
           card.className = 'setting-item';
           card.style.flexDirection = 'column';
           card.style.alignItems = 'stretch';
@@ -14786,6 +15240,8 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         });
         sc.imageUrl = dataUrl;
         await saveReplayProjectToDB(proj);
+        const safeProj = (proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
+        await saveAssetToLocalBridge(`projects/${safeProj}/scenes/${sc.id}.png`, dataUrl);
         renderReplayCgStudio();
       } catch (err) {
         alert('场景背景生图失败：' + err.message);
@@ -14804,6 +15260,8 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         if (!proj || !chap || !chap.scenes || !chap.scenes[sIdx]) return;
         chap.scenes[sIdx].imageUrl = e.target.result;
         await saveReplayProjectToDB(proj);
+        const safeProj = (proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
+        await saveAssetToLocalBridge(`projects/${safeProj}/scenes/${chap.scenes[sIdx].id}.png`, e.target.result);
         renderReplayCgStudio();
       };
       reader.readAsDataURL(file);
@@ -14836,7 +15294,8 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
           charRefPayload = {
             base64: cg.customPadImg,
             strength: 0.62,
-            fidelity: 0.52
+            fidelity: 0.78,
+            characterOnly: true
           };
         } else if (!isMultiPerson && cg.refCharId) {
           // 仅单人CG自动使用该角色底图锁脸；多人场景绝不传单人底图，避免把所有人画成同一张脸
@@ -14845,15 +15304,17 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
           if (candidateRef && !candidateRef.startsWith('data:image/svg+xml')) {
             charRefPayload = {
               base64: candidateRef,
-              strength: 0.58,
-              fidelity: 0.48
+              strength: 0.60,
+              fidelity: 0.76,
+              characterOnly: true
             };
           }
         }
-        const neg = (getNovelAISettings().default_negative || '') + ', character sheet, reference sheet, multiple views, split screen, comic panel, text, watermark, sneakers';
+        const neg = 'yellow tint, warm color cast, sepia, oversaturated, burnt colors, ' + (getNovelAISettings().default_negative || '') + ', character sheet, reference sheet, multiple views, split screen, comic panel, text, watermark, sneakers';
         const { dataUrl } = await callNovelAiDirect(cg.prompt, {
           resolution: '1216x832',
           seed: -1,
+          cfgRescale: 0.25,
           negativePrompt: neg,
           vibeImages: appState.styleRefList || [],
           charRefImage: charRefPayload,
@@ -14861,6 +15322,8 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         });
         cg.imageUrl = dataUrl;
         await saveReplayProjectToDB(proj);
+        const safeProj = (proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
+        await saveAssetToLocalBridge(`projects/${safeProj}/cgs/${cg.id}.png`, dataUrl);
         renderReplayCgStudio();
         renderReplayChaptersList();
         renderReplayScriptEditor();
@@ -15040,6 +15503,8 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
           audioDataUrl,
           updatedAt: Date.now()
         });
+        const safeKey = String(key || 'tts').replace(/[\\/:*?"<>|]/g, '_');
+        await saveAssetToLocalBridge(`audio/${safeKey}.mp3`, audioDataUrl);
         appendApiConsoleLog({
           caller: '跑团剧场语音合成',
           apiType: 'MiniMax',
@@ -15089,13 +15554,20 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       const voiceId = getSpeakerVoiceId(line.speaker);
       const cacheKey = `line_${chap.id}_${line.id}_${appState.theaterTtsLang}`;
       const btn = document.getElementById(`line-tts-btn-${lineIdx}`);
-      if (btn) { btn.textContent = '播放中'; btn.disabled = true; }
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>`;
+      }
       try {
         await synthesizeAndPlayReplayTts(ttsText, voiceId, cacheKey, forceRegen);
+        if (btn) btn.classList.add('cached');
       } catch (err) {
         alert('语音合成失败：' + err.message);
       } finally {
-        if (btn) { btn.textContent = '试听'; btn.disabled = false; }
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>`;
+        }
       }
     }
 
@@ -15199,6 +15671,8 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
 
     function openTheaterWithLobby() {
       appState.theaterEditMode = false;
+      const lobby = document.getElementById('vn-theater-selector-lobby');
+      if (lobby) lobby.classList.add('active');
       openAppScreen('theater');
       openTheaterSelectorLobby();
     }
@@ -15206,8 +15680,8 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
     function openTheaterForCurrentChapter() {
       appState.theaterLineIdx = 0;
       appState.theaterEditMode = false;
-      openAppScreen('theater');
       closeTheaterSelectorLobby();
+      openAppScreen('theater');
       renderTheaterCurrentLine();
     }
 
@@ -15259,6 +15733,8 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
 
     function openTheaterSelectorLobby() {
       stopTheaterAutoAndSkip();
+      appState.inLandscapeGame = false;
+      document.body.classList.remove('landscape-game-active');
       renderTheaterSelectorLobby();
       const lobby = document.getElementById('vn-theater-selector-lobby');
       if (lobby) lobby.classList.add('active');
@@ -15267,6 +15743,8 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
     function closeTheaterSelectorLobby() {
       const lobby = document.getElementById('vn-theater-selector-lobby');
       if (lobby) lobby.classList.remove('active');
+      appState.inLandscapeGame = true;
+      document.body.classList.add('landscape-game-active');
     }
 
     function renderTheaterSelectorLobby() {
@@ -15881,19 +16359,78 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       onBgmVolumeChange(v);
     }
 
-    // 导出完整视觉小说工程包（含剧本、在场角色立绘差分、已生成CG、场景背景、音乐列表与已缓存语音）供朋友免API导入观看
+    // 导出完整视觉小说工程压缩包（ZIP内含剧本、角色无损立绘差分PNG、已生成CG与场景背景PNG、音乐列表与已缓存语音MP3）供朋友免API导入观看
     async function exportCurrentReplayProjectJson() {
       const proj = getCurrentReplayProject();
       if (!proj) return;
       const ttsEntries = await db.ttsCache.toArray();
       const pack = {
-        type: 'TRPG_VN_REPLAY_PACK_V1',
+        type: 'TRPG_VN_REPLAY_PACK_V2_ZIP',
         exportedAt: Date.now(),
-        project: proj,
-        characters: appState.characters,
-        bgmTracks: appState.bgmTracks,
-        ttsCache: ttsEntries
+        project: JSON.parse(JSON.stringify(proj)),
+        characters: JSON.parse(JSON.stringify(appState.characters || [])),
+        bgmTracks: JSON.parse(JSON.stringify(appState.bgmTracks || [])),
+        ttsCache: JSON.parse(JSON.stringify(ttsEntries || []))
       };
+
+      if (typeof JSZip !== 'undefined') {
+        const zip = new JSZip();
+        const extractDataUrlToZip = (dataUrl, zipPath) => {
+          if (typeof dataUrl === 'string' && dataUrl.startsWith('data:') && dataUrl.includes(';base64,')) {
+            const b64 = dataUrl.split(';base64,')[1];
+            zip.file(zipPath, b64, { base64: true });
+            return `__ZIP_ASSET__:${zipPath}`;
+          }
+          return dataUrl;
+        };
+
+        (pack.characters || []).forEach((c, cIdx) => {
+          const cid = c.id || `char_${cIdx}`;
+          if (c.tachieBase) c.tachieBase = extractDataUrlToZip(c.tachieBase, `images/chars/${cid}_base.png`);
+          if (c.charLockImg) c.charLockImg = extractDataUrlToZip(c.charLockImg, `images/chars/${cid}_lock.png`);
+          if (c.chibiImg) c.chibiImg = extractDataUrlToZip(c.chibiImg, `images/chars/${cid}_chibi.png`);
+          if (c.tachieExpressions) {
+            Object.keys(c.tachieExpressions).forEach((exp) => {
+              c.tachieExpressions[exp] = extractDataUrlToZip(c.tachieExpressions[exp], `images/chars/${cid}_exp_${exp}.png`);
+            });
+          }
+          if (c.tachieRawExpressions) {
+            Object.keys(c.tachieRawExpressions).forEach((exp) => {
+              c.tachieRawExpressions[exp] = extractDataUrlToZip(c.tachieRawExpressions[exp], `images/chars/${cid}_raw_${exp}.png`);
+            });
+          }
+        });
+
+        (pack.project?.chapters || []).forEach((ch, chIdx) => {
+          (ch.scenes || []).forEach((sc, sIdx) => {
+            if (sc.imageUrl) sc.imageUrl = extractDataUrlToZip(sc.imageUrl, `images/scenes/ch${chIdx}_${sc.id || sIdx}.png`);
+          });
+          (ch.cgNodes || []).forEach((cg, gIdx) => {
+            if (cg.imageUrl) cg.imageUrl = extractDataUrlToZip(cg.imageUrl, `images/cgs/ch${chIdx}_${cg.id || gIdx}.png`);
+            if (cg.customPadImg) cg.customPadImg = extractDataUrlToZip(cg.customPadImg, `images/cgs/ch${chIdx}_${cg.id || gIdx}_pad.png`);
+          });
+        });
+
+        (pack.ttsCache || []).forEach((item, tIdx) => {
+          if (item.audioDataUrl) {
+            const safeKey = String(item.id || `tts_${tIdx}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+            item.audioDataUrl = extractDataUrlToZip(item.audioDataUrl, `audio/${safeKey}.mp3`);
+          }
+        });
+
+        zip.file('manifest.json', JSON.stringify(pack));
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${proj.title || '跑团视觉小说工程'}_完整回放包.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        return;
+      }
+
       const blob = new Blob([JSON.stringify(pack)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -15905,39 +16442,104 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       URL.revokeObjectURL(url);
     }
 
+    async function applyImportedReplayPackData(pack) {
+      if (pack.project) {
+        await db.replayProjects.put(pack.project);
+        appState.currentReplayProjectId = pack.project.id;
+      }
+      if (Array.isArray(pack.characters)) {
+        for (const c of pack.characters) {
+          await db.characters.put(c);
+        }
+        appState.characters = await db.characters.toArray();
+      }
+      if (Array.isArray(pack.bgmTracks)) {
+        for (const t of pack.bgmTracks) {
+          await db.bgmTracks.put(t);
+        }
+        appState.bgmTracks = await db.bgmTracks.toArray();
+      }
+      if (Array.isArray(pack.ttsCache)) {
+        for (const item of pack.ttsCache) {
+          await db.ttsCache.put(item);
+        }
+      }
+      appState.replayProjects = await db.replayProjects.toArray();
+      populateCharacterSelects();
+      renderPersonaGrid();
+      renderReplayBgmList();
+      renderReplayStudioUI();
+    }
+
     function importReplayProjectJson(event) {
       const file = event.target.files?.[0];
       if (!file) return;
+      const isZip = file.name.toLowerCase().endsWith('.zip');
+      if (isZip && typeof JSZip !== 'undefined') {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          try {
+            const zip = await JSZip.loadAsync(e.target.result);
+            const manifestFile = zip.file('manifest.json');
+            if (!manifestFile) throw new Error('压缩包内未找到 manifest.json');
+            const manifestStr = await manifestFile.async('string');
+            const pack = JSON.parse(manifestStr);
+
+            const restoreZipAsset = async (val, mime) => {
+              if (typeof val === 'string' && val.startsWith('__ZIP_ASSET__:')) {
+                const relPath = val.replace('__ZIP_ASSET__:', '');
+                const zf = zip.file(relPath);
+                if (zf) {
+                  const b64 = await zf.async('base64');
+                  const dataUrl = `data:${mime};base64,${b64}`;
+                  await saveAssetToLocalBridge(relPath, dataUrl);
+                  return dataUrl;
+                }
+              }
+              return val;
+            };
+
+            for (const c of (pack.characters || [])) {
+              if (c.tachieBase) c.tachieBase = await restoreZipAsset(c.tachieBase, 'image/png');
+              if (c.charLockImg) c.charLockImg = await restoreZipAsset(c.charLockImg, 'image/png');
+              if (c.chibiImg) c.chibiImg = await restoreZipAsset(c.chibiImg, 'image/png');
+              for (const k of Object.keys(c.tachieExpressions || {})) {
+                c.tachieExpressions[k] = await restoreZipAsset(c.tachieExpressions[k], 'image/png');
+              }
+              for (const k of Object.keys(c.tachieRawExpressions || {})) {
+                c.tachieRawExpressions[k] = await restoreZipAsset(c.tachieRawExpressions[k], 'image/png');
+              }
+            }
+
+            for (const ch of (pack.project?.chapters || [])) {
+              for (const sc of (ch.scenes || [])) {
+                if (sc.imageUrl) sc.imageUrl = await restoreZipAsset(sc.imageUrl, 'image/png');
+              }
+              for (const cg of (ch.cgNodes || [])) {
+                if (cg.imageUrl) cg.imageUrl = await restoreZipAsset(cg.imageUrl, 'image/png');
+                if (cg.customPadImg) cg.customPadImg = await restoreZipAsset(cg.customPadImg, 'image/png');
+              }
+            }
+
+            for (const item of (pack.ttsCache || [])) {
+              if (item.audioDataUrl) item.audioDataUrl = await restoreZipAsset(item.audioDataUrl, 'audio/mp3');
+            }
+
+            await applyImportedReplayPackData(pack);
+          } catch (err) {
+            alert('导入回放压缩包失败：' + err.message);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+        event.target.value = '';
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = async (e) => {
         try {
           const pack = JSON.parse(e.target.result);
-          if (pack.project) {
-            await db.replayProjects.put(pack.project);
-            appState.currentReplayProjectId = pack.project.id;
-          }
-          if (Array.isArray(pack.characters)) {
-            for (const c of pack.characters) {
-              await db.characters.put(c);
-            }
-            appState.characters = await db.characters.toArray();
-          }
-          if (Array.isArray(pack.bgmTracks)) {
-            for (const t of pack.bgmTracks) {
-              await db.bgmTracks.put(t);
-            }
-            appState.bgmTracks = await db.bgmTracks.toArray();
-          }
-          if (Array.isArray(pack.ttsCache)) {
-            for (const item of pack.ttsCache) {
-              await db.ttsCache.put(item);
-            }
-          }
-          appState.replayProjects = await db.replayProjects.toArray();
-          populateCharacterSelects();
-          renderPersonaGrid();
-          renderReplayBgmList();
-          renderReplayStudioUI();
+          await applyImportedReplayPackData(pack);
         } catch (err) {
           alert('导入回放工程包失败：' + err.message);
         }
@@ -15946,11 +16548,50 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       event.target.value = '';
     }
 
-    // ==================== 单人完整档案与二十五态立绘包导入导出 + 自定义字体URL与弹幕透明度 ====================
+    // ==================== 单人完整档案与二十五态无损立绘压缩包导入导出 + 自定义字体URL与弹幕透明度 ====================
     async function exportSingleCharacterPack(charId) {
       const targetId = charId || appState.selectedPersonaId;
-      const c = appState.characters.find((x) => x.id === targetId) || appState.characters[0];
-      if (!c) return;
+      const origChar = appState.characters.find((x) => x.id === targetId) || appState.characters[0];
+      if (!origChar) return;
+      const c = JSON.parse(JSON.stringify(origChar));
+
+      if (typeof JSZip !== 'undefined') {
+        const zip = new JSZip();
+        const extractSpriteToZip = (dataUrl, zipPath) => {
+          if (typeof dataUrl === 'string' && dataUrl.startsWith('data:') && dataUrl.includes(';base64,')) {
+            const b64 = dataUrl.split(';base64,')[1];
+            zip.file(zipPath, b64, { base64: true });
+            return `__ZIP_ASSET__:${zipPath}`;
+          }
+          return dataUrl;
+        };
+        if (c.tachieBase) c.tachieBase = extractSpriteToZip(c.tachieBase, 'sprites/base.png');
+        if (c.charLockImg) c.charLockImg = extractSpriteToZip(c.charLockImg, 'sprites/lock.png');
+        if (c.chibiImg) c.chibiImg = extractSpriteToZip(c.chibiImg, 'sprites/chibi.png');
+        Object.keys(c.tachieExpressions || {}).forEach((exp) => {
+          c.tachieExpressions[exp] = extractSpriteToZip(c.tachieExpressions[exp], `sprites/exp_${exp}.png`);
+        });
+        Object.keys(c.tachieRawExpressions || {}).forEach((exp) => {
+          c.tachieRawExpressions[exp] = extractSpriteToZip(c.tachieRawExpressions[exp], `sprites/raw_${exp}.png`);
+        });
+        const pack = {
+          type: 'TRPG_CHARACTER_TACHIE_PACK_V2_ZIP',
+          exportedAt: Date.now(),
+          character: c
+        };
+        zip.file('character.json', JSON.stringify(pack));
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `角色立绘档案包_${c.name || '未命名角色'}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        return;
+      }
+
       const pack = {
         type: 'TRPG_CHARACTER_TACHIE_PACK_V1',
         exportedAt: Date.now(),
@@ -15970,6 +16611,60 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
     function importSingleCharacterPack(event) {
       const file = event.target.files?.[0];
       if (!file) return;
+      const isZip = file.name.toLowerCase().endsWith('.zip');
+      if (isZip && typeof JSZip !== 'undefined') {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          try {
+            const zip = await JSZip.loadAsync(e.target.result);
+            const charFile = zip.file('character.json');
+            if (!charFile) throw new Error('压缩包内未找到 character.json');
+            const data = JSON.parse(await charFile.async('string'));
+            const charObj = data.character || (data.id && data.name ? data : null);
+            if (!charObj || !charObj.name) throw new Error('文件中未找到有效的角色档案');
+            if (!charObj.id) charObj.id = 'char_import_' + Date.now();
+
+            const restoreSprite = async (val) => {
+              if (typeof val === 'string' && val.startsWith('__ZIP_ASSET__:')) {
+                const relPath = val.replace('__ZIP_ASSET__:', '');
+                const zf = zip.file(relPath);
+                if (zf) {
+                  const b64 = await zf.async('base64');
+                  const dataUrl = `data:image/png;base64,${b64}`;
+                  const safeName = (charObj.name || charObj.id).replace(/[\\/:*?"<>|]/g, '_');
+                  await saveAssetToLocalBridge(`characters/${safeName}/${relPath.split('/').pop()}`, dataUrl);
+                  return dataUrl;
+                }
+              }
+              return val;
+            };
+
+            if (charObj.tachieBase) charObj.tachieBase = await restoreSprite(charObj.tachieBase);
+            if (charObj.charLockImg) charObj.charLockImg = await restoreSprite(charObj.charLockImg);
+            if (charObj.chibiImg) charObj.chibiImg = await restoreSprite(charObj.chibiImg);
+            for (const k of Object.keys(charObj.tachieExpressions || {})) {
+              charObj.tachieExpressions[k] = await restoreSprite(charObj.tachieExpressions[k]);
+            }
+            for (const k of Object.keys(charObj.tachieRawExpressions || {})) {
+              charObj.tachieRawExpressions[k] = await restoreSprite(charObj.tachieRawExpressions[k]);
+            }
+
+            await db.characters.put(charObj);
+            appState.characters = await db.characters.toArray();
+            appState.selectedPersonaId = charObj.id;
+            appState.selectedTachieCharId = charObj.id;
+            populateCharacterSelects();
+            renderPersonaGrid();
+            selectPersonaForEdit(charObj.id);
+          } catch (err) {
+            alert('导入角色立绘压缩包失败：' + err.message);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+        event.target.value = '';
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = async (e) => {
         try {
