@@ -56,13 +56,13 @@
         </div>
       </div>
 
-      <!-- 手机桌面独立软件图标网格 -->
+      <!-- 手机桌面独立软件图标网格：保留模组、角色、立绘、音乐、美化、设置六个不重复核心软件 -->
       <div class="app-icon-grid">
-        <button type="button" class="app-icon-item" data-app-key="tachie" onclick="openAppScreen('tachie')">
-          <div class="app-icon-box accent-fill" id="app-icon-box-tachie">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        <button type="button" class="app-icon-item" data-app-key="replay" onclick="openAppScreen('replay')">
+          <div class="app-icon-box rose-fill" id="app-icon-box-replay">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
           </div>
-          <span class="app-icon-label" id="app-label-tachie">立绘</span>
+          <span class="app-icon-label" id="app-label-replay">模组</span>
         </button>
 
         <button type="button" class="app-icon-item" data-app-key="persona" onclick="openAppScreen('persona')">
@@ -72,18 +72,11 @@
           <span class="app-icon-label" id="app-label-persona">角色</span>
         </button>
 
-        <button type="button" class="app-icon-item" data-app-key="replay" onclick="openAppScreen('replay')">
-          <div class="app-icon-box rose-fill" id="app-icon-box-replay">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <button type="button" class="app-icon-item" data-app-key="tachie" onclick="openAppScreen('tachie')">
+          <div class="app-icon-box accent-fill" id="app-icon-box-tachie">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
           </div>
-          <span class="app-icon-label" id="app-label-replay">日志</span>
-        </button>
-
-        <button type="button" class="app-icon-item" data-app-key="theater" onclick="openAppScreen('theater')">
-          <div class="app-icon-box purple-fill" id="app-icon-box-theater">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="4" width="20" height="16" rx="2"/><polygon points="10 9 15 12 10 15 10 9"/></svg>
-          </div>
-          <span class="app-icon-label" id="app-label-theater">剧场</span>
+          <span class="app-icon-label" id="app-label-tachie">立绘</span>
         </button>
 
         <button type="button" class="app-icon-item" data-app-key="music" onclick="openAppScreen('music')">
@@ -91,13 +84,6 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
           </div>
           <span class="app-icon-label" id="app-label-music">音乐</span>
-        </button>
-
-        <button type="button" class="app-icon-item" data-app-key="worldbook" onclick="openAppScreen('worldbook')">
-          <div class="app-icon-box warm-fill" id="app-icon-box-worldbook">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-          </div>
-          <span class="app-icon-label" id="app-label-worldbook">世界书</span>
         </button>
 
         <button type="button" class="app-icon-item" data-app-key="theme" onclick="openAppScreen('theme')">
@@ -127,31 +113,13 @@
         </div>
       </div>
 
-      <!-- 底部 Dock 栏 -->
-      <div class="home-dock">
-        <button type="button" class="app-icon-item" data-app-key="tachie-dock" onclick="openAppScreen('tachie')">
-          <div class="app-icon-box accent-fill">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <!-- 底部 Dock 栏：剧本固定在最下面左下角 -->
+      <div class="home-dock" style="justify-content:flex-start;padding-left:18px;">
+        <button type="button" class="app-icon-item" data-app-key="theater" onclick="openTheaterWithLobby()">
+          <div class="app-icon-box purple-fill" id="app-icon-box-theater">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="4" width="20" height="16" rx="2"/><polygon points="10 9 15 12 10 15 10 9"/></svg>
           </div>
-          <span class="app-icon-label">立绘</span>
-        </button>
-        <button type="button" class="app-icon-item" data-app-key="replay-dock" onclick="openAppScreen('replay')">
-          <div class="app-icon-box rose-fill">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          </div>
-          <span class="app-icon-label">日志</span>
-        </button>
-        <button type="button" class="app-icon-item" data-app-key="theater-dock" onclick="openAppScreen('theater')">
-          <div class="app-icon-box purple-fill">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-          </div>
-          <span class="app-icon-label">剧场</span>
-        </button>
-        <button type="button" class="app-icon-item" data-app-key="music-dock" onclick="openAppScreen('music')">
-          <div class="app-icon-box mint-fill">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-          </div>
-          <span class="app-icon-label">音乐</span>
+          <span class="app-icon-label" id="app-label-theater">剧本</span>
         </button>
       </div>
     </section>
@@ -267,6 +235,8 @@
         <button type="button" class="app-back-btn" onclick="goHomeScreen()">返回</button>
         <span class="app-header-title">角色</span>
         <div class="app-header-actions">
+          <button type="button" class="moe-btn secondary" onclick="document.getElementById('persona-import-pack-input').click()">导包</button>
+          <input type="file" id="persona-import-pack-input" accept=".json" style="display:none;" onchange="importSingleCharacterPack(event)" />
           <button type="button" class="moe-btn secondary" onclick="ensureNarratorCharacterAndSelect()">旁白</button>
           <button type="button" class="moe-btn" onclick="createNewBlankCharacter()">新增</button>
         </div>
@@ -297,18 +267,19 @@
             <button type="button" class="moe-btn secondary" data-cat="universal" onclick="onSelectPersonaCategoryFilter('universal')">通用</button>
           </div>
           <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;line-height:1.5;">
-            按键说明：点击主角看调查员PC，点击配角看模组NPC，点击旁白看KP叙述，点击通用看跨模组常驻角色。每个角色卡片右侧点通用可设为所有模组共用，点立绘可直接去画全身立绘和表情差分，点编辑可自己写外貌性格与配音音色。
+            按键说明：点右上角导包可导入包含全身立绘与二十五种表情差分的完整单人角色包；每个角色卡片右侧点导出可把该角色全部档案资料与全部立绘图片打包导出分享。
           </div>
         </div>
         <div id="persona-char-grid"></div>
       </div>
 
-      <!-- 子页2：角色卡片编辑（外貌、性格、音色、身高全部由用户自主填写） -->
+      <!-- 子页2：角色卡片编辑 -->
       <div id="persona-basic" class="app-subpage">
         <div class="moe-card">
           <div class="moe-card-header">
             <span class="moe-card-title" id="persona-editing-title">角色档案</span>
             <div style="display:flex;gap:6px;">
+              <button type="button" class="moe-btn secondary" onclick="exportSingleCharacterPack(appState.selectedPersonaId)">导出</button>
               <button type="button" class="moe-btn secondary" onclick="jumpFromPersonaToTachie()">立绘</button>
               <button type="button" class="moe-btn secondary" onclick="deleteCurrentPersonaCharacter()">删除</button>
               <button type="button" class="moe-btn" onclick="saveCurrentPersona()">保存</button>
@@ -1178,8 +1149,32 @@
         </div>
       </div>
 
-      <!-- 子页1：主API -->
+      <!-- 子页1：主API与全局字体及弹幕透明度设置 -->
       <div id="set-sub-llm" class="app-subpage active">
+        <div class="moe-card">
+          <div class="moe-card-header">
+            <span class="moe-card-title">剧本自定义字体与纯文字弹幕透明度</span>
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="moe-btn secondary" onclick="document.getElementById('custom-font-file-input').click()">传字</button>
+              <input type="file" id="custom-font-file-input" accept=".ttf,.otf,.woff,.woff2" style="display:none;" onchange="handleCustomFontFileUpload(event)" />
+              <button type="button" class="moe-btn secondary" onclick="clearCustomFontUrl()">恢复</button>
+              <button type="button" class="moe-btn" onclick="applyCustomFontUrl()">应用</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>自定义字体直链地址 填入ttf或woff2地址点应用即可覆盖全局与剧本文字</label>
+            <input type="text" id="custom-font-url-input" class="moe-input" placeholder="https://example.com/myfont.woff2 或点击右上角传字导入本地字体文件" />
+          </div>
+          <div class="setting-item">
+            <div class="setting-item-center">
+              <div class="setting-item-title">剧本纯文字弹幕透明度 · <span id="settings-danmaku-opacity-val">85</span>%</div>
+              <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+                <input type="range" id="settings-danmaku-opacity-slider" min="10" max="100" value="85" style="flex:1;" oninput="onDanmakuOpacityChange(this.value)" />
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="moe-card">
           <div class="moe-card-header">
             <span class="moe-card-title">主API连接</span>
@@ -1888,13 +1883,13 @@
       </div>
     </section>
 
-    <!-- ==================== 13. 跑团日志工坊 App ==================== -->
+    <!-- ==================== 13. 跑团模组工坊 App ==================== -->
     <section id="screen-replay" class="screen">
       <div class="app-header">
         <button type="button" class="app-back-btn" onclick="goHomeScreen()">返回</button>
-        <span class="app-header-title">日志</span>
+        <span class="app-header-title">模组</span>
         <div class="app-header-actions">
-          <button type="button" class="moe-btn secondary" onclick="openAppScreen('theater')">剧场</button>
+          <button type="button" class="moe-btn secondary" onclick="openTheaterWithLobby()">剧本</button>
           <button type="button" class="moe-btn" onclick="createNewReplayProject()">新建</button>
         </div>
       </div>
@@ -2140,7 +2135,7 @@
       </div>
     </section>
 
-    <!-- ==================== 14. 横屏 16:9 视觉小说回放剧场 ==================== -->
+    <!-- ==================== 14. 横屏 16:9 视觉小说剧本剧场 ==================== -->
     <section id="screen-theater" class="screen">
       <div class="vn-theater-wrapper" id="vn-theater-stage-root">
         <!-- 第1层：当前场所背景层 -->
@@ -2150,68 +2145,82 @@
         <div class="vn-tachie-layer" id="vn-theater-tachie-layer"></div>
 
         <!-- 第3层：全屏剧情CG插画层 仅当该节点已生成CG图片时显示 -->
-        <div class="vn-cg-layer" id="vn-theater-cg-layer" onclick="nextTheaterLine()">
+        <div class="vn-cg-layer" id="vn-theater-cg-layer" onclick="handleTheaterDockClick()">
           <img id="vn-theater-cg-img" src="" alt="剧情CG" title="点击进入下一句，连续点击三下下载CG" onclick="handleTheaterCgClick(event)" />
         </div>
 
-        <!-- 第4层：顶部场外吐槽弹幕层 -->
+        <!-- 第3.5层：全屏暗角呼吸氛围层 -->
+        <div class="vn-vignette-layer" id="vn-theater-vignette-layer"></div>
+
+        <!-- 第4层：顶部场外无背景纯文字弹幕层 -->
         <div class="vn-ooc-layer" id="vn-theater-ooc-layer"></div>
 
         <!-- 第5层：跑团掷骰检定结果简洁浮窗 -->
         <div class="vn-dice-toast" id="vn-theater-dice-toast"></div>
 
-        <!-- 第6层：顶部剧场控制栏 -->
+        <!-- 第5.5层：高级文游全屏黑幕缓慢浮现文字转场层 -->
+        <div class="vn-blackout-overlay" id="vn-theater-blackout-layer" onclick="dismissBlackoutOrNextLine()">
+          <div class="vn-blackout-text" id="vn-theater-blackout-text"></div>
+          <div class="vn-blackout-sub">点击屏幕继续</div>
+        </div>
+
+        <!-- 第6层：角落极简小号SVG图标按钮 -->
         <div class="vn-top-bar">
           <div class="vn-top-group">
-            <button type="button" class="map-sticker-btn" onclick="exitTheaterToHome()">
-              <span>退出</span>
+            <button type="button" class="vn-mini-icon-btn" title="返回桌面" onclick="exitTheaterToHome()">
+              <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
             </button>
-            <button type="button" class="map-sticker-btn" onclick="openAppScreen('replay')">
-              <span>日志</span>
+            <button type="button" class="vn-mini-icon-btn" title="选择模组与章节" onclick="openTheaterSelectorLobby()">
+              <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
             </button>
-            <select id="theater-chapter-select" class="moe-input" style="width:auto;min-width:128px;height:32px;min-height:32px;padding:0 24px 0 8px;font-size:12px;" onchange="onTheaterChapterSelectChange(this.value)"></select>
+            <select id="theater-chapter-select" class="moe-input" style="display:none;" onchange="onTheaterChapterSelectChange(this.value)"></select>
           </div>
           <div class="vn-top-group">
-            <button type="button" class="map-sticker-btn" id="theater-auto-btn" onclick="toggleTheaterAutoPlay()">
-              <span>自动</span>
+            <button type="button" class="vn-mini-icon-btn active-state" id="theater-danmaku-btn" title="开关弹幕" onclick="toggleTheaterDanmaku()">
+              <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             </button>
-            <button type="button" class="map-sticker-btn" id="theater-skip-btn" onclick="toggleTheaterSkipPlay()">
-              <span>快进</span>
-            </button>
-            <button type="button" class="map-sticker-btn" id="theater-danmaku-btn" onclick="toggleTheaterDanmaku()">
-              <span>弹幕</span>
-            </button>
-            <button type="button" class="map-sticker-btn" onclick="openTheaterBacklogModal()">
-              <span>历史</span>
-            </button>
-            <button type="button" class="map-sticker-btn" onclick="openTheaterAlbumModal()">
-              <span>相册</span>
-            </button>
-            <button type="button" class="map-sticker-btn" onclick="openTheaterVolumeModal()">
-              <span>音量</span>
-            </button>
-            <button type="button" class="map-sticker-btn" onclick="exportCurrentReplayProjectJson()">
-              <span>导出</span>
+            <button type="button" class="vn-mini-icon-btn" id="theater-auto-btn" title="开关自动播放" onclick="toggleTheaterAutoPlay()">
+              <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             </button>
           </div>
         </div>
 
-        <!-- 第7层：底部视觉小说对话框 -->
-        <div class="vn-bottom-dock" onclick="nextTheaterLine()">
+        <!-- 第7层：高级感视觉小说悬浮铭牌与底部对话框 -->
+        <div class="vn-bottom-dock" onclick="handleTheaterDockClick()">
+          <span class="vn-speaker-badge" id="vn-theater-speaker">旁白</span>
           <div class="vn-dialogue-header">
             <div style="display:flex;align-items:center;gap:8px;">
-              <span class="vn-speaker-badge" id="vn-theater-speaker">旁白</span>
               <span class="vn-dialogue-meta" id="vn-theater-exp-info">默认</span>
             </div>
             <div style="display:flex;align-items:center;gap:6px;" onclick="event.stopPropagation()">
               <span class="vn-dialogue-meta" id="vn-theater-progress">0 / 0</span>
-              <button type="button" class="moe-btn secondary" style="height:26px;min-height:26px;padding:0 8px;font-size:11px;" onclick="prevTheaterLine()">上句</button>
-              <button type="button" class="moe-btn secondary" style="height:26px;min-height:26px;padding:0 8px;font-size:11px;" onclick="replayCurrentTheaterLineTts()">重播</button>
-              <button type="button" class="moe-btn" style="height:26px;min-height:26px;padding:0 8px;font-size:11px;" onclick="nextTheaterLine()">下句</button>
+              <button type="button" class="moe-btn secondary" style="height:24px;min-height:24px;padding:0 8px;font-size:11px;" onclick="prevTheaterLine()">上句</button>
+              <button type="button" class="moe-btn secondary" style="height:24px;min-height:24px;padding:0 8px;font-size:11px;" onclick="replayCurrentTheaterLineTts()">重播</button>
+              <button type="button" class="moe-btn" style="height:24px;min-height:24px;padding:0 8px;font-size:11px;" onclick="nextTheaterLine()">下句</button>
             </div>
           </div>
-          <div class="vn-dialogue-text" id="vn-theater-text">欢迎进入横屏视觉小说剧场，请先在日志工坊导入跑团记录并生成章节剧本。</div>
+          <div class="vn-dialogue-text" id="vn-theater-text">欢迎进入视觉小说剧本剧场，请先选择模组与章节开始观看。</div>
           <div class="vn-dialogue-jp" id="vn-theater-jp-text"></div>
+        </div>
+
+        <!-- 第8层：剧本选集大厅 点进剧本时先选哪个模组与哪一章观看 -->
+        <div class="vn-selector-lobby" id="vn-theater-selector-lobby">
+          <div class="vn-lobby-card">
+            <div class="moe-card-header">
+              <span class="moe-card-title">选择要观看的模组与章节 播完本章将自动连播下一章</span>
+              <div style="display:flex;gap:6px;">
+                <button type="button" class="moe-btn secondary" onclick="openAppScreen('replay')">模组</button>
+                <button type="button" class="moe-btn secondary" onclick="closeTheaterSelectorLobby()">继续</button>
+                <button type="button" class="moe-btn" onclick="exitTheaterToHome()">返回</button>
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom:4px;">
+              <label>选择大模组</label>
+              <select id="theater-lobby-project-select" class="moe-input" onchange="onTheaterLobbyProjectChange(this.value)"></select>
+            </div>
+            <div style="font-size:11px;color:var(--text-secondary);">点击下方任意章节即可进入剧场观看，若尚未整理剧本可点击右侧模组按钮前往模组软件分章整理</div>
+            <div class="vn-lobby-chapter-grid" id="theater-lobby-chapters-list"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -9971,6 +9980,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
           </div>
           <div class="setting-item-right">
             <button type="button" class="moe-btn ${isUniv ? '' : 'secondary'}" onclick="event.stopPropagation();toggleCharacterUniversalStatus('${c.id}')">通用</button>
+            <button type="button" class="moe-btn secondary" onclick="event.stopPropagation();exportSingleCharacterPack('${c.id}')">导出</button>
             <button type="button" class="moe-btn secondary" onclick="event.stopPropagation();openCharacterInTachieStudio('${c.id}')">立绘</button>
             <button type="button" class="moe-btn secondary">编辑</button>
           </div>
@@ -13187,13 +13197,14 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
           const isFirstBatch = batchIdx === 0;
           const sysPrompt = `你是专业跑团Replay视觉小说导演、声优台本日语翻译总监与配乐师。请严格遵守以下铁律处理本批跑团剧本行：
 铁律一：PC调查员与NPC的对话框 dialogue 只能保留角色第一人称亲口说出的台词；其余所有动作描写、神态描写、环境描写一律归入旁白 narration 即KP第三人称描述！
-铁律二：在将第一人称动作描写转为KP第三人称旁白时，严禁大改语句、严禁删减或润色原本的描写文笔，只能把第一人称代词「我」替换成该角色的名字！如果某行 L序号 里还夹杂着动作描写和开口说话，请用 LINE_FIX 把它修正为纯第一人称台词或纯第三人称旁白。
+铁律二：在将第一人称动作描写转为KP第三人称旁白时，严禁大改语句、严禁删减或润色原本的描写文笔，只能把第一人称代词「我」替换成该角色的名字！如果某行 L序号 里还夹杂着动作描写和开口说话，请用 LINE_UPDATE 把它修正为纯第一人称台词或纯第三人称旁白。
 铁律三：为每一句角色对话翻译地道自然、符合角色语气的日语配音台词，并匹配25态立绘表情差分。表情仅限：默认、微笑、大笑、温柔、害羞、脸红、调侃、惊讶、震惊、慌乱、沉思、冷漠、嘲讽、生气、暴怒、难过、哭泣、流泪、绝望、崩溃、微醺、尴尬、备战、出招、决胜。
-铁律四：在本批剧情氛围转换处推荐1至2首真实存在且贴合氛围的纯音乐或歌曲 BGM_REC，写明歌名与歌手，系统会自动去JD音乐台、网易云与QQ音乐按权重搜索第一名播放。
-${isFirstBatch ? '铁律五：规划本章1至3个主要场所横屏背景图 SCENE_BG，以及本批关键高潮处的2至4张横屏16:9剧情CG插画节点 CG_PLAN。' : '铁律五：在本批关键剧情高潮处规划1至3张横屏16:9剧情CG插画节点 CG_PLAN。'}
+铁律四：为关键剧情句匹配高级文游演出特效：当遇到地点转换、时间推移或深邃高深场地信息揭示时填 blackout 全屏黑幕浮字；当角色受惊、恐惧、颤抖或情绪剧烈波动时填 shake_char 立绘抖动；当角色逼近、特写或压迫感发言时填 zoom_char 立绘靠近放大；当角色欢快、点头或轻快反应时填 jump_char 立绘跳动；当遭遇袭击、巨响、冲击或克苏鲁理智检定发狂时填 shake_screen 画面震动；普通句子填 none。
+铁律五：在本批剧情氛围转换处推荐1至2首真实存在且贴合氛围的纯音乐或歌曲 BGM_REC，写明歌名与歌手，系统会自动去JD音乐台、网易云与QQ音乐按权重搜索第一名播放。
+${isFirstBatch ? '铁律六：规划本章1至3个主要场所横屏背景图 SCENE_BG，以及本批关键高潮处的2至4张横屏16:9剧情CG插画节点 CG_PLAN。' : '铁律六：在本批关键剧情高潮处规划1至3张横屏16:9剧情CG插画节点 CG_PLAN。'}
 
 从头到尾严禁使用任何圆括号或方括号，严格按以下行格式输出：
-${isFirstBatch ? 'SCENE_BG: 场景编号如scene_1|场所中文名称|纯景物横版背景NovelAI英文提示词\n' : ''}LINE_UPDATE: L行号|类型dialogue或narration|说话人姓名或旁白|表情名称|场景编号如scene_1|修正人称但保留原句文笔的中文台词|地道自然的日语配音台词
+${isFirstBatch ? 'SCENE_BG: 场景编号如scene_1|场所中文名称|纯景物横版背景NovelAI英文提示词\n' : ''}LINE_UPDATE: L行号|类型dialogue或narration|说话人姓名或旁白|表情名称|场景编号如scene_1|修正人称但保留原句文笔的中文台词|地道自然的日语配音台词|演出特效none或blackout或shake_char或zoom_char或jump_char或shake_screen
 BGM_REC: L行号|歌曲名称|歌手或作曲家名称|氛围分类如悬疑或日常或战斗
 CG_PLAN: L行号|CG中文画面说明|在场角色姓名用顿号分隔|主锁脸角色姓名|结合在场角色外貌词与动作光影的完整NovelAI英文提示词`;
 
@@ -13239,7 +13250,13 @@ ${numberedBatchPreview}`;
                         if (parts[3]) baseLines[idx].exp = parts[3];
                         if (parts[4]) baseLines[idx].sceneId = parts[4];
                         if (parts[5]) baseLines[idx].text = parts[5];
-                        if (parts[6]) baseLines[idx].jpText = parts.slice(6).join(' ').trim();
+                        if (parts[6]) baseLines[idx].jpText = parts[6].trim();
+                        if (parts[7]) {
+                          const fx = parts[7].trim().toLowerCase();
+                          if (['none', 'blackout', 'shake_char', 'zoom_char', 'jump_char', 'shake_screen'].includes(fx)) {
+                            baseLines[idx].effect = fx;
+                          }
+                        }
                       } else {
                         if (parts[1]) baseLines[idx].exp = parts[1];
                         if (parts[2]) baseLines[idx].sceneId = parts[2];
@@ -13470,9 +13487,17 @@ ${numberedBatchPreview}`;
                 <option value="ooc" ${line.type === 'ooc' ? 'selected' : ''}>弹幕</option>
                 <option value="dice" ${line.type === 'dice' ? 'selected' : ''}>检定</option>
               </select>
-              <input type="text" class="moe-input" value="${(line.speaker || '旁白').replace(/"/g, '&quot;')}" style="width:88px;min-height:28px;height:28px;padding:2px 6px;font-size:12px;" title="说话人姓名" onchange="updateReplayScriptLineField(${idx}, 'speaker', this.value)" />
-              <input type="text" class="moe-input" value="${(line.exp || '默认').replace(/"/g, '&quot;')}" style="width:68px;min-height:28px;height:28px;padding:2px 6px;font-size:12px;" title="25态表情差分" onchange="updateReplayScriptLineField(${idx}, 'exp', this.value)" />
-              <input type="text" class="moe-input" value="${(line.bgmTag || '').replace(/"/g, '&quot;')}" placeholder="歌名 - 歌手 或氛围" style="width:126px;min-height:28px;height:28px;padding:2px 6px;font-size:11px;" onchange="updateReplayScriptLineField(${idx}, 'bgmTag', this.value)" />
+              <input type="text" class="moe-input" value="${(line.speaker || '旁白').replace(/"/g, '&quot;')}" style="width:82px;min-height:28px;height:28px;padding:2px 6px;font-size:12px;" title="说话人姓名" onchange="updateReplayScriptLineField(${idx}, 'speaker', this.value)" />
+              <input type="text" class="moe-input" value="${(line.exp || '默认').replace(/"/g, '&quot;')}" style="width:64px;min-height:28px;height:28px;padding:2px 6px;font-size:12px;" title="25态表情差分" onchange="updateReplayScriptLineField(${idx}, 'exp', this.value)" />
+              <select class="moe-input" style="width:94px;min-height:28px;height:28px;padding:0 18px 0 6px;font-size:11px;" title="文游舞台演出效果" onchange="updateReplayScriptLineField(${idx}, 'effect', this.value)">
+                <option value="none" ${(!line.effect || line.effect === 'none') ? 'selected' : ''}>无特效</option>
+                <option value="blackout" ${line.effect === 'blackout' ? 'selected' : ''}>黑幕浮字</option>
+                <option value="shake_char" ${line.effect === 'shake_char' ? 'selected' : ''}>立绘抖动</option>
+                <option value="zoom_char" ${line.effect === 'zoom_char' ? 'selected' : ''}>立绘放大</option>
+                <option value="jump_char" ${line.effect === 'jump_char' ? 'selected' : ''}>立绘跳动</option>
+                <option value="shake_screen" ${line.effect === 'shake_screen' ? 'selected' : ''}>画面震动</option>
+              </select>
+              <input type="text" class="moe-input" value="${(line.bgmTag || '').replace(/"/g, '&quot;')}" placeholder="歌名 - 歌手 或氛围" style="width:118px;min-height:28px;height:28px;padding:2px 6px;font-size:11px;" onchange="updateReplayScriptLineField(${idx}, 'bgmTag', this.value)" />
             </div>
             <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
               <button type="button" class="moe-btn secondary" id="line-tts-btn-${idx}" onclick="playSingleScriptLineTts(${idx}, false)">试听</button>
@@ -14110,14 +14135,101 @@ ${numberedBatchPreview}`;
       if (s2 && s2.value !== appState.theaterTtsLang) s2.value = appState.theaterTtsLang;
     }
 
-    // ==================== 横屏 16:9 视觉小说回放剧场核心控制 ====================
+    // ==================== 横屏 16:9 视觉小说剧本剧场核心控制 ====================
+    let _theaterTypewriterTimer = null;
+    let _theaterFullLineText = '';
+    let _theaterIsTyping = false;
+
+    function openTheaterWithLobby() {
+      openAppScreen('theater');
+      openTheaterSelectorLobby();
+    }
+
     function openTheaterForCurrentChapter() {
       appState.theaterLineIdx = 0;
       openAppScreen('theater');
+      closeTheaterSelectorLobby();
+      renderTheaterCurrentLine();
+    }
+
+    function openTheaterSelectorLobby() {
+      stopTheaterAutoAndSkip();
+      renderTheaterSelectorLobby();
+      const lobby = document.getElementById('vn-theater-selector-lobby');
+      if (lobby) lobby.classList.add('active');
+    }
+
+    function closeTheaterSelectorLobby() {
+      const lobby = document.getElementById('vn-theater-selector-lobby');
+      if (lobby) lobby.classList.remove('active');
+    }
+
+    function renderTheaterSelectorLobby() {
+      const sel = document.getElementById('theater-lobby-project-select');
+      const listBox = document.getElementById('theater-lobby-chapters-list');
+      if (!sel || !listBox) return;
+
+      const projects = appState.replayProjects || [];
+      sel.innerHTML = '';
+      projects.forEach((p) => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.title || '未命名模组';
+        if (p.id === appState.currentReplayProjectId) opt.selected = true;
+        sel.appendChild(opt);
+      });
+
+      const curProj = getCurrentReplayProject();
+      listBox.innerHTML = '';
+      if (!curProj || !Array.isArray(curProj.chapters) || curProj.chapters.length === 0) {
+        listBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);padding:12px;text-align:center;">当前模组暂无章节，请点击右上角模组按钮导入日志并分章</div>';
+        return;
+      }
+
+      curProj.chapters.forEach((ch, cIdx) => {
+        const lineCount = Array.isArray(ch.scriptLines) ? ch.scriptLines.length : 0;
+        const item = document.createElement('div');
+        item.className = 'setting-item';
+        item.style.cursor = 'pointer';
+        if (cIdx === appState.currentReplayChapterIdx) {
+          item.style.borderColor = 'var(--accent-color)';
+        }
+        item.onclick = () => selectTheaterLobbyChapterAndPlay(curProj.id, cIdx);
+        item.innerHTML = `
+          <div class="setting-item-left" style="font-size:11px;font-weight:800;color:var(--accent-color);">第${cIdx + 1}章</div>
+          <div class="setting-item-center">
+            <div class="setting-item-title">${ch.title || ('章节 ' + (cIdx + 1))}</div>
+            <div class="setting-item-sub">${lineCount > 0 ? ('已整理剧本 · 共 ' + lineCount + ' 句') : '尚未整理剧本 · 点击将在剧场预览或前往模组整理'}</div>
+          </div>
+          <div class="setting-item-right">
+            <button type="button" class="moe-btn">${cIdx === appState.currentReplayChapterIdx ? '观看' : '选章'}</button>
+          </div>
+        `;
+        listBox.appendChild(item);
+      });
+    }
+
+    function onTheaterLobbyProjectChange(projId) {
+      if (!projId) return;
+      appState.currentReplayProjectId = projId;
+      appState.currentReplayChapterIdx = 0;
+      appState.theaterLineIdx = 0;
+      renderReplayStudioUI();
+      renderTheaterSelectorLobby();
+    }
+
+    function selectTheaterLobbyChapterAndPlay(projId, chapIdx) {
+      if (projId) appState.currentReplayProjectId = projId;
+      appState.currentReplayChapterIdx = Number(chapIdx) || 0;
+      appState.theaterLineIdx = 0;
+      renderReplayProjectSelectors();
+      closeTheaterSelectorLobby();
+      renderTheaterCurrentLine();
     }
 
     function initTheaterScreen() {
       renderReplayProjectSelectors();
+      renderTheaterSelectorLobby();
       const ttsSlider = document.getElementById('theater-tts-vol-slider');
       const bgmSlider = document.getElementById('theater-bgm-vol-slider');
       if (ttsSlider) ttsSlider.value = appState.theaterTtsVolume;
@@ -14129,6 +14241,11 @@ ${numberedBatchPreview}`;
 
     function exitTheaterToHome() {
       stopTheaterAutoAndSkip();
+      if (_theaterTypewriterTimer) {
+        clearInterval(_theaterTypewriterTimer);
+        _theaterTypewriterTimer = null;
+      }
+      _theaterIsTyping = false;
       if (_activeReplayTtsAudio) {
         try { _activeReplayTtsAudio.pause(); } catch (_) {}
         _activeReplayTtsAudio = null;
@@ -14157,8 +14274,79 @@ ${numberedBatchPreview}`;
       }, 8600);
     }
 
+    function startTheaterTypewriter(textEl, fullText) {
+      if (_theaterTypewriterTimer) {
+        clearInterval(_theaterTypewriterTimer);
+        _theaterTypewriterTimer = null;
+      }
+      _theaterFullLineText = String(fullText || '');
+      if (!textEl) return;
+      if (!_theaterFullLineText || appState.theaterSkipPlay) {
+        textEl.textContent = _theaterFullLineText;
+        _theaterIsTyping = false;
+        return;
+      }
+      _theaterIsTyping = true;
+      textEl.textContent = '';
+      let charPos = 0;
+      _theaterTypewriterTimer = setInterval(() => {
+        charPos += 1;
+        textEl.textContent = _theaterFullLineText.slice(0, charPos);
+        if (charPos >= _theaterFullLineText.length) {
+          clearInterval(_theaterTypewriterTimer);
+          _theaterTypewriterTimer = null;
+          _theaterIsTyping = false;
+        }
+      }, 28);
+    }
+
+    function handleTheaterDockClick() {
+      const textEl = document.getElementById('vn-theater-text');
+      if (_theaterIsTyping && textEl) {
+        if (_theaterTypewriterTimer) {
+          clearInterval(_theaterTypewriterTimer);
+          _theaterTypewriterTimer = null;
+        }
+        textEl.textContent = _theaterFullLineText;
+        _theaterIsTyping = false;
+        return;
+      }
+      nextTheaterLine();
+    }
+
+    function dismissBlackoutOrNextLine() {
+      const blackoutEl = document.getElementById('vn-theater-blackout-layer');
+      if (blackoutEl && blackoutEl.classList.contains('active')) {
+        blackoutEl.classList.remove('active');
+        return;
+      }
+      nextTheaterLine();
+    }
+
+    function inferNaturalLineEffect(line, idx) {
+      if (line.effect && line.effect !== 'none') return line.effect;
+      const txt = String(line.text || '');
+      if (line.type === 'narration' && (idx === 0 || /次日|深夜|黎明|黄昏|来到|踏入|推开门|走廊深处|地下室|教堂|酒馆|数年后|几分钟后/.test(txt)) && txt.length <= 52) {
+        return 'blackout';
+      }
+      if (/理智检定|SAN|发狂|巨响|爆炸|震动|轰鸣|惨叫|扑来|袭击/.test(txt)) {
+        return 'shake_screen';
+      }
+      if (['震惊', '慌乱', '崩溃', '绝望', '生气', '暴怒'].includes(line.exp)) {
+        return 'shake_char';
+      }
+      if (['出招', '决胜', '备战'].includes(line.exp)) {
+        return 'zoom_char';
+      }
+      if (['大笑', '调侃', '害羞'].includes(line.exp)) {
+        return 'jump_char';
+      }
+      return 'none';
+    }
+
     async function renderTheaterCurrentLine() {
       const chap = getCurrentReplayChapter();
+      const stageRoot = document.getElementById('vn-theater-stage-root');
       const speakerEl = document.getElementById('vn-theater-speaker');
       const expEl = document.getElementById('vn-theater-exp-info');
       const progEl = document.getElementById('vn-theater-progress');
@@ -14169,18 +14357,21 @@ ${numberedBatchPreview}`;
       const cgLayer = document.getElementById('vn-theater-cg-layer');
       const cgImg = document.getElementById('vn-theater-cg-img');
       const diceToast = document.getElementById('vn-theater-dice-toast');
+      const blackoutLayer = document.getElementById('vn-theater-blackout-layer');
+      const blackoutText = document.getElementById('vn-theater-blackout-text');
 
       if (!chap || !Array.isArray(chap.scriptLines) || chap.scriptLines.length === 0) {
         if (speakerEl) speakerEl.textContent = '提示';
         if (expEl) expEl.textContent = '未生成剧本';
         if (progEl) progEl.textContent = '0 / 0';
-        if (textEl) textEl.textContent = '当前章节尚未生成剧本，请点左上角日志按钮导入跑团记录并点击剧本生成。';
+        if (textEl) textEl.textContent = '当前章节尚未生成剧本，请点左上角列表图标选择其他已整理章节，或前往模组软件点击整理生成剧本。';
         if (jpEl) jpEl.textContent = '';
         if (cgLayer) cgLayer.classList.remove('active');
+        if (blackoutLayer) blackoutLayer.classList.remove('active');
         return;
       }
 
-      // 若当前行是纯弹幕行（ooc），发射顶部飘过弹幕并自动推进到下一条正式剧情行
+      // 若当前行是纯弹幕行 ooc，发射顶部飘过纯文字弹幕并自动推进到下一条正式剧情行
       let idx = Math.max(0, Math.min(chap.scriptLines.length - 1, appState.theaterLineIdx || 0));
       while (idx < chap.scriptLines.length - 1 && chap.scriptLines[idx].type === 'ooc') {
         spawnTheaterDanmaku(`${chap.scriptLines[idx].speaker}：${chap.scriptLines[idx].text}`);
@@ -14194,11 +14385,30 @@ ${numberedBatchPreview}`;
         spawnTheaterDanmaku(`${chap.scriptLines[idx + 1].speaker}：${chap.scriptLines[idx + 1].text}`);
       }
 
+      const activeEffect = inferNaturalLineEffect(line, idx);
+
       if (speakerEl) speakerEl.textContent = line.speaker || '旁白';
-      if (expEl) expEl.textContent = `${line.exp || '默认'}${line.bgmTag ? (' · BGM ' + line.bgmTag) : ''}`;
+      if (expEl) expEl.textContent = `${chap.title || ''} · ${line.exp || '默认'}${line.bgmTag ? (' · ' + line.bgmTag) : ''}`;
       if (progEl) progEl.textContent = `${idx + 1} / ${chap.scriptLines.length}`;
-      if (textEl) textEl.textContent = line.text || '';
+      startTheaterTypewriter(textEl, line.text || '');
       if (jpEl) jpEl.textContent = line.jpText || '';
+
+      // 0. 高级文游全屏黑幕缓慢浮现文字转场 与 全屏震动暗角灯效
+      if (stageRoot) {
+        stageRoot.classList.remove('fx-shake-screen');
+        if (activeEffect === 'shake_screen') {
+          void stageRoot.offsetWidth;
+          stageRoot.classList.add('fx-shake-screen');
+        }
+      }
+      if (blackoutLayer && blackoutText) {
+        if (activeEffect === 'blackout') {
+          blackoutText.textContent = line.text || '';
+          blackoutLayer.classList.add('active');
+        } else {
+          blackoutLayer.classList.remove('active');
+        }
+      }
 
       // 1. 跑团掷骰检定浮窗
       if (diceToast) {
@@ -14242,7 +14452,7 @@ ${numberedBatchPreview}`;
         }
       }
 
-      // 5. 渲染在场角色全身透明立绘（严格按真实身高heightCm+earHatCm比例缩放，脚底统一踩齐同一水平线）
+      // 5. 渲染在场角色全身透明立绘，并为当前说话角色叠加情绪抖动、靠近放大或欢快跳动特效
       if (tachieLayer) {
         tachieLayer.innerHTML = '';
         const presentNames = Array.isArray(line.presentSpeakers) && line.presentSpeakers.length > 0
@@ -14269,8 +14479,15 @@ ${numberedBatchPreview}`;
             || charObj.chibiImg;
           const croppedSprite = await getCroppedSpriteForHeightStage(rawSprite);
 
+          let fxClass = '';
+          if (isCurrentSpeaker) {
+            if (activeEffect === 'shake_char') fxClass = ' fx-shake-char';
+            else if (activeEffect === 'zoom_char') fxClass = ' fx-zoom-char';
+            else if (activeEffect === 'jump_char') fxClass = ' fx-jump-char';
+          }
+
           const actorDiv = document.createElement('div');
-          actorDiv.className = 'vn-stage-actor ' + (isCurrentSpeaker ? 'speaking' : 'dimmed');
+          actorDiv.className = 'vn-stage-actor ' + (isCurrentSpeaker ? 'speaking' : 'dimmed') + fxClass;
           actorDiv.innerHTML = `
             <img src="${croppedSprite}" alt="${charObj.name}" style="height:${actorHeightPx}px;" title="${charObj.name} · ${netCm}cm · ${expKey}" />
           `;
@@ -14309,13 +14526,38 @@ ${numberedBatchPreview}`;
     }
 
     function nextTheaterLine() {
+      const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
       if (!chap || !Array.isArray(chap.scriptLines) || chap.scriptLines.length === 0) return;
       if (appState.theaterLineIdx < chap.scriptLines.length - 1) {
         appState.theaterLineIdx += 1;
         renderTheaterCurrentLine();
       } else {
-        stopTheaterAutoAndSkip();
+        // 当前章节播放完毕后，自动无缝进入下一章继续播放
+        const totalChapters = Array.isArray(proj?.chapters) ? proj.chapters.length : 0;
+        const nextChapIdx = (appState.currentReplayChapterIdx || 0) + 1;
+        if (proj && nextChapIdx < totalChapters) {
+          appState.currentReplayChapterIdx = nextChapIdx;
+          appState.theaterLineIdx = 0;
+          renderReplayProjectSelectors();
+          renderTheaterSelectorLobby();
+          const nextChap = proj.chapters[nextChapIdx];
+          const blackoutLayer = document.getElementById('vn-theater-blackout-layer');
+          const blackoutText = document.getElementById('vn-theater-blackout-text');
+          if (blackoutLayer && blackoutText) {
+            blackoutText.textContent = `进入下一章 · ${nextChap?.title || ('第' + (nextChapIdx + 1) + '章')}`;
+            blackoutLayer.classList.add('active');
+            setTimeout(() => {
+              blackoutLayer.classList.remove('active');
+              renderTheaterCurrentLine();
+            }, 1500);
+          } else {
+            renderTheaterCurrentLine();
+          }
+        } else {
+          stopTheaterAutoAndSkip();
+          openTheaterSelectorLobby();
+        }
       }
     }
 
@@ -14340,7 +14582,10 @@ ${numberedBatchPreview}`;
       }
       const autoBtn = document.getElementById('theater-auto-btn');
       const skipBtn = document.getElementById('theater-skip-btn');
-      if (autoBtn) autoBtn.classList.remove('accent-sticker');
+      if (autoBtn) {
+        autoBtn.classList.remove('accent-sticker');
+        autoBtn.classList.remove('active-state');
+      }
       if (skipBtn) skipBtn.classList.remove('accent-sticker');
     }
 
@@ -14349,7 +14594,10 @@ ${numberedBatchPreview}`;
       if (appState.theaterAutoPlay) appState.theaterSkipPlay = false;
       const autoBtn = document.getElementById('theater-auto-btn');
       const skipBtn = document.getElementById('theater-skip-btn');
-      if (autoBtn) autoBtn.classList.toggle('accent-sticker', appState.theaterAutoPlay);
+      if (autoBtn) {
+        autoBtn.classList.toggle('accent-sticker', appState.theaterAutoPlay);
+        autoBtn.classList.toggle('active-state', appState.theaterAutoPlay);
+      }
       if (skipBtn) skipBtn.classList.remove('accent-sticker');
       if (appState.theaterAutoPlay) {
         nextTheaterLine();
@@ -14364,7 +14612,10 @@ ${numberedBatchPreview}`;
       const autoBtn = document.getElementById('theater-auto-btn');
       const skipBtn = document.getElementById('theater-skip-btn');
       if (skipBtn) skipBtn.classList.toggle('accent-sticker', appState.theaterSkipPlay);
-      if (autoBtn) autoBtn.classList.remove('accent-sticker');
+      if (autoBtn) {
+        autoBtn.classList.remove('accent-sticker');
+        autoBtn.classList.remove('active-state');
+      }
       if (appState.theaterSkipPlay) {
         nextTheaterLine();
       } else if (_theaterStepTimer) {
@@ -14375,7 +14626,10 @@ ${numberedBatchPreview}`;
     function toggleTheaterDanmaku() {
       appState.theaterShowDanmaku = !appState.theaterShowDanmaku;
       const btn = document.getElementById('theater-danmaku-btn');
-      if (btn) btn.classList.toggle('accent-sticker', appState.theaterShowDanmaku);
+      if (btn) {
+        btn.classList.toggle('accent-sticker', appState.theaterShowDanmaku);
+        btn.classList.toggle('active-state', appState.theaterShowDanmaku);
+      }
       const layer = document.getElementById('vn-theater-ooc-layer');
       if (layer && !appState.theaterShowDanmaku) layer.innerHTML = '';
     }
@@ -14537,7 +14791,135 @@ ${numberedBatchPreview}`;
       event.target.value = '';
     }
 
+    // ==================== 单人完整档案与二十五态立绘包导入导出 + 自定义字体URL与弹幕透明度 ====================
+    async function exportSingleCharacterPack(charId) {
+      const targetId = charId || appState.selectedPersonaId;
+      const c = appState.characters.find((x) => x.id === targetId) || appState.characters[0];
+      if (!c) return;
+      const pack = {
+        type: 'TRPG_CHARACTER_TACHIE_PACK_V1',
+        exportedAt: Date.now(),
+        character: c
+      };
+      const blob = new Blob([JSON.stringify(pack)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `角色立绘档案包_${c.name || '未命名角色'}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function importSingleCharacterPack(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          const charObj = data.character || (data.id && data.name ? data : null);
+          if (!charObj || !charObj.name) {
+            throw new Error('文件中未找到有效的角色档案与立绘数据');
+          }
+          if (!charObj.id) {
+            charObj.id = 'char_import_' + Date.now();
+          }
+          await db.characters.put(charObj);
+          appState.characters = await db.characters.toArray();
+          appState.selectedPersonaId = charObj.id;
+          appState.selectedTachieCharId = charObj.id;
+          populateCharacterSelects();
+          renderPersonaGrid();
+          selectPersonaForEdit(charObj.id);
+        } catch (err) {
+          alert('导入角色立绘包失败：' + err.message);
+        }
+      };
+      reader.readAsText(file, 'utf-8');
+      event.target.value = '';
+    }
+
+    function injectCustomFontStyle(fontUrl) {
+      let styleEl = document.getElementById('user-custom-font-style');
+      if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = 'user-custom-font-style';
+        document.head.appendChild(styleEl);
+      }
+      const cleanUrl = String(fontUrl || '').trim();
+      if (!cleanUrl) {
+        styleEl.textContent = '';
+        document.documentElement.style.removeProperty('--custom-user-font');
+        return;
+      }
+      styleEl.textContent = `
+        @font-face {
+          font-family: 'UserCustomGlobalFont';
+          src: url('${cleanUrl}');
+          font-display: swap;
+        }
+        :root {
+          --custom-user-font: 'UserCustomGlobalFont', -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+        body, button, input, select, textarea, .vn-dialogue-text, .vn-speaker-badge, .vn-ooc-item, .vn-blackout-text {
+          font-family: var(--custom-user-font) !important;
+        }
+      `;
+    }
+
+    function applyCustomFontUrl() {
+      const input = document.getElementById('custom-font-url-input');
+      const url = (input?.value || '').trim();
+      localStorage.setItem('user-custom-font-url', url);
+      injectCustomFontStyle(url);
+    }
+
+    function handleCustomFontFileUpload(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target.result;
+        const input = document.getElementById('custom-font-url-input');
+        if (input) input.value = dataUrl;
+        localStorage.setItem('user-custom-font-url', dataUrl);
+        injectCustomFontStyle(dataUrl);
+      };
+      reader.readAsDataURL(file);
+      event.target.value = '';
+    }
+
+    function clearCustomFontUrl() {
+      const input = document.getElementById('custom-font-url-input');
+      if (input) input.value = '';
+      localStorage.removeItem('user-custom-font-url');
+      injectCustomFontStyle('');
+    }
+
+    function onDanmakuOpacityChange(val) {
+      const num = Math.max(10, Math.min(100, Number(val) || 85));
+      localStorage.setItem('user-danmaku-opacity', String(num));
+      const lbl = document.getElementById('settings-danmaku-opacity-val');
+      if (lbl) lbl.textContent = String(num);
+      const slider = document.getElementById('settings-danmaku-opacity-slider');
+      if (slider && Number(slider.value) !== num) slider.value = String(num);
+      document.documentElement.style.setProperty('--danmaku-opacity', String((num / 100).toFixed(2)));
+    }
+
+    function initCustomFontAndDanmakuSettings() {
+      const savedFont = localStorage.getItem('user-custom-font-url') || '';
+      const fontInput = document.getElementById('custom-font-url-input');
+      if (fontInput) fontInput.value = savedFont;
+      if (savedFont) injectCustomFontStyle(savedFont);
+
+      const savedOpacity = localStorage.getItem('user-danmaku-opacity') || '85';
+      onDanmakuOpacityChange(savedOpacity);
+    }
+
     async function initReplayAndMusicData() {
+      initCustomFontAndDanmakuSettings();
       appState.bgmTracks = await db.bgmTracks.toArray();
       if (appState.bgmTracks.length === 0) {
         await seedDefaultBgmTracks();
