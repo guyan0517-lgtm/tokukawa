@@ -2000,18 +2000,33 @@
             </div>
           </div>
           <div style="font-size:11px;color:var(--text-secondary);margin-bottom:6px;line-height:1.5;">
-            按键说明：1. 点「上传」可导入txt日志，或直接把整篇日志粘贴到下方框内。 2. 点「分章」会调用AI通读全文，在剧情转折处自动插入 === 第1章：章节标题 === 分隔符切成多章，并自动提取本模组所有出场人物存入角色档案柜。 3. 如果你自己在下方文字里手动修改或移动了 === 第X章 === 分隔符的位置，点「按符」即可立即按照分隔符重新切好章节。
+            按键说明：1. 点「上传」可导入txt日志，或直接把整篇日志粘贴到下方框内。 2. 在下方选择「长文分卷」卷数后点「分章」，会按卷分批调用AI通读全文，在剧情转折处自动插入分卷分章分隔符，并由AI识别本模组所有真实出场人物存入角色档案柜，自动剔除逻各斯与logs等骰子发言。 3. 如果你自己在下方文字里手动修改或移动了分隔符的位置，点「按符」即可立即按照分隔符重新切好。
           </div>
           <div class="form-group" style="margin-bottom:6px;">
-            <textarea id="replay-raw-log-input" class="moe-input" style="min-height:175px;font-size:12px;" placeholder="在此一次性粘贴整篇跑团日志，支持几万字长文，或点击上方上传按钮导入txt文件..."></textarea>
+            <textarea id="replay-raw-log-input" class="moe-input" style="min-height:175px;font-size:12px;" placeholder="在此一次性粘贴整篇跑团日志，支持几十万至上百万字长文，或点击上方上传按钮导入txt文件..."></textarea>
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <div class="form-group" style="flex:1;min-width:180px;margin-bottom:0;">
-              <label>单章建议字数 AI会在该字数附近的自然剧情转折处插入章节分隔符</label>
-              <input type="number" id="replay-chapter-char-limit" class="moe-input" value="20000" min="1000" max="50000" />
+            <div class="form-group" style="width:136px;flex-shrink:0;margin-bottom:0;">
+              <label>长文分卷 分批调用AI</label>
+              <select id="replay-volume-count-select" class="moe-input">
+                <option value="1" selected>一卷 默认</option>
+                <option value="2">二卷</option>
+                <option value="3">三卷</option>
+                <option value="4">四卷</option>
+                <option value="5">五卷</option>
+                <option value="6">六卷</option>
+                <option value="7">七卷</option>
+                <option value="8">八卷</option>
+                <option value="9">九卷</option>
+                <option value="10">十卷</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:1;min-width:160px;margin-bottom:0;">
+              <label>单章建议字数 AI会在该字数附近的自然剧情转折处插入分隔符</label>
+              <input type="number" id="replay-chapter-char-limit" class="moe-input" value="20000" min="1000" max="100000" />
             </div>
             <div id="replay-split-status-bar" style="font-size:11px;color:var(--accent-color);font-weight:700;padding-top:14px;">
-              等待导入整篇日志并点击分章
+              等待导入整篇日志并选择卷数后点击分章
             </div>
           </div>
         </div>
@@ -2675,308 +2690,10 @@
       return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
     }
 
-    const INITIAL_TWELVE_OCS = [
-      {
-        id: 'wendy',
-        name: '温蒂',
-        region: 'nl_bar',
-        role: '永无乡天空神',
-        body: '修长匀称，金发微卷，常披散漫神袍',
-        quirk: '语调懒散轻快，喜欢提酒钱与银币',
-        voiceId: 'male-qn-qingse',
-        surface: '永无乡功德碑榜首的天空神，常年混迹于天堂之门酒吧喝酒，私下收受人界银币帮人办事抵酒钱，看起来散漫好说话。',
-        secret: '原名克劳狄，曾为人类，与莫狄默合力摧毁邪教成神仪式拯救世界，却被世人认为任何荣誉都配不上他而将其杀死供奉，意外升格为神。知晓三界分裂、黑白双子森林神陨落与创世纪被篡改的全部远古真相。',
-        cot: '表面插科打诨算计银币与酒水，实则看透世人荒诞与主神集权忌惮，绝不在无关者面前主动提起克劳狄旧名与森林神历史。',
-        quotes: '功德碑掉就掉吧，能换几枚人界银币结清兰德里柯的酒账才算实在。',
-        chapters: '第一章 功德碑的裂缝；第二章 禁书残页上的败绩谎言；第三章 旧日人类克劳狄的冠冕。',
-        naiTags: '1boy, mature male, adult man, blonde wavy hair, golden eyes, narrow eyes, slender eyes, white divine tunic, gold trim, leather boots',
-        isFriend: true
-      },
-      {
-        id: 'mortimer',
-        name: '莫狄默',
-        region: 'nl_sea',
-        role: '永无乡海神',
-        body: '高挑冷峻，水蓝长发，人鱼神格特征',
-        quirk: '言辞冷淡克制，对温蒂的散漫常出言讥讽',
-        voiceId: 'male-qn-jingying',
-        surface: '管辖倒悬之海的海神，居于水蓝色珍珠珊瑚寝宫，被阿尔塔与既白广泛信仰，威严冷肃。',
-        secret: '出身远古企图成神的人类邪教，曾是完美人鱼与祭品核心；克劳狄揭露真相后与其合力毁掉仪式并屠尽背叛教派，力竭后被主神收为海神。与温蒂共同知晓三神陨落与创世纪禁书原貌。',
-        cot: '厌恶盲目狂热的信徒与虚假美化，对温蒂有生死共战的默契但嘴上从不饶人。',
-        quotes: '皇族图书馆里那本把你写成温和有礼还屡战屡败的破书，我看着都替你脸红。',
-        chapters: '第一章 倒悬之海的潮汐；第二章 完美祭品的叛逃；第三章 迷雾森林深处的旧友墓碑。',
-        naiTags: '1boy, mature male, adult man, aqua long hair, ocean blue eyes, narrow eyes, slender eyes, pearl ornament, sea god robes, leather boots',
-        isFriend: true
-      },
-      {
-        id: 'xilai',
-        name: '西莱',
-        region: 'sz_palace',
-        role: '三途川冥王',
-        body: '华贵颀长，苍白肤色，金黑礼服',
-        quirk: '温和优雅中透出漫不经心的压迫感',
-        voiceId: 'male-qn-badao',
-        surface: '统治三途川的冥王，居住在春暖花开却冷清的西欧金殿中，喜爱与生灵做交易，在安特拉彼岸铃花海有许多倾慕他的梦女。',
-        secret: '本质是人界怨念聚合体，在远古双子森林神堕落陨落、冥界裂缝失守时闯入冥界完成统治并顺势归降天界；生前与他交易的灵魂死后都会化作无意识的藏品。',
-        cot: '以优雅商人的姿态审视灵魂价值，享受交易过程，从不强迫却令人甘愿献出灵魂。',
-        quotes: '彼岸铃摇响的时候，你听见的是风声，还是我许诺给你的来世？',
-        chapters: '第一章 彼岸铃的回音；第二章 春暖金殿的藏品契约；第三章 怨念聚合之王的假面。',
-        naiTags: '1boy, mature male, adult man, dark hair, crimson eyes, narrow eyes, slender eyes, gothic noble suit, gold trim, pale skin, leather boots',
-        isFriend: false
-      },
-      {
-        id: 'parish',
-        name: '帕里什',
-        region: 'sz_gallery',
-        role: '三途川执政官',
-        body: '挺拔修长，戴单边眼镜，执政官礼服',
-        quirk: '条理分明，账目与灵魂年限从不出错',
-        voiceId: 'male-qn-jingying',
-        surface: '协助冥王西莱打理三途川政务与亡魂三至十年缓冲期秩序的管理者，同时负责照看无意识的灵魂藏品。',
-        secret: '与西莱一同经手契约灵魂的筛选，清楚每一件藏品生前的执念与代价。',
-        cot: '秩序高于一切，只要符合冥界契约章程便可放行去既白茶馆。',
-        quotes: '你的缓冲期还剩四年零三个月，今夜鬼气重，可以去既白的雨瘾者二楼坐坐。',
-        chapters: '第一章 亡魂名册；第二章 藏品长廊的微光；第三章 越界契约。',
-        naiTags: '1boy, mature male, adult man, silver hair, monocle, narrow eyes, slender eyes, formal archon suit, white gloves, leather boots',
-        isFriend: false
-      },
-      {
-        id: 'landrico',
-        name: '兰德里柯',
-        region: 'nl_bar',
-        role: '天堂之门酒吧老板',
-        body: '宽肩长腿，侍酒师马甲与卷袖衬衫',
-        quirk: '随和健谈，对每位客人的口味了如指掌',
-        voiceId: 'male-qn-qingse',
-        surface: '永无乡天堂之门 omakase 酒吧的店主，一楼调酒待客，二楼是他的私人居所，常年帮温蒂记着庞大的酒水账单。',
-        secret: '酒吧是高等神明私下用人界银币委托办事的情报交汇处，他看似置身事外却掌握着神界最多的私密动向。',
-        cot: '今朝有酒今朝醉，客人的秘密只留在酒杯里，但温蒂的酒钱必须用银币结。',
-        quotes: '今晚是主厨特调，至于二楼，只有熟客才准上去歇脚。',
-        chapters: '第一章 天堂之门的微醺夜；第二章 银币账本；第三章 二楼露台的星光。',
-        naiTags: '1boy, mature male, adult man, narrow eyes, slender eyes, bartender vest, rolled sleeves shirt, tailored trousers, leather boots',
-        isFriend: true
-      },
-      {
-        id: 'doris',
-        name: '桃瑞丝',
-        region: 'at_statue',
-        role: '安特拉精灵女巫',
-        body: '娇小灵动，尖耳，复古女巫裙装',
-        quirk: '古灵精怪，喜欢假装自己只是普通路人旁观游客对着雕像许愿',
-        voiceId: 'female-shaonv',
-        surface: '漫步在安特拉复古魔法妖精小镇的神秘少女，熟悉彼岸铃花海的每一条小径。',
-        secret: '安特拉小镇中心那座被众人瞻仰的精灵女巫雕像其实就是桃瑞丝本人，她活过了漫长岁月却隐匿在人群里看热闹。',
-        cot: '觉得后世给自己编造的传说既好笑又有趣，警惕有人滥采彼岸铃花蜜制作致幻剂。',
-        quotes: '噗，那座雕像的鼻子明明比我本人捏高了一点点嘛！',
-        chapters: '第一章 雕像下的本尊；第二章 彼岸铃花蜜失窃案；第三章 妖精森林的古老魔法。',
-        naiTags: '1girl, elf pointy ears, witch hat, vintage magical dress, lace collar, leather boots',
-        isFriend: true
-      },
-      {
-        id: 'branwen',
-        name: '布兰温',
-        region: 'alta_pet',
-        role: '第十三眼宠物店老板',
-        body: '男，二十五岁，黑长发披肩，苍白清瘦',
-        quirk: '说话轻柔缓慢，抚摸动物时眼神极度专注',
-        voiceId: 'male-qn-qingse',
-        surface: '阿尔塔宠物店第十三眼的年轻老板，在一楼售卖各种温顺可爱的毛茸茸奇美拉与宠物。',
-        secret: '宠物店地下室里陈列着许多由他亲手制作的白化动物标本，那些标本的玻璃眼珠似乎永远在暗处死死盯着来访者。',
-        cot: '真心喜爱毛茸茸的生命，同时对纯白无瑕的永恒形态有着近乎偏执的收藏欲。',
-        quotes: '一楼的小家伙们都很乖，不过地下室太冷了，客人还是不要随便下去比较好。',
-        chapters: '第一章 毛茸茸的午后；第二章 地下室门锁的轻响；第三章 第十三只白化标本之眼。',
-        naiTags: '1boy, mature male, adult man, long black hair, pale skin, narrow eyes, slender eyes, vintage shirt, dark apron, leather boots',
-        isFriend: true
-      },
-      {
-        id: 'sephira',
-        name: '塞菲拉',
-        region: 'alta_kilig',
-        role: 'Kilig酒吧少女老板',
-        body: '纤细柔美，带有绚丽的蓝闪蝶奇美拉羽翼特征',
-        quirk: '尾音轻扬，递酒时会眨眼提醒每周限购规矩',
-        voiceId: 'female-shaonv',
-        surface: '阿尔塔会员制酒吧 Kilig 的少女老板，蓝闪蝶奇美拉，招牌特调 Paracosm 每人每周限购一杯。',
-        secret: '极少数客人喝完她调制的 Paracosm 后会反馈看见太奶一边笑一边乱爬等轻微致幻景象，配方中似乎含有微量稀释的彼岸铃风味。',
-        cot: '严格执行会员制与每周一杯限购，既保护酒客神智也维持 Kilig 的神秘招牌。',
-        quotes: '这杯 Paracosm 今晚喝完就要等下周咯，要是看见太奶在天花板上笑，记得深呼吸。',
-        chapters: '第一章 蓝闪蝶的微光酒馆；第二章 每周一杯的幻梦；第三章 阿尔塔夜色下的奇美拉。',
-        naiTags: '1girl, blue morpho butterfly wings, elegant bartender dress, silver ribbon, leather boots',
-        isFriend: true
-      },
-      {
-        id: 'wein',
-        name: '维因',
-        region: 'jb_tea1',
-        role: '雨瘾者茶馆锦鲤老板',
-        body: '温润修长，锦鲤奇美拉，古风窄袖茶服',
-        quirk: '慢条斯理，算账全凭客人自觉从不催促',
-        voiceId: 'male-qn-qingse',
-        surface: '东方大陆既白沿海茶馆雨瘾者的老板，锦鲤奇美拉，茶馆收账全凭自觉，一楼接待往来生灵与修仙者。',
-        secret: '雨瘾者茶馆二楼平时严禁生人入内，每逢鬼气深重的日子，二楼便会开启通道专门接待从三途川缓冲期跨界而来的亡魂。',
-        cot: '看淡生死与钱财，一壶热茶既渡人间客也慰三途魂。',
-        quotes: '茶钱放竹篓里便好，今夜外头雨大鬼气重，二楼的木梯还请止步。',
-        chapters: '第一章 听雨煮茶；第二章 二楼的亡魂茶客；第三章 飞升永无乡的扫地真相。',
-        naiTags: '1boy, mature male, adult man, narrow eyes, slender eyes, koi fish ears and tail, oriental narrow-sleeve hanfu, jade pendant, cloth boots',
-        isFriend: true
-      },
-      {
-        id: 'anox',
-        name: '阿诺克斯',
-        region: 'alta_court',
-        role: '阿尔塔最高审判长',
-        body: '威严挺拔，佩审判长绶带与怀表',
-        quirk: '言简意赅，绝对一言堂，看怀表极其准时',
-        voiceId: 'male-qn-badao',
-        surface: '阿尔塔最高法院审判庭的审判长，实行绝对的一言堂，但审判效率与正确率冠绝全国；上班时间严格锁定在九点至十六点，到点立刻关门绝不受理。',
-        secret: '在贵族热衷建满三千八百座教堂、教会与皇室暗流涌动的阿尔塔，他用最冷酷的准点下班与铁腕裁决隔绝了一切贵族贿赂与派系拉拢。',
-        cot: '九点到十六点之间我是绝对公正的法度，十六点零一秒之后哪怕天塌下来也请明天九点再来排队。',
-        quotes: '驳回上诉，本案宣判完毕。另外现在是十五点五十九分，请诸位在一分钟内离开审判庭。',
-        chapters: '第一章 十六点的闭门羹；第二章 零误判的一言堂；第三章 贵族教堂背后的黑金案。',
-        naiTags: '1boy, mature male, adult man, narrow eyes, slender eyes, Victorian judge robe, sash, pocket watch chain on chest, leather boots',
-        isFriend: false
-      },
-      {
-        id: 'garfina',
-        name: '迦尔斐那',
-        region: 'alta_church',
-        role: '静默回廊大教堂神父',
-        body: '二十余岁，纯白长发及腰，清冷紫眸，素白神父长袍',
-        quirk: '声音如落雪般平稳轻柔，毫无情绪起伏',
-        voiceId: 'male-qn-jingying',
-        surface: '阿尔塔大教堂静默回廊的年轻神父，纯白外墙常年覆着薄霜，他会平稳宽恕一切前来告解之人的忏悔。',
-        secret: '他的紫眸深处毫无悲喜，宽恕众生并非出于慈悲，而是因为在他眼中凡人的罪孽与祈祷同样轻若微尘；似乎与禁书创世纪隐去的抄录者有着千丝万缕的联系。',
-        cot: '聆听、宽恕、送客，内心如覆霜回廊般寂静无波。',
-        quotes: '神已听见你的忏悔，你的罪得赦免了，愿薄霜替你拭去躁动。',
-        chapters: '第一章 覆霜的告解室；第二章 紫眸中的无悲无喜；第三章 皇族禁书区的四字涂黑署名。',
-        naiTags: '1boy, mature male, adult man, waist-length white hair, purple eyes, narrow eyes, slender eyes, white priest cassock robe, silver cross ornament, white leather boots',
-        isFriend: true
-      },
-      {
-        id: 'cynthia',
-        name: '辛西娅',
-        region: 'alta_mint',
-        role: '薄荷匣占卜屋少年店主',
-        body: '外表十六岁少年，浅蓝猫耳发髻，佩戴哭哭眼镜',
-        quirk: '容易脸红紧张，看见珍奇巧克力眼睛会发亮，护宝心切',
-        voiceId: 'male-qn-qingse',
-        surface: '阿尔塔薄荷绿与奶油巧克力棕外墙的占卜屋薄荷匣店主，外表十六岁，梳着浅蓝猫耳发髻戴着哭哭眼镜，占卜收金币或珍奇巧克力。',
-        secret: '店内摆设严禁客人触碰，尤其是桌上那支看似普通的羽毛笔实则价值连城、蕴含因果律魔力；他年纪虽小却能窥见命运丝线。',
-        cot: '只要给好吃的巧克力就认真帮人占卜，但谁要是敢碰桌上的羽毛笔就立刻急得掉眼泪赶人。',
-        quotes: '占卜费是一百金币或者一盒没见过的夹心巧克力，还、还有千万别碰那支羽毛笔！',
-        chapters: '第一章 薄荷与巧克力的香气；第二章 哭哭眼镜下的命运星盘；第三章 价值连城的羽毛笔来历。',
-        naiTags: '1boy, 16 years old, light blue hair in cat ear buns, under-rim glasses, mint green and chocolate brown fortune teller outfit, capelet, leather boots',
-        isFriend: true
-      }
-    ];
-
-    const EXTRA_FOUR_OCS = [
-      {
-        id: 'ouluolius',
-        name: '欧洛琉斯',
-        region: 'gg_fog',
-        role: '远古黑欧森林神',
-        body: '高大孤傲，黑发暗金瞳，残破古神披风',
-        quirk: '低沉寡言，自带迷雾与古木气息',
-        voiceId: 'male-qn-badao',
-        surface: '徘徊在金吉布莱德曼恩迷雾森林深处的神秘黑影，世人皆不知其名讳。',
-        secret: '古时与白欧并称双子森林神，任职冥界守门者，因独闯冥界而堕落，被主神抹去一切存在痕迹。',
-        cot: '守护白欧长眠的迷雾森林禁地，对天界充满冷眼讥诮。',
-        quotes: '创世纪把我们的名字涂得干干净净，可这片迷雾还记得。',
-        chapters: '第一章 冥界裂缝的独行者；第二章 无名禁地；第三章 双子残响。',
-        naiTags: '1boy, mature male, adult man, black hair, golden eyes, narrow eyes, slender eyes, dark ancient cloak, forest god attire, leather boots',
-        isFriend: false
-      },
-      {
-        id: 'ouluosi',
-        name: '欧洛斯',
-        region: 'gg_fog',
-        role: '远古白欧森林神',
-        body: '清隽修长，银白长发，翡翠瞳，藤蔓缠绕',
-        quirk: '温声细语中偶尔夹杂昔日崩坏时的恍惚',
-        voiceId: 'male-qn-jingying',
-        surface: '沉眠于永恒迷雾森林核心祭坛的纯白残魂。',
-        secret: '双子森林神中的白欧，裂缝初现时主动镇守冥界大门，终受侵蚀精神崩坏，被莫狄默与克劳狄联手击败后安葬于迷雾森林。',
-        cot: '眷恋世间森林与兄长黑欧，不愿再引发三界动荡。',
-        quotes: '克劳狄，当年那一剑很痛，但也终于让我清醒过来了。',
-        chapters: '第一章 守门者的挽歌；第二章 白骨生花；第三章 尘封的三神时代。',
-        naiTags: '1boy, mature male, adult man, silver white hair, emerald green eyes, narrow eyes, slender eyes, white ancient robe, vine ornaments, leather boots',
-        isFriend: false
-      },
-      {
-        id: 'gwen',
-        name: '格温',
-        region: 'sz_palace',
-        role: '三途川亡魂引路人',
-        body: '纤细挺拔，双子哥特礼装',
-        quirk: '语调轻快礼貌，喜欢与格伊一唱一和',
-        voiceId: 'female-shaonv',
-        surface: '三途川的引路人之一，负责接引人界困顿或跨入缓冲期的亡魂前往冥殿。',
-        secret: '熟知人界与冥界每一条隐秘裂缝通道。',
-        cot: '认真完成引路职责，偶尔八卦冥王西莱与帕里什的藏品日常。',
-        quotes: '跟紧这盏灯，掉队的话可是会被当成无主藏品收起来的哟。',
-        chapters: '第一章 提灯引魂；第二章 双子引路人；第三章 缓冲期茶会。',
-        naiTags: '1girl, twin gothic dress, frilled collar, lantern ornament on waist, leather boots',
-        isFriend: false
-      },
-      {
-        id: 'guy',
-        name: '格伊',
-        region: 'sz_palace',
-        role: '三途川亡魂引路人',
-        body: '清瘦干练，佩冥界怀表与钥匙串',
-        quirk: '安静沉稳，专门替格温补齐漏掉的规矩说明',
-        voiceId: 'male-qn-qingse',
-        surface: '三途川的引路人之一，与格温搭档管理亡魂登记与跨界通行。',
-        secret: '暗中记录着所有通过彼岸铃偷听冥界声音的安特拉名单。',
-        cot: '严谨护短，确保三途川与既白茶馆二楼之间的往返秩序。',
-        quotes: '格温少说了一句，去既白喝茶必须在日出前返回三途川。',
-        chapters: '第一章 钥匙与怀表；第二章 彼岸铃窃听者；第三章 冥河渡口。',
-        naiTags: '1boy, mature male, adult man, narrow eyes, slender eyes, twin gothic vest, key ring on belt, pocket watch chain, leather boots',
-        isFriend: false
-      }
-    ];
-
-    const INITIAL_WORLDBOOK = [
-      {
-        id: 'wb_myth',
-        category: '神话背景 仅温蒂莫狄默知晓',
-        title: '三界分裂与成神真相',
-        content: '远古时冥界吞噬人界，主神分裂神人冥三界互不干涉，代价是人类永不得成神，死后灵魂困于人间。后世邪教企图成神误开冥界，完美人鱼祭品莫狄默与人类时期的克劳狄即温蒂合力摧毁仪式。莫狄默背叛教派力竭后被收为海神；克劳狄救世却被世人杀死供奉而升格为天空神。此历史对其他角色属认知盲区。'
-      },
-      {
-        id: 'wb_twins',
-        category: '尘封历史 认知局限禁区',
-        title: '双子森林神与六神拆分',
-        content: '黑欧欧洛琉斯与白欧欧洛斯曾为森林神任职冥界守门者，与莫狄默、克劳狄并称三神。冥界裂缝初现时白欧镇守、黑欧独闯冥界堕落；白欧精神崩坏后被莫狄默与克劳狄联手击败葬于迷雾森林。主神为防集权拆分神格为六神，冥界由怨念聚合体西莱统治并归降天界，森林神历史被主神下令彻底尘封。'
-      },
-      {
-        id: 'wb_genesis',
-        category: '禁书文献',
-        title: '创世纪原书与皇族图书馆残页',
-        content: '记载远古真相的禁书原书藏于金吉布莱德曼恩迷雾森林深处。阿尔塔皇族图书馆禁书区藏有抄录本残页，抄录者署名被涂黑为四个方块，受主神缄口令因果扭曲，黑欧白欧内容全部消失，且将克劳狄美化为温和有礼、常与海神切磋且败绩累累，与事实完全不符。'
-      },
-      {
-        id: 'wb_currency',
-        category: '经济与科技',
-        title: '三界货币与维多利亚现代混搭',
-        content: '建筑为维多利亚复古风与东方古风，但手机、电脑、偶像行业与社交软件高度现代化。人界通用金币；永无乡通用功德，中央功德碑温蒂靠吃远古老本居榜首但数字不断下降，传闻归零会爆炸；温蒂私下收人界银币办事抵酒钱，使银币成为高等神明间特殊硬通货。'
-      },
-      {
-        id: 'wb_regions',
-        category: '八大版图',
-        title: '八大区域风貌与奇美拉',
-        content: '阿尔塔为女权体制人类王都，全国三千八百多座教堂，排斥乌鸦奇美拉；耶罗德圣骑士团与国王争权；永无乡为纯白希腊神殿；三途川为春暖花开却冷清的西欧金殿；安特拉长满可接通冥界的彼岸铃；诺比特兔子部落存在垂耳兔歧视链；既白修仙者飞升永无乡实为全年无休扫地职员。'
-      }
-    ];
-
-    const INITIAL_RELATIONS = [
-      { charA: '温蒂', charB: '莫狄默', desc: '远古并肩摧毁邪教的生死损友，共同保守创世纪与三神陨落秘密', favor: 92, locked: true },
-      { charA: '温蒂', charB: '兰德里柯', desc: '天堂之门酒吧常客与老板，欠下巨额酒账用银币抵扣', favor: 85, locked: false },
-      { charA: '西莱', charB: '帕里什', desc: '三途川冥王与首席执政官，共同打理亡魂契约与藏品', favor: 88, locked: true },
-      { charA: '塞菲拉', charB: '辛西娅', desc: '阿尔塔邻街店主，常拿特调换薄荷匣的巧克力点心', favor: 78, locked: false },
-      { charA: '维因', charB: '帕里什', desc: '雨瘾者茶馆二楼与三途川亡魂缓冲期跨界茶会合作方', favor: 74, locked: false }
-    ];
+    const INITIAL_TWELVE_OCS = [];
+    const EXTRA_FOUR_OCS = [];
+    const INITIAL_WORLDBOOK = [];
+    const INITIAL_RELATIONS = [];
 
     const INITIAL_FOODS = [
       { id: 'food_paracosm', name: 'Paracosm特调', desc: 'Kilig每周限购一杯', img: makeFoodSvgDataUrl('Paracosm', '#60a5fa') },
@@ -10445,22 +10162,6 @@ ZH: 修改后的纯客观中文服装配饰清单`
     }
 
     async function importExtraWorldChars() {
-      const colors = ['#4b5563', '#9ca3af', '#8b5cf6', '#6366f1'];
-      for (let i = 0; i < EXTRA_FOUR_OCS.length; i++) {
-        const raw = EXTRA_FOUR_OCS[i];
-        if (!appState.characters.some((c) => c.id === raw.id)) {
-          const avatar = makeSvgAvatarDataUrl(raw.name, colors[i % colors.length], '#27272a', '#d97706');
-          const full = {
-            ...raw,
-            heightCm: DEFAULT_HEIGHT_MAP[raw.id] || 178,
-            chibiImg: avatar,
-            tachieBase: avatar,
-            tachieExpressions: { '默认': avatar }
-          };
-          appState.characters.push(full);
-          await db.characters.put(full);
-        }
-      }
       renderPersonaGrid();
       populateCharacterSelects();
       renderHeightStage();
@@ -12438,6 +12139,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
       const limitEl = document.getElementById('replay-chapter-char-limit');
       const statusEl = document.getElementById('replay-split-status-bar');
       const btn = document.getElementById('replay-ai-split-btn');
+      const volSelectEl = document.getElementById('replay-volume-count-select');
 
       const rawText = cleanTrpgLogText(inputEl?.value || '');
       if (!rawText) {
@@ -12445,142 +12147,305 @@ ${BUILTIN_CSS_TEMPLATE}`;
         return;
       }
 
-      const targetChars = Math.max(1000, Math.min(50000, parseInt(limitEl?.value || '20000', 10) || 20000));
+      const volCount = Math.max(1, Math.min(10, parseInt(volSelectEl?.value || '1', 10) || 1));
+      const targetChars = Math.max(1000, Math.min(100000, parseInt(limitEl?.value || '20000', 10) || 20000));
       if (btn) { btn.textContent = '分章中'; btn.disabled = true; }
       if (statusEl) {
-        statusEl.textContent = `正在调用AI通读全文 ${rawText.length} 字，识别出场人物档案并在剧情节点插入章节分隔符...`;
+        statusEl.textContent = `正在按 ${volCount} 卷分批调用AI读取全文 ${rawText.length} 字，提取真实角色并插入分卷分章符...`;
       }
 
       try {
-        // 先移除旧分隔符，准备重新规划章节分隔符
         const pureLog = rawText.replace(/^===\s*第.+?===\s*\n?/gm, '').trim();
-        await extractSpeakersFromReplayLog(pureLog);
+        const allLines = pureLog.split('\n');
+        const totalLines = allLines.length;
+        const linesPerVol = Math.max(1, Math.ceil(totalLines / volCount));
 
         const proj = getCurrentReplayProject();
-        const rawSpeakerNames = (proj?.extractedSpeakers || []).map((s) => `${s.rawName || s.name} 发言${s.count}次`).join('、');
+        const aiVerifiedSpeakersMap = new Map();
+        aiVerifiedSpeakersMap.set('旁白', { rawName: '旁白', name: '旁白', trueName: '旁白', count: 1, trpgType: '旁白' });
 
-        // 为超长日志构建均匀分段采样摘要，供AI判断每个两三万字切章处的章节标题与人物真名映射
-        const candidateSplits = [];
-        const lines = pureLog.split('\n');
-        let accLen = 0;
-        let currentStartLine = 0;
+        // 先扫描全文真实的聊天消息头候选与每个账号的代表性发言样本，绝不截取正文冒号
+        const globalHeaderStats = collectLogHeaderCandidates(pureLog);
 
-        for (let i = 0; i < lines.length; i++) {
-          accLen += lines[i].length + 1;
-          const isHeaderLine = /^【[^】]+】|^<[^>]+>|^[^\s:：\[\]【】]{1,15}[:：]/.test(lines[i].trim());
-          if (accLen >= targetChars && isHeaderLine && (lines.length - i) > 15) {
-            const sampleSnippet = lines.slice(Math.max(currentStartLine, i - 6), Math.min(lines.length, i + 10)).join('\n').slice(0, 500);
-            candidateSplits.push({
-              splitLineIdx: i,
-              charOffset: accLen,
-              snippet: sampleSnippet
-            });
-            currentStartLine = i;
-            accLen = 0;
+        const finalOutputLines = [];
+        let globalChapterIndex = 0;
+
+        for (let v = 0; v < volCount; v++) {
+          const volNum = v + 1;
+          const startIdx = v * linesPerVol;
+          const endIdx = v === volCount - 1 ? totalLines : Math.min(totalLines, (v + 1) * linesPerVol);
+          if (startIdx >= totalLines) break;
+
+          const volLines = allLines.slice(startIdx, endIdx);
+          const volText = volLines.join('\n');
+
+          if (statusEl) {
+            statusEl.textContent = `正在调用AI读取第 ${volNum} / ${volCount} 卷，提取本卷出场人物并规划分卷分章分隔符...`;
           }
-        }
 
-        const totalChaptersCount = candidateSplits.length + 1;
-        const headSample = pureLog.slice(0, 1800);
-        const splitSamplesText = candidateSplits.map((c, idx) => `切分点${idx + 1} 约第${c.charOffset}字处上下文：\n${c.snippet}`).join('\n---\n');
+          // 统计本卷内的发言头候选与发言内容样本，供AI分辨谁是骰子logs、谁是调查员、谁是NPC、谁是场外
+          const volHeaderStats = collectLogHeaderCandidates(volText);
+          const speakerSummaryForAi = Array.from(volHeaderStats.values())
+            .slice(0, 80)
+            .map((h) => `账号名「${h.rawName}」发言${h.count}次，代表发言样本：${h.samples.join(' / ')}`)
+            .join('\n');
 
-        const sysPrompt = `你是专业跑团Replay档案管理员与分章编辑。请根据跑团日志的开头采样、切分点上下文与发言人列表，完成以下两件事：
-第一件事：提取本模组出场人物档案 CHAR_MAP。将日志里的群昵称映射为跑团角色真名，并判断其定位是 调查员、NPC、旁白 还是 场外。注意：只输出名字和定位，绝对禁止编造或提取角色外貌，绝对禁止总结角色性格！
-第二件事：为全文共 ${totalChaptersCount} 个章节拟定贴合跑团剧情的简短章节标题 CHAP_TITLE。
+          // 在本卷内按单章建议字数寻找自然发言头切分点
+          const volCandidateSplits = [];
+          let accLen = 0;
+          let curStartLine = 0;
+          for (let i = 0; i < volLines.length; i++) {
+            accLen += volLines[i].length + 1;
+            const isHeaderLine = isStrictTrpgChatHeaderLine(volLines[i].trim());
+            if (accLen >= targetChars && isHeaderLine && (volLines.length - i) > 15) {
+              const snippet = volLines.slice(Math.max(curStartLine, i - 5), Math.min(volLines.length, i + 10)).join('\n').slice(0, 600);
+              volCandidateSplits.push({
+                localLineIdx: i,
+                charOffset: accLen,
+                snippet
+              });
+              curStartLine = i;
+              accLen = 0;
+            }
+          }
 
-从头到尾严禁使用任何圆括号或方括号，严格按以下行格式输出：
-CHAR_MAP: 日志原昵称|角色真名|定位如调查员或NPC或旁白或场外
-CHAP_TITLE: 章节序号数字如1|章节标题`;
+          const volChapCount = volCandidateSplits.length + 1;
+          // 从本卷开头、中段、后段均匀采样对话文本供AI识别文中出场的NPC与调查员真名
+          const volLen = volText.length;
+          const sampleA = volText.slice(0, 3500);
+          const sampleB = volLen > 8000 ? volText.slice(Math.floor(volLen * 0.45), Math.floor(volLen * 0.45) + 3000) : '';
+          const sampleC = volLen > 16000 ? volText.slice(Math.max(0, volLen - 3000)) : '';
+          const splitSamplesText = volCandidateSplits
+            .map((c, idx) => `本卷切分点${idx + 1}上下文：\n${c.snippet}`)
+            .join('\n---\n');
 
-        const userPrompt = `发言人统计：${rawSpeakerNames}
-日志开头片段：
-${headSample}
+          const sysPrompt = `你是专业跑团Replay档案管理员与分卷分章编辑。现在正在处理第 ${volNum} 卷，共 ${volCount} 卷。请仔细阅读本卷的发言账号及代表发言样本、本卷文本片段与章节切分点，完成以下两件事：
 
-${splitSamplesText ? '各章节切分点上下文：\n' + splitSamplesText : '全文共1章。'}`;
+第一件事：准确识别本卷所有出场人物 CHAR_MAP。
+1. 请根据发言样本和正文内容，判断每个账号的真实身份，并将群昵称映射为跑团角色真名。如果正文里出现了有台词的模组NPC，也请提取出来。
+2. 身份分类只能填写以下五种之一：调查员、NPC、旁白、场外、骰子。
+3. 铁律：像 logs、逻各斯、dice、bot 以及任何专门播报掷骰点数、检定结果、上传记录的机器人账号，必须标记为 骰子！任何时间数字、检定结果词如大成功、括号内的半截话、行动顺序等绝不是人物，必须标记为 骰子 或直接忽略，严禁当成调查员或场外人！
+4. 只输出名字和分类，禁止编造外貌，禁止总结性格。
 
-        const chapterTitlesMap = new Map();
-        try {
-          const aiReply = await callLlmCompletion(
-            [
-              { role: 'system', content: sysPrompt },
-              { role: 'user', content: userPrompt }
-            ],
-            null,
-            { caller: '跑团全文AI分章与人物档案提取', preferSubApi: true }
-          );
+第二件事：为本卷共 ${volChapCount} 个章节拟定贴合跑团剧情的简短章节标题 CHAP_TITLE。
 
-          if (aiReply && proj) {
-            aiReply.split('\n').forEach((rawLine) => {
-              const l = rawLine.trim();
-              if (l.startsWith('CHAR_MAP:')) {
-                const parts = l.replace(/^CHAR_MAP:\s*/i, '').split('|').map((s) => s.trim());
-                if (parts.length >= 3) {
-                  const found = (proj.extractedSpeakers || []).find((s) => (s.rawName || s.name) === parts[0] || s.name === parts[0]);
-                  if (found) {
-                    found.trueName = parts[1] || found.name;
-                    found.name = found.trueName;
-                    if (['调查员', 'NPC', '旁白', '场外'].includes(parts[2])) {
-                      found.trpgType = parts[2];
+从头到尾严禁使用任何括号，严格按以下行格式输出：
+CHAR_MAP: 原账号名或NPC名|跑团角色真名|调查员或NPC或旁白或场外或骰子
+CHAP_TITLE: 本卷内章节序号数字如1|章节标题`;
+
+          const userPrompt = `第 ${volNum} 卷发言账号及发言样本：
+${speakerSummaryForAi || '无固定账号头，请直接从正文中识别对话角色'}
+
+第 ${volNum} 卷前段文本采样：
+${sampleA}
+
+${sampleB ? '第 ' + volNum + ' 卷中段文本采样：\n' + sampleB + '\n' : ''}
+${sampleC ? '第 ' + volNum + ' 卷后段文本采样：\n' + sampleC + '\n' : ''}
+${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + splitSamplesText : '本卷共1章。'}`;
+
+          const volChapTitlesMap = new Map();
+          try {
+            const aiReply = await callLlmCompletion(
+              [
+                { role: 'system', content: sysPrompt },
+                { role: 'user', content: userPrompt }
+              ],
+              null,
+              { caller: `跑团日志第${volNum}卷AI人物提取与分章`, preferSubApi: true }
+            );
+
+            if (aiReply) {
+              aiReply.split('\n').forEach((rawLine) => {
+                const l = rawLine.trim();
+                if (l.startsWith('CHAR_MAP:')) {
+                  const parts = l.replace(/^CHAR_MAP:\s*/i, '').split('|').map((s) => s.trim());
+                  if (parts.length >= 3) {
+                    const rawKey = normalizeSpeakerName(parts[0]);
+                    const trueName = normalizeSpeakerName(parts[1] || parts[0]);
+                    const roleType = parts[2];
+                    if (roleType === '骰子' || roleType === '忽略' || isFakeOrDiceSpeakerName(rawKey) || isFakeOrDiceSpeakerName(trueName)) {
+                      globalHeaderStats.delete(rawKey);
+                      return;
+                    }
+                    if (['调查员', 'NPC', '旁白', '场外'].includes(roleType)) {
+                      const statCount = globalHeaderStats.get(rawKey)?.count || volHeaderStats.get(rawKey)?.count || 1;
+                      const mapKey = rawKey || trueName;
+                      if (!aiVerifiedSpeakersMap.has(mapKey)) {
+                        aiVerifiedSpeakersMap.set(mapKey, {
+                          rawName: rawKey || trueName,
+                          name: trueName,
+                          trueName: trueName,
+                          count: statCount,
+                          trpgType: roleType
+                        });
+                      } else {
+                        const ex = aiVerifiedSpeakersMap.get(mapKey);
+                        ex.trueName = trueName;
+                        ex.name = trueName;
+                        ex.trpgType = roleType;
+                      }
+                    }
+                  }
+                } else if (l.startsWith('CHAP_TITLE:')) {
+                  const parts = l.replace(/^CHAP_TITLE:\s*/i, '').split('|').map((s) => s.trim());
+                  if (parts.length >= 2) {
+                    const num = parseInt(parts[0].replace(/\D/g, ''), 10);
+                    if (num >= 1) {
+                      volChapTitlesMap.set(num, parts[1].replace(/^第\d+[卷章][:：\s]*/, '').trim());
                     }
                   }
                 }
-              } else if (l.startsWith('CHAP_TITLE:')) {
-                const parts = l.replace(/^CHAP_TITLE:\s*/i, '').split('|').map((s) => s.trim());
-                if (parts.length >= 2) {
-                  const num = parseInt(parts[0].replace(/\D/g, ''), 10);
-                  if (num >= 1) {
-                    chapterTitlesMap.set(num, parts[1].replace(/^第\d+章[:：\s]*/, '').trim());
-                  }
-                }
-              }
+              });
+            }
+          } catch (err) {
+            console.warn(`第${volNum}卷AI调用异常:`, err);
+          }
+
+          // 将本卷的分隔符与文本写入总输出行
+          const splitLineSet = new Map();
+          volCandidateSplits.forEach((c, idx) => {
+            splitLineSet.set(c.localLineIdx, idx + 2);
+          });
+
+          globalChapterIndex += 1;
+          const firstTitle = volChapTitlesMap.get(1) || `第${volNum}卷序幕`;
+          const volPrefix = volCount > 1 ? `第${volNum}卷 · ` : '';
+          if (finalOutputLines.length > 0) finalOutputLines.push('');
+          finalOutputLines.push(`=== 第${globalChapterIndex}章：${volPrefix}${firstTitle} ===`);
+
+          for (let i = 0; i < volLines.length; i++) {
+            if (splitLineSet.has(i)) {
+              const localChapNum = splitLineSet.get(i);
+              globalChapterIndex += 1;
+              const cTitle = volChapTitlesMap.get(localChapNum) || `调查推进篇 ${localChapNum}`;
+              finalOutputLines.push('');
+              finalOutputLines.push(`=== 第${globalChapterIndex}章：${volPrefix}${cTitle} ===`);
+            }
+            finalOutputLines.push(volLines[i]);
+          }
+        }
+
+        // 如果有真实发言头但AI未提及且不是骰子或假句子，补充进列表
+        globalHeaderStats.forEach((stat, key) => {
+          if (!aiVerifiedSpeakersMap.has(key) && !isFakeOrDiceSpeakerName(key) && stat.count >= 2) {
+            aiVerifiedSpeakersMap.set(key, {
+              rawName: key,
+              name: key,
+              trueName: key,
+              count: stat.count,
+              trpgType: key === 'KP' || key === '守密人' ? '旁白' : '调查员'
             });
           }
-        } catch (err) {
-          console.warn('AI分章标题与人物识别使用本地规则保底:', err);
-        }
-
-        // 将 === 第X章：章节标题 === 分隔符正式插入全文
-        const splitLineSet = new Map();
-        candidateSplits.forEach((c, idx) => {
-          splitLineSet.set(c.splitLineIdx, idx + 2);
         });
 
-        const firstTitle = chapterTitlesMap.get(1) || '序幕与调查启程';
-        const outputLines = [`=== 第1章：${firstTitle} ===`];
-        for (let i = 0; i < lines.length; i++) {
-          if (splitLineSet.has(i)) {
-            const chapNum = splitLineSet.get(i);
-            const cTitle = chapterTitlesMap.get(chapNum) || `调查推进篇 ${chapNum}`;
-            outputLines.push('');
-            outputLines.push(`=== 第${chapNum}章：${cTitle} ===`);
-          }
-          outputLines.push(lines[i]);
-        }
-
-        const delimitedText = outputLines.join('\n');
+        const delimitedText = finalOutputLines.join('\n');
         if (inputEl) inputEl.value = delimitedText;
         if (proj) {
           proj.rawLog = delimitedText;
+          proj.extractedSpeakers = Array.from(aiVerifiedSpeakersMap.values());
           await saveReplayProjectToDB(proj);
         }
 
+        renderExtractedSpeakersList();
         await syncExtractedSpeakersToCharacters();
         await splitReplayLogByDelimiters();
 
         if (statusEl) {
-          statusEl.textContent = `AI已插入章节分隔符并切分为 ${proj?.chapters?.length || 1} 章，同时已提取本模组出场人物至角色档案柜！`;
+          statusEl.textContent = `已按 ${volCount} 卷分批调用AI完成！共切分为 ${proj?.chapters?.length || 1} 章，并已剔除骰子与假句子，将真实人物存入角色档案柜！`;
         }
       } finally {
         if (btn) { btn.textContent = '分章'; btn.disabled = false; }
       }
     }
 
-    // 按照文本框中的 === 第X章：标题 === 分隔符切分章节（若无分隔符则按单章目标字数自动插分隔符再切分）
+    // 判断是否为跑团骰子机器人如逻各斯、logs或误抓的正文普通句子、时间、检定词
+    function isFakeOrDiceSpeakerName(name) {
+      const s = String(name || '').trim();
+      if (!s) return true;
+      if (s === '旁白') return false;
+      if (/^(logs?|逻各斯|骰娘?|dice|bot|系统|系统消息|守密人系统|塔系|星尘|赵日天|可莉|伊丽莎白|琥珀|青果)$/i.test(s)) return true;
+      if (/骰|dice|bot|logs|逻各斯/i.test(s)) return true;
+      if (/^[\(（\[【<]/.test(s) || /[\)）\]】>]$/.test(s)) return true;
+      if (/[？\?！!，,。；;＝=\+\/\\d100]/i.test(s)) return true;
+      if (/掷出了|检定|大成功|大失败|极难成功|困难成功|成功|失败|开饭的时间|直到举行|行动顺序|随意选择|第\d+人|生命值|理智值|san值|1d\d+/i.test(s)) return true;
+      if (/^\d+$/.test(s) || /\d{1,2}$/.test(s) && s.length > 5) return true;
+      if (s.length > 10) return true;
+      return false;
+    }
+
+    // 严格判断是否为真正的跑团聊天记录账号发言头行，绝不匹配正文冒号
+    function isStrictTrpgChatHeaderLine(trimmedLine) {
+      if (!trimmedLine || /^===\s*第.+?===$/.test(trimmedLine)) return false;
+      if (/^【([^】]{1,16})】\s*(?:[\(（]\d+[\)）])?\s*(?:\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}\s+)?\d{1,2}:\d{2}(?::\d{2})?/.test(trimmedLine)) return true;
+      if (/^<([^>]{1,16})>\s*(?:\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}\s+)?\d{1,2}:\d{2}(?::\d{2})?/.test(trimmedLine)) return true;
+      if (/^([^\s:：\[\]【】\(\)（）]{1,16})\s*[\(（]\d{5,}[\)）]\s*(?:\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}\s+)?\d{1,2}:\d{2}(?::\d{2})?$/.test(trimmedLine)) return true;
+      if (/^([^\s:：\[\]【】\(\)（）]{1,16})\s+\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}\s+\d{1,2}:\d{2}(?::\d{2})?$/.test(trimmedLine)) return true;
+      if (/^([^\s:：\[\]【】\(\)（）]{1,12})\s+\d{1,2}:\d{2}:\d{2}$/.test(trimmedLine)) return true;
+      return false;
+    }
+
+    // 扫描文本中的真实聊天记录发言头及代表发言样本，绝不使用冒号死规则抓取正文句子
+    function collectLogHeaderCandidates(logText) {
+      const lines = String(logText || '').split('\n');
+      const headerRegexBracket = /^【([^】]{1,16})】\s*(?:[\(（]\d+[\)）])?\s*(?:\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}\s+)?\d{1,2}:\d{2}(?::\d{2})?/;
+      const headerRegexAngle = /^<([^>]{1,16})>\s*(?:\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}\s+)?\d{1,2}:\d{2}(?::\d{2})?/;
+      const headerRegexPlainQq = /^([^\s:：\[\]【】\(\)（）]{1,16})\s*[\(（]\d{5,}[\)）]\s*(?:\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}\s+)?\d{1,2}:\d{2}(?::\d{2})?$/;
+      const headerRegexDateTime = /^([^\s:：\[\]【】\(\)（）]{1,16})\s+(?:\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}\s+)?\d{1,2}:\d{2}:\d{2}$/;
+      const strictRoleBracketPrefix = /^【([^】]{1,10})】\s*(.+)$/;
+
+      const map = new Map();
+      let currentHeaderSpeaker = '';
+
+      for (let i = 0; i < lines.length; i++) {
+        const rawLine = lines[i].trim();
+        if (!rawLine || /^===\s*第.+?===$/.test(rawLine)) continue;
+
+        const m1 = rawLine.match(headerRegexBracket);
+        const m2 = !m1 && rawLine.match(headerRegexAngle);
+        const m3 = !m1 && !m2 && rawLine.match(headerRegexPlainQq);
+        const m4 = !m1 && !m2 && !m3 && rawLine.match(headerRegexDateTime);
+        const m5 = !m1 && !m2 && !m3 && !m4 && rawLine.match(strictRoleBracketPrefix);
+
+        if (m1 || m2 || m3 || m4) {
+          const spk = normalizeSpeakerName((m1 ? m1[1] : (m2 ? m2[1] : (m3 ? m3[1] : m4[1]))).trim());
+          if (!spk || isFakeOrDiceSpeakerName(spk)) {
+            currentHeaderSpeaker = '';
+            continue;
+          }
+          currentHeaderSpeaker = spk;
+          if (!map.has(spk)) {
+            map.set(spk, { rawName: spk, count: 1, samples: [] });
+          } else {
+            map.get(spk).count += 1;
+          }
+        } else if (m5) {
+          const spk = normalizeSpeakerName(m5[1].trim());
+          const content = m5[2].trim();
+          if (spk && !isFakeOrDiceSpeakerName(spk)) {
+            if (!map.has(spk)) {
+              map.set(spk, { rawName: spk, count: 1, samples: [content.slice(0, 60)] });
+            } else {
+              const entry = map.get(spk);
+              entry.count += 1;
+              if (entry.samples.length < 3 && content) entry.samples.push(content.slice(0, 60));
+            }
+          }
+        } else if (currentHeaderSpeaker && map.has(currentHeaderSpeaker)) {
+          const entry = map.get(currentHeaderSpeaker);
+          if (entry.samples.length < 3 && rawLine.length > 1) {
+            entry.samples.push(rawLine.slice(0, 60));
+          }
+        }
+      }
+      return map;
+    }
+
+    // 按照文本框中的 === 第X章：标题 === 分隔符切分章节
     async function splitReplayLogByDelimiters() {
       const inputEl = document.getElementById('replay-raw-log-input');
       const limitEl = document.getElementById('replay-chapter-char-limit');
       const statusEl = document.getElementById('replay-split-status-bar');
-      const targetChars = Math.max(1000, Math.min(50000, parseInt(limitEl?.value || '20000', 10) || 20000));
+      const targetChars = Math.max(1000, Math.min(100000, parseInt(limitEl?.value || '20000', 10) || 20000));
       let cleaned = cleanTrpgLogText(inputEl?.value || '');
       if (!cleaned) {
         alert('请先粘贴或上传跑团日志文本');
@@ -12596,7 +12461,6 @@ ${splitSamplesText ? '各章节切分点上下文：\n' + splitSamplesText : '�
       const delimiterRegex = /^===\s*(第\s*\d+\s*章[^=\n]*?)\s*===\s*$/gm;
       let matches = [...cleaned.matchAll(delimiterRegex)];
 
-      // 如果文本框里还没有 === 第X章 === 分隔符，按目标字数在自然段落处自动插入分隔符
       if (matches.length === 0) {
         const lines = cleaned.split('\n');
         const out = ['=== 第1章：第 1 章 ==='];
@@ -12604,7 +12468,7 @@ ${splitSamplesText ? '各章节切分点上下文：\n' + splitSamplesText : '�
         let chapCount = 1;
         for (let i = 0; i < lines.length; i++) {
           acc += lines[i].length + 1;
-          const isHeader = /^【[^】]+】|^<[^>]+>|^[^\s:：\[\]【】]{1,15}[:：]/.test(lines[i].trim());
+          const isHeader = isStrictTrpgChatHeaderLine(lines[i].trim());
           if (acc >= targetChars && isHeader && (lines.length - i) > 10) {
             chapCount += 1;
             out.push('');
@@ -12626,7 +12490,6 @@ ${splitSamplesText ? '各章节切分点上下文：\n' + splitSamplesText : '�
         const segText = cleaned.slice(startPos, endPos).trim();
         if (!segText) continue;
         const segBlocks = parseTrpgLogBlocks(segText);
-        // 保留已生成过的剧本与CG（若章节序号和标题一致）
         const prevChap = proj?.chapters?.[chapters.length];
         const keepPrevScript = prevChap && prevChap.rawText === segText && Array.isArray(prevChap.scriptLines) && prevChap.scriptLines.length > 0;
         chapters.push({
@@ -12657,80 +12520,165 @@ ${splitSamplesText ? '各章节切分点上下文：\n' + splitSamplesText : '�
       await splitReplayLogByDelimiters();
     }
 
+    // 点击「重提」时同样通过AI判断聊天发言头与文本，绝不使用冒号死规则
     async function extractSpeakersFromReplayLog(overrideText = '') {
       const inputEl = document.getElementById('replay-raw-log-input');
+      const statusEl = document.getElementById('replay-split-status-bar');
       const cleaned = cleanTrpgLogText(overrideText || inputEl?.value || '');
       if (!overrideText && inputEl) inputEl.value = cleaned;
 
       const proj = getCurrentReplayProject();
       const prevMap = new Map();
       (proj?.extractedSpeakers || []).forEach((s) => {
-        prevMap.set(s.rawName || s.name, s);
+        const k = s.rawName || s.name;
+        if (!isFakeOrDiceSpeakerName(k) && !isFakeOrDiceSpeakerName(s.trueName || s.name)) {
+          prevMap.set(k, s);
+        }
       });
 
-      const lines = String(cleaned || '').split('\n');
-      const headerRegexBracket = /^【([^】]+)】\s*(?:[\(（]\d+[\)）])?\s*(?:\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}\s+)?\d{1,2}:\d{2}(?::\d{2})?/;
-      const headerRegexAngle = /^<([^>]+)>\s*(?:\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}\s+)?\d{1,2}:\d{2}(?::\d{2})?/;
-      const headerRegexPlain = /^([^\s:：\[\]【】\(\)（）]{1,16})\s*[\(（]\d{5,}[\)）]\s*(?:\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}\s+)?\d{1,2}:\d{2}(?::\d{2})?/;
-      const inlineColonRegex = /^([^\s:：\[\]【】]{1,14})[:：]\s*(.+)$/;
+      const headerMap = collectLogHeaderCandidates(cleaned);
+      const resultMap = new Map();
+      resultMap.set('旁白', { rawName: '旁白', name: '旁白', trueName: '旁白', count: 1, trpgType: '旁白' });
 
-      const map = new Map();
-      map.set('旁白', { rawName: '旁白', name: '旁白', trueName: '旁白', count: 0, trpgType: '旁白' });
+      headerMap.forEach((stat, spk) => {
+        if (isFakeOrDiceSpeakerName(spk)) return;
+        const prev = prevMap.get(spk);
+        resultMap.set(spk, {
+          rawName: spk,
+          name: prev?.trueName || prev?.name || spk,
+          trueName: prev?.trueName || prev?.name || spk,
+          count: stat.count,
+          trpgType: prev?.trpgType || (spk === 'KP' || spk === '守密人' ? '旁白' : '调查员')
+        });
+      });
 
-      for (let i = 0; i < lines.length; i++) {
-        const rawLine = lines[i].trim();
-        if (!rawLine || /^===\s*第.+?===$/.test(rawLine)) continue;
-        const m1 = rawLine.match(headerRegexBracket);
-        const m2 = !m1 && rawLine.match(headerRegexAngle);
-        const m3 = !m1 && !m2 && rawLine.match(headerRegexPlain);
-        const m4 = !m1 && !m2 && !m3 && rawLine.match(inlineColonRegex);
-        const rawSpk = (m1 ? m1[1] : (m2 ? m2[1] : (m3 ? m3[1] : (m4 ? m4[1] : '')))).trim();
-        if (!rawSpk) continue;
-        const spk = normalizeSpeakerName(rawSpk);
-        if (/骰|dice|bot/i.test(spk)) continue;
-        if (!map.has(spk)) {
-          const prev = prevMap.get(spk);
-          map.set(spk, {
-            rawName: spk,
-            name: prev?.trueName || prev?.name || spk,
-            trueName: prev?.trueName || prev?.name || spk,
-            count: 1,
-            trpgType: prev?.trpgType || (spk === '旁白' ? '旁白' : '调查员')
-          });
-        } else {
-          map.get(spk).count += 1;
+      // 若是用户手动点「重提」，调用AI对候选账号及发言样本做一次精准角色与骰子识别
+      if (!overrideText && cleaned.length > 20) {
+        if (statusEl) statusEl.textContent = '正在调用AI精准识别出场人物并剔除骰子机器人...';
+        try {
+          const speakerSummary = Array.from(headerMap.values())
+            .slice(0, 80)
+            .map((h) => `账号名「${h.rawName}」发言${h.count}次，样本：${h.samples.join(' / ')}`)
+            .join('\n');
+          const aiReply = await callLlmCompletion(
+            [
+              {
+                role: 'system',
+                content: `你是跑团人物提取助手。请根据发言账号样本与日志片段，识别所有真正的跑团角色，将群昵称映射为角色真名，并分类为 调查员、NPC、旁白、场外、骰子 五种之一。像 logs、逻各斯 等骰子或检定播报必须标为 骰子。严禁使用任何括号，每行格式：CHAR_MAP: 原名|角色真名|分类`
+              },
+              {
+                role: 'user',
+                content: `账号列表与发言样本：\n${speakerSummary}\n\n日志片段：\n${cleaned.slice(0, 4000)}`
+              }
+            ],
+            null,
+            { caller: '跑团日志AI重提人物', preferSubApi: true }
+          );
+          if (aiReply) {
+            aiReply.split('\n').forEach((line) => {
+              const l = line.trim();
+              if (!l.startsWith('CHAR_MAP:')) return;
+              const parts = l.replace(/^CHAR_MAP:\s*/i, '').split('|').map((x) => x.trim());
+              if (parts.length < 3) return;
+              const rawKey = normalizeSpeakerName(parts[0]);
+              const trueName = normalizeSpeakerName(parts[1] || parts[0]);
+              const roleType = parts[2];
+              if (roleType === '骰子' || isFakeOrDiceSpeakerName(rawKey) || isFakeOrDiceSpeakerName(trueName)) {
+                resultMap.delete(rawKey);
+                return;
+              }
+              if (['调查员', 'NPC', '旁白', '场外'].includes(roleType)) {
+                const ex = resultMap.get(rawKey);
+                if (ex) {
+                  ex.trueName = trueName;
+                  ex.name = trueName;
+                  ex.trpgType = roleType;
+                } else {
+                  resultMap.set(trueName, {
+                    rawName: rawKey || trueName,
+                    name: trueName,
+                    trueName: trueName,
+                    count: 1,
+                    trpgType: roleType
+                  });
+                }
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('AI重提人物异常:', e);
         }
       }
 
       if (proj) {
         if (!overrideText) proj.rawLog = cleaned;
-        proj.extractedSpeakers = Array.from(map.values());
+        proj.extractedSpeakers = Array.from(resultMap.values());
         await saveReplayProjectToDB(proj);
       }
       renderExtractedSpeakersList();
+      if (!overrideText) {
+        await syncExtractedSpeakersToCharacters();
+        if (statusEl) statusEl.textContent = 'AI已重新提取人物并同步至角色档案柜！';
+      }
     }
 
     async function updateExtractedSpeakerMapping(idx, field, val) {
       const proj = getCurrentReplayProject();
       if (!proj || !Array.isArray(proj.extractedSpeakers) || !proj.extractedSpeakers[idx]) return;
       const item = proj.extractedSpeakers[idx];
+      const oldName = item.trueName || item.name;
       if (field === 'trueName') {
-        item.trueName = String(val || '').trim() || item.rawName || item.name;
-        item.name = item.trueName;
+        const newName = String(val || '').trim() || item.rawName || item.name;
+        item.trueName = newName;
+        item.name = newName;
+        const existingChar = appState.characters.find((c) => c.name === oldName && c.id !== 'narrator_kp');
+        if (existingChar) {
+          existingChar.name = newName;
+          await db.characters.put(existingChar);
+        }
       } else if (field === 'trpgType') {
         item.trpgType = val;
+        if (val === '场外' || val === '骰子') {
+          const toRemove = appState.characters.find((c) => c.name === oldName && c.id !== 'narrator_kp');
+          if (toRemove) {
+            appState.characters = appState.characters.filter((c) => c.id !== toRemove.id);
+            await db.characters.delete(toRemove.id);
+          }
+        }
       }
       await saveReplayProjectToDB(proj);
       await syncExtractedSpeakersToCharacters();
+    }
+
+    async function removeExtractedSpeakerAt(idx) {
+      const proj = getCurrentReplayProject();
+      if (!proj || !Array.isArray(proj.extractedSpeakers) || !proj.extractedSpeakers[idx]) return;
+      const removed = proj.extractedSpeakers.splice(idx, 1)[0];
+      await saveReplayProjectToDB(proj);
+      if (removed) {
+        const targetName = removed.trueName || removed.name;
+        const foundChar = appState.characters.find((c) => c.name === targetName && c.id !== 'narrator_kp');
+        if (foundChar) {
+          appState.characters = appState.characters.filter((c) => c.id !== foundChar.id);
+          await db.characters.delete(foundChar.id);
+        }
+      }
+      populateCharacterSelects();
+      renderPersonaGrid();
+      renderExtractedSpeakersList();
     }
 
     function renderExtractedSpeakersList() {
       const box = document.getElementById('replay-extracted-speakers-list');
       if (!box) return;
       const proj = getCurrentReplayProject();
-      const list = proj?.extractedSpeakers || [];
+      const list = (proj?.extractedSpeakers || []).filter((s) => !isFakeOrDiceSpeakerName(s.rawName || s.name) && !isFakeOrDiceSpeakerName(s.trueName || s.name));
+      if (proj && proj.extractedSpeakers && list.length !== proj.extractedSpeakers.length) {
+        proj.extractedSpeakers = list;
+        saveReplayProjectToDB(proj);
+      }
       if (list.length === 0) {
-        box.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">粘贴日志后点击上方分章，即可自动识别本模组全部人物并归入角色档案</div>';
+        box.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">粘贴日志后选择卷数并点击上方分章，即可由AI识别本模组全部人物并存入角色档案</div>';
         return;
       }
       box.innerHTML = '';
@@ -12757,7 +12705,7 @@ ${splitSamplesText ? '各章节切分点上下文：\n' + splitSamplesText : '�
           </div>
           <div class="setting-item-center">
             <div style="display:flex;align-items:center;gap:6px;">
-              <input type="text" class="moe-input" value="${(displayName || '').replace(/"/g, '&quot;')}" style="height:28px;min-height:28px;max-width:140px;font-size:12px;font-weight:700;" title="可直接改为跑团角色真名" onchange="updateExtractedSpeakerMapping(${idx}, 'trueName', this.value)" />
+              <input type="text" class="moe-input" value="${(displayName || '').replace(/"/g, '&quot;')}" style="height:28px;min-height:28px;max-width:140px;font-size:12px;font-weight:700;" title="可直接改为跑团角色真名并同步至角色档案" onchange="updateExtractedSpeakerMapping(${idx}, 'trueName', this.value)" />
             </div>
             <div class="setting-item-sub">${statusText}</div>
           </div>
@@ -12766,27 +12714,30 @@ ${splitSamplesText ? '各章节切分点上下文：\n' + splitSamplesText : '�
               ? `<button type="button" class="moe-btn secondary" onclick="openCharacterInTachieStudio('${matchedChar.id}')">立绘</button>
                  <button type="button" class="moe-btn secondary" onclick="openAppScreen('persona');selectPersonaForEdit('${matchedChar.id}');switchSubPage('screen-persona','persona-basic');">编辑</button>`
               : `<button type="button" class="moe-btn" onclick="syncExtractedSpeakersToCharacters()">入档</button>`}
+            ${displayName !== '旁白' ? `<button type="button" class="moe-btn secondary" onclick="removeExtractedSpeakerAt(${idx})">删人</button>` : ''}
           </div>
         `;
         box.appendChild(row);
       });
     }
 
-    // 纯提取人物名字与定位归入角色档案柜，绝不擅自编造外貌或总结性格（外貌与性格完全留空交给用户填写）
+    // 将AI提取出的真实人物存入全局「角色」档案柜，并在模组与角色档案柜之间双向同步
     async function syncExtractedSpeakersToCharacters() {
       const proj = getCurrentReplayProject();
       if (!proj) return;
       if (!proj.extractedSpeakers || proj.extractedSpeakers.length === 0) {
-        await extractSpeakersFromReplayLog();
+        await extractSpeakersFromReplayLog(proj.rawLog || '');
       }
-      const speakers = proj.extractedSpeakers || [];
+      const speakers = (proj.extractedSpeakers || []).filter((s) => !isFakeOrDiceSpeakerName(s.rawName || s.name) && !isFakeOrDiceSpeakerName(s.trueName || s.name));
+      proj.extractedSpeakers = speakers;
       const palette = ['#4f6ef7', '#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#06b6d4'];
       const defaultVoices = ['male-qn-qingse', 'female-shaonv', 'male-qn-jingying', 'female-yujie', 'male-qn-badao', 'audiobook_male_1'];
 
       for (let i = 0; i < speakers.length; i++) {
         const spk = speakers[i];
-        if (spk.trpgType === '场外') continue;
+        if (spk.trpgType === '场外' || spk.trpgType === '骰子') continue;
         const targetName = spk.trueName || spk.name;
+        if (!targetName || isFakeOrDiceSpeakerName(targetName)) continue;
         let existing = appState.characters.find((c) => c.name === targetName);
         if (!existing) {
           const isNarrator = targetName === '旁白' || spk.trpgType === '旁白';
@@ -14604,34 +14555,75 @@ ${numberedBatchPreview}`;
     }
 
     async function loadAllDataFromDB() {
-      const charCount = await db.characters.count();
-      if (charCount === 0) {
-        const palette = ['#4f6ef7', '#3b82f6', '#8b5cf6', '#6366f1', '#f59e0b', '#ec4899', '#10b981', '#06b6d4', '#f97316', '#64748b', '#a855f7', '#14b8a6'];
-        for (let i = 0; i < INITIAL_TWELVE_OCS.length; i++) {
-          const oc = INITIAL_TWELVE_OCS[i];
-          const svgAvatar = makeSvgAvatarDataUrl(oc.name, palette[i % palette.length], i === 10 ? '#f8fafc' : '#334155', '#4f6ef7');
-          oc.heightCm = DEFAULT_HEIGHT_MAP[oc.id] || 175;
-          oc.chibiImg = svgAvatar;
-          oc.tachieBase = svgAvatar;
-          oc.tachieExpressions = { '默认': svgAvatar };
-          oc.customActionList = buildPersonaMatchedActions(oc);
-          await db.characters.put(oc);
+      // 自动清理历史遗留的十六个个人OC、旧世界书词条以及被死规则冒号误抓的假人物和骰子
+      const legacyOcIds = new Set([
+        'wendy', 'mortimer', 'xilai', 'parish', 'landrico', 'doris',
+        'branwen', 'sephira', 'wein', 'anox', 'garfina', 'cynthia',
+        'ouluolius', 'ouluosi', 'gwen', 'guy'
+      ]);
+      const legacyOcNames = new Set([
+        '温蒂', '莫狄默', '西莱', '帕里什', '兰德里柯', '桃瑞丝',
+        '布兰温', '塞菲拉', '维因', '阿诺克斯', '迦尔斐那', '辛西娅',
+        '欧洛琉斯', '欧洛斯', '格温', '格伊'
+      ]);
+
+      const existingChars = await db.characters.toArray();
+      for (const c of existingChars) {
+        if (legacyOcIds.has(c.id) || legacyOcNames.has(c.name) || isFakeOrDiceSpeakerName(c.name)) {
+          await db.characters.delete(c.id);
         }
-        for (const wb of INITIAL_WORLDBOOK) await db.worldbook.put(wb);
-        for (const rel of INITIAL_RELATIONS) await db.relations.add(rel);
-        for (const fd of INITIAL_FOODS) await db.foods.put(fd);
-        await db.memories.add({
-          type: '创世档案',
-          title: '世界观初始化完成',
-          content: '永无乡、阿尔塔、三途川、既白等八大版图与十二位核心角色已载入永久记忆库。',
-          timestamp: Date.now()
-        });
-        await db.forumPosts.add({
-          author: '塞菲拉',
-          title: '本周Paracosm特调已售罄通知',
-          content: '请各位会员不要再用小号重复排队啦，喝多了真的会看见太奶在天花板上笑着乱爬！',
-          comments: '温蒂：用银币能插队加一杯吗？ · 阿诺克斯：十六点后我将准时前来巡查。',
-          timestamp: Date.now()
+      }
+
+      const legacyWbIds = ['wb_myth', 'wb_twins', 'wb_genesis', 'wb_currency', 'wb_regions'];
+      for (const wid of legacyWbIds) {
+        await db.worldbook.delete(wid);
+      }
+
+      const existingRels = await db.relations.toArray();
+      for (const rel of existingRels) {
+        if (legacyOcNames.has(rel.charA) || legacyOcNames.has(rel.charB)) {
+          await db.relations.delete(rel.id);
+        }
+      }
+
+      const existingProjs = await db.replayProjects.toArray();
+      for (const p of existingProjs) {
+        if (Array.isArray(p.extractedSpeakers)) {
+          const cleanedSpks = p.extractedSpeakers.filter(
+            (s) => !isFakeOrDiceSpeakerName(s.rawName || s.name) && !isFakeOrDiceSpeakerName(s.trueName || s.name)
+          );
+          if (cleanedSpks.length !== p.extractedSpeakers.length) {
+            p.extractedSpeakers = cleanedSpks;
+            await db.replayProjects.put(p);
+          }
+        }
+      }
+
+      const remainingCount = await db.characters.count();
+      if (remainingCount === 0) {
+        const avatar = makeSvgAvatarDataUrl('旁', '#6366f1', '#1e293b', '#6366f1');
+        await db.characters.put({
+          id: 'narrator_kp',
+          name: '旁白',
+          trpgType: '旁白',
+          isUniversal: true,
+          region: 'alta_kilig',
+          role: '守密人与环境叙述',
+          heightCm: 175,
+          earHatCm: 0,
+          body: '',
+          quirk: '',
+          voiceId: 'male-qn-jingying',
+          surface: '',
+          secret: '',
+          cot: '',
+          quotes: '',
+          chapters: '',
+          naiTags: 'no humans, scenery, atmospheric lighting, anime background art',
+          chibiImg: avatar,
+          tachieBase: avatar,
+          tachieExpressions: { '默认': avatar },
+          isFriend: false
         });
       }
 
@@ -14727,7 +14719,7 @@ ${numberedBatchPreview}`;
       populateBuilderSceneSelect();
       syncCustomTableSurfaceUI();
       renderPersonaGrid();
-      selectPersonaForEdit(appState.selectedPersonaId);
+      selectPersonaForEdit(appState.selectedPersonaId || appState.characters[0]?.id || '');
       loadCharToChibiPanel();
       loadCharToTachiePanel();
       await renderStylePresetSelect();
@@ -14774,7 +14766,6 @@ ${numberedBatchPreview}`;
       loadAllApiSettings();
       initMapSelectors();
       await loadAllDataFromDB();
-      appendDelayedSceneMessage('塞菲拉', '欢迎来到阿尔塔，走近建筑大门可推门进入室内，点击左上角地图可跨板块搭乘飞机或游轮出行。', 300);
     });
   </script>
 </body>
