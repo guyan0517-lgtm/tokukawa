@@ -564,15 +564,16 @@
               <button type="button" class="moe-btn" onclick="saveCurrentPersona()">保存</button>
             </div>
           </div>
-          <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;line-height:1.5;">
-            按键说明：点立绘会跳转到立绘工坊，可根据你下面写的外貌或上传参考垫图生成全身立绘与二十五种表情差分；点保存即可记住当前角色的外貌、性格、身高与音色。
-          </div>
           <div style="display:flex;gap:8px;">
             <div class="form-group" style="flex:1;">
-              <label>姓名</label>
-              <input type="text" id="oc-name" class="moe-input" placeholder="输入角色真名" />
+              <label>名字</label>
+              <input type="text" id="oc-name" class="moe-input" placeholder="输入角色名字" />
             </div>
-            <div class="form-group" style="width:118px;flex-shrink:0;">
+            <div class="form-group" style="width:92px;flex-shrink:0;">
+              <label>年龄</label>
+              <input type="text" id="oc-age" class="moe-input" placeholder="如 24岁" />
+            </div>
+            <div class="form-group" style="width:110px;flex-shrink:0;">
               <label>定位</label>
               <select id="oc-trpg-type" class="moe-input">
                 <option value="调查员">调查员</option>
@@ -585,32 +586,34 @@
             <div class="form-group" style="flex:1;">
               <label>档案归属范围</label>
               <select id="oc-universal-mode" class="moe-input">
-                <option value="universal">跨模组通用角色 所有跑团工程共用</option>
+                <option value="universal">跨模组通用角色</option>
                 <option value="module">当前模组专属角色</option>
               </select>
             </div>
-            <div class="form-group" style="flex:1;">
-              <label>身份或头衔 自己选填</label>
-              <input type="text" id="oc-role" class="moe-input" placeholder="例如 私家侦探、守密人" />
-            </div>
-          </div>
-          <div style="display:flex;gap:8px;">
-            <div class="form-group" style="flex:1;">
+            <div class="form-group" style="width:96px;flex-shrink:0;">
               <label>身高 cm</label>
               <input type="number" id="oc-height-cm" class="moe-input" value="175" />
             </div>
-            <div class="form-group" style="flex:1;">
-              <label>耳帽补偿 cm</label>
+            <div class="form-group" style="width:96px;flex-shrink:0;">
+              <label>耳帽 cm</label>
               <input type="number" id="oc-ear-hat-cm" class="moe-input" value="0" />
             </div>
           </div>
           <div class="form-group">
-            <label>身材与外貌特征 自己手写，立绘工坊可据此帮你写生图词</label>
-            <textarea id="oc-body" class="moe-input" style="min-height:58px;" placeholder="由你自己填写发型、发色、瞳色、服装、体型特征，AI不会擅自乱编"></textarea>
+            <label>外貌</label>
+            <textarea id="oc-body" class="moe-input" style="min-height:58px;" placeholder="填写发型、发色、瞳色、服装、体型特征"></textarea>
           </div>
           <div class="form-group">
-            <label>性格与说话语癖 自己手写，供日语配音台词翻译参考语气</label>
-            <input type="text" id="oc-quirk" class="moe-input" placeholder="由你自己填写性格或口癖，例如 冷静克制、毒舌傲娇、温柔礼貌" />
+            <label>性格</label>
+            <input type="text" id="oc-quirk" class="moe-input" placeholder="填写性格特点与说话语气口癖" />
+          </div>
+          <div class="form-group">
+            <label>背景</label>
+            <textarea id="oc-surface" class="moe-input" style="min-height:58px;" placeholder="填写身份经历与人物背景设定"></textarea>
+          </div>
+          <div class="form-group">
+            <label>武器随身携带道具</label>
+            <input type="text" id="oc-weapon" class="moe-input" placeholder="如 防身折叠小刀、左轮手枪、手电筒、旧怀表" />
           </div>
           <div class="form-group">
             <label>MiniMax 语音音色编号</label>
@@ -620,7 +623,7 @@
             </div>
           </div>
           <div class="form-group" style="margin-bottom:0;">
-            <label>生图标签 NovelAI英文外貌服装词，可手写或在立绘写词页生成</label>
+            <label>生图标签</label>
             <textarea id="oc-nai-tags" class="moe-input" style="min-height:64px;" placeholder="solo, single character, full body, standing, anime style..."></textarea>
           </div>
         </div>
@@ -629,7 +632,7 @@
       <!-- 隐藏式保留旧版字段DOM，防止任何历史脚本读取报错 -->
       <div style="display:none;">
         <input type="text" id="oc-region" value="alta_kilig" />
-        <textarea id="oc-surface"></textarea>
+        <input type="text" id="oc-role" value="" />
         <textarea id="oc-secret"></textarea>
         <textarea id="oc-cot"></textarea>
         <textarea id="oc-quotes"></textarea>
@@ -637,7 +640,7 @@
       </div>
     </section>
 
-    <!-- ==================== 3 & 4. 立绘工作台（左侧边栏切换：写词 | 立绘 | 画风 | 身高） ==================== -->
+    <!-- ==================== 3 & 4. 立绘工作台 ==================== -->
     <section id="screen-tachie" class="screen">
       <div class="app-header">
         <button type="button" class="app-back-btn" onclick="goHomeScreen()">返回</button>
@@ -670,7 +673,7 @@
               <div class="setting-item">
                 <div class="setting-item-center">
                   <div class="setting-item-title">一键构思纯外貌服设与全部动作差分词</div>
-                  <div class="setting-item-sub">先写纯外貌加衣服基础词，再同步写好默认站姿与全部二十五个动作差分词，并可根据所选模组卷数设计额外差分</div>
+                  <div class="setting-item-sub">无预设死板模板，点击写词由AI根据人设与模组同步写好纯外貌底词与全部三十四个差分及额外差分</div>
                 </div>
                 <div class="setting-item-right">
                   <button type="button" class="moe-btn secondary" onclick="document.getElementById('tachie-ref-file').click()">传图</button>
@@ -686,7 +689,7 @@
               <div id="chibi-ref-thumbs-list" style="display:none;"></div>
 
               <div class="form-group">
-                <label>写词参考模组卷数 可设置在阅读到第几卷时结合角色性格刻画动作与设计额外差分</label>
+                <label>写词参考模组卷数</label>
                 <select id="tachie-module-vol-select" class="moe-input">
                   <option value="none">不读取模组文章 仅按下方人设写词</option>
                   <option value="all" selected>读取当前模组全部已导入章节</option>
@@ -694,8 +697,8 @@
               </div>
 
               <div class="form-group">
-                <label>角色人设与性格设定 默认留空，由你自己填写并点下方保存直接存入当前角色</label>
-                <textarea id="tachie-char-persona-preview" class="moe-input" style="min-height:115px;" placeholder="在此填写该角色的外貌、服装、性格特点或常带随身物品，留空也可以，保存后直接对应绑定当前角色" oninput="syncEditedPersonaPreview('tachie', this.value)"></textarea>
+                <label>角色人设与性格设定</label>
+                <textarea id="tachie-char-persona-preview" class="moe-input" style="min-height:115px;" placeholder="自动读取角色档案中的名字、年龄、外貌、性格、背景、武器随身携带道具，也可在此补充" oninput="syncEditedPersonaPreview('tachie', this.value)"></textarea>
                 <textarea id="chibi-char-persona-preview" style="display:none;"></textarea>
               </div>
 
@@ -707,17 +710,17 @@
               </div>
 
               <div class="form-group">
-                <label>默认外貌加服装基础提示词 纯外貌与衣服 无虎牙无表情无动作</label>
+                <label>默认外貌加服装基础提示词</label>
                 <textarea id="tachie-nai-prompt" class="moe-input large-prompt-box" placeholder="点击右上角写词生成纯角色外貌与衣服默认基础词，不含虎牙、不含任何表情与动作"></textarea>
               </div>
 
               <div class="form-group">
-                <label>角色专属补充负面提示词 每个角色独立存档</label>
+                <label>角色专属补充负面提示词</label>
                 <textarea id="tachie-char-neg-prompt" class="moe-input" style="min-height:64px;" placeholder="针对该角色单独补充英文负面提示词，每个角色分开保存" oninput="syncEditedCharNegPrompt(this.value)"></textarea>
               </div>
 
               <div class="form-group">
-                <label>客观服装与随身配饰中文清单 可直接修改</label>
+                <label>客观服装与随身配饰中文清单</label>
                 <textarea id="tachie-ai-outfit-zh" class="moe-input" style="min-height:68px;" placeholder="显示纯客观的从头到脚服装款式、颜色、材质与随身配饰清单" oninput="syncEditedOutfitZh('tachie', this.value)"></textarea>
                 <textarea id="chibi-nai-zh-explain" style="display:none;"></textarea>
               </div>
@@ -728,11 +731,13 @@
               </div>
 
               <div class="form-group" style="margin-bottom:0;">
-                <label>选择要让AI修改的目标 可改基础外貌词或单独针对某一个动作差分修改</label>
+                <label>选择要让AI修改的目标 支持改默认外貌词、改全部动作词或批量修改下方勾选的动作词</label>
                 <select id="tachie-modify-target-select" class="moe-input" style="margin-bottom:6px;">
-                  <option value="__base__">修改：默认外貌与服装基础提示词</option>
+                  <option value="base">修改范围：默认纯外貌与衣服底词</option>
+                  <option value="all_actions">修改范围：下方全部动作差分提示词</option>
+                  <option value="checked_actions">修改范围：下方已勾选的多个动作差分提示词</option>
                 </select>
-                <textarea id="tachie-modify-req" class="moe-input" style="min-height:72px;" placeholder="输入修改要求，如：把外套改成深色风衣，或把当前选中的沉思动作改为侧身单手拿着笔记本记录..."></textarea>
+                <textarea id="tachie-modify-req" class="moe-input" style="min-height:72px;" placeholder="输入修改要求，AI可看到当前全部提示词，支持改默认外貌词、批量改全部动作词或仅改勾选的动作词..."></textarea>
                 <textarea id="chibi-modify-req" style="display:none;"></textarea>
                 <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px;">
                   <button type="button" class="moe-btn secondary" id="tachie-ai-modify-btn" onclick="runAiModifyPrompt('tachie')">改词</button>
@@ -744,10 +749,14 @@
 
             <div class="moe-card">
               <div class="moe-card-header">
-                <span class="moe-card-title">二十五态必有差分与模组额外差分提示词库</span>
-                <button type="button" class="moe-btn secondary" onclick="resetCharActionsToDefault()">重置</button>
+                <span class="moe-card-title">三十四态差分与模组额外差分提示词库</span>
+                <div style="display:flex;gap:6px;">
+                  <button type="button" class="moe-btn secondary" onclick="toggleAllTachieActionCheckboxes(true)">全选</button>
+                  <button type="button" class="moe-btn secondary" onclick="toggleAllTachieActionCheckboxes(false)">清选</button>
+                  <button type="button" class="moe-btn secondary" onclick="resetCharActionsToDefault()">清空</button>
+                </div>
               </div>
-              <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">写词时已同步写好全部差分词与身体角度变化；点击任意动作右侧改词可单独针对该动作让AI修改</div>
+              <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">勾选多个动作后在上方选择修改已勾选动作即可一次批量改词；也可点单个动作右侧改词</div>
               <div id="tachie-action-plan-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
               <div class="form-group" style="margin-bottom:0;">
                 <label>手动新增额外动作差分</label>
@@ -2229,6 +2238,7 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
         <button type="button" class="sub-tab-btn" data-sub="replay-sub-guide" onclick="switchSubPage('screen-replay', 'replay-sub-guide')">教程</button>
         <button type="button" class="sub-tab-btn active" data-sub="replay-sub-import" onclick="switchSubPage('screen-replay', 'replay-sub-import')">分章</button>
         <button type="button" class="sub-tab-btn" data-sub="replay-sub-script" onclick="switchSubPage('screen-replay', 'replay-sub-script')">剧本</button>
+        <button type="button" class="sub-tab-btn" data-sub="replay-sub-stage" onclick="openTheaterStageSelectorLobby()">舞台</button>
         <button type="button" class="sub-tab-btn" data-sub="replay-sub-cg" onclick="switchSubPage('screen-replay', 'replay-sub-cg')">生图</button>
       </div>
 
@@ -2255,7 +2265,7 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
               <div class="setting-item-left" style="font-weight:800;color:var(--accent-color);">第2步</div>
               <div class="setting-item-center" style="white-space:normal;">
                 <div class="setting-item-title">去「角色」档案柜，自己写外貌性格、传垫图画立绘、选配音音色</div>
-                <div class="setting-item-sub" style="white-space:normal;">提取出的人物会自动放进角色页的档案柜，分主角调查员、配角NPC、旁白KP以及跨模组通用角色。你可以点进任意角色自己写外貌与性格，点「立绘」去上传参考垫图或让AI根据你写的外貌生成NovelAI提示词，一键画出白底全身立绘与二十五种表情差分，并填入MiniMax音色编号。</div>
+                <div class="setting-item-sub" style="white-space:normal;">提取出的人物会自动放进角色页的档案柜，分主角调查员、配角NPC、旁白KP以及跨模组通用角色。你可以点进任意角色自己写外貌与性格，点「立绘」去上传参考垫图或让AI根据你写的外貌生成NovelAI提示词，一键画出白底全身立绘与三十四种表情差分，并填入MiniMax音色编号。</div>
               </div>
               <div class="setting-item-right">
                 <button type="button" class="moe-btn secondary" onclick="openAppScreen('persona')">去角色</button>
@@ -2266,7 +2276,7 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
               <div class="setting-item-left" style="font-weight:800;color:var(--accent-color);">第3步</div>
               <div class="setting-item-center" style="white-space:normal;">
                 <div class="setting-item-title">在章节列表一章一章点「整理」，严守第一人称对话与KP第三人称描述</div>
-                <div class="setting-item-sub" style="white-space:normal;">分好章后，在每章右侧点「整理」。AI会一章一章制作剧本：PC与NPC的对话框里只保留第一人称亲口说出的台词；其余动作与环境描写全部归入KP旁白第三人称描述，且AI绝不删改或重写你原本的文笔语句，只把第一人称代词我替换成角色名字。同时AI会把全部对话翻译成日语供MiniMax合成语音，并推荐契合剧情的歌曲名与歌手，由系统自动去音乐台按权重搜索排名第一的歌曲插入播放。</div>
+                <div class="setting-item-sub" style="white-space:normal;">分好章后，在每章右侧点「整理」。AI会一章一章制作剧本：PC与NPC的对话框里只保留第一人称亲口说出的台词；其余动作与环境描写全部归入KP旁白第三人称描述，且AI绝不删改或重写你原本的文笔语句，只把第一人称代词我与亲属词自然转换为第三人称。同时AI会把全部对话一次性翻译成日语供MiniMax合成语音，并在剧情节点标记音乐，播放到标记处自动搜索并播放音乐。</div>
               </div>
               <div class="setting-item-right">
                 <button type="button" class="moe-btn secondary" onclick="switchSubPage('screen-replay', 'replay-sub-script')">去剧本</button>
@@ -2276,8 +2286,8 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
             <div class="setting-item" style="align-items:flex-start;">
               <div class="setting-item-left" style="font-weight:800;color:var(--accent-color);">第4步</div>
               <div class="setting-item-center" style="white-space:normal;">
-                <div class="setting-item-title">自由改字、点「配音」与「生图」，随时点「播放」进横屏剧场观看</div>
-                <div class="setting-item-sub" style="white-space:normal;">在剧本页，每一句的说话人、表情、中文台词、日语配音词、背景音乐都能直接打字修改；在生图页，可以选角色立绘锁脸或点「传垫」上传垫图来画横屏CG与背景。哪怕不画CG，也能直接点「播放」进入16:9横屏剧场边听日语配音与音乐台BGM边看演出。</div>
+                <div class="setting-item-title">自由改字、点「配音」与「生图」，随时点「播放」或「舞台」进入剧场观看</div>
+                <div class="setting-item-sub" style="white-space:normal;">在剧本页，每一句的说话人、表情、中文台词、日语配音词都能直接打字修改，点「差分」可让AI按角色现有差分池智能匹配表情；点顶部「舞台」可选择剧本实时观看播放状况并现场修改。</div>
               </div>
               <div class="setting-item-right">
                 <button type="button" class="moe-btn" onclick="openTheaterForCurrentChapter()">去剧场</button>
@@ -2391,7 +2401,7 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
       <!-- 兼容保留原切分子页DOM节点 -->
       <div id="replay-sub-chapters" class="app-subpage" style="display:none;"></div>
 
-      <!-- 子页3：轻便文游剧本控制台、提示词编辑、错字校对、弹幕专区与舞台可视化编辑入口 -->
+      <!-- 子页3：轻便文游剧本控制台 -->
       <div id="replay-sub-script" class="app-subpage">
         <div class="moe-card">
           <div style="display:flex;gap:8px;align-items:center;">
@@ -2410,28 +2420,15 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
 
           <div class="script-top-btn-grid">
             <button type="button" class="moe-btn" id="replay-gen-script-btn" onclick="generateCurrentChapterScriptViaAi()">整理</button>
+            <button type="button" class="moe-btn secondary" id="replay-diff-match-btn" onclick="aiMatchCurrentChapterExpressions()">差分</button>
             <button type="button" class="moe-btn secondary" id="replay-jp-trans-btn" onclick="translateCurrentChapterToJapanese()">日译</button>
             <button type="button" class="moe-btn secondary" id="replay-batch-tts-btn" onclick="batchSynthesizeCurrentChapterTts()">配音</button>
             <button type="button" class="moe-btn" onclick="openTheaterForCurrentChapter()">播放</button>
-            <button type="button" class="moe-btn secondary" onclick="openTheaterStageEditorForCurrentChapter()">舞台</button>
             <button type="button" class="moe-btn secondary" onclick="switchSubPage('screen-replay', 'replay-sub-cg')">插图</button>
             <button type="button" class="moe-btn secondary" id="replay-danmaku-btn" onclick="toggleDanmakuReviewPanel()">弹幕</button>
             <button type="button" class="moe-btn secondary" id="replay-typo-btn" onclick="toggleTypoReviewPanel()">错字</button>
-            <button type="button" class="moe-btn secondary" id="replay-bgm-resolve-btn" onclick="autoResolveCurrentChapterBgm()">搜歌</button>
             <button type="button" class="moe-btn secondary" onclick="appendNewScriptLineAtEnd()">加行</button>
-            <button type="button" class="moe-btn secondary" onclick="toggleScriptPromptEditor()">提示</button>
             <button type="button" class="moe-btn secondary" onclick="exportCurrentReplayProjectJson()">导出</button>
-          </div>
-
-          <div id="replay-script-prompt-box" style="display:none;margin-top:8px;padding:10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
-              <span style="font-size:12px;font-weight:800;color:var(--text-primary);">单章整理默认提示词</span>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                <button type="button" class="moe-btn secondary" onclick="resetCustomScriptPrompt()">恢复</button>
-                <button type="button" class="moe-btn" onclick="saveCustomScriptPrompt()">保存</button>
-              </div>
-            </div>
-            <textarea id="replay-script-prompt-textarea" class="moe-input" style="min-height:150px;font-size:11px;line-height:1.5;"></textarea>
           </div>
 
           <div id="replay-typo-review-box" style="display:none;margin-top:8px;padding:10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
@@ -2454,7 +2451,7 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
           </div>
 
           <div id="replay-script-status-bar" style="font-size:11px;color:var(--accent-color);font-weight:700;margin-top:8px;">
-            核对每一句说话人、立绘表情、中文台词与日语分段词；点右侧小三角图标即可合成并缓存该句语音
+            核对每一句说话人、立绘表情、中文台词与对话日语词；仅对话显示小三角图标合成语音，旁白不翻译不配音
           </div>
         </div>
 
@@ -5562,152 +5559,52 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
         .replace(/运动鞋|球鞋|帆布鞋|旅游鞋|跑鞋/g, '皮靴');
     }
 
-    // 获取每个角色专属的随身武器、法器或特征工具，用于生成3组不同动态的战斗/施展差分
+    // 获取角色人设中的随身武器或调查员道具，严禁凭空捏造魔法权杖或超能力器物，默认采用写实克苏鲁调查员小刀或手枪
     function getCharSignatureWeaponOrTool(charObj) {
-      const id = charObj?.id || '';
-      const map = {
-        wendy: { zh: '天空神剑与金色神风残响', itemEn: 'glowing golden divine sword and swirling wind aura' },
-        mortimer: { zh: '深海三叉戟与高压水刃', itemEn: 'ornate ocean trident and swirling water blades' },
-        xilai: { zh: '冥王契约权杖与黑金魂火', itemEn: 'gothic gold-and-black underworld scepter and dark soul flames' },
-        parish: { zh: '冥界灵魂怀表锁链与契约法典', itemEn: 'glowing silver soul-chain pocket watch and open underworld ledger tome' },
-        landrico: { zh: '银质调酒摇壶与冰蓝魔力酒杯', itemEn: 'silver cocktail shaker and glowing enchanted glass' },
-        doris: { zh: '古木妖精魔杖与彼岸铃花雾', itemEn: 'ancient twisted fairy wand and glowing bellflower magic sparks' },
-        branwen: { zh: '银丝标本银剪与提灯', itemEn: 'gleaming silver specimen shears and vintage glass lantern' },
-        sephira: { zh: '幻梦蓝闪蝶特调酒樽与磷光蝶群', itemEn: 'glowing blue morpho crystal decanter and luminescent butterflies' },
-        wein: { zh: '青瓷灵茶壶与水墨折扇', itemEn: 'celadon spiritual teapot and ink-wash folding fan' },
-        anox: { zh: '审判长裁决圣剑与黄金怀表链', itemEn: 'authoritative ceremonial sword of judgment and golden pocket watch chain' },
-        garfina: { zh: '覆霜银十字圣物的祈祷圣典', itemEn: 'frost-covered silver rosary cross and illuminated scripture tome' },
-        cynthia: { zh: '因果律命运羽毛笔与悬浮星盘塔罗', itemEn: 'glowing fate quill pen and floating astral tarot cards' },
-        ouluolius: { zh: '古神黑棘巨剑与暗金迷雾', itemEn: 'ancient dark-thorn greatsword and dark golden mist' },
-        ouluosi: { zh: '翡翠荆棘神杖与白花藤蔓', itemEn: 'emerald thorn divine staff and blooming white vines' },
-        gwen: { zh: '三途川引魂冥灯与彼岸花枝', itemEn: 'glowing underworld soul-guiding lantern' },
-        guy: { zh: '冥河渡口大钥匙串与怀表法器', itemEn: 'ornate underworld iron key ring and glowing pocket watch' }
-      };
-      if (map[id]) return map[id];
-      const text = `${charObj?.role || ''} ${charObj?.surface || ''} ${charObj?.secret || ''}`;
-      if (/神|剑|骑士|审判|战斗/.test(text)) {
-        return { zh: '随身佩剑与法术微光', itemEn: 'ornate fantasy sword and glowing magic aura' };
+      const customWeapon = String(charObj?.weapon || '').trim();
+      const text = `${customWeapon} ${charObj?.body || ''} ${charObj?.surface || ''} ${charObj?.quirk || ''} ${charObj?.customPersonaText || ''}`;
+      if (/手枪|左轮|枪|pistol|revolver|gun/i.test(text)) {
+        return { zh: customWeapon || '随身左轮手枪', itemEn: 'realistic revolver handgun' };
       }
-      if (/巫|魔|占卜|神父|教/.test(text)) {
-        return { zh: '随身法杖与神秘星芒', itemEn: 'ornate magic staff and glowing arcane runes' };
+      if (/匕首|小刀|水果刀|弹簧刀|军刀|短刀|刀|knife|dagger/i.test(text)) {
+        return { zh: customWeapon || '随身防身小刀', itemEn: 'realistic pocket knife' };
       }
-      return { zh: '专属随身器物与灵力微光', itemEn: 'signature ornate fantasy tool and subtle magic glow' };
+      if (/警棍|甩棍|短棍|木棍|撬棍|钢管|拐杖|手杖|baton|crowbar|cane/i.test(text)) {
+        return { zh: customWeapon || '随身防身短棍', itemEn: 'realistic baton' };
+      }
+      if (/手电|提灯|煤油灯|打火机|flashlight|lantern/i.test(text)) {
+        return { zh: customWeapon || '随身调查手电筒', itemEn: 'vintage metal flashlight' };
+      }
+      if (/怀表|笔记本|相机|放大镜|医药箱|手术刀|scalpel|watch|notebook|camera/i.test(text)) {
+        if (/手术刀|scalpel/i.test(text)) return { zh: customWeapon || '随身手术刀', itemEn: 'surgical scalpel' };
+        return { zh: customWeapon || '随身调查员道具与防身小刀', itemEn: 'realistic pocket knife' };
+      }
+      if (customWeapon) {
+        return { zh: customWeapon, itemEn: 'realistic investigator weapon or tool, pocket knife' };
+      }
+      return { zh: '随身防身小刀', itemEn: 'realistic pocket knife' };
     }
 
-    // 乙女游戏级大动态25态立绘差分预设：每个状态不仅改变表情，更包含侧脸、半侧身、俯身、回眸、大幅度手势及尴尬黑线、3组战斗/工具差分
-    const PERSONA_ACTION_TEMPLATES = {
-      gentle: [
-        { name: '默认', zhDesc: '半侧微倾温雅注视', enTags: 'three-quarter view, graceful contrapposto standing posture, one hand lightly resting near chest, serene gentle expression, relaxed shoulders, looking at viewer' },
-        { name: '微笑', zhDesc: '侧身回眸温润浅笑', enTags: 'angled side posture, turning head toward viewer, upper body leaning slightly forward, one hand gently touching collarbone, warm gentle smile, softened eyes, looking at viewer' },
-        { name: '大笑', zhDesc: '大幅度舒展双臂畅笑', enTags: 'dynamic three-quarter posture, head tilted back slightly, one arm raised gracefully near shoulder while other hand rests on waist, warm genuine open smile, curved happy eyes, looking at viewer' },
-        { name: '温柔', zhDesc: '俯身靠近伸手轻抚', enTags: 'leaning forward toward viewer, angled torso, extending one hand outward in a gentle inviting gesture, tender affectionate gaze, soft warm smile, looking at viewer' },
-        { name: '害羞', zhDesc: '大幅侧身背手垂眸', enTags: 'turned mostly sideways in profile angle, shoulders slightly hunched, one hand raised to lightly touch back of neck, faint blush on ears and cheeks, lowered eyelashes, averted gaze' },
-        { name: '脸红', zhDesc: '半侧退步手掩唇畔', enTags: 'stepping back half a step, angled body, back of one hand lightly pressed near lips, soft red blush across cheeks, slightly parted lips, blinking wide eyes, looking at viewer' },
-        { name: '调侃', zhDesc: '斜倚微侧抬手托腮', enTags: 'relaxed asymmetrical leaning posture, head tilted to side, one hand propping chin while other arm crosses waist, subtle knowing smile, amused curved eyes, looking at viewer' },
-        { name: '惊讶', zhDesc: '侧身微仰抬手微怔', enTags: 'dynamic angled body leaning slightly back, both hands raised slightly near chest in surprise, widened eyes, raised eyebrows, parted lips, looking at viewer' },
-        { name: '震惊', zhDesc: '大幅后撤伸臂失色', enTags: 'dramatic off-balance posture stepping backward, torso twisted sideways, one arm extended outward in disbelief, wide stunned eyes, contracted pupils, tense expression, looking at viewer' },
-        { name: '慌乱', zhDesc: '侧身急转抬手拢袖', enTags: 'dynamic turning posture, upper body leaning away slightly, one hand raised defensively in front of chest while other hand clutches sleeve, flustered surprised eyes, knitted brows, looking at viewer' },
-        { name: '沉思', zhDesc: '纯侧脸伫立托腮静思', enTags: 'side profile view, facing left, head lowered in deep contemplation, one hand touching chin, other arm folded across waist, quiet analytical expression, looking down sideways' },
-        { name: '冷漠', zhDesc: '背身回首垂眸淡睨', enTags: 'from behind, three-quarter back view, turning head to look back over shoulder at viewer, emotionless serene face, cool distant gaze, half-lidded eyes' },
-        { name: '嘲讽', zhDesc: '侧身抱臂微抬下颌', enTags: 'angled side stance, crossed arms over chest, chin raised slightly, tilted head, faint cool curve of lips, distant aloof gaze, looking down at viewer' },
-        { name: '生气', zhDesc: '大幅侧身挥袖冷斥', enTags: 'dynamic angled posture, one arm sweeping outward to the side, tense shoulders, furrowed brows, stern serious expression, cool focused glare, looking at viewer' },
-        { name: '暴怒', zhDesc: '前倾逼近凛然震怒', enTags: 'dramatic leaning forward posture, dynamic flowing clothes, one hand clenched into fist in front of chest, cold piercing glare, deeply furrowed brows, intimidating presence, looking at viewer' },
-        { name: '难过', zhDesc: '侧脸低垂单手按胸', enTags: 'side profile view, lowered head, slightly slumped shoulders, one hand pressed tightly against heart, quiet melancholic expression, downcast sorrowful eyes' },
-        { name: '哭泣', zhDesc: '半侧仰首静默落泪', enTags: 'angled torso, head tilted slightly up, one hand clutching chest fabric, silent tears rolling down cheeks, reddened eyes, restrained sorrowful expression, looking at viewer' },
-        { name: '流泪', zhDesc: '侧身回眸清泪滑落', enTags: 'turned sideways, looking back at viewer, one hand raised with fingers lightly touching cheek near tear, single tear sliding down cheek, glistening fragile eyes' },
-        { name: '绝望', zhDesc: '大幅踉跄后退失神', enTags: 'dramatic off-balance slumped posture, leaning back as if losing strength, arms hanging limply, pale face, hollow dim eyes, hopeless expression, looking at viewer' },
-        { name: '崩溃', zhDesc: '俯身揪紧衣襟泣不成声', enTags: 'dynamic hunched forward posture, trembling shoulders, both hands clutching front of clothes tightly, streaming tears in wide hollow eyes, pale distraught face, looking at viewer' },
-        { name: '微醺', zhDesc: '斜身慵懒轻扯领口', enTags: 'swaying asymmetrical leaning posture, head tilted, one hand loosely tugging collar while other arm hangs relaxed, faint pink flush on cheeks, hazy soft eyes, looking at viewer' },
-        { name: '尴尬', zhDesc: '侧身僵笑额挂黑线', enTags: 'awkward stiffened angled posture, leaning slightly away, vertical dark embarrassment lines on side of forehead, sweatdrop on cheek, one hand lightly scratching cheek, sheepish wry smile, averted gaze' }
-      ],
-      stoic: [
-        { name: '默认', zhDesc: '半侧威严抱臂伫立', enTags: 'three-quarter view, dignified contrapposto posture, arms folded across chest, calm authoritative expression, sharp composed eyes, looking at viewer' },
-        { name: '微笑', zhDesc: '侧身微倾抚胸浅笑', enTags: 'angled noble posture, one hand resting over chest lapel, slight head tilt, subtle confident smile, sharp warm eyes, looking at viewer' },
-        { name: '大笑', zhDesc: '仰首叉腰低沉畅笑', enTags: 'dynamic confident posture, head tilted back slightly, one hand on hip while other hand gestures outward, amused confident laugh, curved lips, sharp bright eyes, looking at viewer' },
-        { name: '温柔', zhDesc: '俯身凑近伸手轻触', enTags: 'leaning forward toward viewer, angled upper body, one hand extended gently toward viewer face level, softened gaze, rare warm expression, looking at viewer' },
-        { name: '害羞', zhDesc: '大幅侧转偏首避视', enTags: 'turned sharply sideways in profile view, stiffened upright posture, one hand raised near collar, faint blush on ears, averting gaze away from viewer' },
-        { name: '脸红', zhDesc: '半侧后仰按住颈侧', enTags: 'leaning back slightly in angled stance, one hand touching side of neck, subtle red flush on cheeks, slight frown of embarrassment, looking away slightly' },
-        { name: '调侃', zhDesc: '俯身逼近挑眉坏笑', enTags: 'dynamic leaning forward posture, one hand on waist, raised eyebrow, knowing smirk, half-lidded sharp eyes, tilted head, looking at viewer' },
-        { name: '惊讶', zhDesc: '侧身微退抬手凝眸', enTags: 'angled stance shifting weight back, one hand raised slightly near chest, widened sharp eyes, raised eyebrows, brief surprised expression, looking at viewer' },
-        { name: '震惊', zhDesc: '大幅撤步挥臂震骇', enTags: 'dramatic stepping backward posture, torso turned sideways, one arm flung outward in shock, wide sharp eyes, contracted pupils, stunned expression, looking at viewer' },
-        { name: '慌乱', zhDesc: '侧身失衡抬手按额', enTags: 'off-balance angled posture, one hand raised near temple while other hand tenses at side, momentary flustered expression, widened eyes, tense jaw, looking at viewer' },
-        { name: '沉思', zhDesc: '纯侧脸背手抵颌审视', enTags: 'side profile view, facing right, one hand touching chin in deep thought, other arm behind back, downward thoughtful gaze, stern analytical expression' },
-        { name: '冷漠', zhDesc: '背身回眸俯视睨视', enTags: 'from behind, three-quarter back view, looking back over shoulder at viewer, chin raised, cold indifferent expression, icy piercing gaze' },
-        { name: '嘲讽', zhDesc: '半侧歪头摊手冷笑', enTags: 'asymmetrical angled posture, head tilted back slightly, one arm extended to side with palm up in mocking gesture, arrogant sneer, condescending cold gaze, looking at viewer' },
-        { name: '生气', zhDesc: '前倾逼视单手握拳', enTags: 'aggressive leaning forward posture, one fist clenched raised near chest, deeply furrowed brows, cold angry glare, stern compressed lips, looking at viewer' },
-        { name: '暴怒', zhDesc: '大幅挥臂雷霆震怒', enTags: 'dramatic dynamic posture, one arm sweeping forward powerfully, billowing clothes, furious intimidating expression, fierce glaring eyes, overwhelming presence, looking at viewer' },
-        { name: '难过', zhDesc: '纯侧脸垂眸背影孤寂', enTags: 'side profile view, turned away, lowered head and gaze, one hand resting on chest, somber melancholic expression, quiet heavy mood' },
-        { name: '哭泣', zhDesc: '半侧仰头隐忍落泪', enTags: 'angled tense posture, head tilted up slightly, one hand clenched at chest, silent tears rolling down stoic face, reddened eyes, clenched jaw, looking at viewer' },
-        { name: '流泪', zhDesc: '侧身回首清泪坠落', enTags: 'three-quarter side view, looking back at viewer, single tear rolling down cheek, solemn sorrowful eyes, one hand reaching out slightly' },
-        { name: '绝望', zhDesc: '大幅弯腰低头死寂', enTags: 'slumped forward angled posture, head hanging low, arms hanging heavy, hollow lifeless eyes, pale face, grim despairing expression, looking at viewer' },
-        { name: '崩溃', zhDesc: '踉跄侧倾揪裂衣领', enTags: 'dramatic off-balance posture, shattered composure, one hand violently clutching chest collar, trembling wide eyes, pale face, looking at viewer' },
-        { name: '微醺', zhDesc: '斜靠扯松领口慵懒', enTags: 'relaxed leaning sideways posture, one hand loosening collar, faint flush on cheeks, lazy half-closed sharp eyes, subtle smirk, looking at viewer' },
-        { name: '尴尬', zhDesc: '侧身僵硬额角黑线', enTags: 'stiff awkward angled posture, turning head slightly away, vertical dark embarrassment lines on forehead, small sweatdrop, one hand clearing throat near mouth, stiff expression' }
-      ],
-      lively: [
-        { name: '默认', zhDesc: '大幅叉腰歪头带笑', enTags: 'dynamic three-quarter view, energetic contrapposto posture, one hand on hip while other hand waves slightly, lively bright smile, looking at viewer' },
-        { name: '微笑', zhDesc: '前倾歪头双手背身后', enTags: 'leaning forward playfully toward viewer, head tilted, hands clasped behind back, warm cheerful smile, bright friendly eyes, looking at viewer' },
-        { name: '大笑', zhDesc: '仰头张开双臂开怀笑', enTags: 'dramatic lively posture, head tilted back, both arms spread open cheerfully, bright open laughing smile, happy curved eyes, radiant expression, looking at viewer' },
-        { name: '温柔', zhDesc: '半侧俯身伸手相邀', enTags: 'angled posture leaning softly forward, extending one hand toward viewer with open palm, soft affectionate smile, warm gentle eyes, looking at viewer' },
-        { name: '害羞', zhDesc: '大幅侧转挠头脸红', enTags: 'turned sideways in profile angle, leaning away shyly, one hand raised scratching back of head, bright blush on cheeks, sheepish shy smile, averted eyes' },
-        { name: '脸红', zhDesc: '后退半步双手捧脸颊', enTags: 'stepping back in lively reaction, angled body, both hands raised near glowing red cheeks without covering face, flustered expression, parted lips, looking at viewer' },
-        { name: '调侃', zhDesc: '大幅侧倾眨眼指人', enTags: 'dynamic playful leaning posture, one hand pointing playfully toward viewer while other hand rests on hip, winking or teasing half-closed eyes, playful smirk' },
-        { name: '惊讶', zhDesc: '大幅后仰张手睁圆眼', enTags: 'leaning back sharply in surprise, both hands raised open at sides of chest, wide surprised eyes, open mouth, raised eyebrows, looking at viewer' },
-        { name: '震惊', zhDesc: '跳步后撤大幅挥手', enTags: 'dramatic dynamic recoil posture, stepping back with arms flung wide in disbelief, wide staring eyes, shocked open mouth, looking at viewer' },
-        { name: '慌乱', zhDesc: '手忙脚乱侧身摆手', enTags: 'dynamic off-balance flustered posture, waving both hands at different heights in front of chest, wide panicked eyes, sweatdrop on cheek, parted lips, looking at viewer' },
-        { name: '沉思', zhDesc: '侧身抱臂歪头托腮', enTags: 'side profile or three-quarter view, leaning to one side, one finger tapping chin while other arm supports elbow, thoughtful curious expression, looking up sideways' },
-        { name: '冷漠', zhDesc: '背身侧颜敛去笑意', enTags: 'three-quarter back view, turning head slightly to look over shoulder, unsmiling serious face, cool distant eyes, arms relaxed' },
-        { name: '嘲讽', zhDesc: '叉腰歪头挑眉坏笑', enTags: 'cocked hip asymmetrical stance, both hands on hips or one hand gesturing, raised eyebrow, mocking playful smirk, half-lidded eyes, tilted head, looking at viewer' },
-        { name: '生气', zhDesc: '大幅叉腰前倾瞪眼', enTags: 'dynamic leaning forward posture, hands on hips, puffed cheeks or furrowed brows, displeased angry expression, sharp lively glare, looking at viewer' },
-        { name: '暴怒', zhDesc: '大幅挥拳怒气冲冲', enTags: 'dramatic aggressive stance, one arm raised with clenched fist, dynamic hair and clothes movement, furious expression, intense glaring eyes, looking at viewer' },
-        { name: '难过', zhDesc: '侧身垂头双肩垮落', enTags: 'turned sideways, deeply lowered head, drooping shoulders, hands clasped low in front, sad downcast eyes, melancholic expression' },
-        { name: '哭泣', zhDesc: '半侧抬袖擦泪委屈', enTags: 'angled posture, one arm raised wiping tears near eye with sleeve without covering face, crying, tears flowing down cheeks, reddened eyes, trembling lips, looking at viewer' },
-        { name: '流泪', zhDesc: '回眸伸手眼角含泪', enTags: 'turning back toward viewer, one hand reaching out hesitantly, single tear rolling down cheek, fragile expression, glistening eyes' },
-        { name: '绝望', zhDesc: '脱力后退垂臂空洞', enTags: 'slumped off-balance posture stepping back, arms hanging lifelessly, empty hollow eyes, pale face, despairing expression, looking at viewer' },
-        { name: '崩溃', zhDesc: '大幅弯腰揪衣痛哭', enTags: 'dramatic hunched posture, both hands clutching chest clothes tightly, streaming tears, wide distraught eyes, trembling shoulders, looking at viewer' },
-        { name: '微醺', zhDesc: '摇晃歪斜举手醉笑', enTags: 'swaying off-balance tipsy posture, leaning sideways, one arm raised loosely, rosy tipsy blush, half-closed dreamy eyes, lazy cheerful smile, looking at viewer' },
-        { name: '尴尬', zhDesc: '满头黑线汗颜干笑', enTags: 'dynamic comic awkward posture, leaning back slightly, prominent vertical dark embarrassment lines on forehead and side of face, large anime sweatdrop on temple, awkward stiff grin, one hand scratching cheek, looking sideways' }
-      ]
-    };
+    // 系统标准34个立绘表情动作差分池：难过改为失落，哭泣与流泪合并为哭泣，新增得意、贼笑、感动、无奈、叹气、装可怜、欣喜、不满、鄙夷、深情
+    const TACHIE_25_EXPRESSIONS = [
+      '默认','微笑','大笑','温柔','害羞','脸红','调侃','惊讶','震惊','慌乱',
+      '沉思','冷漠','嘲讽','生气','暴怒','失落','哭泣','绝望','崩溃','微醺',
+      '尴尬','得意','贼笑','感动','无奈','叹气','装可怜','欣喜','不满','鄙夷',
+      '深情','备战','出招','决胜'
+    ];
 
-    const DEFAULT_EIGHT_ACTIONS = PERSONA_ACTION_TEMPLATES.gentle;
-
-    function getPersonaArchetypeForChar(charObj) {
-      if (!charObj) return 'gentle';
-      const id = charObj.id || '';
-      if (['wein', 'branwen', 'garfina', 'ouluosi', 'guy', 'cynthia'].includes(id)) return 'gentle';
-      if (['mortimer', 'xilai', 'parish', 'anox', 'ouluolius'].includes(id)) return 'stoic';
-      if (['wendy', 'landrico', 'doris', 'sephira', 'gwen'].includes(id)) return 'lively';
-      const text = `${charObj.role || ''} ${charObj.quirk || ''} ${charObj.surface || ''} ${charObj.cot || ''}`;
-      if (/威严|冷淡|冷峻|冷酷|孤傲|一言堂|压迫|统治|审判/.test(text)) return 'stoic';
-      if (/轻快|散漫|健谈|古灵精怪|外向|活泼|俏皮|爽朗/.test(text)) return 'lively';
-      return 'gentle';
-    }
-
+    // 已彻底删除初始英文动作模板，所有差分动作提示词均在点击写词时由AI根据角色人设与模组剧情实时撰写
     function buildPersonaMatchedActions(charObj) {
-      const arch = getPersonaArchetypeForChar(charObj);
-      const baseList = JSON.parse(JSON.stringify(PERSONA_ACTION_TEMPLATES[arch] || PERSONA_ACTION_TEMPLATES.gentle));
-      const wt = getCharSignatureWeaponOrTool(charObj);
-      const combatStates = [
-        {
-          name: '备战',
-          zhDesc: `侧身亮出${wt.zh}蓄势`,
-          enTags: `dynamic three-quarter combat ready stance, holding ${wt.itemEn} in hand, weight shifted to back leg, flowing clothes, sharp focused eyes, composed battle readiness, looking at viewer`
-        },
-        {
-          name: '出招',
-          zhDesc: `大幅前冲挥动${wt.zh}`,
-          enTags: `dramatic dynamic action pose, lunging forward at an angle, raising and swinging ${wt.itemEn} with wide arm motion, billowing cape and hair, intense determined gaze, looking at viewer`
-        },
-        {
-          name: '决胜',
-          zhDesc: `回眸收势执握${wt.zh}`,
-          enTags: `stylishthree-quarter back or side-angled finisher pose, looking back over shoulder at viewer, holding ${wt.itemEn} at side with glowing energy particles, confident victorious expression`
-        }
-      ];
-      combatStates[2].enTags = combatStates[2].enTags.replace('stylishthree-quarter', 'stylish three-quarter');
-      return [...baseList, ...combatStates];
+      return TACHIE_25_EXPRESSIONS.map((name) => ({
+        name,
+        zhDesc: name === '默认' ? '平静无表情默认站姿' : '待点写词由AI根据人设整理',
+        enTags: name === '默认'
+          ? 'three-quarter view, calm composed standing posture, neutral expressionless face, calm closed mouth, arms relaxed naturally at sides, looking at viewer'
+          : ''
+      }));
     }
+
+    const DEFAULT_EIGHT_ACTIONS = buildPersonaMatchedActions(null);
 
     // 存放用户上传的多张角色外貌与服装参考图
     appState.designRefImages = [];
@@ -5716,16 +5613,15 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
 
     function buildCharacterPersonaAndWorldPreview(charObj) {
       if (!charObj) return '';
-      if (typeof charObj.customPersonaText === 'string') {
+      if (typeof charObj.customPersonaText === 'string' && charObj.customPersonaText.trim()) {
         return charObj.customPersonaText;
       }
       const lines = [];
-      if (charObj.role && charObj.role !== '暂无') lines.push(`身份职业：${charObj.role}`);
-      if (charObj.body && charObj.body !== '暂无' && charObj.body !== '待补充外貌') lines.push(`外貌特征：${charObj.body}`);
-      if (charObj.quirk && charObj.quirk !== '暂无' && charObj.quirk !== '自然跑团语气') lines.push(`性格语癖：${charObj.quirk}`);
-      if (charObj.surface && charObj.surface !== '暂无' && !String(charObj.surface).startsWith('从跑团日志自动识别')) lines.push(`人物设定：${charObj.surface}`);
-      if (charObj.secret && charObj.secret !== '暂无') lines.push(`深层背景：${charObj.secret}`);
-      if (charObj.quotes && charObj.quotes !== '暂无') lines.push(`代表台词：${charObj.quotes}`);
+      if (charObj.age && charObj.age !== '暂无') lines.push(`年龄：${charObj.age}`);
+      if (charObj.body && charObj.body !== '暂无' && charObj.body !== '待补充外貌') lines.push(`外貌：${charObj.body}`);
+      if (charObj.quirk && charObj.quirk !== '暂无' && charObj.quirk !== '自然跑团语气') lines.push(`性格：${charObj.quirk}`);
+      if (charObj.surface && charObj.surface !== '暂无' && !String(charObj.surface).startsWith('从跑团日志自动识别')) lines.push(`背景：${charObj.surface}`);
+      if (charObj.weapon && charObj.weapon !== '暂无') lines.push(`武器随身携带道具：${charObj.weapon}`);
       return lines.join('\n');
     }
 
@@ -6099,13 +5995,27 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
       const prev = sel.value || 'base';
       const targetChar = charObj || appState.characters.find((c) => c.id === (document.getElementById('tachie-target-char')?.value || appState.selectedTachieCharId));
       const actions = getCharActionList(targetChar);
-      let html = `<option value="base">修改范围：默认纯外貌与衣服底词</option>`;
+      let html = `
+        <option value="base">修改范围：默认纯外貌与衣服底词</option>
+        <option value="all_actions">修改范围：全部下方动作提示词</option>
+        <option value="checked_actions">修改范围：仅下方勾选的动作提示词</option>
+      `;
       actions.forEach((act, idx) => {
-        html += `<option value="act_${idx}">仅修改动作差分：${idx + 1}. ${act.name}</option>`;
+        html += `<option value="act_${idx}">仅修改单个动作：${idx + 1}. ${act.name}</option>`;
       });
       sel.innerHTML = html;
       if (Array.from(sel.options).some((o) => o.value === prev)) {
         sel.value = prev;
+      }
+    }
+
+    function toggleAllTachieActionCheckboxes(checked) {
+      document.querySelectorAll('.tachie-act-batch-chk').forEach((chk) => {
+        chk.checked = Boolean(checked);
+      });
+      const sel = document.getElementById('tachie-modify-target-select');
+      if (sel && checked) {
+        sel.value = 'checked_actions';
       }
     }
 
@@ -6126,19 +6036,19 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
         const wt = getCharSignatureWeaponOrTool(charObj);
         const moduleContext = getSelectedTachieModuleVolumeContext(charObj.name);
 
-        const sys = `你是顶级乙女视觉小说角色立绘主美与 NovelAI V4.5 提示词专家。请仔细阅读用户输入的角色人设以及所选模组卷数中的剧情细节，一次性同步完成以下内容：
+        const sys = `你是顶级克苏鲁跑团调查员视觉小说角色立绘主美与 NovelAI V4.5 提示词专家。请仔细阅读用户输入的角色人设以及所选模组卷数中的剧情细节，一次性同步完成以下内容：
 第一部分：完全不含任何表情、不含任何动作、且绝对不含虎牙尖牙的正比全身立绘纯外貌加衣服底词 BASE_TAGS；
-第二部分：默认站姿与全部二十五个必选状态差分的专属动作与表情提示词 ACT1 至 ACT25；
-第三部分：根据角色在模组文章中的性格、习惯与随身小物，额外设计一至三个贴合模组表现的专属额外差分 EXTRA1 至 EXTRA3。
+第二部分：默认站姿与全部三十四个必选状态差分的专属动作与表情提示词 ACT1 至 ACT34；
+第三部分：根据角色在模组文章中的性格、习惯与随身携带道具，额外设计一至两个贴合模组表现的专属额外差分 EXTRA1 至 EXTRA2。
 
 必须严格遵守以下八条铁律：
-第一条：如果用户上传了参考图，你只能提取参考图中的五官特征、发色发型、刘海分缝、兽耳尾巴特征、服装版型与配饰细节；绝对禁止抄袭参考图原有的歪斜姿势、半身构图、镜头角度或原有表情。
+第一条：如果用户上传了参考图，你只能提取参考图中的五官特征、发色发型、刘海分缝、服装版型与配饰细节；绝对禁止抄袭参考图原有的歪斜姿势、半身构图、镜头角度或原有表情。
 第二条：如果该角色是成年男性，正比立绘 BASE_TAGS 中必须明确写上成年男性与细长眼睛标签：1boy, mature male, adult man, narrow eyes, slender eyes, tsurime, long eyelashes，严禁写成圆眼幼态少年。
 第三条：BASE_TAGS 只能包含纯粹的人物外貌五官、发色发型、身材特征以及从头到脚的衣服鞋靴配饰！BASE_TAGS 中绝对禁止包含虎牙、小虎牙、尖牙即 fang, fangs, snaggletooth, sharp teeth，绝对禁止包含任何面部表情如 smile, grin, smirk, blush，绝对禁止包含任何动作姿态或手势！BASE_TAGS 必须以 solo, single character 开头确保画面只有唯一一个全身人物。
 第四条：OUTFIT_ZH 中文服装方案只允许写纯粹客观的衣物款式、版型、颜色、材质、花纹与配饰清单，禁止写主观吹捧修辞。服装必须贴合角色人设身份，绝对禁止写现代运动鞋 sneakers, running shoes, athletic shoes, canvas shoes, trainers。
 第五条：ACT1 默认状态必须是平静无表情的自然默认站姿：three-quarter view, calm composed standing posture, neutral expressionless face, calm closed mouth, arms relaxed naturally at sides, looking at viewer，绝不在默认状态咧嘴露牙或做夸张动作。
-第六条：编写其余二十四个必选差分与额外差分时，必须同步在写词阶段一次性全部写好。每个差分的动作绝不能百分之百全是死板正脸正面，必须根据角色性格做出自然的朝向与肢体变化，灵活运用微侧身 three-quarter view、半侧颜 angled side posture、纯侧脸 side profile view、背身回眸 looking back over shoulder、略微俯身 leaning slightly forward、单手托腮、单手按胸、抱臂、整理领口或袖口等变化，让每个动作都有鲜明区分度。
-第七条：如果启用了模组文章参考，请根据模组中该角色的言行性格来刻画每个表情的神态韵味，并且可以在个别动作中临时手上加自然的小物件，例如手里拿着一本笔记本、翻开羊皮卷、握着怀表、提着提灯等；同时根据模组剧情设计一至三个额外差分，例如拿起笔记本记录、翻阅卷宗、举灯探查等，额外差分名称必须为两个中文字。但是绝对禁止直接照抄模组原文里会导致人体结构扭曲、动作怪异或遮挡脸部的描写！
+第六条：编写其余三十三个必选差分与额外差分时，必须同步在写词阶段一次性全部写好。每个差分的动作绝不能百分之百全是死板正脸站姿，必须根据情绪做出鲜明且大幅度的肢体动作与角度变化，灵活运用微侧身 three-quarter view、半侧颜 angled side posture、纯侧脸 side profile view、背身回眸 looking back over shoulder、大幅前倾 leaning forward、后撤失衡 stepping backward off-balance、抱头跪坐或弯腰脱力 hunched over or kneeling、单手扶额、双手抱胸等变化。尤其绝望与崩溃严禁写成普通站姿，必须写出身体脱力弯腰、双手抱头或捂胸颤抖、双肩垮塌、面色惨白瞳孔失焦的强烈动态标签！
+第七条：这是一个克苏鲁调查员世界观，没有魔法超能力！备战、出招、决胜以及日常手持物必须严格依据角色人设中的「武器随身携带道具」即${wt.zh}来写，一般为写实小刀、匕首、左轮手枪、警棍、手电筒或笔记本，绝对禁止妄自揣测编写魔法权杖、发光神剑、悬浮塔罗、茶壶或超能力特效！
 第八条：绝对禁止在任何英文标签中写 visual novel sprite, official art, character sheet, reference sheet, multiple views, expression sheet, face inset 等词汇。从头到尾严禁使用任何圆括号或方括号，严格按照以下格式逐行输出：
 OUTFIT_ZH: 纯客观的从头到脚服装款式材质颜色与随身配饰清单
 BASE_TAGS: 完全不含任何动作表情且不含虎牙的超详细正比纯外貌与全身衣服英文标签串
@@ -6150,33 +6060,42 @@ ACT5: 害羞|贴合性格的侧身偏头害羞简述|含身体角度手势变化
 ACT6: 脸红|贴合性格的退步或轻触脸颊耳根泛红简述|含身体角度手势变化与脸红神态的英文标签
 ACT7: 调侃|贴合性格的抱臂或托腮挑眉调侃简述|含身体角度手势变化与调侃神态的英文标签
 ACT8: 惊讶|贴合性格的微侧身抬手惊讶简述|含身体角度手势变化与惊讶神态的英文标签
-ACT9: 震惊|贴合性格的后撤步瞳孔微缩震惊简述|含身体角度手势变化与震惊神态的英文标签
+ACT9: 震惊|贴合性格的大幅后撤瞳孔骤缩震惊简述|含大幅后退失衡动作与震惊神态的英文标签
 ACT10: 慌乱|贴合性格的转身摆手慌乱简述|含身体角度手势变化与慌乱神态的英文标签
 ACT11: 沉思|贴合性格的侧颜托腮或持物沉思简述|含侧颜或半侧身手势与沉思神态的英文标签
 ACT12: 冷漠|贴合性格的背身回眸或侧身冷淡简述|含背身回眸或侧颜与冷漠神态的英文标签
 ACT13: 嘲讽|贴合性格的斜睨挑眉嘲讽简述|含身体角度手势变化与嘲讽神态的英文标签
 ACT14: 生气|贴合性格的侧身沉脸动怒简述|含身体角度手势变化与生气神态的英文标签
-ACT15: 暴怒|贴合性格的挥袖或前倾盛怒简述|含身体角度手势变化与暴怒神态的英文标签
-ACT16: 难过|贴合性格的侧颜垂眸按胸难过简述|含侧颜或垂首手势与难过神态的英文标签
-ACT17: 哭泣|贴合性格的偏头攥紧衣襟落泪简述|含身体角度手势变化与哭泣神态的英文标签
-ACT18: 流泪|贴合性格的回眸或仰首滑落泪珠简述|含身体角度手势变化与流泪神态的英文标签
-ACT19: 绝望|贴合性格的踉跄后退失神简述|含身体角度手势变化与绝望神态的英文标签
-ACT20: 崩溃|贴合性格的俯身揪紧胸口衣襟崩溃简述|含身体角度手势变化与崩溃神态的英文标签
-ACT21: 微醺|贴合性格的斜倚松领微醺简述|含身体角度手势变化与微醺神态的英文标签
-ACT22: 尴尬|贴合性格的额角黑线汗颜僵笑简述|含vertical dark embarrassment lines on forehead, sweatdrop与身体角度手势变化的英文标签
-ACT23: 备战|手持${wt.zh}侧身蓄势备战简述|含手持${wt.itemEn}侧身备战姿势与锐利神态的英文标签
-ACT24: 出招|挥动或施展${wt.zh}前冲出招简述|含施展${wt.itemEn}动态出招姿势与神态的英文标签
-ACT25: 决胜|执握${wt.zh}回眸收势决胜简述|含背身回眸或侧身收起${wt.itemEn}姿势与从容神态的英文标签
-EXTRA1: 两个字额外差分名如记录|结合模组与人设的手持小物如拿笔记本写字动作简述|含自然身体角度、手持小物与神态的英文标签
-EXTRA2: 两个字额外差分名如翻书|结合模组与人设的特色动作简述|含自然身体角度、手部动作与神态的英文标签`;
+ACT15: 暴怒|贴合性格的前倾握拳盛怒简述|含大幅前倾动作手势变化与暴怒神态的英文标签
+ACT16: 失落|贴合性格的侧颜垂眸双肩垮落失落简述|含侧身垂首低落姿态与失落神态的英文标签
+ACT17: 哭泣|贴合性格的偏头擦泪或攥衣落泪简述|含身体角度手势变化与流泪哭泣神态的英文标签
+ACT18: 绝望|大幅弯腰脱力或单手抱头绝望失神简述|dramatic hunched slumped posture, bending forward or stepping back off-balance, one hand clutching head or forehead in despair, trembling shoulders, pale face, wide hollow lifeless eyes, despair, looking down or at viewer
+ACT19: 崩溃|俯身双手抱头或揪紧胸口衣襟精神崩溃简述|dramatic breakdown posture, deeply hunched upper body, hands clutching head in hands or gripping chest clothes violently, trembling body, streaming tears, wide crazed distraught eyes, pale face
+ACT20: 微醺|贴合性格的斜倚松领微醺简述|含身体角度手势变化与微醺神态的英文标签
+ACT21: 尴尬|贴合性格的额角黑线汗颜僵笑简述|含vertical dark embarrassment lines on forehead, sweatdrop与身体角度手势变化的英文标签
+ACT22: 得意|贴合性格的扬眉叉腰或抱臂得意简述|含自信昂首或抱臂动作与得意神态的英文标签
+ACT23: 贼笑|贴合性格的歪头搓手或眯眼狡黠贼笑简述|含身体微倾手势变化与狡黠贼笑神态的英文标签
+ACT24: 感动|贴合性格的双手按胸眼泛泪光感动简述|含双手轻按胸口前倾动作与感动神态的英文标签
+ACT25: 无奈|贴合性格的摊手扶额无奈苦笑简述|含单手扶额或摊手耸肩动作与无奈神态的英文标签
+ACT26: 叹气|贴合性格的侧身垂肩闭目或微张口叹气简述|含侧身沉肩吐气动作与叹气神态的英文标签
+ACT27: 装可怜|贴合性格的微缩肩歪头眨眼装可怜简述|含缩肩前倾祈求手势与无辜可怜神态的英文标签
+ACT28: 欣喜|贴合性格的双手微举眼眸发亮欣喜简述|含轻快前倾手势与欣喜雀跃神态的英文标签
+ACT29: 不满|贴合性格的偏头抱臂皱眉不满简述|含侧身抱臂撇嘴皱眉动作与不满神态的英文标签
+ACT30: 鄙夷|贴合性格的后仰垂眸冷眼鄙夷简述|含微仰下颌俯视冷睨动作与鄙夷厌恶神态的英文标签
+ACT31: 深情|贴合性格的俯身靠近伸手深情凝视简述|含微俯身伸手轻触动作与深情专注眼神的英文标签
+ACT32: 备战|手持写实${wt.zh}侧身蓄势备战简述|含手持${wt.itemEn}侧身低重心备战姿势与锐利神态的英文标签
+ACT33: 出招|挥动或使用写实${wt.zh}前冲出招简述|含使用${wt.itemEn}大幅前冲攻击动态姿势与凌厉神态的英文标签
+ACT34: 决胜|收起写实${wt.zh}回眸站定决胜简述|含背身回眸或侧身握持${wt.itemEn}收势姿势与沉着神态的英文标签
+EXTRA1: 两个字额外差分名如记录|结合模组与随身道具的自然动作简述|含自然身体角度、手持写实道具与神态的英文标签
+EXTRA2: 两个字额外差分名如探查|结合模组与随身道具的特色动作简述|含自然身体角度、手部动作与神态的英文标签`;
 
         const editedPersonaBox = document.getElementById(isChibi ? 'chibi-char-persona-preview' : 'tachie-char-persona-preview')?.value.trim() || '';
         if (editedPersonaBox) {
           charObj.customPersonaText = editedPersonaBox;
         }
-        const personaDesc = editedPersonaBox || `角色姓名：${charObj.name}\n真实身高：${cm}cm\n身份职业：${charObj.role || '调查员'}\n外貌特征：${charObj.body || ''}\n性格特点：${charObj.quirk || ''}\n人物设定：${charObj.surface || ''}`;
+        const personaDesc = editedPersonaBox || `名字：${charObj.name}\n年龄：${charObj.age || ''}\n真实身高：${cm}cm\n外貌：${charObj.body || ''}\n性格：${charObj.quirk || ''}\n背景：${charObj.surface || ''}\n武器随身携带道具：${charObj.weapon || wt.zh}`;
 
-        const usrText = `请根据以下角色人设${moduleContext ? '以及所选模组卷数中的人物表现' : ''}，先编写完全不含任何表情、动作与虎牙的纯外貌加衣服底词 BASE_TAGS，再同步写好全部 25 个必选差分动作词与额外模组差分动作词，每个差分都要有自然的身体朝向与手部变化，不要全是死板正脸，也不要抄袭模组中会导致动作扭曲怪异的描写：
+        const usrText = `请根据以下角色人设${moduleContext ? '以及所选模组卷数中的人物表现' : ''}，先编写完全不含任何表情、动作与虎牙的纯外貌加衣服底词 BASE_TAGS，再同步写好全部 34 个必选差分动作词与额外模组差分动作词。注意备战出招必须使用写实调查员武器${wt.zh}，绝不编造魔法超能力道具；绝望与崩溃必须有大幅度弯腰、抱头或揪衣脱力动作，绝不能写成普通站姿：
 角色人设要求：
 ${personaDesc}${moduleContext ? `\n\n模组文章参考内容：\n${moduleContext}` : ''}`;
 
@@ -6203,7 +6122,7 @@ ${personaDesc}${moduleContext ? `\n\n模组文章参考内容：\n${moduleContex
         const outfitZh = sanitizeFantasyOutfitPrompt(outfitMatch ? outfitMatch[1].trim() : '已生成纯客观从头到脚服装与随身配饰清单');
         const rawBaseTags = baseMatch
           ? baseMatch[1].trim()
-          : `solo, single character, masterpiece, best quality, very aesthetic, absurdres, full body, whole body, head to toe, boots in frame, simple background, pure white background, no shadow on floor, ${charObj.naiTags || '1boy, mature male, adult man, narrow eyes, slender eyes, fantasy leather boots'}`;
+          : `solo, single character, masterpiece, best quality, very aesthetic, absurdres, full body, whole body, head to toe, boots in frame, simple background, pure white background, no shadow on floor, ${charObj.naiTags || '1boy, mature male, adult man, narrow eyes, slender eyes, leather boots'}`;
         const baseTags = stripBasePoseAndExpFromPrompt(sanitizeFantasyOutfitPrompt(rawBaseTags));
 
         const parsedActions = [];
@@ -6213,8 +6132,7 @@ ${personaDesc}${moduleContext ? `\n\n模组文章参考内容：\n${moduleContex
           if (mAct) {
             const parts = mAct[1].split('|').map((s) => s.trim());
             if (parts.length >= 3) {
-              const cleanEn = stripMultiHeadAndSpriteSheetTags(parts.slice(2).join(', '))
-                .replace(/hands on head|head in hands|covering face|hands covering face/gi, 'clutching chest clothes tightly');
+              const cleanEn = stripMultiHeadAndSpriteSheetTags(parts.slice(2).join(', '));
               parsedActions.push({
                 name: parts[0].slice(0, 4),
                 zhDesc: parts[1],
@@ -6226,9 +6144,8 @@ ${personaDesc}${moduleContext ? `\n\n模组文章参考内容：\n${moduleContex
           if (mExtra) {
             const parts = mExtra[1].split('|').map((s) => s.trim());
             if (parts.length >= 3) {
-              const extraName = parts[0].replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 2);
-              const cleanEn = stripMultiHeadAndSpriteSheetTags(parts.slice(2).join(', '))
-                .replace(/hands on head|head in hands|covering face|hands covering face/gi, 'clutching chest clothes tightly');
+              const extraName = parts[0].replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 3);
+              const cleanEn = stripMultiHeadAndSpriteSheetTags(parts.slice(2).join(', '));
               if (extraName && cleanEn) {
                 parsedExtras.push({
                   name: extraName,
@@ -6241,10 +6158,6 @@ ${personaDesc}${moduleContext ? `\n\n模组文章参考内容：\n${moduleContex
         });
 
         const personaDefaults = buildPersonaMatchedActions(charObj);
-        if (personaDefaults[0]) {
-          personaDefaults[0].zhDesc = '平静无表情默认站姿';
-          personaDefaults[0].enTags = 'three-quarter view, calm composed standing posture, neutral expressionless face, calm closed mouth, arms relaxed naturally at sides, looking at viewer';
-        }
         const finalActions = personaDefaults.map((defAct) => {
           const found = parsedActions.find((a) => a.name === defAct.name);
           if (defAct.name === '默认' && found) {
@@ -6306,37 +6219,107 @@ ${personaDesc}${moduleContext ? `\n\n模组文章参考内容：\n${moduleContex
       if (!charObj) return;
       const currentTachiePrompt = document.getElementById('tachie-nai-prompt')?.value.trim() || charObj.naiTags || '';
       const modReq = document.getElementById(isChibi ? 'chibi-modify-req' : 'tachie-modify-req')?.value.trim() || '';
-      const targetVal = document.getElementById('tachie-modify-target-select')?.value || 'base';
+      let targetVal = document.getElementById('tachie-modify-target-select')?.value || 'base';
       const btn = document.getElementById(isChibi ? 'chibi-ai-modify-btn' : 'tachie-ai-modify-btn');
 
       if (!modReq) return;
+      const checkedBoxes = Array.from(document.querySelectorAll('.tachie-act-batch-chk:checked'));
+      if (!isChibi && targetVal === 'base' && checkedBoxes.length > 0) {
+        targetVal = 'checked_actions';
+      }
+
       if (btn) {
         btn.textContent = '改词中';
         btn.disabled = true;
       }
 
       try {
-        if (!isChibi && targetVal.startsWith('act_')) {
-          const actIdx = parseInt(targetVal.replace('act_', ''), 10);
+        // 批量修改全部动作提示词 或 仅修改勾选的多个动作提示词（AI可同时看到角色默认底词与全部动作提示词）
+        if (!isChibi && (targetVal === 'all_actions' || targetVal === 'checked_actions')) {
           const actions = getCharActionList(charObj);
-          const targetAct = actions[actIdx];
-          if (!targetAct) return;
+          const targetIndices = targetVal === 'all_actions'
+            ? actions.map((_, idx) => idx)
+            : checkedBoxes.map((cb) => parseInt(cb.dataset.idx, 10)).filter((n) => !isNaN(n) && n >= 0 && n < actions.length);
+
+          if (targetIndices.length === 0) {
+            alert('请先在下方动作列表中勾选至少一个需要修改的差分，或切换修改范围为全部下方动作提示词');
+            return;
+          }
+
+          const allActionsOverview = actions.map((a, idx) => `ACT${idx}: ${a.name}|${a.zhDesc || ''}|${a.enTags || ''}`).join('\n');
+          const targetNamesList = targetIndices.map((i) => `ACT${i} ${actions[i].name}`).join('、');
+          const wt = getCharSignatureWeaponOrTool(charObj);
 
           const reply = await callLlmCompletion(
             [
               {
                 role: 'system',
-                content: `你是 NovelAI V4.5 视觉小说角色差分动作与表情修改专家。请严格按照用户的中文要求，单独修改该角色「${targetAct.name}」这一个差分状态的英文动作与表情提示词 ACT_TAGS 以及中文动作简述 ACT_ZH。
+                content: `你是克苏鲁调查员视觉小说角色差分动作提示词总监。现在给你看该角色的完整人设、默认外貌衣服底词 BASE_TAGS 以及当前全部差分动作列表。
+请严格按照用户的修改指令，对指定的目标差分动作进行批量修改或重写。
 核心要求：
-1. 只描写该状态下的身体朝向角度如 three-quarter view 或 side profile view 或 looking back over shoulder、肢体动作、手势、手持自然小物以及五官神态表情，不要重复整套衣服底词。
-2. 动作要自然贴合角色性格，绝对禁止出现导致肢体扭曲怪异或遮挡脸部的姿势，绝对禁止写 visual novel sprite 或 character sheet 等词汇。
+1. 只能包含身体朝向角度、肢体姿态、手部动作、手持写实道具如${wt.zh}以及面部五官神态表情，不要重复整套衣服底词。
+2. 严禁编写任何魔法超能力特效或奇幻法器；绝望与崩溃等强烈情绪必须有大幅度弯腰、抱头或脱力动作，不要写成普通死板站姿。
+3. 从头到尾严禁使用任何圆括号或方括号，只输出需要修改的目标行，严格按以下格式逐行返回：
+ACT序号: 差分名|修改后的中文动作简述|修改后的完整英文动作与神态标签串`
+              },
+              {
+                role: 'user',
+                content: `角色姓名：${charObj.name}\n武器随身携带道具：${charObj.weapon || wt.zh}\n当前默认外貌衣服底词 BASE_TAGS：${currentTachiePrompt}\n\n当前全部动作提示词总览：\n${allActionsOverview}\n\n本次要求修改的目标动作：${targetNamesList}\n用户的修改要求：${modReq}`
+              }
+            ],
+            null,
+            { caller: `AI批量修改动作词·${charObj.name}`, preferSubApi: true }
+          );
+
+          reply.split('\n').forEach((line) => {
+            const m = line.trim().match(/^ACT(\d+):\s*(.+)$/i);
+            if (!m) return;
+            const idx = parseInt(m[1], 10);
+            if (isNaN(idx) || idx < 0 || idx >= actions.length) return;
+            if (!targetIndices.includes(idx) && targetVal === 'checked_actions') return;
+            const parts = m[2].split('|').map((s) => s.trim());
+            if (parts.length >= 3) {
+              actions[idx].zhDesc = parts[1] || actions[idx].zhDesc;
+              actions[idx].enTags = stripMultiHeadAndSpriteSheetTags(parts.slice(2).join(', '));
+            } else if (parts.length === 2) {
+              actions[idx].enTags = stripMultiHeadAndSpriteSheetTags(parts[1]);
+            }
+          });
+
+          charObj.customActionList = actions;
+          await db.characters.put(charObj);
+          const curAct = actions.find((a) => a.name === appState.selectedTachieExp);
+          if (curAct && document.getElementById('tachie-custom-action-tags')) {
+            document.getElementById('tachie-custom-action-tags').value = curAct.enTags;
+          }
+          renderTachieActionPlanList();
+          renderTachieExpButtons();
+          return;
+        }
+
+        // 修改单个动作差分（同样向AI提供全套提示词上下文以便保持整体协调）
+        if (!isChibi && targetVal.startsWith('act_')) {
+          const actIdx = parseInt(targetVal.replace('act_', ''), 10);
+          const actions = getCharActionList(charObj);
+          const targetAct = actions[actIdx];
+          if (!targetAct) return;
+          const allActionsOverview = actions.map((a, idx) => `ACT${idx}: ${a.name}|${a.zhDesc || ''}|${a.enTags || ''}`).join('\n');
+
+          const reply = await callLlmCompletion(
+            [
+              {
+                role: 'system',
+                content: `你是 NovelAI V4.5 视觉小说角色差分动作与表情修改专家。现在给你提供角色完整底词与全部动作提示词上下文，请严格按照用户的中文要求，修改该角色「${targetAct.name}」这一个差分状态的英文动作与表情提示词 ACT_TAGS 以及中文动作简述 ACT_ZH。
+核心要求：
+1. 只描写该状态下的身体朝向角度、肢体大幅度动作、手势、手持写实调查员道具以及五官神态表情，不要重复整套衣服底词。
+2. 动作要有鲜明动态区分度，严禁把绝望或崩溃写成普通站姿，绝对禁止写 visual novel sprite 或 character sheet 等词汇。
 3. 从头到尾严禁使用任何圆括号或方括号，严格按以下两行输出：
 ACT_ZH: 修改后的简短中文动作神态说明
 ACT_TAGS: 修改后的完整英文动作角度与表情标签串`
               },
               {
                 role: 'user',
-                content: `角色姓名：${charObj.name}\n当前要修改的差分状态：${targetAct.name}\n原中文动作说明：${targetAct.zhDesc || ''}\n原英文动作与表情标签：${targetAct.enTags || ''}\n用户的修改要求：${modReq}`
+                content: `角色姓名：${charObj.name}\n默认外貌底词：${currentTachiePrompt}\n全部差分提示词上下文：\n${allActionsOverview}\n\n当前要修改的差分状态：${targetAct.name}\n原中文动作说明：${targetAct.zhDesc || ''}\n原英文动作与表情标签：${targetAct.enTags || ''}\n用户的修改要求：${modReq}`
               }
             ],
             null,
@@ -6349,8 +6332,7 @@ ACT_TAGS: 修改后的完整英文动作角度与表情标签串`
             targetAct.zhDesc = zhM[1].trim();
           }
           if (tagsM && tagsM[1].trim()) {
-            targetAct.enTags = stripMultiHeadAndSpriteSheetTags(tagsM[1].trim())
-              .replace(/hands on head|head in hands|covering face|hands covering face/gi, 'clutching chest clothes tightly');
+            targetAct.enTags = stripMultiHeadAndSpriteSheetTags(tagsM[1].trim());
           }
           charObj.customActionList = actions;
           await db.characters.put(charObj);
@@ -6372,7 +6354,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
             },
             {
               role: 'user',
-              content: `原立绘純外貌与衣服提示词：${currentTachiePrompt}\n用户的中文修改要求：${modReq}`
+              content: `原立绘纯外貌与衣服提示词：${currentTachiePrompt}\n用户的中文修改要求：${modReq}`
             }
           ],
           null,
@@ -8160,33 +8142,22 @@ ZH: 修改后的纯客观中文服装配饰清单`
     // =========================================================================
     function getCharActionList(charObj) {
       const personaDefaults = buildPersonaMatchedActions(charObj);
-      if (charObj && Array.isArray(charObj.customActionList) && charObj.customActionList.length >= 25) {
-        const hasAwkward = charObj.customActionList.some((a) => a.name === '尴尬');
-        const hasCombat = charObj.customActionList.some((a) => a.name === '备战');
-        const hasLegacyGeneric = charObj.customActionList.some(
-          (a) => a.zhDesc === '侧身扭捏偏头闪避' || a.zhDesc === '重心不稳摆手解释' || a.zhDesc === '单手叉腰仰头畅笑'
-        );
-        if (hasLegacyGeneric || !hasAwkward || !hasCombat) {
-          charObj.customActionList = personaDefaults;
-        } else {
-          charObj.customActionList.forEach((a) => {
-            if (a.enTags) a.enTags = stripMultiHeadAndSpriteSheetTags(a.enTags);
-          });
-        }
-        return charObj.customActionList;
-      }
       if (charObj && Array.isArray(charObj.customActionList) && charObj.customActionList.length > 0) {
         const merged = personaDefaults.map((defAct) => {
-          const existing = charObj.customActionList.find((a) => a.name === defAct.name);
-          if (existing && existing.enTags && existing.enTags.includes('view')) {
-            existing.enTags = stripMultiHeadAndSpriteSheetTags(existing.enTags);
-            return existing;
+          const existing = charObj.customActionList.find((a) => a.name === defAct.name || (defAct.name === '失落' && a.name === '难过'));
+          if (existing) {
+            return {
+              name: defAct.name,
+              zhDesc: existing.zhDesc || defAct.zhDesc,
+              enTags: existing.enTags ? stripMultiHeadAndSpriteSheetTags(existing.enTags) : ''
+            };
           }
           return JSON.parse(JSON.stringify(defAct));
         });
         charObj.customActionList.forEach((customAct) => {
+          if (customAct.name === '难过' || customAct.name === '流泪') return;
           if (!merged.some((m) => m.name === customAct.name)) {
-            customAct.enTags = stripMultiHeadAndSpriteSheetTags(customAct.enTags);
+            customAct.enTags = stripMultiHeadAndSpriteSheetTags(customAct.enTags || '');
             merged.push(customAct);
           }
         });
@@ -8251,23 +8222,25 @@ ZH: 修改后的纯客观中文服装配饰清单`
 
       actions.forEach((act, idx) => {
         const hasGenerated = Boolean(charObj?.tachieExpressions && charObj.tachieExpressions[act.name]);
-        const isExtra = idx >= 25;
+        const isExtra = idx >= TACHIE_25_EXPRESSIONS.length;
         const card = document.createElement('div');
         card.style.cssText = 'padding:10px;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:10px;display:flex;flex-direction:column;gap:6px;';
         card.innerHTML = `
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-            <div style="font-size:13px;font-weight:700;color:var(--text-primary);">
-              ${idx + 1}. ${act.name} <span style="font-size:11px;font-weight:500;color:var(--text-secondary);">· ${act.zhDesc || ''}</span>
-              ${isExtra ? '<span style="font-size:11px;color:var(--accent-color);margin-left:6px;">额外差分</span>' : ''}
-              ${hasGenerated ? '<span style="font-size:11px;color:var(--accent-color);margin-left:6px;">已生成立绘</span>' : ''}
-            </div>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--text-primary);cursor:pointer;margin:0;">
+              <input type="checkbox" class="tachie-act-batch-chk" data-idx="${idx}" onchange="const s=document.getElementById('tachie-modify-target-select');if(s&&this.checked)s.value='checked_actions';" style="width:15px;height:15px;flex-shrink:0;" />
+              <span>${idx + 1}. ${act.name}</span>
+              <span style="font-size:11px;font-weight:500;color:var(--text-secondary);">· ${act.zhDesc || ''}</span>
+              ${isExtra ? '<span style="font-size:11px;color:var(--accent-color);margin-left:4px;">额外差分</span>' : ''}
+              ${hasGenerated ? '<span style="font-size:11px;color:var(--accent-color);margin-left:4px;">已生成立绘</span>' : ''}
+            </label>
             <div style="display:flex;gap:6px;flex-shrink:0;">
               <button type="button" class="moe-btn secondary" onclick="selectActionForAiModify(${idx})">改词</button>
               <button type="button" class="moe-btn secondary" onclick="useActionPlanItem(${idx})">查看</button>
               <button type="button" class="moe-btn" onclick="generateSingleActionDiff(${idx})">生图</button>
             </div>
           </div>
-          <textarea class="moe-input" style="min-height:68px;background:var(--card-bg);font-size:12px;" oninput="updateActionPlanItemTag(${idx}, this.value)">${act.enTags || ''}</textarea>
+          <textarea class="moe-input" placeholder="点击上方写词由AI统一撰写，或在此直接输入动作与表情英文标签" style="min-height:68px;background:var(--card-bg);font-size:12px;" oninput="updateActionPlanItemTag(${idx}, this.value)">${act.enTags || ''}</textarea>
         `;
         box.appendChild(card);
       });
@@ -8750,21 +8723,31 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const charId = appState.selectedTachieCharId || document.getElementById('tachie-target-char')?.value;
       const charObj = appState.characters.find((c) => c.id === charId);
       const rawBasePrompt = sanitizeFantasyOutfitPrompt(document.getElementById('tachie-nai-prompt').value.trim() || charObj?.naiTags || '');
-      const pureAppearanceAndOutfitPrompt = stripBasePoseAndExpFromPrompt(rawBasePrompt);
-      const customActTags = document.getElementById('tachie-custom-action-tags')?.value.trim();
+      const pureAppearanceAndOutfitPrompt = stripBasePoseAndExpFromPrompt(rawBasePrompt)
+        .replace(/\b(standing|standing straight|contrapposto|arms at sides|calm posture)\b\s*,?/gi, '')
+        .replace(/,\s*,+/g, ', ')
+        .trim();
       const actions = getCharActionList(charObj);
       const matchedAct = actions.find((a) => a.name === expName);
-      const expTag = stripMultiHeadAndSpriteSheetTags(customActTags || matchedAct?.enTags || 'three-quarter view, gentle smile, looking at viewer')
-        .replace(/hands on head|head in hands|covering face|hands covering face/gi, 'clutching chest clothes tightly');
+      const customBoxVal = document.getElementById('tachie-custom-action-tags')?.value.trim() || '';
+      const rawActionTags = customBoxVal || matchedAct?.enTags || '';
+      const fallbackByExp = {
+        '绝望': 'dramatic hunched slumped posture, bending forward off-balance, hands clutching head in despair, trembling shoulders, pale face, wide hollow lifeless eyes, despair, looking down at viewer',
+        '崩溃': 'dramatic breakdown posture, deeply hunched upper body, hands clutching head and hair in agony, trembling body, streaming tears, wide crazed distraught eyes, pale face, breakdown',
+        '震惊': 'dramatic stepping backward recoil posture, torso twisted sideways, one arm raised in shock, wide stunned eyes, contracted pupils, shocked expression',
+        '失落': 'turned sideways, lowered head, drooping shoulders, downcast sorrowful eyes, dejected melancholic expression'
+      };
+      const expTag = stripMultiHeadAndSpriteSheetTags(rawActionTags || fallbackByExp[expName] || `three-quarter view, dynamic posture, ${expName}, expressive face, looking at viewer`);
 
       const useStyle = document.getElementById('tachie-enable-style-ref')?.checked;
       const useFirstRef = document.getElementById('tachie-use-first-ref-chk') ? document.getElementById('tachie-use-first-ref-chk').checked : true;
       const rawLockStrength = parseFloat(document.getElementById('tachie-char-lock-strength')?.value || '0.62') || 0.62;
       const rawLockFidelity = parseFloat(document.getElementById('tachie-char-lock-fidelity')?.value || '0.78') || 0.78;
-      const charLockStrength = Math.min(rawLockStrength, 0.75);
-      const charLockFidelity = Math.min(rawLockFidelity, 0.88);
+      const isDramaticPose = ['绝望', '崩溃', '震惊', '暴怒', '慌乱', '备战', '出招', '决胜'].includes(expName);
+      const charLockStrength = isDramaticPose ? Math.min(rawLockStrength, 0.52) : Math.min(rawLockStrength, 0.75);
+      const charLockFidelity = isDramaticPose ? Math.min(rawLockFidelity, 0.72) : Math.min(rawLockFidelity, 0.88);
       const charCustomNeg = (document.getElementById('tachie-char-neg-prompt')?.value || charObj?.customNegativePrompt || '').trim();
-      const antiModernNeg = 'yellow tint, warm color cast, sepia, oversaturated, burnt colors, color shift, blue tint, pink tint, expressionless, neutral expression, static pose, stiff standing, ' + (getNovelAISettings().default_negative || '') + (charCustomNeg ? `, ${charCustomNeg}` : '') + ', wide margin, empty space, small subject, distant, multiple people, multipleboys, multiplegirls, 2boys, 2girls, crowd, extra head, floating head, small heads, side portraits, face inset, portrait inset, headshot inset, inset, picture in picture, multiple expressions, expression chart, expression sheet, facial expressions, character sheet, reference sheet, concept art, artbook page, character profile, multiple views, multi-panel, split screen, comic panel, border, frame, text, sneakers, running shoes, tennis shoes, athletic shoes, canvas shoes, trainers';
+      const antiModernNeg = 'yellow tint, warm color cast, sepia, oversaturated, burnt colors, color shift, blue tint, pink tint, expressionless, neutral expression, static pose, stiff standing, standing straight, arms at sides, ' + (getNovelAISettings().default_negative || '') + (charCustomNeg ? `, ${charCustomNeg}` : '') + ', wide margin, empty space, small subject, distant, multiple people, multipleboys, multiplegirls, 2boys, 2girls, crowd, extra head, floating head, small heads, side portraits, face inset, portrait inset, headshot inset, inset, picture in picture, multiple expressions, expression chart, expression sheet, facial expressions, character sheet, reference sheet, concept art, artbook page, character profile, multiple views, multi-panel, split screen, comic panel, border, frame, text, sneakers, running shoes, tennis shoes, athletic shoes, canvas shoes, trainers';
 
       if (btn) {
         btn.textContent = '生成中';
@@ -8779,7 +8762,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
           appState.charLockBase64
         ];
         const defaultBaseImg = candidateImgs.find((u) => typeof u === 'string' && u.length > 20 && !u.startsWith('data:image/svg+xml')) || null;
-        const diffFullPrompt = `solo, single character, {${expTag}}, ${pureAppearanceAndOutfitPrompt}, full body, head to toe, shoes in frame, filling frame, large subject, close-up full body, no margin, simple background, pure white background`;
+        const diffFullPrompt = `solo, single character, {{{${expTag}}}}, ${pureAppearanceAndOutfitPrompt}, full body, head to toe, shoes in frame, filling frame, large subject, close-up full body, no margin, simple background, pure white background`;
         const { dataUrl, seed } = await callNovelAiDirect(diffFullPrompt, {
           resolution: '832x1216',
           seed: -1,
@@ -10741,8 +10724,8 @@ ZH: 修改后的纯客观中文服装配饰清单`
               <img src="${c.tachieBase || c.chibiImg}" alt="${c.name}" style="width:100%;height:100%;object-fit:contain;" />
             </div>
             <div class="setting-item-center">
-              <div class="setting-item-title">${c.name} · ${tType} · ${cm}cm</div>
-              <div class="setting-item-sub">差分 ${expCount}/25 · ${vBadge} · ${bodyNote}</div>
+              <div class="setting-item-title">${c.name} · ${tType}${c.age ? (' · ' + c.age) : ''} · ${cm}cm</div>
+              <div class="setting-item-sub">差分 ${expCount}/34 · ${vBadge} · ${bodyNote}</div>
             </div>
             <div class="setting-item-right">
               <button type="button" class="moe-btn" onclick="event.stopPropagation();selectPersonaForEdit('${c.id}');switchSubPage('screen-persona', 'persona-basic')">编辑</button>
@@ -10782,6 +10765,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
           trpgType: '旁白',
           isUniversal: true,
           region: 'alta_kilig',
+          age: '',
           role: '守密人与环境叙述',
           heightCm: 175,
           earHatCm: 0,
@@ -10789,6 +10773,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
           quirk: '沉稳富有画面感',
           voiceId: 'male-qn-jingying',
           surface: '负责跑团回放中的环境描写、气氛渲染与守密人叙述。',
+          weapon: '',
           secret: '',
           cot: '',
           quotes: '夜色笼罩着空旷的街道，远处的钟声缓缓敲响。',
@@ -10811,7 +10796,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
     async function previewPersonaVoiceTts() {
       const btn = document.getElementById('oc-voice-test-btn');
       const voiceId = document.getElementById('oc-voice-id')?.value.trim() || 'male-qn-qingse';
-      const sampleText = document.getElementById('oc-quotes')?.value.trim() || '你好，这是当前角色绑定的语音试听效果。';
+      const sampleText = '你好，这是当前角色绑定的语音试听效果。';
       if (btn) {
         btn.textContent = '合成中';
         btn.disabled = true;
@@ -10833,36 +10818,33 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const c = appState.characters.find((x) => x.id === charId);
       if (!c) return;
       document.getElementById('persona-editing-title').textContent = `${c.name} · 角色档案`;
-      document.getElementById('oc-name').value = c.name || '';
+      if (document.getElementById('oc-name')) document.getElementById('oc-name').value = c.name || '';
+      if (document.getElementById('oc-age')) document.getElementById('oc-age').value = c.age || '';
       if (document.getElementById('oc-trpg-type')) {
         document.getElementById('oc-trpg-type').value = c.trpgType || (c.name === '旁白' ? '旁白' : '调查员');
       }
       if (document.getElementById('oc-universal-mode')) {
         document.getElementById('oc-universal-mode').value = c.isUniversal === false ? 'module' : 'universal';
       }
-      document.getElementById('oc-region').value = c.region || 'nl_bar';
-      document.getElementById('oc-role').value = c.role || '';
       if (document.getElementById('oc-height-cm')) {
         document.getElementById('oc-height-cm').value = c.heightCm || DEFAULT_HEIGHT_MAP[c.id] || 175;
       }
       if (document.getElementById('oc-ear-hat-cm')) {
         document.getElementById('oc-ear-hat-cm').value = c.earHatCm || 0;
       }
-      document.getElementById('oc-body').value = c.body || '';
-      document.getElementById('oc-quirk').value = c.quirk || '';
-      document.getElementById('oc-voice-id').value = c.voiceId || '';
-      document.getElementById('oc-surface').value = c.surface || '';
-      document.getElementById('oc-secret').value = c.secret || '';
-      document.getElementById('oc-cot').value = c.cot || '';
-      document.getElementById('oc-quotes').value = c.quotes || '';
-      document.getElementById('oc-chapters').value = c.chapters || '';
-      document.getElementById('oc-nai-tags').value = c.naiTags || '';
+      if (document.getElementById('oc-body')) document.getElementById('oc-body').value = c.body || '';
+      if (document.getElementById('oc-quirk')) document.getElementById('oc-quirk').value = c.quirk || '';
+      if (document.getElementById('oc-voice-id')) document.getElementById('oc-voice-id').value = c.voiceId || '';
+      if (document.getElementById('oc-surface')) document.getElementById('oc-surface').value = c.surface || '';
+      if (document.getElementById('oc-weapon')) document.getElementById('oc-weapon').value = c.weapon || '';
+      if (document.getElementById('oc-nai-tags')) document.getElementById('oc-nai-tags').value = c.naiTags || '';
     }
 
     async function saveCurrentPersona() {
       const c = appState.characters.find((x) => x.id === appState.selectedPersonaId);
       if (!c) return;
-      c.name = document.getElementById('oc-name').value.trim() || c.name;
+      if (document.getElementById('oc-name')) c.name = document.getElementById('oc-name').value.trim() || c.name;
+      if (document.getElementById('oc-age')) c.age = document.getElementById('oc-age').value.trim();
       if (document.getElementById('oc-trpg-type')) {
         c.trpgType = document.getElementById('oc-trpg-type').value;
       }
@@ -10877,23 +10859,18 @@ ZH: 修改后的纯客观中文服装配饰清单`
           }
         }
       }
-      c.region = document.getElementById('oc-region').value.trim() || c.region;
-      c.role = document.getElementById('oc-role').value.trim();
       if (document.getElementById('oc-height-cm')) {
         c.heightCm = Math.max(50, Math.min(250, parseInt(document.getElementById('oc-height-cm').value, 10) || 175));
       }
       if (document.getElementById('oc-ear-hat-cm')) {
         c.earHatCm = Math.max(0, Math.min(80, parseInt(document.getElementById('oc-ear-hat-cm').value, 10) || 0));
       }
-      c.body = document.getElementById('oc-body').value.trim();
-      c.quirk = document.getElementById('oc-quirk').value.trim();
-      c.voiceId = document.getElementById('oc-voice-id').value.trim();
-      c.surface = document.getElementById('oc-surface').value.trim();
-      c.secret = document.getElementById('oc-secret').value.trim();
-      c.cot = document.getElementById('oc-cot').value.trim();
-      c.quotes = document.getElementById('oc-quotes').value.trim();
-      c.chapters = document.getElementById('oc-chapters').value.trim();
-      c.naiTags = document.getElementById('oc-nai-tags').value.trim();
+      if (document.getElementById('oc-body')) c.body = document.getElementById('oc-body').value.trim();
+      if (document.getElementById('oc-quirk')) c.quirk = document.getElementById('oc-quirk').value.trim();
+      if (document.getElementById('oc-voice-id')) c.voiceId = document.getElementById('oc-voice-id').value.trim();
+      if (document.getElementById('oc-surface')) c.surface = document.getElementById('oc-surface').value.trim();
+      if (document.getElementById('oc-weapon')) c.weapon = document.getElementById('oc-weapon').value.trim();
+      if (document.getElementById('oc-nai-tags')) c.naiTags = document.getElementById('oc-nai-tags').value.trim();
       delete c.customPersonaText;
 
       await db.characters.put(c);
@@ -10911,6 +10888,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const blankChar = {
         id: newId,
         name: '新角色',
+        age: '',
         trpgType: '调查员',
         isUniversal: true,
         moduleId: curProj ? curProj.id : '',
@@ -10923,6 +10901,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
         quirk: '',
         voiceId: 'male-qn-qingse',
         surface: '',
+        weapon: '防身小刀、调查笔记本',
         secret: '',
         cot: '',
         quotes: '',
@@ -12899,12 +12878,26 @@ ${BUILTIN_CSS_TEMPLATE}`;
         return splitOverlongSegmentIntoChunks('narration', '旁白', para);
       }
 
-      // 将我替换为角色真名，但绝不改动任何其他描写字句
+      // 将第一人称动作描写自然转换为第三人称旁白，避免主语重复或家庭称谓残缺
       const replaceFirstPersonPronounOnly = (descStr) => {
-        const s = String(descStr || '').trim();
+        let s = String(descStr || '').trim();
         if (!s) return '';
         if (s.includes('我')) {
-          return s.replace(/我们/g, `${speakerName}等人`).replace(/我/g, speakerName);
+          s = s
+            .replace(/我们/g, `${speakerName}等人`)
+            .replace(/我妈/g, '他妈')
+            .replace(/我爸/g, '他爸')
+            .replace(/我家/g, '他家')
+            .replace(/我的/g, `${speakerName}的`);
+          let seenFirstI = false;
+          s = s.replace(/我/g, () => {
+            if (!seenFirstI) {
+              seenFirstI = true;
+              return speakerName;
+            }
+            return '他';
+          });
+          return s;
         }
         if (!s.startsWith(speakerName)) {
           return `${speakerName}${s}`;
@@ -13818,15 +13811,25 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
 
     function inferEmotionExpressionFromText(text) {
       const t = String(text || '');
-      if (/备战|拔剑|举起武器|架势/.test(t)) return '备战';
-      if (/挥剑|出招|斩击|射击|施法/.test(t)) return '出招';
-      if (/决胜|收剑|击溃/.test(t)) return '决胜';
+      if (/备战|拔刀|举枪|举起武器|架势|警戒/.test(t)) return '备战';
+      if (/挥刀|出招|斩击|射击|开枪|刺出/.test(t)) return '出招';
+      if (/决胜|收刀|击溃/.test(t)) return '决胜';
+      if (/得意|自豪|胸有成竹|扬起下巴/.test(t)) return '得意';
+      if (/贼笑|坏笑|奸笑|狡黠/.test(t)) return '贼笑';
+      if (/感动|热泪盈眶|动容/.test(t)) return '感动';
+      if (/无奈|摊手|苦笑|没辙/.test(t)) return '无奈';
+      if (/叹气|叹了口气|长叹/.test(t)) return '叹气';
+      if (/装可怜|委屈巴巴|可怜兮兮/.test(t)) return '装可怜';
+      if (/欣喜|喜悦|雀跃|眼睛发亮/.test(t)) return '欣喜';
+      if (/不满|嘟嘴|抱怨|不悦|啧/.test(t)) return '不满';
+      if (/鄙夷|嫌弃|白眼|不屑/.test(t)) return '鄙夷';
+      if (/深情|凝视|含情脉脉|深邃目光/.test(t)) return '深情';
       if (/哈哈|大笑|狂笑/.test(t)) return '大笑';
       if (/微笑|笑意|轻笑|温和/.test(t)) return '微笑';
       if (/温柔|轻抚|柔声/.test(t)) return '温柔';
       if (/害羞|耳根发红|不好意思/.test(t)) return '害羞';
       if (/脸红|羞红/.test(t)) return '脸红';
-      if (/调侃|打趣|挑眉|坏笑/.test(t)) return '调侃';
+      if (/调侃|打趣|挑眉/.test(t)) return '调侃';
       if (/震惊|瞳孔骤缩|难以置信|骇然/.test(t)) return '震惊';
       if (/惊讶|怔住|一愣|咦/.test(t)) return '惊讶';
       if (/慌乱|手忙脚乱|惊慌/.test(t)) return '慌乱';
@@ -13837,9 +13840,8 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       if (/生气|皱眉|呵斥|咬牙/.test(t)) return '生气';
       if (/崩溃|泣不成声|失声痛哭/.test(t)) return '崩溃';
       if (/绝望|失神|万念俱灰/.test(t)) return '绝望';
-      if (/哭泣|抽泣|哽咽/.test(t)) return '哭泣';
-      if (/流泪|眼泪|泪水/.test(t)) return '流泪';
-      if (/难过|叹气|黯然|悲伤/.test(t)) return '难过';
+      if (/哭泣|抽泣|哽咽|流泪|眼泪|泪水/.test(t)) return '哭泣';
+      if (/失落|难过|黯然|悲伤|垂头丧气/.test(t)) return '失落';
       if (/微醺|醉意|举杯/.test(t)) return '微醺';
       if (/尴尬|汗颜|干笑|嘴角抽搐/.test(t)) return '尴尬';
       return '默认';
@@ -13929,7 +13931,7 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
             }
           }
 
-          // 严格拆分：对话框只放第一人称说出的话，其余动作描写全部归为旁白第三人称描述（只把代词我换成角色名）
+          // 严格拆分：对话框只放第一人称说出的话，其余动作描写全部归为旁白第三人称描述
           const splitSegs = splitBlockIntoStrictFirstPersonDialogueAndThirdPersonKp(spk, cleanedPara);
           splitSegs.forEach((seg) => {
             const exp = inferEmotionExpressionFromText(seg.text);
@@ -13979,14 +13981,12 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
           const rawBgm = String(line.bgmTag || '').trim();
           if (!rawBgm || rawBgm === '停止') continue;
 
-          // 先检查曲目库是否已有精确匹配的曲名或标签
           const directTrack = (appState.bgmTracks || []).find((t) => t.name === rawBgm || (t.tag === rawBgm && !rawBgm.includes('-')));
           if (directTrack && !rawBgm.includes('-')) {
             line.bgmUrl = directTrack.url;
             continue;
           }
 
-          // 若格式为 歌名 - 歌手 或具体曲名，调用音乐台权重搜索接口
           let songName = rawBgm;
           let artistName = line.bgmArtist || '';
           if (rawBgm.includes('-')) {
@@ -14019,7 +14019,7 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       }
     }
 
-    // 一键将当前章节未翻译或已修改的对话翻译为地道日语配音词
+    // 整章一次性读取全部原文与所有角色人设，仅将角色亲口说出的对话翻译为贴合角色性格语气的地道日语配音词，绝不分批切割，旁白绝不翻译
     async function translateCurrentChapterToJapanese() {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
@@ -14030,70 +14030,101 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       if (btn) { btn.textContent = '翻译中'; btn.disabled = true; }
 
       try {
-        const targetLines = chap.scriptLines
-          .map((l, idx) => ({ l, idx }))
-          .filter((item) => item.l.type !== 'ooc' && item.l.type !== 'dice' && item.l.text);
-
-        const BATCH_SIZE = 40;
-        for (let b = 0; b < targetLines.length; b += BATCH_SIZE) {
-          const chunk = targetLines.slice(b, b + BATCH_SIZE);
-          if (statusEl) {
-            statusEl.textContent = `正在分批将本章台词翻译为日语配音词 ${Math.min(b + BATCH_SIZE, targetLines.length)}/${targetLines.length}...`;
+        // 先清空所有旁白行的日语字段，确保旁白不翻译也不调用语音
+        chap.scriptLines.forEach((l) => {
+          if (l.type === 'narration' || l.speaker === '旁白') {
+            l.jpText = '';
           }
-          const chunkPromptLines = chunk.map((item) => `L${item.idx}|${item.l.speaker}|${item.l.text}`).join('\n');
-          try {
-            const reply = await callLlmCompletion(
-              [
-                {
-                  role: 'system',
-                  content: '你是日本视觉小说声优台本翻译总监。请将以下每一行中文台词翻译为地道、自然、贴合角色语气的日语配音台词。严禁使用任何括号，严格按 L行号|日语台词 格式逐行输出，绝不漏行。'
-                },
-                {
-                  role: 'user',
-                  content: chunkPromptLines
-                }
-              ],
-              null,
-              { caller: `章节日语配音词批量翻译`, preferSubApi: true }
-            );
-            reply.split('\n').forEach((rLine) => {
-              const parts = rLine.trim().split('|');
-              if (parts.length >= 2) {
-                const m = parts[0].match(/L?(\d+)/i);
-                const lIdx = m ? parseInt(m[1], 10) : -1;
-                const jp = parts.slice(1).join('|').trim();
-                if (lIdx >= 0 && lIdx < chap.scriptLines.length && jp) {
-                  chap.scriptLines[lIdx].jpText = jp;
+        });
+
+        const dialogueItems = chap.scriptLines
+          .map((l, idx) => ({ l, idx }))
+          .filter((item) => item.l.type === 'dialogue' && item.l.speaker !== '旁白' && item.l.text && item.l.text.trim());
+
+        if (dialogueItems.length === 0) {
+          await saveReplayProjectToDB(proj);
+          renderReplayScriptEditor();
+          if (statusEl) statusEl.textContent = '本章没有角色对话行，旁白无需翻译日语';
+          return;
+        }
+
+        if (statusEl) {
+          statusEl.textContent = `正在将整章原文、全体角色人设与 ${dialogueItems.length} 句角色对话一次性发给AI翻译地道日语...`;
+        }
+
+        const personaSummary = (appState.characters || [])
+          .filter((c) => c.id !== 'narrator_kp' && c.name !== '旁白')
+          .map((c) => {
+            const p = c.personaData || {};
+            return `名字:${c.name}｜年龄:${p.age || '未知'}｜外貌:${p.appearance || c.desc || ''}｜性格:${p.personality || c.quirk || '自然'}｜背景:${p.background || ''}｜武器随身携带道具:${p.weaponItems || ''}`;
+          }).join('\n');
+
+        const fullScriptContext = chap.scriptLines
+          .map((l, idx) => `L${idx}|${l.type === 'narration' || l.speaker === '旁白' ? '旁白' : l.speaker}|${l.text}`)
+          .join('\n');
+
+        const targetDialogueLines = dialogueItems
+          .map((item) => `L${item.idx}|${item.l.speaker}|${item.l.text}`)
+          .join('\n');
+
+        const reply = await callLlmCompletion(
+          [
+            {
+              role: 'system',
+              content: '你是日本视觉小说声优台本翻译总监。你将收到整章完整原文上下文、所有登场角色的详细人设性格与全部剧本行。请结合上下文语境与每个角色的年龄、性格、身份与说话语气，仅将指定的角色亲口对话翻译为自然、地道、贴合角色人设口吻的日语配音台词。旁白绝不翻译。从头到尾严禁使用任何括号，严格按 L行号|日语台词 格式一次性输出所有待翻译对话行，绝不漏行。'
+            },
+            {
+              role: 'user',
+              content: `登场角色完整人设档案：\n${personaSummary || '调查员'}\n\n本章完整剧本上下文供参考语境：\n${fullScriptContext}\n\n请仅将以下角色对话行逐行翻译为贴合各自人设语气的日语配音台词，严格按 L行号|日语台词 输出：\n${targetDialogueLines}`
+            }
+          ],
+          null,
+          { caller: `整章角色对话一次性日语翻译·${chap.title}`, preferSubApi: false }
+        );
+
+        if (reply) {
+          reply.split('\n').forEach((rLine) => {
+            const parts = rLine.trim().split('|');
+            if (parts.length >= 2) {
+              const m = parts[0].match(/L?(\d+)/i);
+              const lIdx = m ? parseInt(m[1], 10) : -1;
+              const jp = parts.slice(1).join('|').trim();
+              if (lIdx >= 0 && lIdx < chap.scriptLines.length && jp) {
+                const targetLine = chap.scriptLines[lIdx];
+                if (targetLine.type === 'dialogue' && targetLine.speaker !== '旁白') {
+                  targetLine.jpText = jp;
                 }
               }
-            });
-          } catch (_) {}
+            }
+          });
         }
 
         await saveReplayProjectToDB(proj);
         renderReplayScriptEditor();
         if (statusEl) {
-          statusEl.textContent = '本章日语配音台词已全部翻译更新完毕，可点击配音按钮合成语音！';
+          statusEl.textContent = `本章全部 ${dialogueItems.length} 句角色对话已结合完整上下文与角色人设一次性翻译完毕，旁白已自动跳过！`;
         }
+      } catch (err) {
+        alert('整章日语翻译失败：' + err.message);
       } finally {
         if (btn) { btn.textContent = '日译'; btn.disabled = false; }
       }
     }
 
-    const DEFAULT_REPLAY_SCRIPT_PROMPT = `你是专业跑团Replay视觉小说导演与台本编辑。请一次性通读本章全部跑团剧本行，严格遵守以下规则完成整理：
+    const DEFAULT_REPLAY_SCRIPT_PROMPT = `你是专业跑团Replay视觉小说导演与台本编辑。请一次性通读本章全部跑团剧本行与角色人设及差分池，严格遵守以下规则完成整理：
 规则一：PC调查员与NPC的对话框 dialogue 只能保留角色第一人称亲口说出的台词；其余所有动作描写、神态描写、心理与环境描写一律归入旁白 narration 即KP第三人称描述。
-规则二：在将第一人称动作描写转为KP第三人称旁白时，严禁删减或改写原本的语句文笔，只能把第一人称代词我替换成该角色的名字。
+规则二：在将第一人称动作描写转为KP第三人称旁白时，必须补全自然的第三人称主语与指代接续词，绝不能出现缺斤少两或主语重复的语病！例如原句以第一视角写我要去找我妈，转为德川愿的第三人称旁白时应当写德川愿要去找他妈，绝不能写成我要德川愿要去找他妈。同时如果上下两个场景或动作之间存在明显跳跃或衔接不上，可以在不改变原文含义的前提下，在旁白中稍微补充简短自然的过渡衔接词句，让前后剧情连贯顺畅。
 规则三：绝对禁止把掷骰子消息、已完成鉴定、已完成检定、已绑卡、进行了理智扣除检定、理智变化、理智降低等系统结算文字写进旁白或正文中！这些属于屏幕右上角骰子动效，跟正文旁白没有任何关系；如果某句话里混有此类系统结算字样，必须将其从句子里彻底剔除，只保留纯正剧情描写。
 规则四：以中文括号开头的场外发言已经在发给你之前自动提取到了独立弹幕区域；如果在剩下的句子里发现没有带括号的漏网之鱼，你需要自己判断：只有百分之百明确脱离模组剧情的玩家场外闲聊吐槽才将其类型标记为 ooc 移入弹幕区；如果某句话判断下来模棱两可，那么一律视为模组中的正常剧情内容 dialogue 或 narration，绝不误判为场外信息！
-规则五：立绘表情切换、立绘抖动与环境音效必须遵循正式视觉小说的自然克制节奏，适当点缀即可，绝对不要频繁切换表情、不要频繁抖动、不要滥用音效！绝大多数日常平静对话保持上一句表情或默认、微笑，音效填无，演出特效填 none；只有在情绪发生明显转折或遭遇重大剧情冲击时，才切换对应表情、添加音效或使用抖动震屏特效。
-规则六：不仅要在氛围起承处标记推荐音乐开始 BGM_REC，还必须在紧张解除、场景转换或音乐应当结束的那一行标记 BGM_STOP，明确音乐在哪里停止。
+规则五：立绘差分切换必须严格从下方提供的系统默认差分池与该角色专属差分池中选择，绝对禁止你自己凭空原创池子之外的差分名字，否则系统无法读取立绘！同时切换差分的频率必须适中自然：绝对不要每说一句话就换一个差分，也不要从头到尾一直死板不换，应当在角色情绪或神态发生实质变化时适中地切换差分。
+规则六：不仅要在氛围起承处标记推荐音乐开始 BGM_REC，还必须在紧张解除、场景转换或音乐应当结束的那一行标记 BGM_STOP，明确音乐在哪里停止。播放到该行时系统会自动播放对应音乐。
 规则七：如果发现某行台词或旁白里有明显错别字，不要擅自直接篡改原句，必须用 TYPO_MARK 单独标记出来供用户自己核对决定是否修改。
 规则八：在本章关键高潮画面处决定哪些行需要插入插图，只用 CG_MARK 标记行号、简短画面说明和在场人物，此阶段绝对不要编写NovelAI英文生图提示词。
-规则九：每一条角色亲口说出的对话台词 dialogue 必须同时在 LINE_UPDATE 的最后一个字段翻译为地道、自然、贴合该角色性格语气的日语配音台词，供声优语音合成使用；旁白 narration 若无需日语配音可留空或同步翻译。单行文字若超过四十五个字显得太长，请精炼切分避免单次显示三四行。
+规则九：只有角色亲口说出的对话台词 dialogue 才需要在 LINE_UPDATE 的最后一个字段结合整章上下文与该角色人设性格语气翻译为地道、自然的日语配音台词；旁白 narration 与原文描述绝对不要翻译日语，最后一个字段直接填无。单行文字若超过四十五个字显得太长有三四行，必须将其拆分成两句连续的 LINE_UPDATE 或精炼切分，避免单屏文字过多。
 
 从头到尾严禁使用任何圆括号或方括号，严格按以下行格式输出：
 SCENE_BG: 场景编号如scene_1|场所中文名称|纯景物横版背景NovelAI英文提示词
-LINE_UPDATE: L行号|类型dialogue或narration或ooc|说话人姓名或旁白|表情名称|音效名称或无|演出特效none或blackout或shake_char或zoom_char或jump_char或shake_screen|只做人称优化且剔除检定理智字样的中文台词|地道日语配音台词
+LINE_UPDATE: L行号|类型dialogue或narration或ooc|说话人姓名或旁白|差分池内的准确表情名称|音效名称或无|演出特效none或blackout或shake_char或zoom_char或jump_char或shake_screen|优化第三人称接续与过渡且剔除检定理智字样的中文文本|仅对话必填的贴合人设日语配音台词或旁白填无
 BGM_REC: L行号|歌曲名称|歌手或作曲家名称|氛围分类如悬疑或日常或战斗
 BGM_STOP: L行号
 TYPO_MARK: L行号|疑似错字原词|建议修改词|简短原因
@@ -14289,11 +14320,30 @@ CG_MARK: L行号|插图简短剧情画面说明|在场角色姓名用顿号分�
       renderReplayScriptEditor();
     }
 
+    // 获取某个角色当前全部可用差分池（系统默认池 + 角色自定义动作池 + 已生成或已写词的专属差分）
+    function getCharacterAvailableExpressionPool(charObj) {
+      const pool = [...(typeof TACHIE_25_EXPRESSIONS !== 'undefined' && Array.isArray(TACHIE_25_EXPRESSIONS) ? TACHIE_25_EXPRESSIONS : ['默认', '微笑'])];
+      if (charObj) {
+        if (Array.isArray(charObj.customActionList)) {
+          charObj.customActionList.forEach((a) => {
+            if (a && a.name && !pool.includes(a.name)) pool.push(a.name);
+          });
+        }
+        Object.keys(charObj.tachieExpressionPrompts || {}).forEach((k) => {
+          if (k && !pool.includes(k)) pool.push(k);
+        });
+        Object.keys(charObj.tachieExpressions || {}).forEach((k) => {
+          if (k && !pool.includes(k)) pool.push(k);
+        });
+      }
+      return pool;
+    }
+
     // 单章两万字整章一次性发给AI完成结构化剧本整理：
     // 1. 发给AI前已自动提取带括号的场外弹幕到 chap.danmakuList，并过滤无用系统消息、将掷骰与理智变化转为右上角动效
-    // 2. 标注说话人并优化人称（PC/NPC只留第一人称对话，其余归KP第三人称旁白）
-    // 3. 若有未带括号但AI明确判定为场外闲聊的漏网之鱼，自动移入 chap.danmakuList；若模棱两可则一律保留为模组剧情正文
-    // 4. 克制自然地匹配表情差分、音效与音乐起止点，排查错字并规划CG插点
+    // 2. 标注说话人并优化人称与场景跳跃过渡词句（PC/NPC只留第一人称对话，其余归KP第三人称旁白，避免主语重复）
+    // 3. 严格从系统默认差分池与每个角色的专属差分池中适中自然地切换差分，绝不自创差分名
+    // 4. 仅将角色对话一次性结合完整上下文与人设翻译为日语，旁白绝不翻译
     async function generateChapterScriptByIndex(chapterIdx) {
       appState.currentReplayChapterIdx = chapterIdx;
       renderReplayProjectSelectors();
@@ -14307,19 +14357,30 @@ CG_MARK: L行号|插图简短剧情画面说明|在场角色姓名用顿号分�
       const splitStatusEl = document.getElementById('replay-split-status-bar');
       if (chapBtn) { chapBtn.textContent = '整理中'; chapBtn.disabled = true; }
       if (topBtn) { topBtn.textContent = '整理中'; topBtn.disabled = true; }
-      if (statusEl) statusEl.textContent = `正在整章一次性整理 ${chap.title}：已自动分离括号弹幕与检定动效，正在优化正文人称与演出...`;
+      if (statusEl) statusEl.textContent = `正在整章一次性整理 ${chap.title}：正在结合全体人设、各自差分池与全文语境优化台本...`;
       if (splitStatusEl) splitStatusEl.textContent = `正在整章整理 ${chap.title}，请稍候...`;
 
       try {
         const baseLines = buildStructuredBaseScriptFromChapter(chap);
 
+        const defaultPoolList = (typeof TACHIE_25_EXPRESSIONS !== 'undefined' && Array.isArray(TACHIE_25_EXPRESSIONS))
+          ? TACHIE_25_EXPRESSIONS
+          : ['默认', '微笑'];
+
         const speakerSet = new Set();
         baseLines.forEach((l) => {
           if (l.speaker && l.speaker !== '旁白' && l.speaker !== '检定') speakerSet.add(l.speaker);
         });
+        (appState.characters || []).forEach((c) => {
+          if (c.id !== 'narrator_kp' && c.name && c.name !== '旁白') speakerSet.add(c.name);
+        });
+
         const charContextLines = Array.from(speakerSet).map((name) => {
           const c = appState.characters.find((x) => x.name === name);
-          return `${name}｜定位:${c?.trpgType || '调查员'}｜语癖:${c?.quirk || '自然'}`;
+          const p = c?.personaData || {};
+          const pool = getCharacterAvailableExpressionPool(c);
+          const extraPool = pool.filter((x) => !defaultPoolList.includes(x));
+          return `名字:${name}｜定位:${c?.trpgType || '调查员'}｜年龄:${p.age || '未知'}｜外貌:${p.appearance || c?.desc || ''}｜性格:${p.personality || c?.quirk || '自然'}｜背景:${p.background || ''}｜武器随身携带道具:${p.weaponItems || ''}｜该角色额外专属差分:${extraPool.length > 0 ? extraPool.join('、') : '同默认池'}`;
         }).join('\n');
 
         const scenes = [];
@@ -14332,10 +14393,13 @@ CG_MARK: L行号|插图简短剧情画面说明|在场角色姓名用顿号分�
         }).join('\n');
 
         const sysPrompt = getCustomOrDefaultScriptPrompt();
-        const userPrompt = `本章登场角色名录：
+        const userPrompt = `系统默认公共差分池（所有角色通用，严禁自创池外名字）：
+${defaultPoolList.join('、')}
+
+本章登场角色完整人设与各自专属差分池：
 ${charContextLines || '调查员｜定位:调查员'}
 
-本章完整待整理剧本行 L0 至 L${ Math.max(0, baseLines.length - 1) }：
+本章完整待整理剧本行 L0 至 L${Math.max(0, baseLines.length - 1)}：
 ${numberedChapterPreview}`;
 
         const aiReply = await callLlmCompletion(
@@ -14379,7 +14443,13 @@ ${numberedChapterPreview}`;
                   const newType = rawType === 'narration' ? 'narration' : (rawType === 'dialogue' ? 'dialogue' : baseLines[idx].type);
                   baseLines[idx].type = newType;
                   baseLines[idx].speaker = newType === 'narration' ? '旁白' : (parts[2] || baseLines[idx].speaker);
-                  if (parts[3]) baseLines[idx].exp = parts[3];
+                  if (parts[3]) {
+                    const spkObj = appState.characters.find((x) => x.name === baseLines[idx].speaker);
+                    const validPool = getCharacterAvailableExpressionPool(spkObj);
+                    if (validPool.includes(parts[3])) {
+                      baseLines[idx].exp = parts[3];
+                    }
+                  }
                   if (parts[4]) {
                     const sfxVal = parts[4] === '无' || parts[4] === 'none' ? '' : parts[4];
                     baseLines[idx].sfxTag = sfxVal;
@@ -14400,7 +14470,9 @@ ${numberedChapterPreview}`;
                       baseLines[idx].text = cleanedAiText;
                     }
                   }
-                  if (parts[7]) {
+                  if (newType === 'narration' || baseLines[idx].speaker === '旁白') {
+                    baseLines[idx].jpText = '';
+                  } else if (parts[7]) {
                     const jpCandidate = parts.slice(7).join('|').trim();
                     if (jpCandidate && jpCandidate !== '无' && jpCandidate !== 'none') {
                       baseLines[idx].jpText = jpCandidate;
@@ -14472,7 +14544,7 @@ ${numberedChapterPreview}`;
           });
         }
 
-        // 将AI识别出的无括号漏网场外句子移入独立弹幕区 chap.danmakuList，并对超过48字的长段落自动拆成两行连续台词
+        // 将AI识别出的无括号漏网场外句子移入独立弹幕区 chap.danmakuList，并对超过46字的长段落自动拆成两行连续台词
         if (!Array.isArray(chap.danmakuList)) chap.danmakuList = [];
         const filteredStoryLines = [];
         baseLines.forEach((l, origIdx) => {
@@ -14490,7 +14562,10 @@ ${numberedChapterPreview}`;
             }
             return;
           }
-          const subChunks = splitOverlongSegmentIntoChunks(l.type, l.speaker, l.text, 46);
+          if (l.type === 'narration' || l.speaker === '旁白') {
+            l.jpText = '';
+          }
+          const subChunks = splitOverlongSegmentIntoChunks(l.type, l.speaker, l.text, 44);
           if (subChunks.length <= 1) {
             filteredStoryLines.push(l);
           } else {
@@ -14508,48 +14583,47 @@ ${numberedChapterPreview}`;
           }
         });
 
-        // 自动检查是否还有未生成日语配音台词的角色对话行，若有则自动补全翻译为日语
+        // 自动检查是否还有未生成日语配音台词的角色对话行，若有则一次性结合全文上下文与全体角色人设补全（绝不分批，旁白绝不翻译）
         const untranslatedDialogues = filteredStoryLines
           .map((l, idx) => ({ l, idx }))
-          .filter((item) => item.l.type === 'dialogue' && item.l.text && (!item.l.jpText || !item.l.jpText.trim()));
+          .filter((item) => item.l.type === 'dialogue' && item.l.speaker !== '旁白' && item.l.text && (!item.l.jpText || !item.l.jpText.trim()));
         if (untranslatedDialogues.length > 0) {
           if (statusEl) {
-            statusEl.textContent = `正在为本章 ${untranslatedDialogues.length} 句角色对话自动补全日语配音台词...`;
+            statusEl.textContent = `正在结合整章全文与角色人设一次性补全 ${untranslatedDialogues.length} 句角色对话的日语配音台词...`;
           }
-          const BATCH_SIZE = 40;
-          for (let b = 0; b < untranslatedDialogues.length; b += BATCH_SIZE) {
-            const chunk = untranslatedDialogues.slice(b, b + BATCH_SIZE);
-            const chunkPromptLines = chunk.map((item) => `L${item.idx}|${item.l.speaker}|${item.l.text}`).join('\n');
-            try {
-              const jpReply = await callLlmCompletion(
-                [
-                  {
-                    role: 'system',
-                    content: '你是日本视觉小说声优台本翻译总监。请将以下每一行中文对话台词翻译为地道、自然、贴合角色语气的日语配音台词。严禁使用任何括号，严格按 L行号|日语台词 格式逐行输出，绝不漏行。'
-                  },
-                  {
-                    role: 'user',
-                    content: chunkPromptLines
-                  }
-                ],
-                null,
-                { caller: `章节整理自动补全日语台词·${chap.title}`, preferSubApi: true }
-              );
-              if (jpReply) {
-                jpReply.split('\n').forEach((rLine) => {
-                  const p = rLine.trim().split('|');
-                  if (p.length >= 2) {
-                    const m = p[0].match(/L?(\d+)/i);
-                    const lIdx = m ? parseInt(m[1], 10) : -1;
-                    const jp = p.slice(1).join('|').trim();
-                    if (lIdx >= 0 && lIdx < filteredStoryLines.length && jp) {
+          const fullCtxText = filteredStoryLines.map((l, idx) => `L${idx}|${l.speaker}|${l.text}`).join('\n');
+          const pendingLinesText = untranslatedDialogues.map((item) => `L${item.idx}|${item.l.speaker}|${item.l.text}`).join('\n');
+          try {
+            const jpReply = await callLlmCompletion(
+              [
+                {
+                  role: 'system',
+                  content: '你是日本视觉小说声优台本翻译总监。请结合整章上下文与每位角色的性格人设语气，一次性将以下角色对话翻译为地道、自然的日语配音台词。旁白绝不翻译。严禁使用任何括号，严格按 L行号|日语台词 格式输出。'
+                },
+                {
+                  role: 'user',
+                  content: `登场角色人设：\n${charContextLines}\n\n整章上下文：\n${fullCtxText}\n\n待翻译角色对话行：\n${pendingLinesText}`
+                }
+              ],
+              null,
+              { caller: `章节整理一次性补全对话日语·${chap.title}`, preferSubApi: false }
+            );
+            if (jpReply) {
+              jpReply.split('\n').forEach((rLine) => {
+                const p = rLine.trim().split('|');
+                if (p.length >= 2) {
+                  const m = p[0].match(/L?(\d+)/i);
+                  const lIdx = m ? parseInt(m[1], 10) : -1;
+                  const jp = p.slice(1).join('|').trim();
+                  if (lIdx >= 0 && lIdx < filteredStoryLines.length && jp) {
+                    if (filteredStoryLines[lIdx].type === 'dialogue' && filteredStoryLines[lIdx].speaker !== '旁白') {
                       filteredStoryLines[lIdx].jpText = jp;
                     }
                   }
-                });
-              }
-            } catch (_) {}
-          }
+                }
+              });
+            }
+          } catch (_) {}
         }
 
         if (scenes.length === 0) {
@@ -14587,7 +14661,7 @@ ${numberedChapterPreview}`;
           }
         }
 
-        // 自动调用音乐台按权重搜索AI推荐的BGM起点
+        // 自动调用音乐台按权重搜索AI推荐的BGM起点并绑定播放地址，播放剧本到了标记行即自动响起
         for (const rec of bgmRecommendations) {
           const safeIdx = Math.min(filteredStoryLines.length - 1, Math.max(0, rec.lineIdx));
           if (!rec.song || !filteredStoryLines[safeIdx]) continue;
@@ -14625,7 +14699,7 @@ ${numberedChapterPreview}`;
         const typoCount = filteredStoryLines.filter((l) => l.typoInfo && l.typoInfo.wrongWord).length;
         const dmCount = Array.isArray(chap.danmakuList) ? chap.danmakuList.length : 0;
         if (statusEl) {
-          statusEl.textContent = `${chap.title} 整章整理完成：共 ${filteredStoryLines.length} 句纯正文，分离场外弹幕 ${dmCount} 条、音乐起点 ${bgmRecommendations.length} 处、音乐停止 ${bgmStopLines.length} 处、CG插点 ${cgNodes.length} 处、疑似错字 ${typoCount} 处！`;
+          statusEl.textContent = `${chap.title} 整章整理完成：共 ${filteredStoryLines.length} 句正文，分离场外弹幕 ${dmCount} 条、自动配乐节点 ${bgmRecommendations.length} 处、音乐停止 ${bgmStopLines.length} 处、CG插点 ${cgNodes.length} 处、疑似错字 ${typoCount} 处！`;
         }
         if (splitStatusEl) {
           splitStatusEl.textContent = `${chap.title} 已整理完成，共 ${filteredStoryLines.length} 句剧本`;
@@ -14640,6 +14714,102 @@ ${numberedChapterPreview}`;
 
     async function generateCurrentChapterScriptViaAi() {
       await generateChapterScriptByIndex(appState.currentReplayChapterIdx || 0);
+    }
+
+    // 点击剧本顶栏「差分」按钮：AI重读整章剧本，并查看系统默认差分池与每个角色当前的单独差分池（包含后续新增的自定义差分），以适中自然的节奏优化各句差分
+    async function aiMatchCurrentChapterExpressions() {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      if (!proj || !chap || !Array.isArray(chap.scriptLines) || chap.scriptLines.length === 0) {
+        alert('请先选择已生成剧本的章节');
+        return;
+      }
+
+      const btn = document.getElementById('replay-ai-exp-btn');
+      const statusEl = document.getElementById('replay-script-status-bar');
+      if (btn) { btn.textContent = '匹配中'; btn.disabled = true; }
+      if (statusEl) statusEl.textContent = '正在读取系统默认差分池与各角色单独差分池，通读本章文章优化角色差分切换...';
+
+      try {
+        const defaultPool = (typeof TACHIE_25_EXPRESSIONS !== 'undefined' && Array.isArray(TACHIE_25_EXPRESSIONS))
+          ? TACHIE_25_EXPRESSIONS
+          : ['默认', '微笑'];
+
+        const speakerNames = new Set();
+        chap.scriptLines.forEach((l) => {
+          if (l.speaker && l.speaker !== '旁白' && l.speaker !== '检定') speakerNames.add(l.speaker);
+        });
+
+        const charPoolsDesc = Array.from(speakerNames).map((name) => {
+          const c = (appState.characters || []).find((x) => x.name === name);
+          const pool = getCharacterAvailableExpressionPool(c);
+          const customOnly = pool.filter((k) => !defaultPool.includes(k));
+          return `角色：${name}｜可用完整差分池：${pool.join('、')}${customOnly.length > 0 ? `｜其中该角色单独新增差分：${customOnly.join('、')}` : ''}`;
+        }).join('\n');
+
+        const scriptPreview = chap.scriptLines
+          .map((l, idx) => `L${idx}|${l.speaker}|当前差分:${l.exp || '默认'}|${l.text}`)
+          .join('\n');
+
+        const sysPrompt = `你是专业视觉小说演出导演。请通读整章剧本，并根据下方提供的「系统默认公共差分池」与「每个角色单独拥有的差分池」，为章节中的角色台词重新优化选择最贴合剧情情绪的立绘差分。
+严格遵守以下原则：
+1. 你只能从该角色对应的可用差分池中选择差分名字，绝对禁止自己原创池子之外的差分名，否则系统读取不到！如果某个角色有单独新增的专属差分，在剧情合适处优先善用。
+2. 差分切换频率必须适中自然：不要每说一句话就换一个差分显得过于频繁，也不要半天一直死板不换；当角色情绪、态度、语气或动作出现自然变化时进行切换。
+3. 只需要输出需要更新差分的台词行，从头到尾严禁使用任何括号，严格按以下格式逐行输出：
+EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
+
+        const userPrompt = `系统默认公共差分池：
+${defaultPool.join('、')}
+
+本章各角色单独差分池明细：
+${charPoolsDesc || '全员使用系统默认公共差分池'}
+
+本章完整剧本行：
+${scriptPreview}`;
+
+        const reply = await callLlmCompletion(
+          [
+            { role: 'system', content: sysPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          null,
+          { caller: `章节立绘差分池智能重配·${chap.title}`, preferSubApi: false }
+        );
+
+        let updatedCount = 0;
+        if (reply) {
+          reply.split('\n').forEach((rawLine) => {
+            const line = rawLine.trim();
+            if (line.startsWith('EXP_UPDATE:')) {
+              const parts = line.replace(/^EXP_UPDATE:\s*/i, '').split('|').map((s) => s.trim());
+              if (parts.length >= 3) {
+                const m = parts[0].match(/L?(\d+)/i);
+                const lIdx = m ? parseInt(m[1], 10) : -1;
+                const newExp = parts[2];
+                if (lIdx >= 0 && lIdx < chap.scriptLines.length && newExp) {
+                  const targetLine = chap.scriptLines[lIdx];
+                  const cObj = (appState.characters || []).find((x) => x.name === targetLine.speaker);
+                  const validPool = getCharacterAvailableExpressionPool(cObj);
+                  if (validPool.includes(newExp)) {
+                    targetLine.exp = newExp;
+                    updatedCount += 1;
+                  }
+                }
+              }
+            }
+          });
+        }
+
+        await saveReplayProjectToDB(proj);
+        renderReplayScriptEditor();
+        if (statusEl) {
+          statusEl.textContent = `已完成本章角色差分智能匹配：共结合各角色专属差分池适中更新了 ${updatedCount} 处立绘差分！`;
+        }
+      } catch (err) {
+        alert('匹配章节差分失败：' + err.message);
+      } finally {
+        if (btn) { btn.textContent = '差分'; btn.disabled = false; }
+      }
     }
 
     async function insertScriptLineAfter(lineIdx) {
@@ -14722,6 +14892,15 @@ ${numberedChapterPreview}`;
       renderTheaterCurrentLine();
     }
 
+    // 点击顶部「舞台」子标签：打开剧本章节选择大厅并默认开启舞台实时观看与修改模式
+    function openTheaterStageSelectorLobby() {
+      appState.theaterEditMode = true;
+      const lobby = document.getElementById('vn-theater-selector-lobby');
+      if (lobby) lobby.classList.add('active');
+      openAppScreen('theater');
+      openTheaterSelectorLobby();
+    }
+
     function jumpToCgNodeFromScriptLine(cgId) {
       switchSubPage('screen-replay', 'replay-sub-cg');
       renderReplayCgStudio();
@@ -14733,7 +14912,7 @@ ${numberedChapterPreview}`;
       }, 80);
     }
 
-    // 清晰分条的文游剧本列表：上方直接下拉选说话人与对应立绘表情，右侧小三角矢量图标合成并播放本地缓存语音，插图仅做节点标记与跳页调试
+    // 清晰分条的文游剧本列表：上方直接下拉选说话人与对应立绘表情，仅角色对话显示右侧小三角配音按钮与日语输入框，旁白不翻译日语也不调用语音
     function renderReplayScriptEditor() {
       const box = document.getElementById('replay-script-lines-container');
       if (!box) return;
@@ -14749,10 +14928,6 @@ ${numberedChapterPreview}`;
         return;
       }
 
-      const defaultExpOptions = (typeof TACHIE_25_EXPRESSIONS !== 'undefined' && Array.isArray(TACHIE_25_EXPRESSIONS))
-        ? TACHIE_25_EXPRESSIONS
-        : ['默认','微笑','大笑','温柔','害羞','脸红','调侃','惊讶','震惊','慌乱','沉思','冷漠','嘲讽','生气','暴怒','难过','哭泣','流泪','绝望','崩溃','微醺','尴尬','备战','出招','决胜'];
-
       const baseSpeakerList = ['旁白', ...(appState.characters || []).filter((c) => c.id !== 'narrator_kp' && c.name !== '旁白').map((c) => c.name)];
 
       box.innerHTML = '';
@@ -14760,22 +14935,15 @@ ${numberedChapterPreview}`;
         const hasCg = Boolean(line.cgId);
         const cgObj = hasCg ? (chap.cgNodes || []).find((g) => g.id === line.cgId) : null;
         const hasTypo = Boolean(line.typoInfo && line.typoInfo.wrongWord);
+        const isNarration = line.type === 'narration' || line.speaker === '旁白';
 
         const speakerNames = [...baseSpeakerList];
         if (line.speaker && !speakerNames.includes(line.speaker)) {
           speakerNames.push(line.speaker);
         }
 
-        const expList = [...defaultExpOptions];
         const spkChar = (appState.characters || []).find((c) => c.name === line.speaker);
-        if (spkChar) {
-          Object.keys(spkChar.tachieExpressionPrompts || {}).forEach((k) => {
-            if (!expList.includes(k)) expList.push(k);
-          });
-          Object.keys(spkChar.tachieExpressions || {}).forEach((k) => {
-            if (!expList.includes(k)) expList.push(k);
-          });
-        }
+        const expList = getCharacterAvailableExpressionPool(spkChar);
         if (line.exp && !expList.includes(line.exp)) {
           expList.push(line.exp);
         }
@@ -14805,15 +14973,20 @@ ${numberedChapterPreview}`;
               <select class="moe-input" style="width:auto;min-width:92px;height:30px;min-height:30px;padding:0 22px 0 8px;font-size:12px;font-weight:700;" onchange="updateReplayScriptLineField(${idx}, 'speaker', this.value)">
                 ${speakerNames.map((n) => `<option value="${n.replace(/"/g, '&quot;')}" ${n === (line.speaker || '旁白') ? 'selected' : ''}>${n}</option>`).join('')}
               </select>
-              <select class="moe-input" style="width:auto;min-width:84px;height:30px;min-height:30px;padding:0 22px 0 8px;font-size:12px;" title="选择对应立绘差分" onchange="updateReplayScriptLineField(${idx}, 'exp', this.value)">
-                ${expList.map((e) => `<option value="${e}" ${(line.exp || '默认') === e ? 'selected' : ''}>${e}</option>`).join('')}
-              </select>
+              ${!isNarration ? `
+                <select class="moe-input" style="width:auto;min-width:84px;height:30px;min-height:30px;padding:0 22px 0 8px;font-size:12px;" title="选择对应立绘差分" onchange="updateReplayScriptLineField(${idx}, 'exp', this.value)">
+                  ${expList.map((e) => `<option value="${e}" ${(line.exp || '默认') === e ? 'selected' : ''}>${e}</option>`).join('')}
+                </select>
+              ` : ''}
+              <input type="text" class="moe-input" value="${(line.bgmTag || '').replace(/"/g, '&quot;')}" placeholder="音乐标记" title="填入歌名或停止，播放到此行时自动播放音乐" style="width:98px;height:30px;min-height:30px;padding:0 8px;font-size:11px;" onchange="updateReplayScriptLineField(${idx}, 'bgmTag', this.value)" />
               <div class="vn-console-badges">${badges.join('')}</div>
             </div>
             <div class="vn-script-row-actions">
-              <button type="button" class="moe-btn secondary vn-play-tri-btn" id="line-tts-btn-${idx}" onclick="playSingleScriptLineTts(${idx}, false)" title="合成并播放本句语音">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
-              </button>
+              ${!isNarration ? `
+                <button type="button" class="moe-btn secondary vn-play-tri-btn" id="line-tts-btn-${idx}" onclick="playSingleScriptLineTts(${idx}, false)" title="合成并播放本句角色对话语音">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+                </button>
+              ` : ''}
               <button type="button" class="moe-btn ${hasCg ? '' : 'secondary'}" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" id="line-add-cg-btn-${idx}" onclick="addManualCgForScriptLine(${idx})">${hasCg ? '撤图' : '插图'}</button>
               ${hasCg ? `<button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onclick="jumpToCgNodeFromScriptLine('${line.cgId}')">调图</button>` : ''}
               <button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onclick="insertScriptLineAfter(${idx})">插行</button>
@@ -14830,7 +15003,9 @@ ${numberedChapterPreview}`;
             </div>
           ` : ''}
           <input type="text" class="moe-input" value="${(line.text || '').replace(/"/g, '&quot;')}" placeholder="中文台词或旁白文本" style="height:32px;min-height:32px;font-size:12px;" onchange="updateReplayScriptLineField(${idx}, 'text', this.value)" />
-          <input type="text" class="moe-input" value="${(line.jpText || '').replace(/"/g, '&quot;')}" placeholder="日语配音分段台词" style="height:30px;min-height:30px;font-size:11px;color:var(--text-secondary);" onchange="updateReplayScriptLineField(${idx}, 'jpText', this.value)" />
+          ${!isNarration ? `
+            <input type="text" class="moe-input" value="${(line.jpText || '').replace(/"/g, '&quot;')}" placeholder="角色日语配音台词" style="height:30px;min-height:30px;font-size:11px;color:var(--text-secondary);" onchange="updateReplayScriptLineField(${idx}, 'jpText', this.value)" />
+          ` : ''}
         `;
         box.appendChild(card);
       });
@@ -14843,8 +15018,10 @@ ${numberedChapterPreview}`;
       chap.scriptLines[lineIdx][field] = val;
       if (field === 'type' && val === 'narration') {
         chap.scriptLines[lineIdx].speaker = '旁白';
+        chap.scriptLines[lineIdx].jpText = '';
       } else if (field === 'speaker') {
         chap.scriptLines[lineIdx].type = val === '旁白' ? 'narration' : 'dialogue';
+        if (val === '旁白') chap.scriptLines[lineIdx].jpText = '';
       }
       if (field === 'bgmTag') {
         const cleanVal = String(val || '').trim();
@@ -15549,6 +15726,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       const chap = getCurrentReplayChapter();
       if (!chap || !chap.scriptLines || !chap.scriptLines[lineIdx]) return;
       const line = chap.scriptLines[lineIdx];
+      if (line.type === 'narration' || line.speaker === '旁白') return;
       const useJp = appState.theaterTtsLang === 'jp' && line.jpText && line.jpText.trim();
       const ttsText = useJp ? line.jpText.trim() : line.text.trim();
       const voiceId = getSpeakerVoiceId(line.speaker);
@@ -15578,18 +15756,21 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       const statusEl = document.getElementById('replay-script-status-bar');
       if (btn) { btn.textContent = '合成中'; btn.disabled = true; }
       try {
+        const dialogueLines = chap.scriptLines.filter((l) => l.type === 'dialogue' && l.speaker !== '旁白' && l.text && l.text.trim());
+        let doneCount = 0;
         for (let i = 0; i < chap.scriptLines.length; i++) {
           const line = chap.scriptLines[i];
-          if (line.type === 'ooc' || line.type === 'dice') continue;
+          if (line.type !== 'dialogue' || line.speaker === '旁白') continue;
           const useJp = appState.theaterTtsLang === 'jp' && line.jpText && line.jpText.trim();
           const ttsText = useJp ? line.jpText.trim() : line.text.trim();
           if (!ttsText) continue;
+          doneCount += 1;
           const voiceId = getSpeakerVoiceId(line.speaker);
           const cacheKey = `line_${chap.id}_${line.id}_${appState.theaterTtsLang}`;
-          if (statusEl) statusEl.textContent = `正在预合成并缓存配音 ${i + 1}/${chap.scriptLines.length}：${line.speaker}`;
+          if (statusEl) statusEl.textContent = `正在预合成并缓存角色对话配音 ${doneCount}/${dialogueLines.length}：${line.speaker}`;
           await synthesizeAndPlayReplayTts(ttsText, voiceId, cacheKey, false);
         }
-        if (statusEl) statusEl.textContent = '本章全部台词与旁白配音已缓存完毕，进入剧场或导出分享均可零延迟播放！';
+        if (statusEl) statusEl.textContent = '本章全部角色对话语音已缓存完毕，旁白已自动跳过，进入剧场或导出分享均可零延迟播放！';
       } catch (err) {
         alert('批量配音中止：' + err.message);
       } finally {
@@ -15704,8 +15885,12 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       line[field] = val;
       if (field === 'type' && val === 'narration') {
         line.speaker = '旁白';
+        line.jpText = '';
       } else if (field === 'speaker' && val !== '旁白' && line.type === 'narration') {
         line.type = 'dialogue';
+      } else if (field === 'speaker' && val === '旁白') {
+        line.type = 'narration';
+        line.jpText = '';
       }
       if (field === 'speaker' && val && val !== '旁白') {
         if (!Array.isArray(line.presentSpeakers) || !line.presentSpeakers.includes(val)) {
@@ -15716,6 +15901,23 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         const cleanVal = String(val || '').trim();
         if (!cleanVal || cleanVal === '停止') {
           line.bgmUrl = '';
+        } else {
+          const matched = (appState.bgmTracks || []).find((t) => t.tag === cleanVal || t.name.includes(cleanVal));
+          if (matched) {
+            line.bgmUrl = matched.url;
+          } else {
+            let sName = cleanVal;
+            let aName = '';
+            if (cleanVal.includes('-')) {
+              const [sp, ...ap] = cleanVal.split('-');
+              sName = sp.trim();
+              aName = ap.join('-').trim();
+            }
+            const res = await searchAndResolveMusicByWeight(sName, aName, '日常');
+            if (res && res.best && res.best.url) {
+              line.bgmUrl = res.best.url;
+            }
+          }
         }
       }
       await saveReplayProjectToDB(proj);
@@ -15960,7 +16162,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       if (expEl) expEl.textContent = metaParts.join(' · ');
       if (progEl) progEl.textContent = `${idx + 1} / ${chap.scriptLines.length}`;
       startTheaterTypewriter(textEl, line.text || '');
-      if (jpEl) jpEl.textContent = line.jpText || '';
+      if (jpEl) jpEl.textContent = (line.type === 'narration' || line.speaker === '旁白') ? '' : (line.jpText || '');
 
       // 舞台可视化编辑模式同步控件值
       if (editPanel) {
@@ -15981,18 +16183,8 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
             spkSel.innerHTML = speakerNames.map((n) => `<option value="${n.replace(/"/g, '&quot;')}" ${n === (line.speaker || '旁白') ? 'selected' : ''}>${n}</option>`).join('');
           }
           if (expSel) {
-            const baseExpList = (typeof TACHIE_25_EXPRESSIONS !== 'undefined' && Array.isArray(TACHIE_25_EXPRESSIONS))
-              ? [...TACHIE_25_EXPRESSIONS]
-              : ['默认','微笑','大笑','温柔','害羞','脸红','调侃','惊讶','震惊','慌乱','沉思','冷漠','嘲讽','生气','暴怒','难过','哭泣','流泪','绝望','崩溃','微醺','尴尬','备战','出招','决胜'];
             const spkChar = (appState.characters || []).find((c) => c.name === line.speaker);
-            if (spkChar) {
-              Object.keys(spkChar.tachieExpressionPrompts || {}).forEach((k) => {
-                if (!baseExpList.includes(k)) baseExpList.push(k);
-              });
-              Object.keys(spkChar.tachieExpressions || {}).forEach((k) => {
-                if (!baseExpList.includes(k)) baseExpList.push(k);
-              });
-            }
+            const baseExpList = getCharacterAvailableExpressionPool(spkChar);
             if (line.exp && !baseExpList.includes(line.exp)) baseExpList.push(line.exp);
             expSel.innerHTML = baseExpList.map((e) => `<option value="${e}" ${(line.exp || '默认') === e ? 'selected' : ''}>${e}</option>`).join('');
           }
@@ -16053,14 +16245,34 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         }
       }
 
-      // 2. 自动切换或停止BGM
+      // 2. 自动切换或停止BGM（若当前行标记了音乐但尚未解析音频链接，立即自动搜索并播放）
       if (line.bgmTag === '停止') {
         stopReplayBgmPreview();
-      } else if (line.bgmUrl) {
-        const player = document.getElementById('bgm-audio-player');
-        const targetUrl = normalizeMusicTrackUrl(line.bgmUrl);
-        if (player && player.src !== targetUrl) {
-          previewReplayBgmTrack(targetUrl);
+      } else if (line.bgmTag) {
+        if (!line.bgmUrl) {
+          const matchedTrack = (appState.bgmTracks || []).find((t) => t.tag === line.bgmTag || t.name.includes(line.bgmTag));
+          if (matchedTrack) {
+            line.bgmUrl = matchedTrack.url;
+          } else {
+            let sName = line.bgmTag;
+            let aName = line.bgmArtist || '';
+            if (line.bgmTag.includes('-')) {
+              const [sp, ...ap] = line.bgmTag.split('-');
+              sName = sp.trim();
+              aName = ap.join('-').trim();
+            }
+            const resolved = await searchAndResolveMusicByWeight(sName, aName, '日常');
+            if (resolved && resolved.best && resolved.best.url) {
+              line.bgmUrl = resolved.best.url;
+            }
+          }
+        }
+        if (line.bgmUrl) {
+          const player = document.getElementById('bgm-audio-player');
+          const targetUrl = normalizeMusicTrackUrl(line.bgmUrl);
+          if (player && player.src !== targetUrl) {
+            previewReplayBgmTrack(targetUrl);
+          }
         }
       }
 
@@ -16128,9 +16340,9 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         }
       }
 
-      // 6. 自动播放该行语音或推进自动播放计时
+      // 6. 自动播放该行语音（仅角色对话调用语音，旁白不调用MiniMax）
       let voicePlayed = false;
-      if (!appState.theaterSkipPlay && !appState.theaterEditMode && line.type !== 'ooc' && line.type !== 'dice') {
+      if (!appState.theaterSkipPlay && !appState.theaterEditMode && line.type === 'dialogue' && line.speaker !== '旁白') {
         const useJp = appState.theaterTtsLang === 'jp' && line.jpText && line.jpText.trim();
         const ttsText = useJp ? line.jpText.trim() : line.text.trim();
         const cacheKey = `line_${chap.id}_${line.id}_${appState.theaterTtsLang}`;
