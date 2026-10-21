@@ -1695,48 +1695,50 @@ button {
 
 .vn-ooc-item {
   position: absolute;
+  left: 100%;
+  top: 12px;
   white-space: nowrap;
   padding: 0;
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
   color: var(--card-bg);
-  text-shadow: 0 1px 3px var(--text-primary), 0 0 6px var(--text-primary);
+  text-shadow: 0 1px 3px var(--text-primary), 0 0 8px var(--text-primary);
   font-size: 14px;
   font-weight: 800;
-  letter-spacing: 0.03em;
-  opacity: var(--danmaku-opacity, 0.85);
-  animation: vnDanmakuFly 9s linear forwards;
+  letter-spacing: 0.04em;
+  opacity: var(--danmaku-opacity, 0.9);
+  will-change: transform;
+  animation: vnDanmakuFly var(--dm-dur, 9.2s) linear forwards;
 }
 
 @keyframes vnDanmakuFly {
-  from {
-    transform: translateX(100vw);
+  0% {
+    transform: translate3d(0, 0, 0);
   }
-  to {
-    transform: translateX(-120%);
+  100% {
+    transform: translate3d(var(--dm-travel, -1600px), 0, 0);
   }
 }
 
 .vn-dice-toast {
   position: absolute;
-  top: 50px;
-  right: 20px;
+  top: 52px;
+  right: 22px;
   z-index: 28;
-  padding: 7px 14px;
-  border-radius: 6px;
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  padding: 8px 16px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--text-primary) 86%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-bg) 24%, transparent);
   border-left: 3px solid var(--accent-color);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
-  color: var(--text-primary);
+  color: var(--card-bg);
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  max-width: 360px;
+  max-width: 380px;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -1843,10 +1845,10 @@ button {
   min-height: 28px;
   padding: 0;
   border-radius: 6px;
-  border: 1px solid var(--border-color);
-  background: var(--card-bg);
-  color: var(--text-primary);
-  opacity: 0.85;
+  border: 1px solid color-mix(in srgb, var(--card-bg) 24%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 72%, transparent);
+  color: var(--card-bg);
+  opacity: 0.88;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1859,7 +1861,8 @@ button {
   transform: translateY(-1px);
 }
 
-.vn-mini-icon-btn.active {
+.vn-mini-icon-btn.active,
+.vn-mini-icon-btn.active-state {
   background: var(--accent-color);
   color: var(--card-bg);
   border-color: var(--accent-color);
@@ -1872,23 +1875,66 @@ button {
   stroke-width: 2.1;
 }
 
-/* 经典名作视觉小说底部实心高级对话框 无毛玻璃无廉价装饰 */
+/* ==================== 视觉小说舞台三种内置高级款式与自定义系统 ==================== */
 .vn-bottom-dock {
   position: relative;
   z-index: 25;
   width: 100%;
   margin: auto 0 0 0;
-  padding: 16px 32px 18px 32px;
+  padding: 18px 28px 12px 28px;
   border-radius: 0;
-  background: var(--card-bg);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--text-primary) 18%, transparent) 0%, color-mix(in srgb, var(--text-primary) 82%, transparent) 28%, color-mix(in srgb, var(--text-primary) 94%, transparent) 100%);
   border: none;
-  border-top: 1px solid var(--border-color);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+  border-top: 1px solid color-mix(in srgb, var(--card-bg) 22%, transparent);
   cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 124px;
+  min-height: 132px;
+  transition: all 0.25s ease;
+}
+
+.vn-dock-main-row {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+  width: 100%;
+  min-width: 0;
+}
+
+.vn-stage-side-bust {
+  width: 86px;
+  height: 102px;
+  flex-shrink: 0;
+  margin-top: -28px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--text-primary) 65%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-bg) 28%, transparent);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.vn-stage-side-bust.empty {
+  display: none;
+}
+
+.vn-stage-side-bust img {
+  width: 135%;
+  height: 185%;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
+}
+
+.vn-dock-body-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .vn-dialogue-header {
@@ -1899,23 +1945,22 @@ button {
   margin-top: 0;
   margin-bottom: 2px;
   padding-bottom: 6px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid color-mix(in srgb, var(--card-bg) 16%, transparent);
 }
 
 .vn-speaker-badge {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 0 0 0 10px;
+  padding: 1px 10px 1px 10px;
   border-radius: 0;
   background: transparent;
-  color: var(--text-primary);
+  color: var(--card-bg);
   border: none;
   border-left: 3px solid var(--accent-color);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  box-shadow: none;
 }
 
 .vn-dialogue-meta {
@@ -1923,7 +1968,7 @@ button {
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: var(--text-secondary);
+  color: color-mix(in srgb, var(--card-bg) 68%, transparent);
   font-weight: 700;
   letter-spacing: 0.04em;
 }
@@ -1931,15 +1976,125 @@ button {
 .vn-dialogue-text {
   font-size: 15px;
   font-weight: 600;
-  line-height: 1.75;
+  line-height: 1.78;
   letter-spacing: 0.04em;
-  color: var(--text-primary);
-  min-height: 48px;
+  color: color-mix(in srgb, var(--card-bg) 95%, var(--secondary-bg));
+  min-height: 46px;
   word-break: break-word;
 }
 
 .vn-dialogue-jp {
   display: none;
+}
+
+.vn-stage-ctrl-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  padding-top: 4px;
+  border-top: 1px solid color-mix(in srgb, var(--card-bg) 10%, transparent);
+}
+
+.vn-stage-ctrl-btn {
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: color-mix(in srgb, var(--card-bg) 68%, transparent);
+  cursor: pointer;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.vn-stage-ctrl-btn:hover,
+.vn-stage-ctrl-btn.active {
+  color: var(--card-bg);
+}
+
+/* 款式一：暗幕流光 明日方舟与黑白漫通透深色渐变风格 */
+.vn-theater-wrapper[data-stage-style="ark_grad"] .vn-bottom-dock {
+  width: 100%;
+  margin: auto 0 0 0;
+  padding: 20px 32px 10px 32px;
+  background: linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--text-primary) 76%, transparent) 22%, color-mix(in srgb, var(--text-primary) 92%, transparent) 100%);
+  border-top: 1px solid color-mix(in srgb, var(--card-bg) 20%, transparent);
+}
+
+.vn-theater-wrapper[data-stage-style="ark_grad"] .vn-stage-ctrl-bar {
+  justify-content: center;
+  gap: 18px;
+}
+
+/* 款式二：异闻斜切 女神异闻录与冷调几何相框档案风格 */
+.vn-theater-wrapper[data-stage-style="persona_noir"] .vn-bottom-dock {
+  width: calc(100% - 40px);
+  margin: auto 20px 14px 20px;
+  padding: 16px 24px 12px 24px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--text-primary) 92%, var(--accent-color) 8%) 0%, color-mix(in srgb, var(--text-primary) 84%, var(--secondary-bg) 16%) 100%);
+  border: 1px solid color-mix(in srgb, var(--card-bg) 34%, transparent);
+  border-left: 5px solid var(--accent-color);
+  border-right: 3px solid color-mix(in srgb, var(--card-bg) 68%, transparent);
+  transform: skewX(-2deg);
+}
+
+.vn-theater-wrapper[data-stage-style="persona_noir"] .vn-stage-side-bust {
+  width: 84px;
+  height: 92px;
+  margin-top: -22px;
+  padding: 3px;
+  background: color-mix(in srgb, var(--text-primary) 88%, var(--accent-color) 12%);
+  border: 2px solid var(--card-bg);
+  border-radius: 2px;
+  transform: rotate(-4deg);
+}
+
+.vn-theater-wrapper[data-stage-style="persona_noir"] .vn-speaker-badge {
+  background: var(--accent-color);
+  color: var(--card-bg);
+  border-left: 3px solid var(--card-bg);
+  padding: 2px 14px;
+  transform: skewX(-8deg);
+  font-size: 14px;
+}
+
+.vn-theater-wrapper[data-stage-style="persona_noir"] .vn-dialogue-header {
+  border-bottom: 1px dashed color-mix(in srgb, var(--card-bg) 28%, transparent);
+}
+
+/* 款式三：胶片卷宗 电影悬疑下三分之一字幕与红标现场记录风格 */
+.vn-theater-wrapper[data-stage-style="cinema_dossier"] .vn-bottom-dock {
+  width: calc(100% - 48px);
+  margin: auto 24px 16px 24px;
+  padding: 14px 26px 12px 26px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--text-primary) 90%, var(--secondary-bg) 10%) 0%, color-mix(in srgb, var(--text-primary) 82%, var(--secondary-bg) 18%) 70%, color-mix(in srgb, var(--text-primary) 62%, transparent) 100%);
+  border-top: 2px solid color-mix(in srgb, var(--card-bg) 42%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--card-bg) 42%, transparent);
+  border-left: 4px solid var(--tukey-danger);
+}
+
+.vn-theater-wrapper[data-stage-style="cinema_dossier"] .vn-stage-side-bust {
+  width: 70px;
+  height: 84px;
+  margin-top: -6px;
+  border-radius: 2px;
+  border: 1px solid color-mix(in srgb, var(--card-bg) 45%, transparent);
+}
+
+.vn-theater-wrapper[data-stage-style="cinema_dossier"] .vn-speaker-badge {
+  border-left: 4px solid var(--tukey-danger);
+  padding-left: 10px;
+  color: var(--card-bg);
+  font-size: 15px;
+  letter-spacing: 0.12em;
+}
+
+.vn-theater-wrapper[data-stage-style="cinema_dossier"] .vn-dialogue-meta {
+  background: color-mix(in srgb, var(--card-bg) 14%, transparent);
+  color: var(--card-bg);
+  padding: 2px 8px;
+  border-radius: 3px;
 }
 
 /* 直观角色头像卡片选择条 */

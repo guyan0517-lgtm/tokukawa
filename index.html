@@ -297,6 +297,7 @@
     }
   </style>
   <style id="custom-theme-style-tag"></style>
+  <style id="vn-stage-custom-css-tag"></style>
   <script src="/node_modules/dexie/dist/dexie.js"></script>
   <script>if (typeof Dexie === 'undefined') { document.write('<script src="https://cdn.jsdelivr.net/npm/dexie/dist/dexie.js"><\/script>'); }</script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -2535,7 +2536,7 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
 
     <!-- ==================== 14. 横屏 16:9 视觉小说剧本剧场 ==================== -->
     <section id="screen-theater" class="screen">
-      <div class="vn-theater-wrapper" id="vn-theater-stage-root">
+      <div class="vn-theater-wrapper" id="vn-theater-stage-root" data-stage-style="ark_grad">
         <!-- 第1层：当前场所背景层 -->
         <div class="vn-bg-layer" id="vn-theater-bg-layer"></div>
 
@@ -2566,43 +2567,64 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
         <div class="vn-top-bar">
           <div class="vn-top-group">
             <button type="button" class="vn-mini-icon-btn" title="返回桌面" onclick="exitTheaterToHome()">
-              <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 18 9 12 15 6"/></svg>
             </button>
             <button type="button" class="vn-mini-icon-btn" title="选择模组与章节" onclick="openTheaterSelectorLobby()">
-              <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            </button>
+            <button type="button" class="vn-mini-icon-btn" title="舞台外观与自定义CSS" onclick="openTheaterStageStyleModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
             </button>
             <select id="theater-chapter-select" class="moe-input" style="display:none;" onchange="onTheaterChapterSelectChange(this.value)"></select>
           </div>
           <div class="vn-top-group">
             <button type="button" class="vn-mini-icon-btn" id="theater-edit-mode-btn" title="切换正式播放与舞台编辑模式" onclick="toggleTheaterStageEditMode()">
-              <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
             </button>
             <button type="button" class="vn-mini-icon-btn active-state" id="theater-danmaku-btn" title="开关弹幕" onclick="toggleTheaterDanmaku()">
-              <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             </button>
             <button type="button" class="vn-mini-icon-btn" id="theater-auto-btn" title="开关自动播放" onclick="toggleTheaterAutoPlay()">
-              <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             </button>
           </div>
         </div>
 
-        <!-- 第7层：经典视觉小说实心高级底部对话框 -->
-        <div class="vn-bottom-dock" onclick="handleTheaterDockClick()">
-          <div class="vn-dialogue-header">
-            <div style="display:flex;align-items:center;gap:12px;min-width:0;">
-              <span class="vn-speaker-badge" id="vn-theater-speaker">旁白</span>
-              <span class="vn-dialogue-meta" id="vn-theater-exp-info"></span>
+        <!-- 第7层：视觉小说多款式高级底部对话框 -->
+        <div class="vn-bottom-dock" id="vn-theater-bottom-dock" onclick="handleTheaterDockClick()">
+          <div class="vn-dock-main-row">
+            <div class="vn-stage-side-bust empty" id="vn-stage-side-bust">
+              <img id="vn-stage-side-bust-img" src="" alt="角色头像" />
             </div>
-            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;" onclick="event.stopPropagation()">
-              <span class="vn-dialogue-meta" id="vn-theater-progress">0 / 0</span>
-              <button type="button" class="moe-btn secondary" id="vn-stage-mode-toggle-btn" style="height:24px;min-height:24px;padding:0 8px;font-size:11px;" onclick="toggleTheaterStageEditMode()">编辑</button>
-              <button type="button" class="moe-btn secondary" style="height:24px;min-height:24px;padding:0 8px;font-size:11px;" onclick="prevTheaterLine()">上句</button>
-              <button type="button" class="moe-btn secondary" style="height:24px;min-height:24px;padding:0 8px;font-size:11px;" onclick="replayCurrentTheaterLineTts()">重播</button>
-              <button type="button" class="moe-btn" style="height:24px;min-height:24px;padding:0 8px;font-size:11px;" onclick="nextTheaterLine()">下句</button>
+            <div class="vn-dock-body-col">
+              <div class="vn-dialogue-header">
+                <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+                  <span class="vn-speaker-badge" id="vn-theater-speaker">旁白</span>
+                  <span class="vn-dialogue-meta" id="vn-theater-exp-info"></span>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;" onclick="event.stopPropagation()">
+                  <span class="vn-dialogue-meta" id="vn-theater-progress">0 / 0</span>
+                  <button type="button" class="moe-btn secondary" style="height:24px;min-height:24px;padding:0 8px;font-size:11px;" onclick="openTheaterStageStyleModal()">外观</button>
+                  <button type="button" class="moe-btn secondary" id="vn-stage-mode-toggle-btn" style="height:24px;min-height:24px;padding:0 8px;font-size:11px;" onclick="toggleTheaterStageEditMode()">编辑</button>
+                  <button type="button" class="moe-btn secondary" style="height:24px;min-height:24px;padding:0 8px;font-size:11px;" onclick="prevTheaterLine()">上句</button>
+                  <button type="button" class="moe-btn secondary" style="height:24px;min-height:24px;padding:0 8px;font-size:11px;" onclick="replayCurrentTheaterLineTts()">重播</button>
+                  <button type="button" class="moe-btn" style="height:24px;min-height:24px;padding:0 8px;font-size:11px;" onclick="nextTheaterLine()">下句</button>
+                </div>
+              </div>
+              <div class="vn-dialogue-text" id="vn-theater-text">欢迎进入视觉小说剧本剧场，请先选择模组与章节开始观看。</div>
+              <div class="vn-dialogue-jp" id="vn-theater-jp-text" style="display:none;"></div>
             </div>
           </div>
-          <div class="vn-dialogue-text" id="vn-theater-text">欢迎进入视觉小说剧本剧场，请先选择模组与章节开始观看。</div>
-          <div class="vn-dialogue-jp" id="vn-theater-jp-text" style="display:none;"></div>
+
+          <div class="vn-stage-ctrl-bar" onclick="event.stopPropagation()">
+            <button type="button" class="vn-stage-ctrl-btn" onclick="prevTheaterLine()">回退</button>
+            <button type="button" class="vn-stage-ctrl-btn" onclick="replayCurrentTheaterLineTts()">重播</button>
+            <button type="button" class="vn-stage-ctrl-btn" id="vn-ctrl-auto-text-btn" onclick="toggleTheaterAutoPlay()">自动</button>
+            <button type="button" class="vn-stage-ctrl-btn" id="vn-ctrl-danmaku-text-btn" onclick="toggleTheaterDanmaku()">弹幕</button>
+            <button type="button" class="vn-stage-ctrl-btn" onclick="openTheaterStageStyleModal()">外观</button>
+            <button type="button" class="vn-stage-ctrl-btn" onclick="openTheaterSelectorLobby()">选集</button>
+            <button type="button" class="vn-stage-ctrl-btn" onclick="nextTheaterLine()">继续</button>
+          </div>
 
           <!-- 舞台可视化编辑面板：与播放舞台同款界面，直接切换说话人、25态差分、文字、音效与音乐起止 -->
           <div class="vn-stage-edit-panel" id="vn-theater-stage-edit-panel" onclick="event.stopPropagation()">
@@ -2644,16 +2666,28 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
             <div class="moe-card-header">
               <span class="moe-card-title">选择要观看的模组与章节 播完本章将自动连播下一章</span>
               <div style="display:flex;gap:6px;">
+                <button type="button" class="moe-btn secondary" onclick="openTheaterStageStyleModal()">外观</button>
                 <button type="button" class="moe-btn secondary" onclick="openAppScreen('replay')">模组</button>
                 <button type="button" class="moe-btn secondary" onclick="closeTheaterSelectorLobby()">继续</button>
                 <button type="button" class="moe-btn" onclick="exitTheaterToHome()">返回</button>
               </div>
             </div>
-            <div class="form-group" style="margin-bottom:4px;">
-              <label>选择大模组</label>
-              <select id="theater-lobby-project-select" class="moe-input" onchange="onTheaterLobbyProjectChange(this.value)"></select>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+              <div class="form-group" style="flex:1;min-width:160px;margin-bottom:0;">
+                <label>选择大模组</label>
+                <select id="theater-lobby-project-select" class="moe-input" onchange="onTheaterLobbyProjectChange(this.value)"></select>
+              </div>
+              <div class="form-group" style="flex:1;min-width:160px;margin-bottom:0;">
+                <label>本模组专属舞台款式</label>
+                <select id="theater-lobby-style-select" class="moe-input" onchange="onTheaterStageStyleQuickChange(this.value)">
+                  <option value="ark_grad">暗幕流光</option>
+                  <option value="persona_noir">异闻斜切</option>
+                  <option value="cinema_dossier">胶片卷宗</option>
+                  <option value="custom">自定义</option>
+                </select>
+              </div>
             </div>
-            <div style="font-size:11px;color:var(--text-secondary);">点击下方任意章节即可进入剧场观看，若尚未整理剧本可点击右侧模组按钮前往模组整理</div>
+            <div style="font-size:11px;color:var(--text-secondary);">点击下方任意章节即可进入剧场观看，每个模组可独立绑定专属舞台款式或点右上角外观定制舞台CSS</div>
             <div class="vn-lobby-chapter-grid" id="theater-lobby-chapters-list"></div>
           </div>
         </div>
@@ -2707,6 +2741,34 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
         <button type="button" class="moe-btn secondary" onclick="rollVnTensionDice('询问禁书残页')">询问禁书残页</button>
         <button type="button" class="moe-btn secondary" onclick="rollVnTensionDice('递上珍奇巧克力')">递上珍奇巧克力</button>
         <button type="button" class="moe-btn secondary" onclick="rollVnTensionDice('退回回廊阴影')">退回回廊阴影</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 弹窗2.5：剧本专属舞台款式与自定义CSS配置 ==================== -->
+  <div id="vn-stage-style-modal" class="modal">
+    <div class="modal-content" style="max-width:540px;">
+      <div class="moe-card-header">
+        <span class="moe-card-title">当前剧本专属舞台外观与自定义CSS</span>
+        <div style="display:flex;gap:6px;">
+          <button type="button" class="moe-btn secondary" onclick="copyStageCssTemplateWithPrompt()">复制</button>
+          <button type="button" class="moe-btn secondary" onclick="resetCurrentProjectStageCss()">还原</button>
+          <button type="button" class="moe-btn" onclick="saveAndApplyProjectStageStyle()">应用</button>
+          <button type="button" class="moe-btn secondary" onclick="closeModal('vn-stage-style-modal')">关闭</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>当前模组绑定舞台款式</label>
+        <select id="vn-stage-style-preset-select" class="moe-input" onchange="onModalStageStyleSelectChange(this.value)">
+          <option value="ark_grad">暗幕流光 · 通透深色渐变与左下立绘半身像</option>
+          <option value="persona_noir">异闻斜切 · 冷调几何斜切相框与反色名牌</option>
+          <option value="cinema_dossier">胶片卷宗 · 电影下三分之一字幕与红标现场记录</option>
+          <option value="custom">自定义 · 使用下方当前剧本专属舞台CSS代码</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label>舞台全部组件CSS名称对照与自定义代码 点右上角复制可发给AI设计新舞台</label>
+        <textarea id="vn-stage-custom-css-editor" class="moe-input" style="min-height:240px;font-family:monospace;font-size:12px;"></textarea>
       </div>
     </div>
   </div>
@@ -16327,6 +16389,12 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       });
 
       const curProj = getCurrentReplayProject();
+      const styleSel = document.getElementById('theater-lobby-style-select');
+      if (styleSel && curProj) {
+        styleSel.value = curProj.stageStylePreset || 'ark_grad';
+      }
+      applyProjectStageStyleToDom(curProj);
+
       listBox.innerHTML = '';
       if (!curProj || !Array.isArray(curProj.chapters) || curProj.chapters.length === 0) {
         listBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);padding:12px;text-align:center;">当前模组暂无章节，请点击右上角模组按钮导入日志并分章</div>';
@@ -16354,6 +16422,207 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         `;
         listBox.appendChild(item);
       });
+    }
+
+    function getBuiltinStageCssTemplate() {
+      return [
+        '/* 舞台全部部位CSS选择器名称对照表 可直接复制发给AI重新设计舞台外观 */',
+        '',
+        '/* 1. 舞台最外层根容器 */',
+        '#vn-theater-stage-root {',
+        '}',
+        '',
+        '/* 2. 舞台底层场所背景图容器 */',
+        '#vn-theater-bg-layer {',
+        '}',
+        '',
+        '/* 3. 舞台中央多角色立绘容器与单个立绘角色槽位 */',
+        '#vn-theater-tachie-layer {',
+        '}',
+        '.vn-stage-actor {',
+        '}',
+        '.vn-stage-actor.speaking {',
+        '}',
+        '.vn-stage-actor.dimmed {',
+        '}',
+        '',
+        '/* 4. 全屏CG插画层与暗角氛围层 */',
+        '#vn-theater-cg-layer {',
+        '}',
+        '#vn-theater-vignette-layer {',
+        '}',
+        '',
+        '/* 5. 顶部从右向左飘过的场外弹幕轨道与单条弹幕文字 */',
+        '#vn-theater-ooc-layer {',
+        '}',
+        '.vn-ooc-item {',
+        '  font-size: 14px;',
+        '  font-weight: 800;',
+        '  color: var(--card-bg);',
+        '}',
+        '',
+        '/* 6. 右上角跑团骰子检定结果浮窗 */',
+        '#vn-theater-dice-toast {',
+        '  background: color-mix(in srgb, var(--text-primary) 88%, transparent);',
+        '  border: 1px solid color-mix(in srgb, var(--card-bg) 25%, transparent);',
+        '  border-left: 3px solid var(--accent-color);',
+        '  color: var(--card-bg);',
+        '}',
+        '',
+        '/* 7. 全屏黑幕转场层与中央浮现文字 */',
+        '#vn-theater-blackout-layer {',
+        '}',
+        '#vn-theater-blackout-text {',
+        '}',
+        '',
+        '/* 8. 舞台顶部角落快捷图标栏与单个图标按钮 */',
+        '.vn-top-bar {',
+        '}',
+        '.vn-mini-icon-btn {',
+        '}',
+        '',
+        '/* 9. 舞台底部主对话框总容器 */',
+        '#vn-theater-bottom-dock {',
+        '  width: calc(100% - 36px);',
+        '  margin: auto 18px 14px 18px;',
+        '  padding: 18px 26px 12px 26px;',
+        '  background: linear-gradient(135deg, color-mix(in srgb, var(--text-primary) 90%, transparent) 0%, color-mix(in srgb, var(--text-primary) 82%, var(--accent-color) 18%) 100%);',
+        '  border: 1px solid color-mix(in srgb, var(--card-bg) 28%, transparent);',
+        '  border-left: 4px solid var(--accent-color);',
+        '}',
+        '',
+        '/* 10. 对话框左侧说话人半身头像相框 */',
+        '#vn-stage-side-bust {',
+        '  width: 84px;',
+        '  height: 96px;',
+        '  border: 1px solid color-mix(in srgb, var(--card-bg) 35%, transparent);',
+        '}',
+        '',
+        '/* 11. 对话框顶部姓名栏、说话人名牌、副标题与进度 */',
+        '.vn-dialogue-header {',
+        '  border-bottom: 1px solid color-mix(in srgb, var(--card-bg) 18%, transparent);',
+        '}',
+        '#vn-theater-speaker {',
+        '  color: var(--card-bg);',
+        '  border-left: 3px solid var(--accent-color);',
+        '  padding-left: 10px;',
+        '  font-size: 16px;',
+        '}',
+        '#vn-theater-exp-info {',
+        '  color: color-mix(in srgb, var(--card-bg) 70%, transparent);',
+        '}',
+        '#vn-theater-progress {',
+        '  color: color-mix(in srgb, var(--card-bg) 70%, transparent);',
+        '}',
+        '',
+        '/* 12. 对话框核心台词与旁白正文文字 */',
+        '#vn-theater-text {',
+        '  color: var(--card-bg);',
+        '  font-size: 15px;',
+        '  line-height: 1.8;',
+        '}',
+        '',
+        '/* 13. 对话框最底部极简文字控制栏与单个按钮 */',
+        '.vn-stage-ctrl-bar {',
+        '  border-top: 1px solid color-mix(in srgb, var(--card-bg) 12%, transparent);',
+        '}',
+        '.vn-stage-ctrl-btn {',
+        '  color: color-mix(in srgb, var(--card-bg) 72%, transparent);',
+        '}'
+      ].join('\n');
+    }
+
+    function applyProjectStageStyleToDom(proj) {
+      const targetProj = proj || getCurrentReplayProject();
+      const preset = targetProj?.stageStylePreset || 'ark_grad';
+      const customCss = targetProj?.stageCustomCss || '';
+      const stageRoot = document.getElementById('vn-theater-stage-root');
+      if (stageRoot) {
+        stageRoot.setAttribute('data-stage-style', preset);
+      }
+      const styleTag = document.getElementById('vn-stage-custom-css-tag');
+      if (styleTag) {
+        styleTag.textContent = preset === 'custom' ? customCss : '';
+      }
+      const lobbySel = document.getElementById('theater-lobby-style-select');
+      if (lobbySel) lobbySel.value = preset;
+      const modalSel = document.getElementById('vn-stage-style-preset-select');
+      if (modalSel) modalSel.value = preset;
+    }
+
+    async function onTheaterStageStyleQuickChange(val) {
+      const curProj = getCurrentReplayProject();
+      if (!curProj) return;
+      curProj.stageStylePreset = val || 'ark_grad';
+      if (curProj.stageStylePreset === 'custom' && !curProj.stageCustomCss) {
+        curProj.stageCustomCss = getBuiltinStageCssTemplate();
+      }
+      await saveReplayProjectToDB(curProj);
+      applyProjectStageStyleToDom(curProj);
+      if (val === 'custom') {
+        openTheaterStageStyleModal();
+      }
+    }
+
+    function openTheaterStageStyleModal() {
+      const curProj = getCurrentReplayProject();
+      const preset = curProj?.stageStylePreset || 'ark_grad';
+      const modalSel = document.getElementById('vn-stage-style-preset-select');
+      const cssEditor = document.getElementById('vn-stage-custom-css-editor');
+      if (modalSel) modalSel.value = preset;
+      if (cssEditor) {
+        cssEditor.value = (curProj && curProj.stageCustomCss && curProj.stageCustomCss.trim())
+          ? curProj.stageCustomCss
+          : getBuiltinStageCssTemplate();
+      }
+      openModal('vn-stage-style-modal');
+    }
+
+    function onModalStageStyleSelectChange(val) {
+      const cssEditor = document.getElementById('vn-stage-custom-css-editor');
+      if (cssEditor && !cssEditor.value.trim()) {
+        cssEditor.value = getBuiltinStageCssTemplate();
+      }
+    }
+
+    async function saveAndApplyProjectStageStyle() {
+      const curProj = getCurrentReplayProject();
+      if (!curProj) return;
+      const modalSel = document.getElementById('vn-stage-style-preset-select');
+      const cssEditor = document.getElementById('vn-stage-custom-css-editor');
+      const chosenPreset = modalSel ? modalSel.value : 'ark_grad';
+      const customCode = cssEditor ? cssEditor.value : '';
+      curProj.stageStylePreset = chosenPreset;
+      curProj.stageCustomCss = customCode;
+      await saveReplayProjectToDB(curProj);
+      applyProjectStageStyleToDom(curProj);
+      closeModal('vn-stage-style-modal');
+    }
+
+    async function resetCurrentProjectStageCss() {
+      const curProj = getCurrentReplayProject();
+      const cssEditor = document.getElementById('vn-stage-custom-css-editor');
+      const modalSel = document.getElementById('vn-stage-style-preset-select');
+      if (cssEditor) cssEditor.value = getBuiltinStageCssTemplate();
+      if (modalSel) modalSel.value = 'ark_grad';
+      if (curProj) {
+        curProj.stageStylePreset = 'ark_grad';
+        curProj.stageCustomCss = getBuiltinStageCssTemplate();
+        await saveReplayProjectToDB(curProj);
+        applyProjectStageStyleToDom(curProj);
+      }
+    }
+
+    async function copyStageCssTemplateWithPrompt() {
+      const cssEditor = document.getElementById('vn-stage-custom-css-editor');
+      const code = (cssEditor && cssEditor.value.trim()) ? cssEditor.value : getBuiltinStageCssTemplate();
+      const promptGuide = [
+        '请根据以下视觉小说舞台的CSS选择器名称，为我设计一套全新的高级视觉小说舞台CSS代码，直接输出纯CSS代码：',
+        code
+      ].join('\n\n');
+      try {
+        await navigator.clipboard.writeText(promptGuide);
+      } catch (_) {}
     }
 
     function onTheaterLobbyProjectChange(projId) {
@@ -16413,12 +16682,18 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       if (!layer || !text) return;
       const item = document.createElement('div');
       item.className = 'vn-ooc-item';
-      item.style.top = `${8 + Math.floor(Math.random() * 68)}px`;
+      item.style.top = `${8 + Math.floor(Math.random() * 72)}px`;
+      const stageRoot = document.getElementById('vn-theater-stage-root');
+      const stageW = layer.clientWidth || stageRoot?.clientWidth || window.innerWidth || 960;
+      const estTextW = Math.max(260, String(text).length * 18 + 140);
+      const durSec = (8.6 + Math.random() * 1.4).toFixed(2);
+      item.style.setProperty('--dm-travel', `-${stageW + estTextW}px`);
+      item.style.setProperty('--dm-dur', `${durSec}s`);
       item.textContent = text;
       layer.appendChild(item);
       setTimeout(() => {
         if (item.parentNode) item.parentNode.removeChild(item);
-      }, 8600);
+      }, 10500);
     }
 
     // 整句直接清晰展示，不再一个字一个字蹦出
@@ -16457,6 +16732,8 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
     }
 
     async function renderTheaterCurrentLine() {
+      const curProj = getCurrentReplayProject();
+      applyProjectStageStyleToDom(curProj);
       const chap = getCurrentReplayChapter();
       const stageRoot = document.getElementById('vn-theater-stage-root');
       const speakerEl = document.getElementById('vn-theater-speaker');
@@ -16474,6 +16751,8 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       const editPanel = document.getElementById('vn-theater-stage-edit-panel');
       const modeToggleBtn = document.getElementById('vn-stage-mode-toggle-btn');
       const topEditBtn = document.getElementById('theater-edit-mode-btn');
+      const sideBustBox = document.getElementById('vn-stage-side-bust');
+      const sideBustImg = document.getElementById('vn-stage-side-bust-img');
 
       if (appState.theaterPureStageMode) {
         appState.theaterEditMode = false;
@@ -16493,6 +16772,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         if (progEl) progEl.textContent = '0 / 0';
         if (textEl) textEl.textContent = '当前章节尚未生成剧本，请点左上角列表图标选择其他已整理章节，或前往模组软件点击整理生成剧本。';
         if (jpEl) jpEl.textContent = '';
+        if (sideBustBox) sideBustBox.classList.add('empty');
         if (cgLayer) cgLayer.classList.remove('active');
         if (blackoutLayer) blackoutLayer.classList.remove('active');
         if (editPanel) editPanel.classList.remove('active');
@@ -16707,6 +16987,28 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
             <img src="${croppedSprite}" alt="${charObj.name}" style="height:${actorHeightPx}px;" title="${charObj.name} · ${netCm}cm · ${expKey}" />
           `;
           tachieLayer.appendChild(actorDiv);
+        }
+      }
+
+      // 5.5 更新对话框左侧说话人半身头像相框
+      if (sideBustBox && sideBustImg) {
+        const spkCharObj = (line.speaker && line.speaker !== '旁白' && line.speaker !== '检定')
+          ? (appState.characters || []).find((c) => c.name === line.speaker && c.trpgType !== '旁白')
+          : null;
+        if (spkCharObj) {
+          const expKey = line.exp || '默认';
+          const bustSrc = (spkCharObj.tachieExpressions && spkCharObj.tachieExpressions[expKey])
+            || (spkCharObj.tachieExpressions && spkCharObj.tachieExpressions['默认'])
+            || spkCharObj.tachieBase
+            || spkCharObj.chibiImg;
+          if (bustSrc) {
+            sideBustImg.src = bustSrc;
+            sideBustBox.classList.remove('empty');
+          } else {
+            sideBustBox.classList.add('empty');
+          }
+        } else {
+          sideBustBox.classList.add('empty');
         }
       }
 
