@@ -9,7 +9,188 @@
   <meta property="og:description" content="虚拟手机模拟与角色聊天互动应用" />
   <link rel="manifest" href="manifest.json?v=2.1.0" />
   <link rel="icon" type="image/png" href="icon.png?v=2.1.0" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=20261022" />
+  <style id="core-layout-compat-style">
+    #screen-home {
+      padding: 20px 18px 24px !important;
+      display: none;
+      flex-direction: column;
+      justify-content: space-between;
+      box-sizing: border-box;
+    }
+    #screen-home.active {
+      display: flex !important;
+    }
+    .home-profile-widget {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 18px;
+      padding: 22px 18px 20px !important;
+      margin-top: 6px;
+      margin-bottom: 18px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04);
+      text-align: center;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 8px !important;
+    }
+    .home-title-emblem {
+      width: 34px !important;
+      height: 34px !important;
+      border-radius: 10px;
+      background: var(--secondary-bg);
+      border: 1px solid var(--border-color);
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      color: var(--accent-color);
+      margin: 0 auto 2px !important;
+      flex-shrink: 0 !important;
+    }
+    .home-title-emblem svg {
+      width: 16px !important;
+      height: 16px !important;
+      display: block !important;
+    }
+    .home-profile-name {
+      font-size: 22px !important;
+      font-weight: 800 !important;
+      color: var(--text-primary);
+      letter-spacing: 6px !important;
+      padding-left: 6px !important;
+      line-height: 1.25 !important;
+    }
+    .home-title-divider {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 8px !important;
+      width: 120px !important;
+      margin: 2px auto !important;
+    }
+    .home-divider-line {
+      flex: 1;
+      height: 1px;
+      background: var(--border-color);
+    }
+    .home-divider-dot {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--accent-color);
+    }
+    .home-profile-sub {
+      font-size: 11px !important;
+      color: var(--text-secondary);
+      letter-spacing: 2px !important;
+      padding-left: 2px !important;
+    }
+    .app-icon-grid {
+      display: grid !important;
+      grid-template-columns: repeat(3, 1fr) !important;
+      gap: 20px 16px !important;
+      padding: 18px 12px !important;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 18px;
+      margin-bottom: auto;
+      box-sizing: border-box;
+    }
+    .app-icon-item {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 7px !important;
+      cursor: pointer;
+      user-select: none;
+      background: transparent;
+      border: none;
+      padding: 4px 0;
+    }
+    .app-icon-box {
+      width: 54px !important;
+      height: 54px !important;
+      border-radius: 15px !important;
+      background: var(--secondary-bg);
+      border: 1px solid var(--border-color);
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      color: var(--text-primary);
+      flex-shrink: 0 !important;
+    }
+    .app-icon-box svg {
+      width: 22px !important;
+      height: 22px !important;
+      display: block !important;
+    }
+    .home-dock {
+      margin-top: 20px;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 12px 20px !important;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+    }
+    .home-dock-main-btn {
+      width: 100% !important;
+      display: flex !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 10px !important;
+      padding: 4px 0 !important;
+    }
+    .home-dock-main-btn .app-icon-box {
+      width: 42px !important;
+      height: 42px !important;
+      border-radius: 12px !important;
+    }
+    .home-dock-main-btn .app-icon-label {
+      font-size: 14px !important;
+      font-weight: 800 !important;
+      letter-spacing: 3px !important;
+    }
+    .stage-ergonomic-row {
+      display: flex !important;
+      gap: 8px !important;
+      align-items: stretch !important;
+      margin-bottom: 10px !important;
+    }
+    .stage-ergonomic-row .checkerboard-stage {
+      flex: 1 !important;
+      min-width: 0 !important;
+      margin-bottom: 0 !important;
+      min-height: 440px !important;
+    }
+    .stage-side-toolbar {
+      width: 54px !important;
+      flex-shrink: 0 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 5px !important;
+    }
+    .stage-side-toolbar .moe-btn {
+      width: 100% !important;
+      min-height: 30px !important;
+      padding: 4px 2px !important;
+      font-size: 11px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+    .stage-side-toolbar .moe-btn svg {
+      width: 15px !important;
+      height: 15px !important;
+      display: block !important;
+      flex-shrink: 0 !important;
+    }
+  </style>
   <style id="custom-theme-style-tag"></style>
   <script src="/node_modules/dexie/dist/dexie.js"></script>
   <script>if (typeof Dexie === 'undefined') { document.write('<script src="https://cdn.jsdelivr.net/npm/dexie/dist/dexie.js"><\/script>'); }</script>
@@ -30,15 +211,15 @@
     <section id="screen-home" class="screen active">
       <div class="home-profile-widget">
         <div class="home-title-emblem">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15 9 22 12 15 15 12 22 9 15 2 12 9 9 12 2"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15 9 22 12 15 15 12 22 9 15 2 12 9 9 12 2"/></svg>
         </div>
-        <div class="home-profile-name" id="home-main-title-el">常世之国</div>
+        <div class="home-profile-name" id="home-main-title-el">箱庭物语</div>
         <div class="home-title-divider">
           <span class="home-divider-line"></span>
           <span class="home-divider-dot"></span>
           <span class="home-divider-line"></span>
         </div>
-        <div class="home-profile-sub" id="home-sub-title-el">四半世紀 · 模组剧场手账</div>
+        <div class="home-profile-sub" id="home-sub-title-el">旧日书简 · 跑团剧场手账</div>
         <!-- 隐藏式保留原状态节点，防止旧脚本读取报错 -->
         <div style="display:none;">
           <div id="home-widget-avatar"></div>
@@ -53,42 +234,42 @@
       <div class="app-icon-grid">
         <button type="button" class="app-icon-item" data-app-key="replay" onclick="openAppScreen('replay')">
           <div class="app-icon-box" id="app-icon-box-replay">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
           </div>
           <span class="app-icon-label" id="app-label-replay">模组</span>
         </button>
 
         <button type="button" class="app-icon-item" data-app-key="persona" onclick="openAppScreen('persona')">
           <div class="app-icon-box" id="app-icon-box-persona">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
           </div>
           <span class="app-icon-label" id="app-label-persona">角色</span>
         </button>
 
         <button type="button" class="app-icon-item" data-app-key="tachie" onclick="openAppScreen('tachie')">
           <div class="app-icon-box" id="app-icon-box-tachie">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
           </div>
           <span class="app-icon-label" id="app-label-tachie">立绘</span>
         </button>
 
         <button type="button" class="app-icon-item" data-app-key="music" onclick="openAppScreen('music')">
           <div class="app-icon-box" id="app-icon-box-music">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
           </div>
           <span class="app-icon-label" id="app-label-music">音乐</span>
         </button>
 
         <button type="button" class="app-icon-item" data-app-key="theme" onclick="openAppScreen('theme')">
           <div class="app-icon-box" id="app-icon-box-theme">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2.69l5.66 5.66a8 8 0 0 1-11.31 0z"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
           </div>
           <span class="app-icon-label" id="app-label-theme">美化</span>
         </button>
 
         <button type="button" class="app-icon-item" data-app-key="settings" onclick="openAppScreen('settings')">
           <div class="app-icon-box" id="app-icon-box-settings">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           </div>
           <span class="app-icon-label" id="app-label-settings">设置</span>
         </button>
@@ -110,7 +291,7 @@
       <div class="home-dock">
         <button type="button" class="app-icon-item home-dock-main-btn" data-app-key="theater" onclick="openTheaterWithLobby()">
           <div class="app-icon-box accent-fill" id="app-icon-box-theater">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="4" width="20" height="16" rx="2"/><polygon points="10 9 15 12 10 15 10 9"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="2"/><polygon points="10 9 15 12 10 15 10 9"/></svg>
           </div>
           <span class="app-icon-label" id="app-label-theater">剧本</span>
         </button>
@@ -491,15 +672,15 @@
                   <button type="button" class="moe-btn" id="tachie-gen-base-btn" onclick="generateTachieImageViaNai()">生图</button>
                   <button type="button" class="moe-btn secondary" onclick="document.getElementById('tachie-local-upload').click()">导入</button>
                   <button type="button" class="moe-btn secondary" onclick="exportTachieTransparentPng()">导出</button>
-                  <button type="button" class="moe-btn" id="tachie-brush-none-btn" title="预览" onclick="setTachieBrushMode('none')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg></button>
-                  <button type="button" class="moe-btn secondary" title="去底" onclick="applyFloodFillToTachie()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg></button>
-                  <button type="button" class="moe-btn secondary" id="tachie-brush-wand-btn" title="魔棒" onclick="setTachieBrushMode('wand')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M17.8 6.2L19 5M3 21l9-9M12.2 6.2L11 5"/></svg></button>
-                  <button type="button" class="moe-btn secondary" id="tachie-brush-erase-btn" title="擦除" onclick="setTachieBrushMode('erase')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L20 20Z"/></svg></button>
-                  <button type="button" class="moe-btn secondary" id="tachie-brush-restore-btn" title="恢复" onclick="setTachieBrushMode('restore')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg></button>
-                  <button type="button" class="moe-btn secondary" title="撤回" onclick="undoStageEdit('tachie')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></button>
-                  <button type="button" class="moe-btn secondary" title="重做" onclick="redoStageEdit('tachie')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg></button>
-                  <button type="button" class="moe-btn secondary" title="原图" onclick="restoreTachieRawImg()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></button>
-                  <button type="button" class="moe-btn secondary" title="复位" onclick="resetStageZoom('tachie')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></button>
+                  <button type="button" class="moe-btn" id="tachie-brush-none-btn" title="预览" onclick="setTachieBrushMode('none')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg></button>
+                  <button type="button" class="moe-btn secondary" title="去底" onclick="applyFloodFillToTachie()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg></button>
+                  <button type="button" class="moe-btn secondary" id="tachie-brush-wand-btn" title="魔棒" onclick="setTachieBrushMode('wand')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M17.8 6.2L19 5M3 21l9-9M12.2 6.2L11 5"/></svg></button>
+                  <button type="button" class="moe-btn secondary" id="tachie-brush-erase-btn" title="擦除" onclick="setTachieBrushMode('erase')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L20 20Z"/></svg></button>
+                  <button type="button" class="moe-btn secondary" id="tachie-brush-restore-btn" title="恢复" onclick="setTachieBrushMode('restore')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg></button>
+                  <button type="button" class="moe-btn secondary" title="撤回" onclick="undoStageEdit('tachie')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></button>
+                  <button type="button" class="moe-btn secondary" title="重做" onclick="redoStageEdit('tachie')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg></button>
+                  <button type="button" class="moe-btn secondary" title="原图" onclick="restoreTachieRawImg()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></button>
+                  <button type="button" class="moe-btn secondary" title="复位" onclick="resetStageZoom('tachie')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></button>
                   <button type="button" class="moe-btn" id="tachie-save-btn" onclick="saveTachieToIndexedDB()">保存</button>
                 </div>
               </div>
