@@ -283,35 +283,54 @@ body.landscape-game-active .screen {
   background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: 18px;
-  padding: 18px 12px;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px 16px;
+  padding: 14px 18px;
+  display: flex;
   align-items: center;
-  justify-items: center;
+  justify-content: center;
+  gap: 28px;
   flex-shrink: 0;
 }
 
 .home-dock .home-dock-main-btn {
-  width: 100%;
-  flex-direction: column;
-  padding: 4px 0;
-  border: none;
-  background: transparent;
+  width: 76px;
+  height: 76px;
+  min-width: 76px;
+  min-height: 76px;
+  padding: 6px;
   border-radius: 16px;
-  gap: 7px;
+  border: 1px solid var(--border-color);
+  background: var(--secondary-bg);
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  transition: transform 0.15s ease;
 }
 
-.home-dock .home-dock-main-btn .app-icon-box {
-  width: 54px;
-  height: 54px;
-  border-radius: 15px;
+.home-dock .home-dock-main-btn.primary-dock-btn {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: var(--card-bg);
 }
 
-.home-dock .home-dock-main-btn .app-icon-label {
+.home-dock .home-dock-main-btn svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 1.9;
+  flex-shrink: 0;
+}
+
+.home-dock .home-dock-main-btn .home-dock-btn-label {
   font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0.04em;
+  color: inherit;
 }
 
 /* ==================== App 内部通用顶栏与子页面切换 ==================== */
@@ -1580,14 +1599,14 @@ button {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -36%;
+  bottom: -30%;
   top: 0;
   z-index: 5;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: 36px;
-  padding: 0 48px;
+  gap: 28px;
+  padding: 0 36px;
   pointer-events: none;
 }
 
@@ -1881,18 +1900,18 @@ button {
 .vn-bottom-dock {
   position: relative;
   z-index: 25;
-  width: calc(100% - 28px);
-  margin: auto 14px 12px 14px;
-  padding: 14px 20px 10px 20px;
-  border-radius: 16px;
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  width: 100%;
+  margin: auto 0 0 0;
+  padding: 16px 28px 10px 28px;
+  border-radius: 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--text-primary) 58%, transparent) 0%, color-mix(in srgb, var(--text-primary) 86%, transparent) 34%, color-mix(in srgb, var(--text-primary) 94%, transparent) 100%);
+  border-top: 1px solid color-mix(in srgb, var(--card-bg) 20%, transparent);
+  color: var(--card-bg);
   cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 124px;
+  min-height: 132px;
   transition: all 0.25s ease;
 }
 
@@ -1908,11 +1927,11 @@ button {
   width: 82px;
   height: 96px;
   flex-shrink: 0;
-  margin-top: -18px;
-  border-radius: 12px;
+  margin-top: -12px;
+  border-radius: 10px;
   overflow: hidden;
-  background: var(--secondary-bg);
-  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--text-primary) 65%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-bg) 32%, transparent);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -1947,19 +1966,18 @@ button {
   margin-top: 0;
   margin-bottom: 2px;
   padding-bottom: 6px;
-  border-bottom: 1px dashed var(--border-color);
+  border-bottom: 1px solid color-mix(in srgb, var(--card-bg) 18%, transparent);
 }
 
 .vn-speaker-badge {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 2px 10px;
-  border-radius: 8px;
-  background: var(--secondary-bg);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  font-size: 14px;
+  padding: 0 0 0 10px;
+  border-left: 3px solid var(--accent-color);
+  background: transparent;
+  color: var(--card-bg);
+  font-size: 16px;
   font-weight: 800;
   letter-spacing: 0.04em;
 }
@@ -1968,19 +1986,21 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
-  color: var(--text-secondary);
+  font-size: 12px;
+  color: color-mix(in srgb, var(--card-bg) 72%, transparent);
   font-weight: 700;
   letter-spacing: 0.04em;
 }
 
 .vn-dialogue-text {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
-  line-height: 1.75;
+  line-height: 1.8;
   letter-spacing: 0.03em;
-  color: var(--text-primary);
-  min-height: 44px;
+  color: var(--card-bg);
+  min-height: 52px;
+  max-height: 82px;
+  overflow-y: auto;
   word-break: break-word;
 }
 
@@ -1992,9 +2012,9 @@ button {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 14px;
+  gap: 16px;
   padding-top: 6px;
-  border-top: 1px dashed var(--border-color);
+  border-top: 1px solid color-mix(in srgb, var(--card-bg) 14%, transparent);
 }
 
 .vn-stage-ctrl-btn {
@@ -2004,7 +2024,7 @@ button {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: var(--text-secondary);
+  color: color-mix(in srgb, var(--card-bg) 74%, transparent);
   cursor: pointer;
   transition: color 0.15s ease, transform 0.15s ease;
 }
@@ -2014,81 +2034,88 @@ button {
   color: var(--accent-color);
 }
 
-/* 款式一：暗幕流光 保持与全局卡片一致的温润干净质感 */
+/* 款式一：暗幕流光 通透深色渐变 */
 .vn-theater-wrapper[data-stage-style="ark_grad"] .vn-bottom-dock {
-  width: calc(100% - 28px);
-  margin: auto 14px 12px 14px;
-  padding: 14px 20px 10px 20px;
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  width: 100%;
+  margin: auto 0 0 0;
+  padding: 16px 28px 10px 28px;
+  border-radius: 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--text-primary) 55%, transparent) 0%, color-mix(in srgb, var(--text-primary) 86%, transparent) 34%, color-mix(in srgb, var(--text-primary) 94%, transparent) 100%);
+  border-top: 1px solid color-mix(in srgb, var(--card-bg) 18%, transparent);
 }
 
 .vn-theater-wrapper[data-stage-style="ark_grad"] .vn-stage-ctrl-bar {
   justify-content: flex-end;
-  gap: 16px;
+  gap: 18px;
 }
 
 /* 款式二：异闻斜切 */
 .vn-theater-wrapper[data-stage-style="persona_noir"] .vn-bottom-dock {
   width: calc(100% - 36px);
   margin: auto 18px 14px 18px;
-  padding: 14px 22px 10px 22px;
-  background: var(--card-bg);
-  border: 1.5px solid var(--border-color);
+  padding: 16px 24px 10px 24px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--text-primary) 90%, transparent) 0%, color-mix(in srgb, var(--text-primary) 82%, var(--accent-color) 18%) 100%);
+  border: 1px solid color-mix(in srgb, var(--card-bg) 28%, transparent);
+  border-left: 4px solid var(--accent-color);
 }
 
 .vn-theater-wrapper[data-stage-style="persona_noir"] .vn-stage-side-bust {
   width: 82px;
   height: 92px;
-  margin-top: -18px;
+  margin-top: -16px;
   padding: 2px;
-  background: var(--secondary-bg);
-  border: 1.5px solid var(--border-color);
+  background: color-mix(in srgb, var(--text-primary) 75%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--card-bg) 38%, transparent);
   border-radius: 10px;
 }
 
 .vn-theater-wrapper[data-stage-style="persona_noir"] .vn-speaker-badge {
-  background: var(--secondary-bg);
+  background: var(--card-bg);
   color: var(--text-primary);
-  border: 1px solid var(--border-color);
+  border: none;
+  border-radius: 6px;
   padding: 2px 12px;
   font-size: 14px;
 }
 
 .vn-theater-wrapper[data-stage-style="persona_noir"] .vn-dialogue-header {
-  border-bottom: 1px dashed var(--border-color);
+  border-bottom: 1px solid color-mix(in srgb, var(--card-bg) 18%, transparent);
 }
 
 /* 款式三：胶片卷宗 */
 .vn-theater-wrapper[data-stage-style="cinema_dossier"] .vn-bottom-dock {
   width: calc(100% - 36px);
   margin: auto 18px 14px 18px;
-  padding: 14px 22px 10px 22px;
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  padding: 16px 24px 10px 24px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--text-primary) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-bg) 24%, transparent);
+  border-top: 2px solid var(--accent-color);
 }
 
 .vn-theater-wrapper[data-stage-style="cinema_dossier"] .vn-stage-side-bust {
-  width: 72px;
-  height: 86px;
+  width: 76px;
+  height: 88px;
   margin-top: -10px;
-  border-radius: 10px;
-  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--card-bg) 32%, transparent);
 }
 
 .vn-theater-wrapper[data-stage-style="cinema_dossier"] .vn-speaker-badge {
-  background: var(--secondary-bg);
-  border: 1px solid var(--border-color);
+  background: var(--accent-color);
+  border: none;
+  border-radius: 4px;
   padding: 2px 10px;
-  color: var(--text-primary);
+  color: var(--card-bg);
   font-size: 14px;
 }
 
 .vn-theater-wrapper[data-stage-style="cinema_dossier"] .vn-dialogue-meta {
-  background: var(--secondary-bg);
-  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--card-bg) 14%, transparent);
+  color: var(--card-bg);
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
 /* 直观角色头像卡片选择条 */
