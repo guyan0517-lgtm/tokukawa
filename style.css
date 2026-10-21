@@ -1599,7 +1599,7 @@ button {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -30%;
+  bottom: -38%;
   top: 0;
   z-index: 5;
   display: flex;
@@ -1973,8 +1973,8 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 0 0 0 10px;
-  border-left: 3px solid var(--accent-color);
+  padding: 0;
+  border-left: none;
   background: transparent;
   color: var(--card-bg);
   font-size: 16px;
@@ -2031,7 +2031,8 @@ button {
 
 .vn-stage-ctrl-btn:hover,
 .vn-stage-ctrl-btn.active {
-  color: var(--accent-color);
+  color: var(--card-bg);
+  border-bottom: 1.5px solid var(--card-bg);
 }
 
 /* 款式一：暗幕流光 通透深色渐变 */
@@ -2118,6 +2119,114 @@ button {
   border-radius: 4px;
 }
 
+/* 剧场横屏内嵌弹窗体系：回顾、设置、存档、相册均跟随舞台横屏与三大预设风格 */
+.vn-theater-wrapper > .modal {
+  position: absolute;
+  inset: 0;
+  z-index: 95;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 28px;
+  background: color-mix(in srgb, var(--text-primary) 58%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.vn-theater-wrapper > .modal.active {
+  display: flex;
+}
+
+.vn-theater-wrapper > .modal > .modal-content {
+  width: 88% !important;
+  max-width: 780px !important;
+  max-height: 86% !important;
+  margin: 0 !important;
+  padding: 18px 24px !important;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--text-primary) 88%, transparent) !important;
+  color: var(--card-bg) !important;
+  border: 1px solid color-mix(in srgb, var(--card-bg) 22%, transparent) !important;
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.36) !important;
+  overflow: hidden;
+}
+
+.vn-theater-wrapper[data-stage-style="ark_grad"] > .modal > .modal-content {
+  border-radius: 8px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--text-primary) 86%, transparent) 0%, color-mix(in srgb, var(--text-primary) 94%, transparent) 100%) !important;
+  border: 1px solid color-mix(in srgb, var(--card-bg) 20%, transparent) !important;
+  border-top: 2px solid color-mix(in srgb, var(--card-bg) 65%, transparent) !important;
+}
+
+.vn-theater-wrapper[data-stage-style="persona_noir"] > .modal > .modal-content {
+  border-radius: 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--text-primary) 92%, transparent) 0%, color-mix(in srgb, var(--text-primary) 82%, var(--accent-color) 18%) 100%) !important;
+  border: 1px solid color-mix(in srgb, var(--card-bg) 28%, transparent) !important;
+  border-left: 4px solid var(--card-bg) !important;
+}
+
+.vn-theater-wrapper[data-stage-style="cinema_dossier"] > .modal > .modal-content {
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--text-primary) 90%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--card-bg) 24%, transparent) !important;
+  border-top: 2px solid var(--accent-color) !important;
+}
+
+.vn-theater-wrapper > .modal .moe-card-header {
+  border-bottom: 1px solid color-mix(in srgb, var(--card-bg) 16%, transparent);
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+}
+
+.vn-theater-wrapper > .modal .moe-card-title,
+.vn-theater-wrapper > .modal label,
+.vn-theater-wrapper > .modal .setting-item-title {
+  color: var(--card-bg) !important;
+}
+
+.vn-theater-wrapper > .modal .setting-item-sub {
+  color: color-mix(in srgb, var(--card-bg) 74%, transparent) !important;
+}
+
+.vn-theater-wrapper > .modal .setting-item {
+  background: color-mix(in srgb, var(--card-bg) 8%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--card-bg) 18%, transparent) !important;
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+.vn-theater-wrapper[data-stage-style="persona_noir"] > .modal .setting-item {
+  border-left: 3px solid color-mix(in srgb, var(--card-bg) 68%, transparent) !important;
+}
+
+.vn-theater-wrapper[data-stage-style="cinema_dossier"] > .modal .setting-item {
+  border-radius: 6px;
+  border-left: 2px solid var(--accent-color) !important;
+}
+
+.vn-theater-wrapper > .modal .moe-input {
+  background: color-mix(in srgb, var(--card-bg) 12%, transparent) !important;
+  color: var(--card-bg) !important;
+  border-color: color-mix(in srgb, var(--card-bg) 24%, transparent) !important;
+}
+
+.vn-theater-wrapper > .modal .moe-input option {
+  background: var(--text-primary);
+  color: var(--card-bg);
+}
+
+.vn-theater-wrapper > .modal .moe-btn {
+  background: color-mix(in srgb, var(--card-bg) 16%, transparent) !important;
+  color: var(--card-bg) !important;
+  border-color: color-mix(in srgb, var(--card-bg) 28%, transparent) !important;
+}
+
+.vn-theater-wrapper > .modal .moe-btn:hover {
+  background: color-mix(in srgb, var(--card-bg) 26%, transparent) !important;
+}
+
 /* 直观角色头像卡片选择条 */
 .char-selector-strip {
   display: flex;
@@ -2199,7 +2308,8 @@ button {
 }
 
 .vn-console-idx {
-  width: 38px;
+  width: auto;
+  min-width: 22px;
   flex-shrink: 0;
   font-size: 11px;
   font-weight: 800;
