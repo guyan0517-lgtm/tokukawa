@@ -131,30 +131,32 @@
       margin-top: 20px;
       background: var(--card-bg);
       border: 1px solid var(--border-color);
-      border-radius: 20px;
-      padding: 12px 20px !important;
-      display: flex !important;
-      justify-content: center !important;
+      border-radius: 18px;
+      padding: 18px 12px !important;
+      display: grid !important;
+      grid-template-columns: repeat(3, 1fr) !important;
+      gap: 20px 16px !important;
       align-items: center !important;
+      justify-items: center !important;
     }
     .home-dock-main-btn {
       width: 100% !important;
       display: flex !important;
-      flex-direction: row !important;
+      flex-direction: column !important;
       align-items: center !important;
       justify-content: center !important;
-      gap: 10px !important;
+      gap: 7px !important;
       padding: 4px 0 !important;
     }
     .home-dock-main-btn .app-icon-box {
-      width: 42px !important;
-      height: 42px !important;
-      border-radius: 12px !important;
+      width: 54px !important;
+      height: 54px !important;
+      border-radius: 15px !important;
     }
     .home-dock-main-btn .app-icon-label {
-      font-size: 14px !important;
-      font-weight: 800 !important;
-      letter-spacing: 3px !important;
+      font-size: 12px !important;
+      font-weight: 700 !important;
+      letter-spacing: 0 !important;
     }
     .stage-ergonomic-row {
       display: flex !important;
@@ -380,6 +382,20 @@
           <span class="app-icon-label" id="app-label-settings">设置</span>
         </button>
 
+        <button type="button" class="app-icon-item" data-app-key="theater" onclick="openTheaterWithLobby()">
+          <div class="app-icon-box" id="app-icon-box-theater">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="2"/><polygon points="10 9 15 12 10 15 10 9"/></svg>
+          </div>
+          <span class="app-icon-label" id="app-label-theater">剧本</span>
+        </button>
+
+        <button type="button" class="app-icon-item" data-app-key="stage" onclick="openTheaterStageSelectorLobby()">
+          <div class="app-icon-box" id="app-icon-box-stage">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          <span class="app-icon-label" id="app-label-stage">舞台</span>
+        </button>
+
         <!-- 隐藏式保留原入口节点，防止美化定制脚本找不到DOM报错 -->
         <div style="display:none;">
           <div id="app-icon-box-worldbook"></div><span id="app-label-worldbook">世界书</span>
@@ -391,22 +407,6 @@
           <div id="app-icon-box-start"></div><span id="app-label-start">开始</span>
           <div id="app-icon-box-map"></div><span id="app-label-map">地图</span>
         </div>
-      </div>
-
-      <!-- 底部主入口栏：居中排布剧本入口与舞台入口 -->
-      <div class="home-dock">
-        <button type="button" class="app-icon-item home-dock-main-btn" data-app-key="theater" onclick="openTheaterWithLobby()">
-          <div class="app-icon-box accent-fill" id="app-icon-box-theater">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="2"/><polygon points="10 9 15 12 10 15 10 9"/></svg>
-          </div>
-          <span class="app-icon-label" id="app-label-theater">剧本</span>
-        </button>
-        <button type="button" class="app-icon-item home-dock-main-btn" data-app-key="stage" onclick="openTheaterStageSelectorLobby()">
-          <div class="app-icon-box" id="app-icon-box-stage">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          </div>
-          <span class="app-icon-label" id="app-label-stage">舞台</span>
-        </button>
       </div>
     </section>
 
@@ -523,8 +523,7 @@
         <div class="app-header-actions">
           <button type="button" class="moe-btn secondary" onclick="document.getElementById('persona-import-pack-input').click()">导包</button>
           <input type="file" id="persona-import-pack-input" accept=".zip,.json" style="display:none;" onchange="importSingleCharacterPack(event)" />
-          <button type="button" class="moe-btn secondary" onclick="ensureNarratorCharacterAndSelect()">旁白</button>
-          <button type="button" class="moe-btn" onclick="createNewBlankCharacter()">新增</button>
+          <button type="button" class="moe-btn" onclick="saveCurrentPersona()">保存</button>
         </div>
       </div>
 
@@ -568,7 +567,19 @@
               <button type="button" class="moe-btn secondary" onclick="exportSingleCharacterPack(appState.selectedPersonaId)">导出</button>
               <button type="button" class="moe-btn secondary" onclick="jumpFromPersonaToTachie()">立绘</button>
               <button type="button" class="moe-btn secondary" onclick="deleteCurrentPersonaCharacter()">删除</button>
-              <button type="button" class="moe-btn" onclick="saveCurrentPersona()">保存</button>
+            </div>
+          </div>
+          <div class="setting-item" style="margin-bottom:10px;">
+            <div class="setting-item-left" style="width:46px;height:46px;">
+              <img id="oc-profile-avatar-preview" src="" alt="角色头像" style="width:100%;height:100%;object-fit:cover;" />
+            </div>
+            <div class="setting-item-center">
+              <div class="setting-item-title">角色页面专属头像</div>
+              <div class="setting-item-sub">仅在角色页面档案与列表中展示，不影响舞台立绘</div>
+            </div>
+            <div class="setting-item-right">
+              <button type="button" class="moe-btn secondary" onclick="document.getElementById('oc-profile-avatar-input').click()">头像</button>
+              <input type="file" id="oc-profile-avatar-input" accept="image/*" style="display:none;" onchange="handlePersonaProfileAvatarUpload(event)" />
             </div>
           </div>
           <div style="display:flex;gap:8px;">
@@ -612,7 +623,7 @@
           </div>
           <div class="form-group">
             <label>性格</label>
-            <input type="text" id="oc-quirk" class="moe-input" placeholder="填写性格特点与说话语气口癖" />
+            <textarea id="oc-quirk" class="moe-input" rows="2" style="min-height:54px;resize:vertical;" placeholder="填写性格特点与说话语气口癖"></textarea>
           </div>
           <div class="form-group">
             <label>背景</label>
@@ -2257,7 +2268,6 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
         <button type="button" class="sub-tab-btn" data-sub="replay-sub-guide" onclick="switchSubPage('screen-replay', 'replay-sub-guide')">教程</button>
         <button type="button" class="sub-tab-btn active" data-sub="replay-sub-import" onclick="switchSubPage('screen-replay', 'replay-sub-import')">分章</button>
         <button type="button" class="sub-tab-btn" data-sub="replay-sub-script" onclick="switchSubPage('screen-replay', 'replay-sub-script')">剧本</button>
-        <button type="button" class="sub-tab-btn" data-sub="replay-sub-stage" onclick="openTheaterStageSelectorLobby()">舞台</button>
         <button type="button" class="sub-tab-btn" data-sub="replay-sub-cg" onclick="switchSubPage('screen-replay', 'replay-sub-cg')">生图</button>
       </div>
 
@@ -2328,18 +2338,21 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
               <button type="button" class="moe-btn secondary" onclick="deleteCurrentReplayProject()">删除</button>
             </div>
           </div>
-          <div style="display:flex;gap:8px;">
+          <div style="display:flex;gap:8px;align-items:flex-end;">
             <div class="form-group" style="flex:1;margin-bottom:0;">
               <label>当前回放工程</label>
               <select id="replay-project-select" class="moe-input" onchange="onSelectReplayProject(this.value)"></select>
             </div>
             <div class="form-group" style="flex:1;margin-bottom:0;">
               <label>模组工程标题</label>
-              <input type="text" id="replay-project-title" class="moe-input" placeholder="输入跑团模组标题" onchange="saveCurrentReplayProjectTitle(this.value)" />
+              <div style="display:flex;gap:6px;align-items:center;">
+                <input type="text" id="replay-project-title" class="moe-input" style="flex:1;" placeholder="输入跑团模组标题" oninput="saveCurrentReplayProjectTitle(this.value, true)" onchange="saveCurrentReplayProjectTitle(this.value, false)" />
+                <button type="button" class="moe-btn secondary" onclick="saveCurrentReplayProjectTitle(document.getElementById('replay-project-title').value, false)">改名</button>
+              </div>
             </div>
           </div>
           <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;line-height:1.5;">
-            按键说明：点右上角新建可开启一个新模组工程；点导出可把做好配音、立绘与CG的整套工程打包发给朋友；点导包可载入工程包。
+            按键说明：点右上角新建可开启一个新模组工程；修改标题或点改名可同步修改本模组工程与角色档案夹名称；点导出可打包分享。
           </div>
         </div>
 
@@ -2409,14 +2422,21 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
 
         <div class="moe-card" id="replay-global-scenes-card">
           <div class="moe-card-header">
-            <span class="moe-card-title">分章后场景整理：提取各章场景去重并生成文游背景图</span>
-            <button type="button" class="moe-btn" id="replay-extract-scenes-btn" onclick="extractAndDeduplicateModuleScenesViaAi()">场景</button>
+            <span class="moe-card-title">分章后场景整理：提取各章细分场景与同场景状态差分</span>
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="moe-btn secondary" onclick="addManualGlobalModuleScene()">新增</button>
+              <button type="button" class="moe-btn" id="replay-extract-scenes-btn" onclick="extractAndDeduplicateModuleScenesViaAi()">场景</button>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
+            <input type="text" id="replay-scene-extra-req" class="moe-input" style="flex:1;" placeholder="输入补充要求，如：加上温蒂卧室、二楼走廊、盘山公路，或加上庭院第二天积雪杂乱的差分场景..." />
+            <button type="button" class="moe-btn secondary" id="replay-supplement-scenes-btn" onclick="supplementModuleScenesByUserReq()">补景</button>
           </div>
           <div id="replay-extracted-scenes-status" style="font-size:11px;color:var(--accent-color);font-weight:700;margin-bottom:6px;">
-            在分章完成后点击右侧场景按钮，AI将通读各章提取全部场景并自动去重、撰写平面文游背景英文提示词；后续分章整理剧本时AI会按场景名字自动规划第几句到第几句用哪个背景、哪几句为纯CG无背景、哪几句为黑幕
+            在分章完成后点击场景按钮，AI将全面扫描各章提取卧室、走廊、公路等全部具体场所及同地点不同状态差分；也可在上方输入要求点补景随时追加场景
           </div>
           <div id="replay-extracted-scenes-list" style="display:flex;flex-direction:column;gap:8px;">
-            <div style="font-size:12px;color:var(--text-secondary);">分章后点击场景按钮即可自动整理去重本模组全部背景场所</div>
+            <div style="font-size:12px;color:var(--text-secondary);">分章后点击场景按钮即可自动整理本模组全部背景场所与状态差分</div>
           </div>
         </div>
 
@@ -2598,17 +2618,12 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
             </div>
             <div class="vn-dock-body-col">
               <div class="vn-dialogue-header">
-                <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+                <div style="display:flex;align-items:center;gap:10px;min-width:0;">
                   <span class="vn-speaker-badge" id="vn-theater-speaker">旁白</span>
-                  <span class="vn-dialogue-meta" id="vn-theater-exp-info"></span>
+                  <span class="vn-dialogue-meta" id="vn-theater-exp-info" style="display:none;"></span>
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;" onclick="event.stopPropagation()">
                   <span class="vn-dialogue-meta" id="vn-theater-progress">0 / 0</span>
-                  <button type="button" class="moe-btn secondary" style="height:24px;min-height:24px;padding:0 8px;font-size:11px;" onclick="openTheaterStageStyleModal()">外观</button>
-                  <button type="button" class="moe-btn secondary" id="vn-stage-mode-toggle-btn" style="height:24px;min-height:24px;padding:0 8px;font-size:11px;" onclick="toggleTheaterStageEditMode()">编辑</button>
-                  <button type="button" class="moe-btn secondary" style="height:24px;min-height:24px;padding:0 8px;font-size:11px;" onclick="prevTheaterLine()">上句</button>
-                  <button type="button" class="moe-btn secondary" style="height:24px;min-height:24px;padding:0 8px;font-size:11px;" onclick="replayCurrentTheaterLineTts()">重播</button>
-                  <button type="button" class="moe-btn" style="height:24px;min-height:24px;padding:0 8px;font-size:11px;" onclick="nextTheaterLine()">下句</button>
                 </div>
               </div>
               <div class="vn-dialogue-text" id="vn-theater-text">欢迎进入视觉小说剧本剧场，请先选择模组与章节开始观看。</div>
@@ -2617,13 +2632,10 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
           </div>
 
           <div class="vn-stage-ctrl-bar" onclick="event.stopPropagation()">
-            <button type="button" class="vn-stage-ctrl-btn" onclick="prevTheaterLine()">回退</button>
-            <button type="button" class="vn-stage-ctrl-btn" onclick="replayCurrentTheaterLineTts()">重播</button>
+            <button type="button" class="vn-stage-ctrl-btn" onclick="openTheaterBacklogModal()">回顾</button>
             <button type="button" class="vn-stage-ctrl-btn" id="vn-ctrl-auto-text-btn" onclick="toggleTheaterAutoPlay()">自动</button>
             <button type="button" class="vn-stage-ctrl-btn" id="vn-ctrl-danmaku-text-btn" onclick="toggleTheaterDanmaku()">弹幕</button>
-            <button type="button" class="vn-stage-ctrl-btn" onclick="openTheaterStageStyleModal()">外观</button>
             <button type="button" class="vn-stage-ctrl-btn" onclick="openTheaterSelectorLobby()">选集</button>
-            <button type="button" class="vn-stage-ctrl-btn" onclick="nextTheaterLine()">继续</button>
           </div>
 
           <!-- 舞台可视化编辑面板：与播放舞台同款界面，直接切换说话人、25态差分、文字、音效与音乐起止 -->
@@ -3211,6 +3223,32 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
     // =========================================================================
     // 二、 小手机桌面 App 打开、返回与全屏横屏地图切换
     // =========================================================================
+    function saveCurrentSessionNavState() {
+      try {
+        const activeScreen = document.querySelector('.screen.active')?.id || 'screen-home';
+        const activeSubMap = {};
+        document.querySelectorAll('.screen').forEach((scr) => {
+          const activeSub = scr.querySelector('.app-subpage.active');
+          if (activeSub) activeSubMap[scr.id] = activeSub.id;
+        });
+        const lobbyEl = document.getElementById('vn-theater-selector-lobby');
+        const stateObj = {
+          activeScreen,
+          activeSubMap,
+          currentReplayProjectId: appState.currentReplayProjectId || '',
+          currentReplayChapterIdx: appState.currentReplayChapterIdx || 0,
+          theaterLineIdx: appState.theaterLineIdx || 0,
+          theaterPureStageMode: Boolean(appState.theaterPureStageMode),
+          theaterEditMode: Boolean(appState.theaterEditMode),
+          theaterLobbyOpen: Boolean(lobbyEl && lobbyEl.classList.contains('active')),
+          selectedPersonaId: appState.selectedPersonaId || '',
+          selectedTachieCharId: appState.selectedTachieCharId || '',
+          updatedAt: Date.now()
+        };
+        localStorage.setItem('quarter_century_nav_state_v1', JSON.stringify(stateObj));
+      } catch (_) {}
+    }
+
     function openAppScreen(appName) {
       const normalizedApp = appName === 'chibi' ? 'tachie' : appName;
       document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
@@ -3250,6 +3288,7 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
           renderReplayStudioUI();
         }
       }
+      saveCurrentSessionNavState();
     }
 
     function onMergedStudioCharChange(charId) {
@@ -3262,6 +3301,7 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
       appState.selectedChibiCharId = charId;
       loadCharToTachiePanel();
       loadCharToChibiPanel();
+      saveCurrentSessionNavState();
     }
 
     function goHomeScreen() {
@@ -3278,6 +3318,7 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
       document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
       const homeEl = document.getElementById('screen-home');
       if (homeEl) homeEl.classList.add('active');
+      saveCurrentSessionNavState();
     }
 
     function switchSubPage(screenId, subPageId) {
@@ -3290,6 +3331,7 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
       screenEl.querySelectorAll('.sub-tab-btn').forEach((b) => {
         b.classList.toggle('active', b.dataset.sub === subPageId);
       });
+      saveCurrentSessionNavState();
     }
 
     function toggleStudioLeftSidebar() {
@@ -10840,7 +10882,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
           };
           item.innerHTML = `
             <div class="setting-item-left">
-              <img src="${c.tachieBase || c.chibiImg}" alt="${c.name}" style="width:100%;height:100%;object-fit:contain;" />
+              <img src="${c.profileAvatar || c.tachieBase || c.chibiImg}" alt="${c.name}" style="width:100%;height:100%;object-fit:cover;" />
             </div>
             <div class="setting-item-center">
               <div class="setting-item-title">${c.name} · ${tType}${c.age ? (' · ' + c.age) : ''} · ${cm}cm</div>
@@ -10937,6 +10979,10 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const c = appState.characters.find((x) => x.id === charId);
       if (!c) return;
       document.getElementById('persona-editing-title').textContent = `${c.name} · 角色档案`;
+      const avatarPrev = document.getElementById('oc-profile-avatar-preview');
+      if (avatarPrev) {
+        avatarPrev.src = c.profileAvatar || c.tachieBase || c.chibiImg || '';
+      }
       if (document.getElementById('oc-name')) document.getElementById('oc-name').value = c.name || '';
       if (document.getElementById('oc-age')) document.getElementById('oc-age').value = c.age || '';
       if (document.getElementById('oc-trpg-type')) {
@@ -10957,6 +11003,25 @@ ZH: 修改后的纯客观中文服装配饰清单`
       if (document.getElementById('oc-surface')) document.getElementById('oc-surface').value = c.surface || '';
       if (document.getElementById('oc-weapon')) document.getElementById('oc-weapon').value = c.weapon || '';
       if (document.getElementById('oc-nai-tags')) document.getElementById('oc-nai-tags').value = c.naiTags || '';
+      saveCurrentSessionNavState();
+    }
+
+    function handlePersonaProfileAvatarUpload(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const dataUrl = e.target.result;
+        const c = appState.characters.find((x) => x.id === appState.selectedPersonaId);
+        if (!c) return;
+        c.profileAvatar = dataUrl;
+        const avatarPrev = document.getElementById('oc-profile-avatar-preview');
+        if (avatarPrev) avatarPrev.src = dataUrl;
+        await db.characters.put(c);
+        renderPersonaGrid();
+      };
+      reader.readAsDataURL(file);
+      event.target.value = '';
     }
 
     async function saveCurrentPersona() {
@@ -12710,15 +12775,38 @@ ${BUILTIN_CSS_TEMPLATE}`;
       appState.currentReplayProjectId = projId;
       appState.currentReplayChapterIdx = 0;
       renderReplayStudioUI();
+      saveCurrentSessionNavState();
     }
 
-    async function saveCurrentReplayProjectTitle(newTitle) {
+    async function saveCurrentReplayProjectTitle(newTitle, isTyping = false) {
       const proj = getCurrentReplayProject();
       if (!proj) return;
-      proj.title = String(newTitle || '').trim() || proj.title;
+      const trimmed = String(newTitle || '').trim();
+      if (!trimmed) return;
+      const oldTitle = proj.title;
+      proj.title = trimmed;
       await saveReplayProjectToDB(proj);
-      renderReplayProjectSelectors();
-      populatePersonaModuleFilterSelect();
+      let charChanged = false;
+      for (const c of (appState.characters || [])) {
+        if (c.moduleId === proj.id || (oldTitle && c.moduleTitle === oldTitle)) {
+          c.moduleId = proj.id;
+          c.moduleTitle = trimmed;
+          await db.characters.put(c);
+          charChanged = true;
+        }
+      }
+      const sel = document.getElementById('replay-project-select');
+      if (sel) {
+        const opt = [...sel.options].find((o) => o.value === proj.id);
+        if (opt) opt.textContent = trimmed;
+      }
+      if (!isTyping) {
+        renderReplayProjectSelectors();
+        populatePersonaModuleFilterSelect();
+        if (charChanged) renderPersonaGrid();
+      } else {
+        populatePersonaModuleFilterSelect();
+      }
     }
 
     function renderReplayProjectSelectors() {
@@ -14246,7 +14334,7 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       }
     }
 
-    // 分章后调用AI提取整部模组每一章的场景，自动去重，并编写2D视觉小说纯景物背景提示词
+    // 分章后调用AI提取整部模组每一章的场景，自动去重，支持同名地点多状态差分基底绑定，并编写2D视觉小说纯景物背景提示词
     async function extractAndDeduplicateModuleScenesViaAi() {
       const proj = getCurrentReplayProject();
       if (!proj || !Array.isArray(proj.chapters) || proj.chapters.length === 0) {
@@ -14256,26 +14344,45 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
 
       const btn = document.getElementById('replay-extract-scenes-btn');
       const statusEl = document.getElementById('replay-extracted-scenes-status');
+      const extraReqEl = document.getElementById('replay-scene-extra-req');
+      const userExtraReq = (extraReqEl?.value || '').trim();
       if (btn) { btn.textContent = '整理中'; btn.disabled = true; }
-      if (statusEl) statusEl.textContent = '正在调用AI读取全部章节，提取所有场景去重并编写视觉小说平面背景提示词...';
+      if (statusEl) statusEl.textContent = '正在调用AI深度扫描全部章节，提取所有具体场景与同地点差分状态并编写平面背景提示词...';
 
       try {
-        const chapterSummaries = proj.chapters.map((ch, idx) => {
-          const raw = String(ch.rawText || '').slice(0, 3500);
-          return `第${idx + 1}章 ${ch.title || ''}：\n${raw}`;
-        }).join('\n\n');
+        const buildChapterDigest = (ch, idx) => {
+          const full = String(ch.rawText || '');
+          if (full.length <= 12000) {
+            return `第${idx + 1}章 ${ch.title || ''}：\n${full}`;
+          }
+          const sliceLen = 3600;
+          const step = Math.max(sliceLen, Math.floor(full.length / 4));
+          const chunks = [];
+          for (let pos = 0; pos < full.length && chunks.length < 5; pos += step) {
+            chunks.push(full.slice(pos, pos + sliceLen));
+          }
+          return `第${idx + 1}章 ${ch.title || ''}：\n${chunks.join('\n...\n')}`;
+        };
 
-        const sysPrompt = `你是专业视觉小说美术背景导演与NovelAI场景提示词专家。请通读以下各章跑团记录，提取出整个模组中出现的全部场所背景，合并重复或相同地点的场景，只保留去重后的核心场景列表，并为每个场景编写NovelAI英文生图提示词。
+        const chapterSummaries = proj.chapters.map((ch, idx) => buildChapterDigest(ch, idx)).join('\n\n');
+
+        const sysPrompt = `你是专业视觉小说美术背景导演与NovelAI场景提示词专家。请仔细通读以下各章跑团记录，把整个模组中出现过的全部具体场所背景毫无遗漏地提取出来，并为每个场景编写NovelAI英文生图提示词。
 严格遵守以下要求：
-1. 只需要场景，必须跨章节去重，相同地点只保留一个统一场景名称。
-2. 英文提示词必须是2D日式视觉小说手绘背景插画风格，必须包含 no humans, nobody, scenery, anime visual novel background art, 2d painted illustration, flat background art, wide angle 16:9 composition，绝对禁止写成3D立体建筑模型、建筑设计图或含有人物的画面！
-3. 从头到尾严禁使用任何括号，严格按以下行格式逐条输出：
-SCENE_ITEM: 场景编号如scene_1|去重后的场景中文名称|纯景物2D视觉小说背景NovelAI英文提示词`;
+1. 场景必须极其具体、极其细致，凡是剧情中出现过的具体地点都要有，绝不能只笼统写几个大地点！例如主角卧室、某人的卧室、客房、二楼走廊、地下室走廊、楼梯间、客厅、餐厅、浴室、书房、档案室、轿车车厢内、开车途中的盘山公路、林间公路、街道、庭院、店铺内部等，只要出现就必须单独列出。长篇模组应当提取出充足完整的场景数量，绝不偷懒省略。
+2. 场景中文名字必须极简短促，严格控制在2到5个字以内，例如主卧、温蒂卧室、二楼走廊、盘山公路、轿车车厢、地下祭坛，绝对禁止写超过6个字的长串复杂场景名字！
+3. 如果某两个场景是同一个物理地点在不同时间、灯光、天气或破坏程度下的状态变化，例如主卧与主卧夜晚、二楼走廊与走廊熄灯、客厅与客厅血迹，请将基础状态作为独立场景排在前面，并将变化状态场景的第4项填写基础场景编号如scene_1，系统生图时会自动以基础场景为底图进行图生图差分重绘，保证房间陈设结构完全一致！如果是全新地点，第4项留空。
+4. 英文提示词必须是2D日式视觉小说手绘背景插画风格，必须包含 no humans, nobody, scenery, anime visual novel background art, 2d painted illustration, flat background art, wide angle 16:9 composition，绝对禁止写成3D立体建筑模型、建筑设计图或含有人物的画面！
+5. 从头到尾严禁使用任何括号，严格按以下行格式逐条输出：
+SCENE_ITEM: 场景编号如scene_1|2到5字简短场景中文名|纯景物2D视觉小说背景NovelAI英文提示词|同地点基底场景编号如scene_1或留空`;
+
+        const userMsg = userExtraReq
+          ? `用户额外补充场景要求：${userExtraReq}\n\n模组各章内容：\n${chapterSummaries}`
+          : chapterSummaries;
 
         const reply = await callLlmCompletion(
           [
             { role: 'system', content: sysPrompt },
-            { role: 'user', content: chapterSummaries }
+            { role: 'user', content: userMsg }
           ],
           null,
           { caller: `分章后全模组场景去重与写词·${proj.title || '模组'}`, preferSubApi: false }
@@ -14294,16 +14401,20 @@ SCENE_ITEM: 场景编号如scene_1|去重后的场景中文名称|纯景物2D视
             if (l.startsWith('SCENE_ITEM:') || l.startsWith('SCENE_BG:')) {
               const parts = l.replace(/^SCENE_(?:ITEM|BG):\s*/i, '').split('|').map((x) => x.trim());
               if (parts.length >= 3) {
-                const name = parts[1];
+                const name = parts[1].replace(/[()（）]/g, '').trim();
                 if (!name || seenNames.has(name)) return;
                 seenNames.add(name);
                 const prev = existingMap.get(name);
                 const id = `scene_${extracted.length + 1}`;
-                const rawTags = parts.slice(2).join(', ').trim();
+                const rawTags = parts[2].trim();
+                const rawBaseId = (parts[3] || '').trim();
+                const baseSceneId = /^scene_\d+$/i.test(rawBaseId) && rawBaseId !== id ? rawBaseId : (prev?.baseSceneId || '');
+                const cleanTags = rawTags.replace(/^no humans,\s*nobody,\s*scenery,\s*/i, '');
                 extracted.push({
                   id,
                   name,
-                  prompt: `no humans, nobody, scenery, masterpiece, best quality, anime visual novel background art, 2d painted illustration, flat background art, wide angle 16:9 composition, ${rawTags}`,
+                  prompt: `no humans, nobody, scenery, masterpiece, best quality, anime visual novel background art, 2d painted illustration, flat background art, wide angle 16:9 composition, ${cleanTags}`,
+                  baseSceneId,
                   imageUrl: prev?.imageUrl || ''
                 });
               }
@@ -14314,8 +14425,9 @@ SCENE_ITEM: 场景编号如scene_1|去重后的场景中文名称|纯景物2D视
         if (extracted.length === 0) {
           extracted.push({
             id: 'scene_1',
-            name: '主调查场所',
+            name: '调查大厅',
             prompt: 'no humans, nobody, scenery, masterpiece, best quality, anime visual novel background art, 2d painted illustration, flat background art, wide angle 16:9 composition, atmospheric interior, warm lighting',
+            baseSceneId: '',
             imageUrl: ''
           });
         }
@@ -14328,7 +14440,7 @@ SCENE_ITEM: 场景编号如scene_1|去重后的场景中文名称|纯景物2D视
         renderExtractedModuleScenesList();
         renderReplayCgStudio();
         if (statusEl) {
-          statusEl.textContent = `已完成全模组场景提取与去重：共整理出 ${extracted.length} 个独立文游背景场景，可直接在此处生图，整理章节剧本时AI将自动规划每段台词对应的背景、纯CG与黑幕！`;
+          statusEl.textContent = `已完成全模组具体场景提取：共整理出 ${extracted.length} 个简短场景与同地点差分状态，可直接在此处生图或继续输入要求点补景！`;
         }
       } catch (err) {
         alert('提取模组场景失败：' + err.message);
@@ -14337,31 +14449,166 @@ SCENE_ITEM: 场景编号如scene_1|去重后的场景中文名称|纯景物2D视
       }
     }
 
+    // 根据用户填写的补充要求，调用AI增量补充具体场景或同地点状态差分场景
+    async function supplementModuleScenesByUserReq() {
+      const proj = getCurrentReplayProject();
+      if (!proj) return;
+      if (!Array.isArray(proj.globalScenes)) proj.globalScenes = [];
+      const extraReqEl = document.getElementById('replay-scene-extra-req');
+      const statusEl = document.getElementById('replay-extracted-scenes-status');
+      const btn = document.getElementById('replay-supplement-scenes-btn');
+      const reqText = (extraReqEl?.value || '').trim();
+      if (!reqText) {
+        alert('请先在左侧输入框填写需要补充的场景要求，例如补充主卧夜晚、温蒂卧室、二楼走廊、盘山公路等');
+        return;
+      }
+
+      if (btn) { btn.textContent = '补景中'; btn.disabled = true; }
+      if (statusEl) statusEl.textContent = '正在根据你的要求调用AI补充场景并编写2D视觉小说背景提示词...';
+
+      try {
+        const existingSummary = proj.globalScenes.map((s) => `${s.id}|${s.name}|${s.prompt}`).join('\n') || '暂无已有场景';
+        const startIdx = proj.globalScenes.length + 1;
+        const sysPrompt = `你是专业视觉小说美术背景导演与NovelAI场景提示词专家。请根据用户的补充要求，在现有场景列表基础上新增对应的场景，并编写NovelAI英文生图提示词。
+严格遵守以下要求：
+1. 新增场景编号从 scene_${startIdx} 开始递增。
+2. 场景中文名必须极简短促，严格控制在2到5个字以内，如主卧、温蒂卧室、二楼走廊、盘山公路、走廊熄灯。
+3. 若新增场景是已有某个场景在不同时间、光线或状态下的同地点差分变化，请在第4项填写那个已有场景的编号如scene_1，系统会自动用该基底场景图进行图生图差分；若是全新地点则第4项留空。
+4. 英文提示词必须包含 no humans, nobody, scenery, anime visual novel background art, 2d painted illustration, flat background art, wide angle 16:9 composition，严禁出现人物或3D模型。
+5. 从头到尾严禁使用任何括号，严格按以下行格式逐条输出：
+SCENE_ITEM: 场景编号|2到5字简短场景名|NovelAI英文提示词|基底场景编号或留空`;
+
+        const reply = await callLlmCompletion(
+          [
+            { role: 'system', content: sysPrompt },
+            { role: 'user', content: `现有场景列表：\n${existingSummary}\n\n用户要求补充的场景：\n${reqText}` }
+          ],
+          null,
+          { caller: `补充模组场景·${proj.title || '模组'}`, preferSubApi: false }
+        );
+
+        let addedCount = 0;
+        if (reply) {
+          reply.split('\n').forEach((rawLine) => {
+            const l = rawLine.trim();
+            if (l.startsWith('SCENE_ITEM:') || l.startsWith('SCENE_BG:')) {
+              const parts = l.replace(/^SCENE_(?:ITEM|BG):\s*/i, '').split('|').map((x) => x.trim());
+              if (parts.length >= 3) {
+                const name = parts[1].replace(/[()（）]/g, '').trim();
+                if (!name) return;
+                const id = `scene_${proj.globalScenes.length + 1}`;
+                const rawTags = parts[2].trim().replace(/^no humans,\s*nobody,\s*scenery,\s*/i, '');
+                const rawBaseId = (parts[3] || '').trim();
+                const baseSceneId = /^scene_\d+$/i.test(rawBaseId) && rawBaseId !== id ? rawBaseId : '';
+                const newSc = {
+                  id,
+                  name,
+                  prompt: `no humans, nobody, scenery, masterpiece, best quality, anime visual novel background art, 2d painted illustration, flat background art, wide angle 16:9 composition, ${rawTags}`,
+                  baseSceneId,
+                  imageUrl: ''
+                };
+                proj.globalScenes.push(newSc);
+                (proj.chapters || []).forEach((ch) => {
+                  if (!Array.isArray(ch.scenes)) ch.scenes = [];
+                  ch.scenes.push({ ...newSc });
+                });
+                addedCount += 1;
+              }
+            }
+          });
+        }
+
+        await saveReplayProjectToDB(proj);
+        renderExtractedModuleScenesList();
+        renderReplayCgStudio();
+        if (extraReqEl) extraReqEl.value = '';
+        if (statusEl) {
+          statusEl.textContent = `已按要求新增 ${addedCount} 个场景，当前共 ${proj.globalScenes.length} 个场景！`;
+        }
+      } catch (err) {
+        alert('补充场景失败：' + err.message);
+      } finally {
+        if (btn) { btn.textContent = '补景'; btn.disabled = false; }
+      }
+    }
+
+    async function addManualGlobalModuleScene() {
+      const proj = getCurrentReplayProject();
+      if (!proj) return;
+      if (!Array.isArray(proj.globalScenes)) proj.globalScenes = [];
+      const extraReqEl = document.getElementById('replay-scene-extra-req');
+      const customName = (extraReqEl?.value || '').trim();
+      const idx = proj.globalScenes.length + 1;
+      const newSc = {
+        id: `scene_${idx}`,
+        name: customName && customName.length <= 8 ? customName : `新场景${idx}`,
+        prompt: 'no humans, nobody, scenery, masterpiece, best quality, anime visual novel background art, 2d painted illustration, flat background art, wide angle 16:9 composition, detailed interior, atmospheric lighting',
+        baseSceneId: '',
+        imageUrl: ''
+      };
+      proj.globalScenes.push(newSc);
+      (proj.chapters || []).forEach((ch) => {
+        if (!Array.isArray(ch.scenes)) ch.scenes = [];
+        ch.scenes.push({ ...newSc });
+      });
+      if (extraReqEl && customName.length <= 8) extraReqEl.value = '';
+      await saveReplayProjectToDB(proj);
+      renderExtractedModuleScenesList();
+      renderReplayCgStudio();
+    }
+
+    async function deleteGlobalModuleScene(sIdx) {
+      const proj = getCurrentReplayProject();
+      if (!proj || !Array.isArray(proj.globalScenes) || !proj.globalScenes[sIdx]) return;
+      const removed = proj.globalScenes.splice(sIdx, 1)[0];
+      if (removed) {
+        (proj.chapters || []).forEach((ch) => {
+          if (Array.isArray(ch.scenes)) {
+            ch.scenes = ch.scenes.filter((x) => x.id !== removed.id);
+          }
+        });
+      }
+      await saveReplayProjectToDB(proj);
+      renderExtractedModuleScenesList();
+      renderReplayCgStudio();
+    }
+
     function renderExtractedModuleScenesList() {
       const box = document.getElementById('replay-extracted-scenes-list');
       if (!box) return;
       const proj = getCurrentReplayProject();
       const list = Array.isArray(proj?.globalScenes) ? proj.globalScenes : [];
       if (list.length === 0) {
-        box.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">分章后点击右上角场景按钮，即可提取各章场景去重并生成文游背景图</div>';
+        box.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">分章后点击右上角场景按钮，即可提取各章具体场景与同地点差分状态并生成文游背景图</div>';
         return;
       }
       box.innerHTML = '';
       list.forEach((sc, sIdx) => {
+        const baseOptionsHtml = [
+          `<option value="">独立新场景</option>`,
+          ...list
+            .filter((other) => other.id !== sc.id)
+            .map((other) => `<option value="${other.id}" ${sc.baseSceneId === other.id ? 'selected' : ''}>同地点差分自 ${other.id} ${other.name}</option>`)
+        ].join('');
+
         const item = document.createElement('div');
         item.className = 'setting-item';
         item.style.flexDirection = 'column';
         item.style.alignItems = 'stretch';
         item.style.gap = '6px';
         item.innerHTML = `
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-            <div style="display:flex;align-items:center;gap:6px;flex:1;">
-              <span style="font-size:11px;font-weight:800;color:var(--accent-color);">${sc.id}</span>
-              <input type="text" class="moe-input" value="${(sc.name || '').replace(/"/g, '&quot;')}" style="height:28px;min-height:28px;font-size:12px;flex:1;" onchange="updateGlobalModuleSceneField(${sIdx}, 'name', this.value)" />
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:180px;">
+              <span style="font-size:11px;font-weight:800;color:var(--accent-color);flex-shrink:0;">${sc.id}</span>
+              <input type="text" class="moe-input" value="${(sc.name || '').replace(/"/g, '&quot;')}" style="height:30px;min-height:30px;font-size:12px;flex:1;min-width:70px;" onchange="updateGlobalModuleSceneField(${sIdx}, 'name', this.value)" />
+              <select class="moe-input" style="width:auto;min-width:135px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateGlobalModuleSceneField(${sIdx}, 'baseSceneId', this.value)">
+                ${baseOptionsHtml}
+              </select>
             </div>
-            <div style="display:flex;gap:6px;">
+            <div style="display:flex;gap:6px;flex-shrink:0;">
               <button type="button" class="moe-btn" id="global-scene-gen-btn-${sIdx}" onclick="generateGlobalModuleSceneBg(${sIdx})">${sc.imageUrl ? '重绘' : '生图'}</button>
               <button type="button" class="moe-btn secondary" onclick="document.getElementById('global-scene-up-${sIdx}').click()">传图</button>
+              <button type="button" class="moe-btn secondary" onclick="deleteGlobalModuleScene(${sIdx})">删除</button>
               <input type="file" id="global-scene-up-${sIdx}" accept="image/*" style="display:none;" onchange="handleGlobalModuleSceneUpload(event, ${sIdx})" />
             </div>
           </div>
@@ -14392,14 +14639,23 @@ SCENE_ITEM: 场景编号如scene_1|去重后的场景中文名称|纯景物2D视
       const btn = document.getElementById(`global-scene-gen-btn-${sIdx}`);
       if (btn) { btn.textContent = '生图中'; btn.disabled = true; }
       try {
+        let baseImgDataUrl = null;
+        if (sc.baseSceneId) {
+          const baseSc = proj.globalScenes.find((x) => x.id === sc.baseSceneId);
+          if (baseSc && baseSc.imageUrl) {
+            baseImgDataUrl = baseSc.imageUrl;
+          }
+        }
         const neg = (getNovelAISettings().default_negative || '') + ', 1girl, 1boy, people, character, crowd, 3d render, isometric architecture model, text, watermark';
         const { dataUrl } = await callNovelAiDirect(sc.prompt, {
           resolution: '1216x832',
           seed: -1,
           negativePrompt: neg,
+          imageBase64: baseImgDataUrl,
+          strength: baseImgDataUrl ? 0.52 : undefined,
           vibeImages: appState.styleRefList || [],
           charRefImage: null,
-          caller: `模组全局场景生图·${sc.name}`
+          caller: `模组全局场景生图·${sc.name}${baseImgDataUrl ? '·同地点差分' : ''}`
         });
         sc.imageUrl = dataUrl;
         (proj.chapters || []).forEach((ch) => {
@@ -15644,18 +15900,28 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       } else {
         bgBox.innerHTML = '';
         scenes.forEach((sc, sIdx) => {
+          const baseOptionsHtml = [
+            `<option value="">独立新场景</option>`,
+            ...scenes
+              .filter((other) => other.id !== sc.id)
+              .map((other) => `<option value="${other.id}" ${sc.baseSceneId === other.id ? 'selected' : ''}>同地点差分自 ${other.id} ${other.name}</option>`)
+          ].join('');
+
           const card = document.createElement('div');
           card.className = 'setting-item';
           card.style.flexDirection = 'column';
           card.style.alignItems = 'stretch';
           card.style.gap = '6px';
           card.innerHTML = `
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-              <div style="display:flex;align-items:center;gap:6px;flex:1;">
-                <span style="font-size:11px;font-weight:800;color:var(--accent-color);">${sc.id}</span>
-                <input type="text" class="moe-input" value="${(sc.name || '').replace(/"/g, '&quot;')}" style="height:28px;min-height:28px;font-size:12px;flex:1;" onchange="updateReplaySceneNodeField(${sIdx}, 'name', this.value)" />
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+              <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:180px;">
+                <span style="font-size:11px;font-weight:800;color:var(--accent-color);flex-shrink:0;">${sc.id}</span>
+                <input type="text" class="moe-input" value="${(sc.name || '').replace(/"/g, '&quot;')}" style="height:30px;min-height:30px;font-size:12px;flex:1;min-width:70px;" onchange="updateReplaySceneNodeField(${sIdx}, 'name', this.value)" />
+                <select class="moe-input" style="width:auto;min-width:135px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplaySceneNodeField(${sIdx}, 'baseSceneId', this.value)">
+                  ${baseOptionsHtml}
+                </select>
               </div>
-              <div style="display:flex;gap:6px;">
+              <div style="display:flex;gap:6px;flex-shrink:0;">
                 <button type="button" class="moe-btn" id="scene-gen-btn-${sIdx}" onclick="generateSingleReplaySceneBg(${sIdx})">${sc.imageUrl ? '重绘' : '生图'}</button>
                 <button type="button" class="moe-btn secondary" onclick="document.getElementById('scene-upload-input-${sIdx}').click()">传图</button>
                 <input type="file" id="scene-upload-input-${sIdx}" accept="image/*" style="display:none;" onchange="handleReplaySceneBgUpload(event, ${sIdx})" />
@@ -15827,19 +16093,32 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       const btn = document.getElementById(`scene-gen-btn-${sIdx}`);
       if (btn) { btn.textContent = '生图中'; btn.disabled = true; }
       try {
-        const neg = (getNovelAISettings().default_negative || '') + ', 1girl, 1boy, people, character, crowd, text, watermark';
+        let baseImgDataUrl = null;
+        if (sc.baseSceneId) {
+          const baseSc = (chap.scenes || []).find((x) => x.id === sc.baseSceneId)
+            || (proj.globalScenes || []).find((x) => x.id === sc.baseSceneId);
+          if (baseSc && baseSc.imageUrl) {
+            baseImgDataUrl = baseSc.imageUrl;
+          }
+        }
+        const neg = (getNovelAISettings().default_negative || '') + ', 1girl, 1boy, people, character, crowd, 3d render, isometric architecture model, text, watermark';
         const { dataUrl } = await callNovelAiDirect(sc.prompt, {
           resolution: '1216x832',
           seed: -1,
           negativePrompt: neg,
+          imageBase64: baseImgDataUrl,
+          strength: baseImgDataUrl ? 0.52 : undefined,
           vibeImages: appState.styleRefList || [],
           charRefImage: null,
-          caller: `跑团场景背景生图·${sc.name}`
+          caller: `跑团场景背景生图·${sc.name}${baseImgDataUrl ? '·同地点差分' : ''}`
         });
         sc.imageUrl = dataUrl;
+        const gFound = (proj.globalScenes || []).find((x) => x.id === sc.id || x.name === sc.name);
+        if (gFound) gFound.imageUrl = dataUrl;
         await saveReplayProjectToDB(proj);
         const safeProj = (proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
         await saveAssetToLocalBridge(`projects/${safeProj}/scenes/${sc.id}.png`, dataUrl);
+        renderExtractedModuleScenesList();
         renderReplayCgStudio();
       } catch (err) {
         alert('场景背景生图失败：' + err.message);
@@ -16271,10 +16550,20 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       } catch (_) {}
     }
 
-    // 点击桌面底部「剧本」：进入实时编辑模式
+    // 点击桌面「剧本」图标：进入实时编辑模式
     function openTheaterWithLobby() {
       appState.theaterPureStageMode = false;
       appState.theaterEditMode = true;
+      const lobby = document.getElementById('vn-theater-selector-lobby');
+      if (lobby) lobby.classList.add('active');
+      openAppScreen('theater');
+      openTheaterSelectorLobby();
+    }
+
+    // 点击桌面「舞台」图标：进入纯享观赏模式
+    function openTheaterStageSelectorLobby() {
+      appState.theaterPureStageMode = true;
+      appState.theaterEditMode = false;
       const lobby = document.getElementById('vn-theater-selector-lobby');
       if (lobby) lobby.classList.add('active');
       openAppScreen('theater');
@@ -16503,13 +16792,12 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         '  border-bottom: 1px solid color-mix(in srgb, var(--card-bg) 18%, transparent);',
         '}',
         '#vn-theater-speaker {',
-        '  color: var(--card-bg);',
-        '  border-left: 3px solid var(--accent-color);',
-        '  padding-left: 10px;',
+        '  color: var(--text-primary);',
+        '  padding-left: 0;',
         '  font-size: 16px;',
         '}',
         '#vn-theater-exp-info {',
-        '  color: color-mix(in srgb, var(--card-bg) 70%, transparent);',
+        '  display: none;',
         '}',
         '#vn-theater-progress {',
         '  color: color-mix(in srgb, var(--card-bg) 70%, transparent);',
@@ -16800,16 +17088,11 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       const activeEffect = inferNaturalLineEffect(line, idx);
 
       if (speakerEl) speakerEl.textContent = line.speaker || '旁白';
-      const metaParts = [];
-      if (chap.title) metaParts.push(chap.title);
-      if (line.exp && line.exp !== '默认') metaParts.push(line.exp);
-      if (line.sfxTag) metaParts.push(`音效·${line.sfxTag}`);
-      if (line.bgmTag === '停止') metaParts.push('停乐');
-      else if (line.bgmTag) metaParts.push(line.bgmTag);
-      if (expEl) expEl.textContent = metaParts.join(' · ');
+      if (expEl) expEl.textContent = '';
       if (progEl) progEl.textContent = `${idx + 1} / ${chap.scriptLines.length}`;
       startTheaterTypewriter(textEl, line.text || '');
       if (jpEl) jpEl.textContent = '';
+      saveCurrentSessionNavState();
 
       // 舞台可视化编辑模式同步控件值
       if (editPanel) {
@@ -17047,6 +17330,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       if (!chap || !Array.isArray(chap.scriptLines) || chap.scriptLines.length === 0) return;
       if (appState.theaterLineIdx < chap.scriptLines.length - 1) {
         appState.theaterLineIdx += 1;
+        saveCurrentSessionNavState();
         renderTheaterCurrentLine();
       } else {
         // 当前章节播放完毕后，自动无缝进入下一章继续播放
@@ -17055,6 +17339,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         if (proj && nextChapIdx < totalChapters) {
           appState.currentReplayChapterIdx = nextChapIdx;
           appState.theaterLineIdx = 0;
+          saveCurrentSessionNavState();
           renderReplayProjectSelectors();
           renderTheaterSelectorLobby();
           const nextChap = proj.chapters[nextChapIdx];
@@ -17081,6 +17366,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       stopTheaterAutoAndSkip();
       if (appState.theaterLineIdx > 0) {
         appState.theaterLineIdx -= 1;
+        saveCurrentSessionNavState();
         renderTheaterCurrentLine();
       }
     }
@@ -17196,7 +17482,9 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       if (lines.length === 0) {
         box.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">暂无台词记录</div>';
       } else {
-        lines.forEach((l, idx) => {
+        const maxIdx = Math.max(0, Math.min(lines.length - 1, appState.theaterLineIdx || 0));
+        const visibleLines = lines.slice(0, maxIdx + 1);
+        visibleLines.forEach((l, idx) => {
           const item = document.createElement('div');
           item.className = 'setting-item';
           item.style.cursor = 'pointer';
@@ -17205,12 +17493,17 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
             closeModal('theater-backlog-modal');
             renderTheaterCurrentLine();
           };
+          const canPlayVoice = l.type === 'dialogue' && l.speaker && l.speaker !== '旁白';
+          const playBtnHtml = canPlayVoice
+            ? `<div class="setting-item-right"><button type="button" class="vn-play-tri-btn" title="播放此句语音" onclick="event.stopPropagation(); playSingleScriptLineTts(${idx}, false);"><svg viewBox="0 0 24 24"><polygon points="7 5 19 12 7 19 7 5"></polygon></svg></button></div>`
+            : '';
           item.innerHTML = `
             <div class="setting-item-left" style="font-size:11px;font-weight:800;color:var(--accent-color);">#${idx + 1}</div>
             <div class="setting-item-center" style="white-space:normal;">
-              <div class="setting-item-title">${l.speaker} · ${l.exp || '默认'}</div>
-              <div class="setting-item-sub" style="white-space:normal;">${l.text}</div>
+              <div class="setting-item-title">${l.speaker || '旁白'}</div>
+              <div class="setting-item-sub" style="white-space:normal;">${l.text || ''}</div>
             </div>
+            ${playBtnHtml}
           `;
           box.appendChild(item);
         });
@@ -17269,6 +17562,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
 
         (pack.characters || []).forEach((c, cIdx) => {
           const cid = c.id || `char_${cIdx}`;
+          if (c.profileAvatar) c.profileAvatar = extractDataUrlToZip(c.profileAvatar, `images/chars/${cid}_profile.png`);
           if (c.tachieBase) c.tachieBase = extractDataUrlToZip(c.tachieBase, `images/chars/${cid}_base.png`);
           if (c.charLockImg) c.charLockImg = extractDataUrlToZip(c.charLockImg, `images/chars/${cid}_lock.png`);
           if (c.chibiImg) c.chibiImg = extractDataUrlToZip(c.chibiImg, `images/chars/${cid}_chibi.png`);
@@ -17383,6 +17677,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
             };
 
             for (const c of (pack.characters || [])) {
+              if (c.profileAvatar) c.profileAvatar = await restoreZipAsset(c.profileAvatar, 'image/png');
               if (c.tachieBase) c.tachieBase = await restoreZipAsset(c.tachieBase, 'image/png');
               if (c.charLockImg) c.charLockImg = await restoreZipAsset(c.charLockImg, 'image/png');
               if (c.chibiImg) c.chibiImg = await restoreZipAsset(c.chibiImg, 'image/png');
@@ -17448,6 +17743,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
           }
           return dataUrl;
         };
+        if (c.profileAvatar) c.profileAvatar = extractSpriteToZip(c.profileAvatar, 'sprites/profile.png');
         if (c.tachieBase) c.tachieBase = extractSpriteToZip(c.tachieBase, 'sprites/base.png');
         if (c.charLockImg) c.charLockImg = extractSpriteToZip(c.charLockImg, 'sprites/lock.png');
         if (c.chibiImg) c.chibiImg = extractSpriteToZip(c.chibiImg, 'sprites/chibi.png');
@@ -17522,6 +17818,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
               return val;
             };
 
+            if (charObj.profileAvatar) charObj.profileAvatar = await restoreSprite(charObj.profileAvatar);
             if (charObj.tachieBase) charObj.tachieBase = await restoreSprite(charObj.tachieBase);
             if (charObj.charLockImg) charObj.charLockImg = await restoreSprite(charObj.charLockImg);
             if (charObj.chibiImg) charObj.chibiImg = await restoreSprite(charObj.chibiImg);
@@ -17869,7 +18166,108 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       if (stripPreview) {
         stripPreview.textContent = '对话 · 点击展开现场互动栏';
       }
+
+      restoreSessionNavAndDrafts();
     }
+
+    const DRAFT_PERSIST_IDS = [
+      'replay-raw-log-input',
+      'replay-scene-extra-req',
+      'replay-project-title',
+      'oc-name',
+      'oc-role',
+      'oc-body',
+      'oc-quirk',
+      'oc-surface',
+      'oc-secret',
+      'oc-quotes',
+      'oc-nai-tags'
+    ];
+
+    function saveAllActiveInputDrafts() {
+      try {
+        saveCurrentSessionNavState();
+        const drafts = {};
+        DRAFT_PERSIST_IDS.forEach((id) => {
+          const el = document.getElementById(id);
+          if (el && typeof el.value === 'string') {
+            drafts[id] = el.value;
+          }
+        });
+        localStorage.setItem('trpg-vn-active-input-drafts-v1', JSON.stringify(drafts));
+      } catch (_) {}
+    }
+
+    function restoreSessionNavAndDrafts() {
+      try {
+        const rawNav = localStorage.getItem('trpg-vn-last-session-nav');
+        if (rawNav) {
+          const nav = JSON.parse(rawNav);
+          if (nav.currentReplayProjectId && appState.replayProjects.some((p) => p.id === nav.currentReplayProjectId)) {
+            appState.currentReplayProjectId = nav.currentReplayProjectId;
+          }
+          if (typeof nav.currentReplayChapterIdx === 'number') {
+            appState.currentReplayChapterIdx = nav.currentReplayChapterIdx;
+          }
+          if (typeof nav.theaterLineIdx === 'number') {
+            appState.theaterLineIdx = nav.theaterLineIdx;
+          }
+          if (typeof nav.theaterPureStageMode === 'boolean') {
+            appState.theaterPureStageMode = nav.theaterPureStageMode;
+          }
+          if (typeof nav.theaterEditMode === 'boolean') {
+            appState.theaterEditMode = nav.theaterEditMode;
+          }
+          if (nav.selectedPersonaId && appState.characters.some((c) => c.id === nav.selectedPersonaId)) {
+            appState.selectedPersonaId = nav.selectedPersonaId;
+            selectPersonaForEdit(nav.selectedPersonaId);
+          }
+          renderReplayStudioUI();
+          if (nav.screen && nav.screen !== 'home') {
+            openAppScreen(nav.screen);
+            if (nav.screen === 'persona' && nav.personaSub === 'detail') {
+              openPersonaDetailPage();
+            } else if (nav.screen === 'replay' && nav.replaySubTab) {
+              switchReplaySubTab(nav.replaySubTab);
+            } else if (nav.screen === 'theater') {
+              if (nav.lobbyActive) {
+                openTheaterSelectorLobby();
+              } else {
+                closeTheaterSelectorLobby();
+                renderTheaterCurrentLine();
+              }
+            }
+          }
+        }
+        const rawDrafts = localStorage.getItem('trpg-vn-active-input-drafts-v1');
+        if (rawDrafts) {
+          const drafts = JSON.parse(rawDrafts);
+          if (drafts && typeof drafts === 'object') {
+            ['replay-raw-log-input', 'replay-scene-extra-req'].forEach((id) => {
+              const el = document.getElementById(id);
+              if (el && drafts[id] && !el.value) {
+                el.value = drafts[id];
+              }
+            });
+          }
+        }
+      } catch (_) {}
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        saveAllActiveInputDrafts();
+      }
+    });
+    window.addEventListener('pagehide', () => {
+      saveAllActiveInputDrafts();
+    });
+    document.addEventListener('input', (e) => {
+      const t = e.target;
+      if (t && t.id && DRAFT_PERSIST_IDS.includes(t.id)) {
+        saveAllActiveInputDrafts();
+      }
+    });
 
     let _deferredPwaInstallPrompt = null;
 

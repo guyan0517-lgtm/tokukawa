@@ -279,37 +279,39 @@ body.landscape-game-active .screen {
   white-space: nowrap;
 }
 
-/* 底部常驻主入口栏 */
 .home-dock {
   background: var(--card-bg);
   border: 1px solid var(--border-color);
-  border-radius: 20px;
-  padding: 10px 14px;
-  display: flex;
+  border-radius: 18px;
+  padding: 18px 12px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px 16px;
   align-items: center;
-  justify-content: center;
+  justify-items: center;
   flex-shrink: 0;
 }
 
 .home-dock .home-dock-main-btn {
   width: 100%;
-  flex-direction: row;
-  padding: 8px 16px;
+  flex-direction: column;
+  padding: 4px 0;
   border: none;
-  background: var(--secondary-bg);
-  border-radius: 14px;
-  gap: 10px;
+  background: transparent;
+  border-radius: 16px;
+  gap: 7px;
 }
 
 .home-dock .home-dock-main-btn .app-icon-box {
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
+  width: 54px;
+  height: 54px;
+  border-radius: 15px;
 }
 
 .home-dock .home-dock-main-btn .app-icon-label {
-  font-size: 14px;
-  letter-spacing: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 
 /* ==================== App 内部通用顶栏与子页面切换 ==================== */
@@ -1879,38 +1881,38 @@ button {
 .vn-bottom-dock {
   position: relative;
   z-index: 25;
-  width: 100%;
-  margin: auto 0 0 0;
-  padding: 18px 28px 12px 28px;
-  border-radius: 0;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--text-primary) 18%, transparent) 0%, color-mix(in srgb, var(--text-primary) 82%, transparent) 28%, color-mix(in srgb, var(--text-primary) 94%, transparent) 100%);
-  border: none;
-  border-top: 1px solid color-mix(in srgb, var(--card-bg) 22%, transparent);
+  width: calc(100% - 28px);
+  margin: auto 14px 12px 14px;
+  padding: 14px 20px 10px 20px;
+  border-radius: 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 132px;
+  min-height: 124px;
   transition: all 0.25s ease;
 }
 
 .vn-dock-main-row {
   display: flex;
   align-items: stretch;
-  gap: 16px;
+  gap: 14px;
   width: 100%;
   min-width: 0;
 }
 
 .vn-stage-side-bust {
-  width: 86px;
-  height: 102px;
+  width: 82px;
+  height: 96px;
   flex-shrink: 0;
-  margin-top: -28px;
-  border-radius: 4px;
+  margin-top: -18px;
+  border-radius: 12px;
   overflow: hidden;
-  background: color-mix(in srgb, var(--text-primary) 65%, transparent);
-  border: 1px solid color-mix(in srgb, var(--card-bg) 28%, transparent);
+  background: var(--secondary-bg);
+  border: 1px solid var(--border-color);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -1945,22 +1947,21 @@ button {
   margin-top: 0;
   margin-bottom: 2px;
   padding-bottom: 6px;
-  border-bottom: 1px solid color-mix(in srgb, var(--card-bg) 16%, transparent);
+  border-bottom: 1px dashed var(--border-color);
 }
 
 .vn-speaker-badge {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 1px 10px 1px 10px;
-  border-radius: 0;
-  background: transparent;
-  color: var(--card-bg);
-  border: none;
-  border-left: 3px solid var(--accent-color);
-  font-size: 16px;
+  padding: 2px 10px;
+  border-radius: 8px;
+  background: var(--secondary-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  font-size: 14px;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
 }
 
 .vn-dialogue-meta {
@@ -1968,18 +1969,18 @@ button {
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: color-mix(in srgb, var(--card-bg) 68%, transparent);
+  color: var(--text-secondary);
   font-weight: 700;
   letter-spacing: 0.04em;
 }
 
 .vn-dialogue-text {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
-  line-height: 1.78;
-  letter-spacing: 0.04em;
-  color: color-mix(in srgb, var(--card-bg) 95%, var(--secondary-bg));
-  min-height: 46px;
+  line-height: 1.75;
+  letter-spacing: 0.03em;
+  color: var(--text-primary);
+  min-height: 44px;
   word-break: break-word;
 }
 
@@ -1992,109 +1993,102 @@ button {
   align-items: center;
   justify-content: flex-end;
   gap: 14px;
-  padding-top: 4px;
-  border-top: 1px solid color-mix(in srgb, var(--card-bg) 10%, transparent);
+  padding-top: 6px;
+  border-top: 1px dashed var(--border-color);
 }
 
 .vn-stage-ctrl-btn {
   background: transparent;
   border: none;
-  padding: 2px 4px;
+  padding: 2px 6px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  color: color-mix(in srgb, var(--card-bg) 68%, transparent);
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: color 0.15s ease, transform 0.15s ease;
 }
 
 .vn-stage-ctrl-btn:hover,
 .vn-stage-ctrl-btn.active {
-  color: var(--card-bg);
+  color: var(--accent-color);
 }
 
-/* 款式一：暗幕流光 明日方舟与黑白漫通透深色渐变风格 */
+/* 款式一：暗幕流光 保持与全局卡片一致的温润干净质感 */
 .vn-theater-wrapper[data-stage-style="ark_grad"] .vn-bottom-dock {
-  width: 100%;
-  margin: auto 0 0 0;
-  padding: 20px 32px 10px 32px;
-  background: linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--text-primary) 76%, transparent) 22%, color-mix(in srgb, var(--text-primary) 92%, transparent) 100%);
-  border-top: 1px solid color-mix(in srgb, var(--card-bg) 20%, transparent);
+  width: calc(100% - 28px);
+  margin: auto 14px 12px 14px;
+  padding: 14px 20px 10px 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
 }
 
 .vn-theater-wrapper[data-stage-style="ark_grad"] .vn-stage-ctrl-bar {
-  justify-content: center;
-  gap: 18px;
+  justify-content: flex-end;
+  gap: 16px;
 }
 
-/* 款式二：异闻斜切 女神异闻录与冷调几何相框档案风格 */
+/* 款式二：异闻斜切 */
 .vn-theater-wrapper[data-stage-style="persona_noir"] .vn-bottom-dock {
-  width: calc(100% - 40px);
-  margin: auto 20px 14px 20px;
-  padding: 16px 24px 12px 24px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--text-primary) 92%, var(--accent-color) 8%) 0%, color-mix(in srgb, var(--text-primary) 84%, var(--secondary-bg) 16%) 100%);
-  border: 1px solid color-mix(in srgb, var(--card-bg) 34%, transparent);
-  border-left: 5px solid var(--accent-color);
-  border-right: 3px solid color-mix(in srgb, var(--card-bg) 68%, transparent);
-  transform: skewX(-2deg);
+  width: calc(100% - 36px);
+  margin: auto 18px 14px 18px;
+  padding: 14px 22px 10px 22px;
+  background: var(--card-bg);
+  border: 1.5px solid var(--border-color);
 }
 
 .vn-theater-wrapper[data-stage-style="persona_noir"] .vn-stage-side-bust {
-  width: 84px;
+  width: 82px;
   height: 92px;
-  margin-top: -22px;
-  padding: 3px;
-  background: color-mix(in srgb, var(--text-primary) 88%, var(--accent-color) 12%);
-  border: 2px solid var(--card-bg);
-  border-radius: 2px;
-  transform: rotate(-4deg);
+  margin-top: -18px;
+  padding: 2px;
+  background: var(--secondary-bg);
+  border: 1.5px solid var(--border-color);
+  border-radius: 10px;
 }
 
 .vn-theater-wrapper[data-stage-style="persona_noir"] .vn-speaker-badge {
-  background: var(--accent-color);
-  color: var(--card-bg);
-  border-left: 3px solid var(--card-bg);
-  padding: 2px 14px;
-  transform: skewX(-8deg);
+  background: var(--secondary-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 2px 12px;
   font-size: 14px;
 }
 
 .vn-theater-wrapper[data-stage-style="persona_noir"] .vn-dialogue-header {
-  border-bottom: 1px dashed color-mix(in srgb, var(--card-bg) 28%, transparent);
+  border-bottom: 1px dashed var(--border-color);
 }
 
-/* 款式三：胶片卷宗 电影悬疑下三分之一字幕与红标现场记录风格 */
+/* 款式三：胶片卷宗 */
 .vn-theater-wrapper[data-stage-style="cinema_dossier"] .vn-bottom-dock {
-  width: calc(100% - 48px);
-  margin: auto 24px 16px 24px;
-  padding: 14px 26px 12px 26px;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--text-primary) 90%, var(--secondary-bg) 10%) 0%, color-mix(in srgb, var(--text-primary) 82%, var(--secondary-bg) 18%) 70%, color-mix(in srgb, var(--text-primary) 62%, transparent) 100%);
-  border-top: 2px solid color-mix(in srgb, var(--card-bg) 42%, transparent);
-  border-bottom: 2px solid color-mix(in srgb, var(--card-bg) 42%, transparent);
-  border-left: 4px solid var(--tukey-danger);
+  width: calc(100% - 36px);
+  margin: auto 18px 14px 18px;
+  padding: 14px 22px 10px 22px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
 }
 
 .vn-theater-wrapper[data-stage-style="cinema_dossier"] .vn-stage-side-bust {
-  width: 70px;
-  height: 84px;
-  margin-top: -6px;
-  border-radius: 2px;
-  border: 1px solid color-mix(in srgb, var(--card-bg) 45%, transparent);
+  width: 72px;
+  height: 86px;
+  margin-top: -10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
 }
 
 .vn-theater-wrapper[data-stage-style="cinema_dossier"] .vn-speaker-badge {
-  border-left: 4px solid var(--tukey-danger);
-  padding-left: 10px;
-  color: var(--card-bg);
-  font-size: 15px;
-  letter-spacing: 0.12em;
+  background: var(--secondary-bg);
+  border: 1px solid var(--border-color);
+  padding: 2px 10px;
+  color: var(--text-primary);
+  font-size: 14px;
 }
 
 .vn-theater-wrapper[data-stage-style="cinema_dossier"] .vn-dialogue-meta {
-  background: color-mix(in srgb, var(--card-bg) 14%, transparent);
-  color: var(--card-bg);
+  background: var(--secondary-bg);
+  color: var(--text-secondary);
   padding: 2px 8px;
-  border-radius: 3px;
+  border-radius: 6px;
 }
 
 /* 直观角色头像卡片选择条 */
