@@ -859,6 +859,7 @@
                   <button type="button" class="moe-btn" id="tachie-brush-none-btn" title="预览" onclick="setTachieBrushMode('none')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg></button>
                   <button type="button" class="moe-btn secondary" title="去底" onclick="applyFloodFillToTachie()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg></button>
                   <button type="button" class="moe-btn secondary" id="tachie-brush-wand-btn" title="魔棒" onclick="setTachieBrushMode('wand')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M17.8 6.2L19 5M3 21l9-9M12.2 6.2L11 5"/></svg></button>
+                  <button type="button" class="moe-btn secondary" id="tachie-brush-lasso-btn" title="套索" onclick="setTachieBrushMode('lasso')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22a5 5 0 0 1-2-4"/><path d="M3.3 14A6.8 6.8 0 0 1 2 10c0-4.4 4.5-8 10-8s10 3.6 10 8-4.5 8-10 8a12 12 0 0 1-5-1"/><path d="M5 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/></svg></button>
                   <button type="button" class="moe-btn secondary" id="tachie-brush-erase-btn" title="擦除" onclick="setTachieBrushMode('erase')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L20 20Z"/></svg></button>
                   <button type="button" class="moe-btn secondary" id="tachie-brush-restore-btn" title="恢复" onclick="setTachieBrushMode('restore')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg></button>
                   <button type="button" class="moe-btn secondary" title="撤回" onclick="undoStageEdit('tachie')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></button>
@@ -975,6 +976,7 @@
                   <button type="button" class="moe-btn" id="chibi-brush-none-btn" onclick="setChibiBrushMode('none')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg>预览</button>
                   <button type="button" class="moe-btn secondary" onclick="applyFloodFillToChibi()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>去底</button>
                   <button type="button" class="moe-btn secondary" id="chibi-brush-wand-btn" onclick="setChibiBrushMode('wand')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M17.8 6.2L19 5M3 21l9-9M12.2 6.2L11 5"/></svg>魔棒</button>
+                  <button type="button" class="moe-btn secondary" id="chibi-brush-lasso-btn" onclick="setChibiBrushMode('lasso')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22a5 5 0 0 1-2-4"/><path d="M3.3 14A6.8 6.8 0 0 1 2 10c0-4.4 4.5-8 10-8s10 3.6 10 8-4.5 8-10 8a12 12 0 0 1-5-1"/><path d="M5 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/></svg>套索</button>
                   <button type="button" class="moe-btn secondary" id="chibi-brush-erase-btn" onclick="setChibiBrushMode('erase')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L20 20Z"/></svg>擦除</button>
                   <button type="button" class="moe-btn secondary" id="chibi-brush-restore-btn" onclick="setChibiBrushMode('restore')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>恢复</button>
                   <button type="button" class="moe-btn secondary" onclick="undoStageEdit('chibi')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>撤回</button>
@@ -2069,6 +2071,7 @@
             <div style="display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;">
               <button type="button" class="moe-btn" id="builder-table-brush-none-btn" onclick="setBuilderBrushMode('table', 'none')">预览</button>
               <button type="button" class="moe-btn secondary" id="builder-table-brush-wand-btn" onclick="setBuilderBrushMode('table', 'wand')">魔棒</button>
+              <button type="button" class="moe-btn secondary" id="builder-table-brush-lasso-btn" onclick="setBuilderBrushMode('table', 'lasso')">套索</button>
               <button type="button" class="moe-btn secondary" id="builder-table-brush-erase-btn" onclick="setBuilderBrushMode('table', 'erase')">擦除</button>
               <button type="button" class="moe-btn secondary" id="builder-table-brush-restore-btn" onclick="setBuilderBrushMode('table', 'restore')">恢复</button>
               <button type="button" class="moe-btn" onclick="saveBuilderAssetToDB('table')">保存</button>
@@ -2141,6 +2144,7 @@
             <div style="display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;">
               <button type="button" class="moe-btn" id="builder-furn-brush-none-btn" onclick="setBuilderBrushMode('furniture', 'none')">预览</button>
               <button type="button" class="moe-btn secondary" id="builder-furn-brush-wand-btn" onclick="setBuilderBrushMode('furniture', 'wand')">魔棒</button>
+              <button type="button" class="moe-btn secondary" id="builder-furn-brush-lasso-btn" onclick="setBuilderBrushMode('furniture', 'lasso')">套索</button>
               <button type="button" class="moe-btn secondary" id="builder-furn-brush-erase-btn" onclick="setBuilderBrushMode('furniture', 'erase')">擦除</button>
               <button type="button" class="moe-btn secondary" id="builder-furn-brush-restore-btn" onclick="setBuilderBrushMode('furniture', 'restore')">恢复</button>
               <button type="button" class="moe-btn" onclick="saveBuilderAssetToDB('furniture')">保存</button>
@@ -5954,7 +5958,7 @@
 
     function setChibiBrushMode(mode) {
       appState.chibiBrushMode = mode;
-      ['none', 'wand', 'erase', 'restore'].forEach((m) => {
+      ['none', 'wand', 'lasso', 'erase', 'restore'].forEach((m) => {
         const btn = document.getElementById(`chibi-brush-${m}-btn`);
         if (btn) btn.className = m === mode ? 'moe-btn' : 'moe-btn secondary';
       });
@@ -5972,7 +5976,7 @@
 
     function setTachieBrushMode(mode) {
       appState.tachieBrushMode = mode;
-      ['none', 'wand', 'erase', 'restore'].forEach((m) => {
+      ['none', 'wand', 'lasso', 'erase', 'restore'].forEach((m) => {
         const btn = document.getElementById(`tachie-brush-${m}-btn`);
         if (btn) btn.className = m === mode ? 'moe-btn' : 'moe-btn secondary';
       });
@@ -5984,7 +5988,7 @@
       if (isTable) appState.builderTableBrushMode = mode;
       else appState.builderFurnBrushMode = mode;
       const prefix = isTable ? 'builder-table-brush' : 'builder-furn-brush';
-      ['none', 'wand', 'erase', 'restore'].forEach((m) => {
+      ['none', 'wand', 'lasso', 'erase', 'restore'].forEach((m) => {
         const btn = document.getElementById(`${prefix}-${m}-btn`);
         if (btn) btn.className = m === mode ? 'moe-btn' : 'moe-btn secondary';
       });
@@ -5998,6 +6002,7 @@
       let mode = 'none';
       let canvas = null;
       let imgEl = null;
+      let stageBoxEl = null;
       let workUrl = '';
       let rawUrl = '';
       let brushSliderId = '';
@@ -6007,6 +6012,7 @@
         mode = appState.chibiBrushMode;
         canvas = document.getElementById('chibi-brush-canvas');
         imgEl = document.getElementById('chibi-preview-img');
+        stageBoxEl = document.getElementById('chibi-stage-sprite-box') || document.getElementById('chibi-stage-container');
         workUrl = appState.chibiWorkingDataUrl;
         rawUrl = (appState.chibiAlignedRawDataUrl || appState.chibiRawDataUrl) || workUrl;
         brushSliderId = 'chibi-brush-size';
@@ -6015,6 +6021,7 @@
         mode = appState.tachieBrushMode;
         canvas = document.getElementById('tachie-brush-canvas');
         imgEl = document.getElementById('tachie-stage-img');
+        stageBoxEl = document.getElementById('tachie-stage-container');
         workUrl = appState.tachieWorkingDataUrl;
         rawUrl = (appState.tachieAlignedRawDataUrl || appState.tachieRawDataUrl) || workUrl;
         brushSliderId = 'tachie-brush-size';
@@ -6023,6 +6030,7 @@
         mode = appState.builderTableBrushMode;
         canvas = document.getElementById('builder-table-brush-canvas');
         imgEl = document.getElementById('builder-table-preview-img');
+        stageBoxEl = document.getElementById('builder-table-stage');
         workUrl = appState.builderTableWorkingUrl;
         rawUrl = appState.builderTableRawUrl || workUrl;
         brushSliderId = 'builder-table-brush-size';
@@ -6031,6 +6039,7 @@
         mode = appState.builderFurnBrushMode;
         canvas = document.getElementById('builder-furn-brush-canvas');
         imgEl = document.getElementById('builder-furn-preview-img');
+        stageBoxEl = document.getElementById('builder-furn-stage');
         workUrl = appState.builderFurnWorkingUrl;
         rawUrl = appState.builderFurnRawUrl || workUrl;
         brushSliderId = 'builder-furn-brush-size';
@@ -6048,18 +6057,36 @@
 
       const workImg = new Image();
       workImg.onload = () => {
-        if (imgEl.clientWidth > 0 && imgEl.clientHeight > 0) {
-          imgEl.dataset.lastW = String(imgEl.clientWidth);
-          imgEl.dataset.lastH = String(imgEl.clientHeight);
-        }
         canvas.width = workImg.width;
         canvas.height = workImg.height;
-        const fallbackW = target === 'chibi' ? 304 : 264;
-        const fallbackH = target === 'chibi' ? 304 : 458;
-        const dispW = imgEl.clientWidth || Number(imgEl.dataset.lastW) || fallbackW;
-        const dispH = imgEl.clientHeight || Number(imgEl.dataset.lastH) || fallbackH;
-        canvas.style.width = dispW + 'px';
-        canvas.style.height = dispH + 'px';
+
+        const fallbackW = target === 'chibi' ? 240 : 264;
+        const fallbackH = target === 'chibi' ? 240 : 458;
+        const boxW = (stageBoxEl && stageBoxEl.clientWidth > 20 ? stageBoxEl.clientWidth : 0) || imgEl.clientWidth || Number(imgEl.dataset.lastW) || fallbackW;
+        const boxH = (stageBoxEl && stageBoxEl.clientHeight > 20 ? stageBoxEl.clientHeight : 0) || imgEl.clientHeight || Number(imgEl.dataset.lastH) || fallbackH;
+        imgEl.dataset.lastW = String(boxW);
+        imgEl.dataset.lastH = String(boxH);
+
+        const imgAspect = Math.max(0.05, workImg.width / Math.max(1, workImg.height));
+        const boxAspect = Math.max(0.05, boxW / Math.max(1, boxH));
+        let fitW = boxW;
+        let fitH = boxH;
+        if (imgAspect > boxAspect) {
+          fitW = boxW;
+          fitH = boxW / imgAspect;
+        } else {
+          fitH = boxH;
+          fitW = boxH * imgAspect;
+        }
+        fitW = Math.max(20, Math.round(fitW));
+        fitH = Math.max(20, Math.round(fitH));
+
+        canvas.style.width = fitW + 'px';
+        canvas.style.height = fitH + 'px';
+        canvas.style.maxWidth = 'none';
+        canvas.style.maxHeight = 'none';
+        canvas.style.objectFit = 'fill';
+
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(workImg, 0, 0);
@@ -6067,10 +6094,21 @@
         canvas.style.display = 'block';
         canvas.classList.add('brush-active');
 
+        const baseSnapCanvas = document.createElement('canvas');
+        baseSnapCanvas.width = canvas.width;
+        baseSnapCanvas.height = canvas.height;
+        const baseSnapCtx = baseSnapCanvas.getContext('2d');
+        const syncBaseSnapshot = () => {
+          baseSnapCtx.clearRect(0, 0, baseSnapCanvas.width, baseSnapCanvas.height);
+          baseSnapCtx.drawImage(canvas, 0, 0);
+        };
+        syncBaseSnapshot();
+
         const rawImg = new Image();
         rawImg.src = rawUrl;
 
         const commitCanvasUpdate = async () => {
+          syncBaseSnapshot();
           const updated = canvas.toDataURL('image/png');
           if (target === 'chibi') {
             appState.chibiWorkingDataUrl = updated;
@@ -6101,14 +6139,80 @@
           }
         };
 
-        let drawing = false;
-        const paintAt = (ev) => {
-          if (!drawing || mode === 'wand' || appState.activeTouchCount >= 2) return;
+        const getCanvasPoint = (ev) => {
           const rect = canvas.getBoundingClientRect();
-          const cx = ((ev.clientX - rect.left) / rect.width) * canvas.width;
-          const cy = ((ev.clientY - rect.top) / rect.height) * canvas.height;
-          const bSize = parseInt(document.getElementById(brushSliderId)?.value || '14', 10) || 14;
-          const radius = (bSize / rect.width) * canvas.width;
+          const rw = Math.max(1, rect.width);
+          const rh = Math.max(1, rect.height);
+          const cx = ((ev.clientX - rect.left) / rw) * canvas.width;
+          const cy = ((ev.clientY - rect.top) / rh) * canvas.height;
+          return { cx, cy };
+        };
+
+        let drawing = false;
+        let hadMultiTouch = false;
+        let downClientX = 0;
+        let downClientY = 0;
+        let lastCx = null;
+        let lastCy = null;
+        let lassoPoints = [];
+
+        const cancelActiveGesture = () => {
+          if (drawing || lassoPoints.length > 0) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(baseSnapCanvas, 0, 0);
+          }
+          drawing = false;
+          hadMultiTouch = true;
+          lastCx = null;
+          lastCy = null;
+          lassoPoints = [];
+        };
+
+        const renderLassoPreview = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(baseSnapCanvas, 0, 0);
+          if (lassoPoints.length < 2) return;
+          const strokeScale = canvas.width / Math.max(1, fitW);
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
+          for (let i = 1; i < lassoPoints.length; i++) {
+            ctx.lineTo(lassoPoints[i].x, lassoPoints[i].y);
+          }
+          ctx.closePath();
+          ctx.fillStyle = 'rgba(224, 90, 90, 0.24)';
+          ctx.fill();
+          ctx.lineWidth = Math.max(2, 2.2 * strokeScale);
+          ctx.strokeStyle = '#ffffff';
+          ctx.setLineDash([]);
+          ctx.stroke();
+          ctx.lineWidth = Math.max(1.5, 1.8 * strokeScale);
+          ctx.strokeStyle = '#e05a5a';
+          ctx.setLineDash([6 * strokeScale, 4 * strokeScale]);
+          ctx.stroke();
+          ctx.restore();
+        };
+
+        const paintAt = (ev) => {
+          if (appState.activeTouchCount >= 2) {
+            cancelActiveGesture();
+            return;
+          }
+          if (!drawing || mode === 'wand') return;
+          const { cx, cy } = getCanvasPoint(ev);
+
+          if (mode === 'lasso') {
+            const prev = lassoPoints[lassoPoints.length - 1];
+            if (!prev || Math.hypot(cx - prev.x, cy - prev.y) >= 2) {
+              lassoPoints.push({ x: cx, y: cy });
+              renderLassoPreview();
+            }
+            return;
+          }
+
+          const bSize = parseInt(document.getElementById(brushSliderId)?.value || '16', 10) || 16;
+          // 使用未缩放基准宽度 fitW 计算画布半径，放大画布时画笔在屏幕上会随画面同步等比放大
+          const radius = (bSize / Math.max(1, fitW)) * canvas.width;
 
           ctx.save();
           if (mode === 'erase') {
@@ -6116,41 +6220,122 @@
             ctx.beginPath();
             ctx.arc(cx, cy, radius, 0, Math.PI * 2);
             ctx.fill();
+            if (lastCx !== null && lastCy !== null) {
+              ctx.beginPath();
+              ctx.lineWidth = radius * 2;
+              ctx.lineCap = 'round';
+              ctx.lineJoin = 'round';
+              ctx.moveTo(lastCx, lastCy);
+              ctx.lineTo(cx, cy);
+              ctx.stroke();
+            }
           } else if (mode === 'restore' && rawImg.complete) {
             ctx.globalCompositeOperation = 'source-over';
             ctx.beginPath();
             ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            if (lastCx !== null && lastCy !== null) {
+              const angle = Math.atan2(cy - lastCy, cx - lastCx);
+              const perp = angle + Math.PI / 2;
+              ctx.moveTo(lastCx + Math.cos(perp) * radius, lastCy + Math.sin(perp) * radius);
+              ctx.lineTo(cx + Math.cos(perp) * radius, cy + Math.sin(perp) * radius);
+              ctx.lineTo(cx - Math.cos(perp) * radius, cy - Math.sin(perp) * radius);
+              ctx.lineTo(lastCx - Math.cos(perp) * radius, lastCy - Math.sin(perp) * radius);
+              ctx.closePath();
+              ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            }
             ctx.clip();
             ctx.drawImage(rawImg, 0, 0, canvas.width, canvas.height);
           }
           ctx.restore();
+          lastCx = cx;
+          lastCy = cy;
         };
 
-        canvas.onpointerdown = async (ev) => {
+        canvas.onpointerdown = (ev) => {
           if (appState.activeTouchCount >= 2) {
-            drawing = false;
+            cancelActiveGesture();
             return;
           }
-          const rect = canvas.getBoundingClientRect();
-          const cx = ((ev.clientX - rect.left) / rect.width) * canvas.width;
-          const cy = ((ev.clientY - rect.top) / rect.height) * canvas.height;
+          hadMultiTouch = false;
+          downClientX = ev.clientX;
+          downClientY = ev.clientY;
+          lastCx = null;
+          lastCy = null;
+          drawing = true;
+          try {
+            canvas.setPointerCapture(ev.pointerId);
+          } catch (_) {}
           if (mode === 'wand') {
-            const tol = parseInt(document.getElementById(tolSliderId)?.value || '22', 10) || 22;
-            const changed = magicWandEraseAtPoint(ctx, canvas.width, canvas.height, cx, cy, tol);
-            if (changed) {
-              await commitCanvasUpdate();
+            return;
+          }
+          if (mode === 'lasso') {
+            const { cx, cy } = getCanvasPoint(ev);
+            lassoPoints = [{ x: cx, y: cy }];
+            return;
+          }
+          paintAt(ev);
+        };
+
+        canvas.onpointermove = (ev) => {
+          if (appState.activeTouchCount >= 2) {
+            cancelActiveGesture();
+            return;
+          }
+          if (!drawing) return;
+          if (mode === 'wand') return;
+          paintAt(ev);
+        };
+
+        canvas.onpointerup = async (ev) => {
+          if (appState.activeTouchCount >= 2 || hadMultiTouch) {
+            cancelActiveGesture();
+            return;
+          }
+          if (!drawing) return;
+          drawing = false;
+
+          if (mode === 'wand') {
+            const moveDist = Math.hypot(ev.clientX - downClientX, ev.clientY - downClientY);
+            if (moveDist <= 10) {
+              const { cx, cy } = getCanvasPoint(ev);
+              const tol = parseInt(document.getElementById(tolSliderId)?.value || '22', 10) || 22;
+              const changed = magicWandEraseAtPoint(ctx, canvas.width, canvas.height, cx, cy, tol);
+              if (changed) {
+                await commitCanvasUpdate();
+              }
             }
             return;
           }
-          drawing = true;
-          canvas.setPointerCapture(ev.pointerId);
-          paintAt(ev);
-        };
-        canvas.onpointermove = paintAt;
-        canvas.onpointerup = async () => {
-          if (!drawing) return;
-          drawing = false;
+
+          if (mode === 'lasso') {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(baseSnapCanvas, 0, 0);
+            if (lassoPoints.length >= 3) {
+              ctx.save();
+              ctx.globalCompositeOperation = 'destination-out';
+              ctx.beginPath();
+              ctx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
+              for (let i = 1; i < lassoPoints.length; i++) {
+                ctx.lineTo(lassoPoints[i].x, lassoPoints[i].y);
+              }
+              ctx.closePath();
+              ctx.fill();
+              ctx.restore();
+              lassoPoints = [];
+              await commitCanvasUpdate();
+            } else {
+              lassoPoints = [];
+            }
+            return;
+          }
+
+          lastCx = null;
+          lastCy = null;
           await commitCanvasUpdate();
+        };
+
+        canvas.onpointercancel = () => {
+          cancelActiveGesture();
         };
       };
       workImg.src = workUrl;
