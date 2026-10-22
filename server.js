@@ -18,10 +18,7 @@ app.use(express.json({ limit: '80mb' }));
 app.use(express.urlencoded({ extended: true, limit: '80mb' }));
 
 const LOCAL_ASSET_CANDIDATES = [
-  path.join(os.homedir(), 'storage', 'shared', 'Download', '.HakoniwaVault'),
-  path.join(os.homedir(), 'storage', 'shared', '.HakoniwaVault'),
-  '/sdcard/Download/.HakoniwaVault',
-  '/sdcard/.HakoniwaVault',
+  path.join(os.homedir(), '.HakoniwaVault'),
   path.join(__dirname, '.HakoniwaVault')
 ];
 const LEGACY_PUBLIC_DIRS = [
@@ -29,6 +26,15 @@ const LEGACY_PUBLIC_DIRS = [
   path.join(os.homedir(), 'storage', 'shared', 'HakoniwaData'),
   '/sdcard/Download/HakoniwaData',
   '/sdcard/HakoniwaData',
+  '/storage/emulated/0/Download/HakoniwaData',
+  '/storage/emulated/0/HakoniwaData',
+  path.join(os.homedir(), 'storage', 'shared', 'Download', '.HakoniwaVault'),
+  path.join(os.homedir(), 'storage', 'shared', '.HakoniwaVault'),
+  '/sdcard/Download/.HakoniwaVault',
+  '/sdcard/.HakoniwaVault',
+  '/storage/emulated/0/Download/.HakoniwaVault',
+  '/storage/emulated/0/.HakoniwaVault',
+  path.join(os.homedir(), 'HakoniwaData'),
   path.join(__dirname, 'HakoniwaData')
 ];
 function ensureNoMediaInDirSync(dirPath) {
@@ -38,6 +44,40 @@ function ensureNoMediaInDirSync(dirPath) {
     if (!fs.existsSync(nm)) {
       fs.writeFileSync(nm, '');
     }
+  } catch (_) {}
+}
+
+function toVaultDiskPath(filePath) {
+  if (filePath.endsWith('.nomedia') || filePath.endsWith('.wt') || filePath.endsWith('.hknw')) {
+    return filePath;
+  }
+  return filePath + '.hknw';
+}
+
+function stripVaultDiskSuffix(relPath) {
+  return relPath.endsWith('.hknw') ? relPath.slice(0, -5) : relPath;
+}
+
+function disguiseExistingFilesInVaultSync(vaultDir) {
+  try {
+    if (!fs.existsSync(vaultDir)) return;
+    const walk = (d) => {
+      ensureNoMediaInDirSync(d);
+      const entries = fs.readdirSync(d, { withFileTypes: true });
+      for (const ent of entries) {
+        const full = path.join(d, ent.name);
+        if (ent.isDirectory()) {
+          walk(full);
+        } else if (ent.isFile() && ent.name !== '.nomedia' && ent.name !== '.wt' && !ent.name.endsWith('.hknw')) {
+          try {
+            const disguised = full + '.hknw';
+            if (fs.existsSync(disguised)) fs.unlinkSync(disguised);
+            fs.renameSync(full, disguised);
+          } catch (_) {}
+        }
+      }
+    };
+    walk(vaultDir);
   } catch (_) {}
 }
 
@@ -58,9 +98,10 @@ function migrateLegacyDirToVaultSync(legacyDir, vaultDir) {
         } else if (entry.isFile()) {
           if (entry.name !== '.wt' && entry.name !== '.nomedia') {
             try {
-              fs.mkdirSync(path.dirname(dFull), { recursive: true });
-              ensureNoMediaInDirSync(path.dirname(dFull));
-              fs.copyFileSync(sFull, dFull);
+              const targetDisk = toVaultDiskPath(dFull);
+              fs.mkdirSync(path.dirname(targetDisk), { recursive: true });
+              ensureNoMediaInDirSync(path.dirname(targetDisk));
+              fs.copyFileSync(sFull, targetDisk);
               movedCount += 1;
             } catch (_) {}
           }
@@ -89,22 +130,56 @@ for (const cand of LOCAL_ASSET_CANDIDATES) {
 for (const legacyDir of LEGACY_PUBLIC_DIRS) {
   migrateLegacyDirToVaultSync(legacyDir, LOCAL_ASSETS_ROOT);
 }
+disguiseExistingFilesInVaultSync(LOCAL_ASSETS_ROOT);
 
-app.use('/local-assets', express.static(LOCAL_ASSETS_ROOT, {
-  maxAge: 0,
-  etag: true,
-  lastModified: true,
-  setHeaders: (res) => {
+function guessAssetMimeType(filePath) {
+  const clean = stripVaultDiskSuffix(String(filePath || '')).toLowerCase();
+  if (clean.endsWith('.png')) return 'image/png';
+  if (clean.endsWith('.jpg') || clean.endsWith('.jpeg')) return 'image/jpeg';
+  if (clean.endsWith('.webp')) return 'image/webp';
+  if (clean.endsWith('.gif')) return 'image/gif';
+  if (clean.endsWith('.mp3')) return 'audio/mpeg';
+  if (clean.endsWith('.wav')) return 'audio/wav';
+  if (clean.endsWith('.ogg')) return 'audio/ogg';
+  return 'application/octet-stream';
+}
+
+app.use('/local-assets', (req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  try {
+    const rawRel = decodeURIComponent(req.path || '').replace(/^\/+/, '').replace(/\.\./g, '_');
+    if (!rawRel) return res.status(404).end();
+    const rootAbs = path.resolve(LOCAL_ASSETS_ROOT);
+    const plainPath = path.resolve(rootAbs, rawRel);
+    if (!plainPath.startsWith(rootAbs)) return res.status(400).end();
+    const hknwPath = toVaultDiskPath(plainPath);
+    let actualPath = '';
+    if (fs.existsSync(hknwPath) && fs.statSync(hknwPath).isFile()) {
+      actualPath = hknwPath;
+    } else if (fs.existsSync(plainPath) && fs.statSync(plainPath).isFile()) {
+      try {
+        fs.renameSync(plainPath, hknwPath);
+        actualPath = hknwPath;
+      } catch (_) {
+        actualPath = plainPath;
+      }
+    }
+    if (!actualPath) return res.status(404).end();
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Content-Type', guessAssetMimeType(rawRel));
+    return res.sendFile(actualPath);
+  } catch (_) {
+    return res.status(404).end();
   }
-}));
+});
 
 app.get('/api/local-assets/ping', (_req, res) => {
   ensureNoMediaInDirSync(LOCAL_ASSETS_ROOT);
   res.json({
     ok: true,
     service: 'hakoniwa-local-bridge',
+    version: 3,
     mode: 'server',
     root: LOCAL_ASSETS_ROOT
   });
@@ -116,17 +191,10 @@ app.post('/api/local-assets/hide-gallery', (_req, res) => {
   for (const legacyDir of LEGACY_PUBLIC_DIRS) {
     migrated += migrateLegacyDirToVaultSync(legacyDir, LOCAL_ASSETS_ROOT);
   }
-  const walkEnsureNoMedia = (d) => {
-    ensureNoMediaInDirSync(d);
-    try {
-      for (const ent of fs.readdirSync(d, { withFileTypes: true })) {
-        if (ent.isDirectory()) walkEnsureNoMedia(path.join(d, ent.name));
-      }
-    } catch (_) {}
-  };
-  walkEnsureNoMedia(LOCAL_ASSETS_ROOT);
+  disguiseExistingFilesInVaultSync(LOCAL_ASSETS_ROOT);
   res.json({
     ok: true,
+    version: 3,
     migratedCount: migrated,
     root: LOCAL_ASSETS_ROOT
   });
@@ -141,15 +209,19 @@ app.post('/api/local-assets/save', async (req, res) => {
     }
     const base64Part = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
     const fileBuf = base64Part ? Buffer.from(base64Part, 'base64') : Buffer.alloc(0);
-    const targetPath = path.resolve(LOCAL_ASSETS_ROOT, rawRel);
-    if (!targetPath.startsWith(path.resolve(LOCAL_ASSETS_ROOT))) {
+    const plainTarget = path.resolve(LOCAL_ASSETS_ROOT, rawRel);
+    if (!plainTarget.startsWith(path.resolve(LOCAL_ASSETS_ROOT))) {
       return res.status(400).json({ ok: false, error: 'Invalid path' });
     }
+    const targetPath = toVaultDiskPath(plainTarget);
     const targetDir = path.dirname(targetPath);
     await fs.promises.mkdir(targetDir, { recursive: true });
     ensureNoMediaInDirSync(LOCAL_ASSETS_ROOT);
     ensureNoMediaInDirSync(targetDir);
     await fs.promises.writeFile(targetPath, fileBuf);
+    if (plainTarget !== targetPath && fs.existsSync(plainTarget)) {
+      await fs.promises.unlink(plainTarget).catch(() => {});
+    }
     const encodedRel = rawRel.split('/').map((seg) => encodeURIComponent(seg)).join('/');
     res.json({
       ok: true,
@@ -164,9 +236,12 @@ app.post('/api/local-assets/save', async (req, res) => {
 
 app.post('/api/local-assets/cleanup', async (req, res) => {
   try {
+    for (const legacyDir of LEGACY_PUBLIC_DIRS) {
+      migrateLegacyDirToVaultSync(legacyDir, LOCAL_ASSETS_ROOT);
+    }
     const activeRelList = Array.isArray(req.body?.activePaths) ? req.body.activePaths : [];
     const activeSet = new Set(
-      activeRelList.map((p) => String(p || '').split('?')[0].replace(/^\/+/, '').replace(/\.\./g, '_'))
+      activeRelList.map((p) => stripVaultDiskSuffix(String(p || '').split('?')[0].replace(/^\/+/, '').replace(/\.\./g, '_')))
     );
     const rootAbs = path.resolve(LOCAL_ASSETS_ROOT);
     let removedCount = 0;
@@ -192,11 +267,18 @@ app.post('/api/local-assets/cleanup', async (req, res) => {
             }
           } catch (_) {}
         } else if (entry.isFile()) {
-          const rel = path.relative(rootAbs, fullPath).split(path.sep).join('/');
-          if (!activeSet.has(rel)) {
+          const rawRel = path.relative(rootAbs, fullPath).split(path.sep).join('/');
+          const baseRel = stripVaultDiskSuffix(rawRel);
+          if (!activeSet.has(baseRel)) {
             try {
               await fs.promises.unlink(fullPath);
               removedCount += 1;
+            } catch (_) {}
+          } else if (!fullPath.endsWith('.hknw')) {
+            try {
+              const hknwFull = fullPath + '.hknw';
+              if (fs.existsSync(hknwFull)) await fs.promises.unlink(hknwFull).catch(() => {});
+              await fs.promises.rename(fullPath, hknwFull);
             } catch (_) {}
           }
         }

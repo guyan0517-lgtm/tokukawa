@@ -2004,11 +2004,11 @@
           <div class="form-group">
             <label>安卓 Termux 一键启动命令 点右侧复制后粘贴到 Termux 回车即可</label>
             <div style="display:flex;gap:6px;align-items:stretch;">
-              <textarea id="termux-local-bridge-cmd" class="moe-input" style="min-height:74px;font-size:11px;font-family:monospace;flex:1;" readonly>pkg install -y python; test -d "$HOME/storage" || termux-setup-storage; pkill -9 -f python3 2>/dev/null; echo aW1wb3J0IG9zLCBqc29uLCBiYXNlNjQsIHVybGxpYi5wYXJzZSwgbWltZXR5cGVzLCBodHRwLnNlcnZlciwgc29ja2V0c2VydmVyCmNhbmRpZGF0ZXMgPSBbCiAgICBvcy5wYXRoLmV4cGFuZHVzZXIoJ34vc3RvcmFnZS9zaGFyZWQvRG93bmxvYWQvSGFrb25pd2FEYXRhJyksCiAgICBvcy5wYXRoLmV4cGFuZHVzZXIoJ34vc3RvcmFnZS9zaGFyZWQvSGFrb25pd2FEYXRhJyksCiAgICAnL3NkY2FyZC9Eb3dubG9hZC9IYWtvbml3YURhdGEnLAogICAgJy9zZGNhcmQvSGFrb25pd2FEYXRhJywKICAgIG9zLnBhdGguZXhwYW5kdXNlcignfi9IYWtvbml3YURhdGEnKQpdCnJvb3QgPSBjYW5kaWRhdGVzWy0xXQpmb3IgYyBpbiBjYW5kaWRhdGVzOgogICAgdHJ5OgogICAgICAgIG9zLm1ha2VkaXJzKGMsIGV4aXN0X29rPVRydWUpCiAgICAgICAgdGYgPSBvcy5wYXRoLmpvaW4oYywgJy53dCcpCiAgICAgICAgb3Blbih0ZiwgJ3diJykud3JpdGUoYicxJykKICAgICAgICBvcy5yZW1vdmUodGYpCiAgICAgICAgcm9vdCA9IGMKICAgICAgICBicmVhawogICAgZXhjZXB0IEV4Y2VwdGlvbjoKICAgICAgICBwYXNzCgpjbGFzcyBTKHNvY2tldHNlcnZlci5UaHJlYWRpbmdNaXhJbiwgaHR0cC5zZXJ2ZXIuSFRUUFNlcnZlcik6CiAgICBhbGxvd19yZXVzZV9hZGRyZXNzID0gVHJ1ZQogICAgZGFlbW9uX3RocmVhZHMgPSBUcnVlCgpjbGFzcyBIKGh0dHAuc2VydmVyLkJhc2VIVFRQUmVxdWVzdEhhbmRsZXIpOgogICAgZGVmIGxvZ19tZXNzYWdlKHMsICphKToKICAgICAgICBwYXNzCiAgICBkZWYgX2NvcnMocyk6CiAgICAgICAgbyA9IHMuaGVhZGVycy5nZXQoJ09yaWdpbicpIG9yICcqJwogICAgICAgIHMuc2VuZF9oZWFkZXIoJ0FjY2Vzcy1Db250cm9sLUFsbG93LU9yaWdpbicsIG8pCiAgICAgICAgcy5zZW5kX2hlYWRlcignQWNjZXNzLUNvbnRyb2wtQWxsb3ctTWV0aG9kcycsICdHRVQsIFBPU1QsIE9QVElPTlMnKQogICAgICAgIHMuc2VuZF9oZWFkZXIoJ0FjY2Vzcy1Db250cm9sLUFsbG93LUhlYWRlcnMnLCAnKicpCiAgICAgICAgcy5zZW5kX2hlYWRlcignQWNjZXNzLUNvbnRyb2wtQWxsb3ctUHJpdmF0ZS1OZXR3b3JrJywgJ3RydWUnKQogICAgICAgIHMuc2VuZF9oZWFkZXIoJ0FjY2Vzcy1Db250cm9sLU1heC1BZ2UnLCAnODY0MDAnKQogICAgZGVmIGRvX09QVElPTlMocyk6CiAgICAgICAgcy5zZW5kX3Jlc3BvbnNlKDIwMCkKICAgICAgICBzLl9jb3JzKCkKICAgICAgICBzLmVuZF9oZWFkZXJzKCkKICAgIGRlZiBkb19HRVQocyk6CiAgICAgICAgcCA9IHMucGF0aC5zcGxpdCgnPycpWzBdCiAgICAgICAgaWYgcC5zdGFydHN3aXRoKCcvcGluZycpOgogICAgICAgICAgICBzLnNlbmRfcmVzcG9uc2UoMjAwKQogICAgICAgICAgICBzLl9jb3JzKCkKICAgICAgICAgICAgcy5zZW5kX2hlYWRlcignQ29udGVudC1UeXBlJywgJ2FwcGxpY2F0aW9uL2pzb247IGNoYXJzZXQ9dXRmLTgnKQogICAgICAgICAgICBzLmVuZF9oZWFkZXJzKCkKICAgICAgICAgICAgcy53ZmlsZS53cml0ZShqc29uLmR1bXBzKHsnb2snOiBUcnVlLCAnc2VydmljZSc6ICdoYWtvbml3YS1sb2NhbC1icmlkZ2UnLCAncm9vdCc6IHJvb3R9KS5lbmNvZGUoJ3V0Zi04JykpCiAgICAgICAgICAgIHJldHVybgogICAgICAgIHJlbCA9IHVybGxpYi5wYXJzZS51bnF1b3RlKHApLmxzdHJpcCgnLycpCiAgICAgICAgZnAgPSBvcy5wYXRoLmFic3BhdGgob3MucGF0aC5qb2luKHJvb3QsIHJlbCkpCiAgICAgICAgaWYgZnAuc3RhcnRzd2l0aChvcy5wYXRoLmFic3BhdGgocm9vdCkpIGFuZCBvcy5wYXRoLmlzZmlsZShmcCk6CiAgICAgICAgICAgIG10ID0gbWltZXR5cGVzLmd1ZXNzX3R5cGUoZnApWzBdIG9yICdhcHBsaWNhdGlvbi9vY3RldC1zdHJlYW0nCiAgICAgICAgICAgIGRhdGEgPSBvcGVuKGZwLCAncmInKS5yZWFkKCkKICAgICAgICAgICAgcy5zZW5kX3Jlc3BvbnNlKDIwMCkKICAgICAgICAgICAgcy5fY29ycygpCiAgICAgICAgICAgIHMuc2VuZF9oZWFkZXIoJ0NvbnRlbnQtVHlwZScsIG10KQogICAgICAgICAgICBzLnNlbmRfaGVhZGVyKCdDb250ZW50LUxlbmd0aCcsIHN0cihsZW4oZGF0YSkpKQogICAgICAgICAgICBzLnNlbmRfaGVhZGVyKCdDYWNoZS1Db250cm9sJywgJ25vLWNhY2hlJykKICAgICAgICAgICAgcy5lbmRfaGVhZGVycygpCiAgICAgICAgICAgIHMud2ZpbGUud3JpdGUoZGF0YSkKICAgICAgICBlbHNlOgogICAgICAgICAgICBzLnNlbmRfcmVzcG9uc2UoNDA0KQogICAgICAgICAgICBzLl9jb3JzKCkKICAgICAgICAgICAgcy5lbmRfaGVhZGVycygpCiAgICBkZWYgZG9fUE9TVChzKToKICAgICAgICB0cnk6CiAgICAgICAgICAgIG4gPSBpbnQocy5oZWFkZXJzLmdldCgnQ29udGVudC1MZW5ndGgnLCAnMCcpKQogICAgICAgICAgICBkID0ganNvbi5sb2FkcyhzLnJmaWxlLnJlYWQobikuZGVjb2RlKCd1dGYtOCcpKQogICAgICAgICAgICBpZiBzLnBhdGguc3RhcnRzd2l0aCgnL2NsZWFudXAnKToKICAgICAgICAgICAgICAgIGFjdCA9IHNldChzdHIoeCkuc3BsaXQoJz8nKVswXS5sc3RyaXAoJy8nKS5yZXBsYWNlKCcuLicsICdfJykgZm9yIHggaW4gZC5nZXQoJ2FjdGl2ZVBhdGhzJywgW10pKQogICAgICAgICAgICAgICAgcm0gPSAwCiAgICAgICAgICAgICAgICBmb3IgZHBhdGgsIGRuYW1lcywgZm5hbWVzIGluIG9zLndhbGsocm9vdCwgdG9wZG93bj1GYWxzZSk6CiAgICAgICAgICAgICAgICAgICAgZm9yIGZuIGluIGZuYW1lczoKICAgICAgICAgICAgICAgICAgICAgICAgaWYgZm4gPT0gJy53dCc6IGNvbnRpbnVlCiAgICAgICAgICAgICAgICAgICAgICAgIGZ1bGwgPSBvcy5wYXRoLmpvaW4oZHBhdGgsIGZuKQogICAgICAgICAgICAgICAgICAgICAgICByZWxwID0gb3MucGF0aC5yZWxwYXRoKGZ1bGwsIHJvb3QpLnJlcGxhY2UoJ1xcJywgJy8nKQogICAgICAgICAgICAgICAgICAgICAgICBpZiByZWxwIG5vdCBpbiBhY3Q6CiAgICAgICAgICAgICAgICAgICAgICAgICAgICB0cnk6CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgb3MucmVtb3ZlKGZ1bGwpCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgcm0gKz0gMQogICAgICAgICAgICAgICAgICAgICAgICAgICAgZXhjZXB0IEV4Y2VwdGlvbjoKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBwYXNzCiAgICAgICAgICAgICAgICAgICAgdHJ5OgogICAgICAgICAgICAgICAgICAgICAgICBpZiBkcGF0aCAhPSByb290IGFuZCBub3Qgb3MubGlzdGRpcihkcGF0aCk6CiAgICAgICAgICAgICAgICAgICAgICAgICAgICBvcy5ybWRpcihkcGF0aCkKICAgICAgICAgICAgICAgICAgICBleGNlcHQgRXhjZXB0aW9uOgogICAgICAgICAgICAgICAgICAgICAgICBwYXNzCiAgICAgICAgICAgICAgICBzLnNlbmRfcmVzcG9uc2UoMjAwKQogICAgICAgICAgICAgICAgcy5fY29ycygpCiAgICAgICAgICAgICAgICBzLnNlbmRfaGVhZGVyKCdDb250ZW50LVR5cGUnLCAnYXBwbGljYXRpb24vanNvbjsgY2hhcnNldD11dGYtOCcpCiAgICAgICAgICAgICAgICBzLmVuZF9oZWFkZXJzKCkKICAgICAgICAgICAgICAgIHMud2ZpbGUud3JpdGUoanNvbi5kdW1wcyh7J29rJzogVHJ1ZSwgJ3JlbW92ZWRDb3VudCc6IHJtfSkuZW5jb2RlKCd1dGYtOCcpKQogICAgICAgICAgICAgICAgcmV0dXJuCiAgICAgICAgICAgIHJlbCA9IHN0cihkLmdldCgncGF0aCcsICdmaWxlLmJpbicpKS5zcGxpdCgnPycpWzBdLmxzdHJpcCgnLycpLnJlcGxhY2UoJy4uJywgJ18nKQogICAgICAgICAgICBmcCA9IG9zLnBhdGguYWJzcGF0aChvcy5wYXRoLmpvaW4ocm9vdCwgcmVsKSkKICAgICAgICAgICAgb3MubWFrZWRpcnMob3MucGF0aC5kaXJuYW1lKGZwKSwgZXhpc3Rfb2s9VHJ1ZSkKICAgICAgICAgICAgcmF3ID0gc3RyKGQuZ2V0KCdkYXRhVXJsJywgJycpKQogICAgICAgICAgICBiNjQgPSByYXcuc3BsaXQoJywnLCAxKVsxXSBpZiAnLCcgaW4gcmF3IGVsc2UgcmF3CiAgICAgICAgICAgIGJ1ZiA9IGJhc2U2NC5iNjRkZWNvZGUoYjY0KQogICAgICAgICAgICBvcGVuKGZwLCAnd2InKS53cml0ZShidWYpCiAgICAgICAgICAgIHByaW50KCflt7LlrZjmnKzlnLA6JywgcmVsLCBsZW4oYnVmKSAvLyAxMDI0LCAnS0InLCBmbHVzaD1UcnVlKQogICAgICAgICAgICBlbmMgPSAnLycuam9pbih1cmxsaWIucGFyc2UucXVvdGUoeCkgZm9yIHggaW4gcmVsLnNwbGl0KCcvJykpCiAgICAgICAgICAgIGggPSBzLmhlYWRlcnMuZ2V0KCdIb3N0Jykgb3IgJzEyNy4wLjAuMTo4NzY1JwogICAgICAgICAgICBzLnNlbmRfcmVzcG9uc2UoMjAwKQogICAgICAgICAgICBzLl9jb3JzKCkKICAgICAgICAgICAgcy5zZW5kX2hlYWRlcignQ29udGVudC1UeXBlJywgJ2FwcGxpY2F0aW9uL2pzb247IGNoYXJzZXQ9dXRmLTgnKQogICAgICAgICAgICBzLmVuZF9oZWFkZXJzKCkKICAgICAgICAgICAgcy53ZmlsZS53cml0ZShqc29uLmR1bXBzKHsnb2snOiBUcnVlLCAndXJsJzogJ2h0dHA6Ly8nICsgaCArICcvJyArIGVuYywgJ3BhdGgnOiBmcCwgJ3Jvb3QnOiByb290fSkuZW5jb2RlKCd1dGYtOCcpKQogICAgICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZToKICAgICAgICAgICAgcy5zZW5kX3Jlc3BvbnNlKDUwMCkKICAgICAgICAgICAgcy5fY29ycygpCiAgICAgICAgICAgIHMuc2VuZF9oZWFkZXIoJ0NvbnRlbnQtVHlwZScsICdhcHBsaWNhdGlvbi9qc29uOyBjaGFyc2V0PXV0Zi04JykKICAgICAgICAgICAgcy5lbmRfaGVhZGVycygpCiAgICAgICAgICAgIHMud2ZpbGUud3JpdGUoanNvbi5kdW1wcyh7J29rJzogRmFsc2UsICdlcnJvcic6IHN0cihlKX0pLmVuY29kZSgndXRmLTgnKSkKCnByaW50KCc9PT0g566x5bqt54mp6K+t5pys5Zyw55u05a2Y5bey5ZCv5YqoID09PScsIGZsdXNoPVRydWUpCnByaW50KCfmnKzlnLDkv53lrZjot6/lvoQ6Jywgcm9vdCwgZmx1c2g9VHJ1ZSkKcHJpbnQoJ+ebkeWQrOWcsOWdgDogaHR0cDovLzEyNy4wLjAuMTo4NzY1JywgZmx1c2g9VHJ1ZSkKUygoJzAuMC4wLjAnLCA4NzY1KSwgSCkuc2VydmVfZm9yZXZlcigpCg== | base64 -d | python3 -u</textarea>
+              <textarea id="termux-local-bridge-cmd" class="moe-input" style="min-height:74px;font-size:11px;font-family:monospace;flex:1;" readonly></textarea>
               <button type="button" class="moe-btn" onclick="copyTermuxLocalBridgeCmd()">复制</button>
             </div>
           </div>
-          <div id="local-bridge-status-box" style="font-size:12px;color:var(--text-secondary);padding:10px;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:8px;">在 Termux 运行上方命令后点右上角检测或同步即可将全部图片与配音写入手机本地下载目录 HakoniwaData，点清理可一键删除未启用的旧图片释放空间</div>
+          <div id="local-bridge-status-box" style="font-size:12px;color:var(--text-secondary);padding:10px;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:8px;">在 Termux 运行上方命令后点右上角检测或同步即可将全部图片与配音写入 Termux 内部私密目录，点隐图与清理可彻底清空相册残留与未启用旧图</div>
         </div>
       </div>
     </section>
@@ -5124,13 +5124,24 @@
         rawRel = noQuery.slice(baseUrl.length + 1);
       } else if (noQuery.startsWith('/local-assets/')) {
         rawRel = noQuery.slice('/local-assets/'.length);
+      } else {
+        const m = noQuery.match(/^https?:\/\/[^/]+\/(.+)$/);
+        if (m && (noQuery.includes(':8765/') || noQuery.includes('/local-assets/'))) {
+          rawRel = m[1].replace(/^local-assets\//, '');
+        }
       }
       if (!rawRel) return '';
+      let decoded = rawRel;
       try {
-        return rawRel.split('/').map((s) => decodeURIComponent(s)).join('/').replace(/^\/+/, '');
+        decoded = rawRel.split('/').map((s) => decodeURIComponent(s)).join('/').replace(/^\/+/, '');
       } catch (_) {
-        return rawRel.replace(/^\/+/, '');
+        decoded = rawRel.replace(/^\/+/, '');
       }
+      return decoded.endsWith('.hknw') ? decoded.slice(0, -5) : decoded;
+    }
+
+    function isRealNonSvgAsset(u) {
+      return typeof u === 'string' && u.length > 5 && !u.startsWith('data:image/svg+xml');
     }
 
     async function cleanupUnusedAssetsUI(silentMode = false) {
@@ -5138,13 +5149,23 @@
       const baseUrl = getLocalBridgeBaseUrl();
       let dbCleanedCount = 0;
 
+      if (!silentMode) {
+        if (statusBox) statusBox.textContent = '正在扫描并清理所有未启用、已淘汰、被替换的历史残留图片与冗余未抠底原图...';
+        await syncAllAssetsToLocalBridgeUI(true).catch(() => {});
+      }
+
+      if (db?.characters) appState.characters = await db.characters.toArray();
+      if (db?.replayProjects) appState.replayProjects = await db.replayProjects.toArray();
+      if (db?.furnitures) appState.furnitures = await db.furnitures.toArray();
+      if (db?.foods) appState.foods = await db.foods.toArray();
+
       for (const c of (appState.characters || [])) {
         let changed = false;
         const validActNames = new Set((getCharActionList(c) || []).map((a) => a.name));
         validActNames.add('默认');
         if (c.tachieExpressions && typeof c.tachieExpressions === 'object') {
           for (const k of Object.keys(c.tachieExpressions)) {
-            if (!validActNames.has(k) || !c.tachieExpressions[k]) {
+            if (!validActNames.has(k) || !isRealNonSvgAsset(c.tachieExpressions[k])) {
               evictAssetFromMemoryCaches(c.tachieExpressions[k]);
               delete c.tachieExpressions[k];
               changed = true;
@@ -5152,9 +5173,15 @@
             }
           }
         }
+        if (c.tachieExpressions && isRealNonSvgAsset(c.tachieExpressions['默认']) && c.tachieBase !== c.tachieExpressions['默认']) {
+          evictAssetFromMemoryCaches(c.tachieBase);
+          c.tachieBase = c.tachieExpressions['默认'];
+          changed = true;
+        }
         if (c.tachieRawExpressions && typeof c.tachieRawExpressions === 'object') {
           for (const k of Object.keys(c.tachieRawExpressions)) {
-            if (!validActNames.has(k) || !c.tachieRawExpressions[k]) {
+            const hasActiveCutout = Boolean(c.tachieExpressions && isRealNonSvgAsset(c.tachieExpressions[k]));
+            if (!silentMode || !validActNames.has(k) || !hasActiveCutout || !isRealNonSvgAsset(c.tachieRawExpressions[k])) {
               evictAssetFromMemoryCaches(c.tachieRawExpressions[k]);
               delete c.tachieRawExpressions[k];
               changed = true;
@@ -5162,14 +5189,44 @@
             }
           }
         }
+        if (!silentMode) {
+          ['chibiRawImg', 'chibiAlignedRawImg'].forEach((rawKey) => {
+            if (c[rawKey]) {
+              evictAssetFromMemoryCaches(c[rawKey]);
+              c[rawKey] = '';
+              changed = true;
+              dbCleanedCount += 1;
+            }
+          });
+          ['chibiPoseRawImgs', 'chibiPoseAlignedRawImgs'].forEach((rawStoreKey) => {
+            if (c[rawStoreKey] && typeof c[rawStoreKey] === 'object' && Object.keys(c[rawStoreKey]).length > 0) {
+              Object.values(c[rawStoreKey]).forEach((u) => evictAssetFromMemoryCaches(u));
+              c[rawStoreKey] = {};
+              changed = true;
+              dbCleanedCount += 1;
+            }
+          });
+        }
         if (changed) {
           await db.characters.put(c);
         }
       }
 
+      if (!silentMode) {
+        for (const f of (appState.furnitures || [])) {
+          if (f.rawImg) {
+            evictAssetFromMemoryCaches(f.rawImg);
+            f.rawImg = '';
+            await db.furnitures.put(f);
+            dbCleanedCount += 1;
+          }
+        }
+      }
+
       const activePaths = new Set(['.nomedia', 'characters/.nomedia', 'styles/.nomedia', 'scenes/.nomedia', 'cgs/.nomedia']);
-      const collectUrl = (u) => {
-        const rel = extractRelativeAssetPath(u, baseUrl);
+      const collectUrl = (u, fallbackRel = '') => {
+        if (!isRealNonSvgAsset(u)) return;
+        const rel = extractRelativeAssetPath(u, baseUrl) || fallbackRel;
         if (rel) {
           activePaths.add(rel);
           const dirParts = rel.split('/');
@@ -5182,69 +5239,95 @@
       for (const c of (appState.characters || [])) {
         const safeName = (c.name || c.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
         activePaths.add(`characters/${safeName}/.nomedia`);
-        collectUrl(c.profileAvatar);
-        collectUrl(c.stageBustAvatar);
-        collectUrl(c.tachieBase);
-        collectUrl(c.charLockImg);
-        if (c.tachieBase) activePaths.add(`characters/${safeName}/base.png`);
-        if (c.charLockImg) activePaths.add(`characters/${safeName}/lock.png`);
-        if (c.profileAvatar) activePaths.add(`characters/${safeName}/profile_avatar.png`);
-        if (c.stageBustAvatar) activePaths.add(`characters/${safeName}/stage_bust.png`);
+        collectUrl(c.profileAvatar, `characters/${safeName}/profile_avatar.png`);
+        collectUrl(c.stageBustAvatar, `characters/${safeName}/stage_bust.png`);
+        collectUrl(c.tachieBase, c.tachieExpressions?.['默认'] ? `characters/${safeName}/默认.png` : `characters/${safeName}/base.png`);
+        collectUrl(c.charLockImg, `characters/${safeName}/lock.png`);
         Object.entries(c.tachieExpressions || {}).forEach(([exp, u]) => {
-          collectUrl(u);
           const safeExp = String(exp).replace(/[\\/:*?"<>|]/g, '_');
-          activePaths.add(`characters/${safeName}/${safeExp}.png`);
+          collectUrl(u, `characters/${safeName}/${safeExp}.png`);
         });
-        Object.entries(c.tachieRawExpressions || {}).forEach(([exp, u]) => {
-          collectUrl(u);
-          const safeExp = String(exp).replace(/[\\/:*?"<>|]/g, '_');
-          activePaths.add(`characters/${safeName}/raw_${safeExp}.png`);
+        if (silentMode) {
+          Object.entries(c.tachieRawExpressions || {}).forEach(([exp, u]) => {
+            const safeExp = String(exp).replace(/[\\/:*?"<>|]/g, '_');
+            collectUrl(u, `characters/${safeName}/raw_${safeExp}.png`);
+          });
+        }
+        const chibiKeepFields = silentMode
+          ? ['chibiImg', 'chibiRawImg', 'chibiAlignedRawImg', 'chibiBackImg', 'chibiSideImg', 'chibiRightImg', 'chibiSeatedImg']
+          : ['chibiImg', 'chibiBackImg', 'chibiSideImg', 'chibiRightImg', 'chibiSeatedImg'];
+        chibiKeepFields.forEach((fKey) => {
+          collectUrl(c[fKey], `characters/${safeName}/${fKey}.png`);
         });
-        ['chibiImg', 'chibiRawImg', 'chibiAlignedRawImg', 'chibiBackImg', 'chibiSideImg', 'chibiRightImg', 'chibiSeatedImg'].forEach((fKey) => {
-          if (c[fKey]) {
-            collectUrl(c[fKey]);
-            activePaths.add(`characters/${safeName}/${fKey}.png`);
-          }
-        });
-        ['chibiPoseImgs', 'chibiPoseRawImgs', 'chibiPoseAlignedRawImgs'].forEach((sKey) => {
+        const chibiPoseStores = silentMode
+          ? ['chibiPoseImgs', 'chibiPoseRawImgs', 'chibiPoseAlignedRawImgs']
+          : ['chibiPoseImgs'];
+        chibiPoseStores.forEach((sKey) => {
           if (c[sKey] && typeof c[sKey] === 'object') {
             Object.entries(c[sKey]).forEach(([pKey, u]) => {
-              if (u) {
-                collectUrl(u);
-                activePaths.add(`characters/${safeName}/${sKey}_${pKey}.png`);
-              }
+              collectUrl(u, `characters/${safeName}/${sKey}_${pKey}.png`);
             });
           }
         });
       }
 
       for (const proj of (appState.replayProjects || [])) {
-        (proj.globalScenes || []).forEach((gsc) => collectUrl(gsc.imageUrl));
+        const safeProj = (proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
+        (proj.globalScenes || []).forEach((gsc) => {
+          if (gsc && gsc.imageUrl) collectUrl(gsc.imageUrl, `projects/${safeProj}/scenes/${gsc.id}.png`);
+        });
         (proj.chapters || []).forEach((ch) => {
-          (ch.scenes || []).forEach((sc) => collectUrl(sc.imageUrl));
+          (ch.scenes || []).forEach((sc) => {
+            if (sc && sc.imageUrl) collectUrl(sc.imageUrl, `projects/${safeProj}/scenes/${sc.id}.png`);
+          });
           (ch.cgNodes || []).forEach((cg) => {
-            collectUrl(cg.imageUrl);
-            collectUrl(cg.customPadImg);
+            if (cg && cg.imageUrl) collectUrl(cg.imageUrl, `projects/${safeProj}/cgs/${cg.id}.png`);
+            if (cg && cg.customPadImg) collectUrl(cg.customPadImg, `projects/${safeProj}/cgs/pad_${cg.id}.png`);
           });
         });
       }
 
-      (appState.styleRefList || []).forEach((item) => collectUrl(item?.base64));
+      (appState.styleRefList || []).forEach((item, idx) => {
+        if (item?.base64) collectUrl(item.base64, `styles/active_ref_${item.id || idx}.png`);
+      });
       const stylePresetList = await db.styles.toArray();
-      stylePresetList.forEach((sp) => (sp.refs || []).forEach((r) => collectUrl(r?.base64)));
+      stylePresetList.forEach((sp) => {
+        const safeSp = String(sp.name || sp.id || 'style').replace(/[\\/:*?"<>|]/g, '_');
+        (sp.refs || []).forEach((r, idx) => {
+          if (r?.base64) collectUrl(r.base64, `styles/${safeSp}_${idx + 1}.png`);
+        });
+      });
       const mapList = await db.maps.toArray();
       mapList.forEach((m) => {
-        collectUrl(m.bgDataUrl);
-        collectUrl(m.tableSurfaceUrl);
+        const safeMapId = String(m.id || 'map').replace(/[\\/:*?"<>|]/g, '_');
+        collectUrl(m.bgDataUrl, `maps/${safeMapId}.png`);
+        collectUrl(m.tableSurfaceUrl, `maps/${safeMapId}_table.png`);
       });
       (appState.furnitures || []).forEach((f) => {
-        collectUrl(f.img);
-        collectUrl(f.rawImg);
-        collectUrl(f.spriteUrl);
+        const safeFId = String(f.id || 'furn').replace(/[\\/:*?"<>|]/g, '_');
+        collectUrl(f.img, `furnitures/${safeFId}.png`);
+        if (silentMode) collectUrl(f.rawImg, `furnitures/${safeFId}_raw.png`);
+        collectUrl(f.spriteUrl, `furnitures/${safeFId}.png`);
       });
-      (appState.foods || []).forEach((fd) => collectUrl(fd.img));
+      (appState.foods || []).forEach((fd) => {
+        const safeFdId = String(fd.id || 'food').replace(/[\\/:*?"<>|]/g, '_');
+        collectUrl(fd.img, `foods/${safeFdId}.png`);
+      });
       const ttsList = await db.ttsCache.toArray();
-      ttsList.forEach((item) => collectUrl(item.audioDataUrl));
+      ttsList.forEach((item) => {
+        const safeId = String(item.id || 'tts').replace(/[\\/:*?"<>|]/g, '_');
+        collectUrl(item.audioDataUrl, `audio/${safeId}.mp3`);
+      });
+      if (typeof getCustomAppIconsConfig === 'function') {
+        const iconCfg = getCustomAppIconsConfig() || {};
+        Object.entries(iconCfg).forEach(([appKey, info]) => {
+          if (info?.iconUrl) collectUrl(info.iconUrl, `theme/icon_${appKey}.png`);
+        });
+      }
+      ['homeBg', 'chatBg', 'homeAvatar'].forEach((bgKey) => {
+        const bgVal = localStorage.getItem(`custom-bg-${bgKey}`) || '';
+        if (bgVal) collectUrl(bgVal);
+      });
 
       const activePathsArr = Array.from(activePaths);
       let diskRemovedCount = 0;
@@ -5276,7 +5359,7 @@
       } catch (_) {}
 
       if (!silentMode && statusBox) {
-        statusBox.textContent = `清理完成！已自动删除 ${diskRemovedCount} 个未启用的历史残留本地文件与 ${dbCleanedCount} 条失效差分记录，所有正在使用的立绘均已保留最新覆盖版本。`;
+        statusBox.textContent = `清理完成！已自动删除 ${diskRemovedCount} 个未启用或被替换的历史本地图片文件与 ${dbCleanedCount} 条冗余原图记录，所有正在使用的立绘与CG均已保留最新版本。`;
       }
       return diskRemovedCount + dbCleanedCount;
     }
@@ -5318,20 +5401,25 @@
       const pyScript = [
         "import os, shutil, subprocess, json, base64, urllib.parse, mimetypes, http.server, socketserver",
         "candidates = [",
-        "    os.path.expanduser('~/storage/shared/Download/.HakoniwaVault'),",
-        "    os.path.expanduser('~/storage/shared/.HakoniwaVault'),",
-        "    '/sdcard/Download/.HakoniwaVault',",
-        "    '/sdcard/.HakoniwaVault',",
-        "    os.path.expanduser('~/.HakoniwaVault')",
+        "    os.path.expanduser('~/.HakoniwaVault'),",
+        "    '/data/data/com.termux/files/home/.HakoniwaVault'",
         "]",
         "legacy_dirs = [",
         "    os.path.expanduser('~/storage/shared/Download/HakoniwaData'),",
         "    os.path.expanduser('~/storage/shared/HakoniwaData'),",
         "    '/sdcard/Download/HakoniwaData',",
         "    '/sdcard/HakoniwaData',",
+        "    '/storage/emulated/0/Download/HakoniwaData',",
+        "    '/storage/emulated/0/HakoniwaData',",
+        "    os.path.expanduser('~/storage/shared/Download/.HakoniwaVault'),",
+        "    os.path.expanduser('~/storage/shared/.HakoniwaVault'),",
+        "    '/sdcard/Download/.HakoniwaVault',",
+        "    '/sdcard/.HakoniwaVault',",
+        "    '/storage/emulated/0/Download/.HakoniwaVault',",
+        "    '/storage/emulated/0/.HakoniwaVault',",
         "    os.path.expanduser('~/HakoniwaData')",
         "]",
-        "root = candidates[-1]",
+        "root = candidates[0]",
         "for c in candidates:",
         "    try:",
         "        os.makedirs(c, exist_ok=True)",
@@ -5343,6 +5431,14 @@
         "    except Exception:",
         "        pass",
         "",
+        "def to_disk_path(fp):",
+        "    if fp.endswith(('.nomedia', '.wt', '.hknw')):",
+        "        return fp",
+        "    return fp + '.hknw'",
+        "",
+        "def strip_disk_suffix(rel):",
+        "    return rel[:-5] if rel.endswith('.hknw') else rel",
+        "",
         "def ensure_nomedia(d):",
         "    try:",
         "        os.makedirs(d, exist_ok=True)",
@@ -5352,50 +5448,72 @@
         "    except Exception:",
         "        pass",
         "",
+        "def refresh_android_mediastore(scan_dirs):",
+        "    cmds = [",
+        "        ['content', 'delete', '--uri', 'content://media/external/images/media', '--where', \"_data LIKE '%Hakoniwa%'\"],",
+        "        ['content', 'delete', '--uri', 'content://media/external/files', '--where', \"_data LIKE '%Hakoniwa%'\"]",
+        "    ]",
+        "    for sd in scan_dirs:",
+        "        if not sd: continue",
+        "        cmds.append(['termux-media-scan', '-r', sd])",
+        "        cmds.append(['am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', 'file://' + sd])",
+        "    for cmd in cmds:",
+        "        try: subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)",
+        "        except Exception: pass",
+        "",
         "def migrate_and_hide_gallery():",
         "    ensure_nomedia(root)",
         "    moved = 0",
         "    seen = set()",
+        "    scan_targets = set()",
         "    for old_d in legacy_dirs:",
         "        try:",
+        "            if not os.path.exists(old_d): continue",
         "            rp = os.path.realpath(old_d)",
         "            if rp in seen or not os.path.isdir(old_d) or rp == os.path.realpath(root):",
         "                continue",
         "            seen.add(rp)",
+        "            scan_targets.add(old_d)",
+        "            scan_targets.add(os.path.dirname(old_d))",
         "            for dp, dn, fn in os.walk(old_d, topdown=False):",
         "                rel_dir = os.path.relpath(dp, old_d)",
         "                dst_dir = root if rel_dir == '.' else os.path.join(root, rel_dir)",
         "                ensure_nomedia(dst_dir)",
         "                for f in fn:",
         "                    src_f = os.path.join(dp, f)",
-        "                    dst_f = os.path.join(dst_dir, f)",
         "                    if f in ('.wt', '.nomedia'):",
         "                        try: os.remove(src_f)",
         "                        except Exception: pass",
         "                        continue",
+        "                    dst_f = to_disk_path(os.path.join(dst_dir, f))",
         "                    try:",
         "                        if os.path.exists(dst_f):",
         "                            os.remove(dst_f)",
-        "                        shutil.move(src_f, dst_f)",
+        "                        shutil.copy2(src_f, dst_f)",
+        "                        os.remove(src_f)",
         "                        moved += 1",
         "                    except Exception:",
         "                        try:",
-        "                            shutil.copy2(src_f, dst_f)",
-        "                            os.remove(src_f)",
+        "                            shutil.move(src_f, dst_f)",
         "                            moved += 1",
         "                        except Exception: pass",
-        "            shutil.rmtree(old_d, ignore_errors=True)",
-        "            for cmd in (",
-        "                ['am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', 'file://' + old_d],",
-        "                ['am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', 'file://' + os.path.dirname(old_d)],",
-        "                ['termux-media-scan', '-r', os.path.dirname(old_d)]",
-        "            ):",
-        "                try: subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)",
+        "                try: os.rmdir(dp)",
         "                except Exception: pass",
+        "            shutil.rmtree(old_d, ignore_errors=True)",
         "        except Exception:",
         "            pass",
         "    for dp, dn, fn in os.walk(root):",
         "        ensure_nomedia(dp)",
+        "        for f in fn:",
+        "            if f in ('.wt', '.nomedia') or f.endswith('.hknw'): continue",
+        "            full = os.path.join(dp, f)",
+        "            try:",
+        "                hfull = full + '.hknw'",
+        "                if os.path.exists(hfull): os.remove(hfull)",
+        "                os.rename(full, hfull)",
+        "                moved += 1",
+        "            except Exception: pass",
+        "    refresh_android_mediastore(list(scan_targets) + ['/sdcard/Download', '/sdcard'])",
         "    return moved",
         "",
         "migrate_and_hide_gallery()",
@@ -5426,13 +5544,18 @@
         "            s._cors()",
         "            s.send_header('Content-Type', 'application/json; charset=utf-8')",
         "            s.end_headers()",
-        "            s.wfile.write(json.dumps({'ok': True, 'service': 'hakoniwa-local-bridge', 'root': root}).encode('utf-8'))",
+        "            s.wfile.write(json.dumps({'ok': True, 'service': 'hakoniwa-local-bridge', 'version': 3, 'root': root}).encode('utf-8'))",
         "            return",
-        "        rel = urllib.parse.unquote(p).lstrip('/')",
+        "        rel = strip_disk_suffix(urllib.parse.unquote(p).lstrip('/'))",
         "        fp = os.path.abspath(os.path.join(root, rel))",
-        "        if fp.startswith(os.path.abspath(root)) and os.path.isfile(fp):",
-        "            mt = mimetypes.guess_type(fp)[0] or 'application/octet-stream'",
-        "            data = open(fp, 'rb').read()",
+        "        dfp = to_disk_path(fp)",
+        "        target_fp = dfp if os.path.isfile(dfp) else (fp if os.path.isfile(fp) else '')",
+        "        if target_fp and target_fp.startswith(os.path.abspath(root)):",
+        "            mt = mimetypes.guess_type(rel)[0] or 'image/png'",
+        "            data = open(target_fp, 'rb').read()",
+        "            if target_fp == fp and fp != dfp:",
+        "                try: os.rename(fp, dfp)",
+        "                except Exception: pass",
         "            s.send_response(200)",
         "            s._cors()",
         "            s.send_header('Content-Type', mt)",
@@ -5449,23 +5572,22 @@
         "            n = int(s.headers.get('Content-Length', '0'))",
         "            d = json.loads(s.rfile.read(n).decode('utf-8')) if n > 0 else {}",
         "            if s.path.startswith('/hide-gallery'):",
-        "                m_cnt = migrate_old_dirs(root)",
-        "                ensure_nomedia(root)",
-        "                scan_media([root] + old_candidates)",
+        "                m_cnt = migrate_and_hide_gallery()",
         "                s.send_response(200)",
         "                s._cors()",
         "                s.send_header('Content-Type', 'application/json; charset=utf-8')",
         "                s.end_headers()",
-        "                s.wfile.write(json.dumps({'ok': True, 'root': root, 'migratedCount': m_cnt}).encode('utf-8'))",
+        "                s.wfile.write(json.dumps({'ok': True, 'version': 3, 'root': root, 'migratedCount': m_cnt}).encode('utf-8'))",
         "                return",
         "            if s.path.startswith('/cleanup'):",
-        "                act = set(str(x).split('?')[0].lstrip('/').replace('..', '_') for x in d.get('activePaths', []))",
+        "                migrate_and_hide_gallery()",
+        "                act = set(strip_disk_suffix(str(x).split('?')[0].lstrip('/').replace('..', '_')) for x in d.get('activePaths', []))",
         "                rm = 0",
         "                for dpath, dnames, fnames in os.walk(root, topdown=False):",
         "                    for fn in fnames:",
         "                        if fn in ('.wt', '.nomedia'): continue",
         "                        full = os.path.join(dpath, fn)",
-        "                        relp = os.path.relpath(full, root).replace('\\\\', '/')",
+        "                        relp = strip_disk_suffix(os.path.relpath(full, root).replace('\\\\', '/'))",
         "                        if relp not in act:",
         "                            try:",
         "                                os.remove(full)",
@@ -5484,25 +5606,29 @@
         "                s._cors()",
         "                s.send_header('Content-Type', 'application/json; charset=utf-8')",
         "                s.end_headers()",
-        "                s.wfile.write(json.dumps({'ok': True, 'removedCount': rm}).encode('utf-8'))",
+        "                s.wfile.write(json.dumps({'ok': True, 'version': 3, 'removedCount': rm}).encode('utf-8'))",
         "                return",
-        "            rel = str(d.get('path', 'file.bin')).split('?')[0].lstrip('/').replace('..', '_')",
+        "            rel = strip_disk_suffix(str(d.get('path', 'file.bin')).split('?')[0].lstrip('/').replace('..', '_'))",
         "            fp = os.path.abspath(os.path.join(root, rel))",
+        "            dfp = to_disk_path(fp)",
         "            ensure_nomedia(root)",
-        "            ensure_nomedia(os.path.dirname(fp))",
+        "            ensure_nomedia(os.path.dirname(dfp))",
         "            raw = str(d.get('dataUrl', ''))",
         "            b64 = raw.split(',', 1)[1] if ',' in raw else raw",
         "            buf = base64.b64decode(b64) if b64 else b''",
-        "            open(fp, 'wb').write(buf)",
+        "            open(dfp, 'wb').write(buf)",
+        "            if dfp != fp and os.path.exists(fp):",
+        "                try: os.remove(fp)",
+        "                except Exception: pass",
         "            if not rel.endswith('.nomedia'):",
-        "                print('已存本地:', rel, len(buf) // 1024, 'KB', flush=True)",
+        "                print('已存私密空间:', rel, len(buf) // 1024, 'KB', flush=True)",
         "            enc = '/'.join(urllib.parse.quote(x) for x in rel.split('/'))",
         "            h = s.headers.get('Host') or '127.0.0.1:8765'",
         "            s.send_response(200)",
         "            s._cors()",
         "            s.send_header('Content-Type', 'application/json; charset=utf-8')",
         "            s.end_headers()",
-        "            s.wfile.write(json.dumps({'ok': True, 'url': 'http://' + h + '/' + enc, 'path': fp, 'root': root}).encode('utf-8'))",
+        "            s.wfile.write(json.dumps({'ok': True, 'url': 'http://' + h + '/' + enc, 'path': dfp, 'root': root}).encode('utf-8'))",
         "        except Exception as e:",
         "            s.send_response(500)",
         "            s._cors()",
@@ -5510,9 +5636,9 @@
         "            s.end_headers()",
         "            s.wfile.write(json.dumps({'ok': False, 'error': str(e)}).encode('utf-8'))",
         "",
-        "print('=== 箱庭物语本地直存已启动 ===', flush=True)",
-        "print('本地隐藏根目录:', root, flush=True)",
-        "print('已自动迁移旧图片至隐藏目录并触发相册刷新，软件内显示完全不受影响', flush=True)",
+        "print('=== 箱庭物语本地无损私密直存 V3 已启动 ===', flush=True)",
+        "print('Termux内部私密根目录:', root, flush=True)",
+        "print('已将SD卡旧相册与新相册全部移入Termux内部私密空间并转化为.hknw防扫描格式，手机相册不再显示任何相册', flush=True)",
         "print('服务地址: http://127.0.0.1:8765', flush=True)",
         "S(('0.0.0.0', 8765), H).serve_forever()",
         ""
@@ -5531,7 +5657,7 @@
         document.execCommand('copy');
       });
       if (statusBox) {
-        statusBox.textContent = '已复制新版 Termux 启动命令！运行后将自动把之前保存的旧图片迁入隐藏目录并从手机相册移除，软件内显示完全不受影响。';
+        statusBox.textContent = '已复制新版 Termux 启动命令！去 Termux 粘贴回车运行后，旧文件夹与新文件夹中的全部图片都会移入 Termux 内部私密空间并彻底从手机相册消失，软件内显示完全不受影响。';
       }
     }
 
@@ -5539,13 +5665,17 @@
       const ta = document.getElementById('termux-local-bridge-cmd');
       if (ta) ta.value = buildTermuxLocalBridgeCommandString();
       const statusBox = document.getElementById('local-bridge-status-box');
-      if (statusBox) statusBox.textContent = '正在将以前储存的图片迁入隐藏目录并通知手机相册刷新移除...';
+      if (statusBox) statusBox.textContent = '正在将以前储存的图片与新建相册全部移入私密空间，并同步清理未启用的旧图片...';
       await ensureLocalBridgeNoMediaForRelPath('characters/init.png').catch(() => {});
-      let done = false;
+      let termuxAlive = false;
+      let termuxUpgraded = false;
+      let serverDone = false;
       let migrated = 0;
       let rootPath = '';
       const baseUrl = getLocalBridgeBaseUrl();
-      if (await checkLocalBridgeEndpointAlive(baseUrl)) {
+      const termuxInfo = await checkLocalBridgeEndpointAlive(baseUrl);
+      if (termuxInfo) {
+        termuxAlive = true;
         try {
           const resp = await fetch(`${baseUrl}/hide-gallery`, {
             method: 'POST',
@@ -5553,9 +5683,9 @@
             body: JSON.stringify({})
           });
           const data = await resp.json().catch(() => ({}));
-          if (resp.ok && data && data.ok) {
-            done = true;
-            migrated = Number(data.migratedCount) || 0;
+          if (resp.ok && data && data.ok && !String(data.root || '').includes('/sdcard') && !String(data.root || '').includes('/storage/shared')) {
+            termuxUpgraded = true;
+            migrated += Number(data.migratedCount) || 0;
             rootPath = data.root || '';
           }
         } catch (_) {}
@@ -5568,16 +5698,21 @@
         });
         const data2 = await resp2.json().catch(() => ({}));
         if (resp2.ok && data2 && data2.ok) {
-          done = true;
+          serverDone = true;
           migrated += Number(data2.migratedCount) || 0;
           if (!rootPath) rootPath = data2.root || '';
         }
       } catch (_) {}
+      const cleanedCount = await cleanupUnusedAssetsUI(true).catch(() => 0);
       if (statusBox) {
-        if (done) {
-          statusBox.textContent = `相册隐图完成！已将 ${migrated} 个历史图片文件迁入隐藏目录 ${rootPath || '.HakoniwaVault'} 并通知手机相册清除缩略图，软件内立绘与CG显示完全不变。`;
+        if (termuxAlive && !termuxUpgraded) {
+          copyTermuxLocalBridgeCmd();
+          statusBox.textContent = `已自动清理 ${cleanedCount} 个未启用旧图，并已为您自动复制最新 Termux 命令！因手机后台仍在运行旧版脚本，请切换到 Termux 粘贴回车运行一次，即可将手机相册里的旧相册与新相册彻底移入内部私密空间并从相册消失。`;
+        } else if (termuxUpgraded || serverDone) {
+          statusBox.textContent = `相册隐图与清理完成！已将 ${migrated} 个图片迁入内部私密空间 ${rootPath || '~/.HakoniwaVault'} 转化为防扫描格式，同时清理了 ${cleanedCount} 个淘汰旧图，手机相册不再显示任何相册，软件内显示完全不变。`;
         } else {
-          statusBox.textContent = '已发送防相册扫描标记。若手机相册仍有旧图片，请点上方复制按钮并在 Termux 重新运行一次最新启动命令，即可自动迁移旧文件夹并从相册彻底消失。';
+          copyTermuxLocalBridgeCmd();
+          statusBox.textContent = '已自动复制新版 Termux 启动命令！请切换到 Termux 粘贴回车运行一次，即可自动将手机相册中的旧文件夹与新建相册全部移入私密空间并彻底从相册消失。';
         }
       }
     }
@@ -5591,18 +5726,26 @@
       ensureLocalBridgeNoMediaForRelPath('characters/init.png').catch(() => {});
       const termuxInfo = await checkLocalBridgeEndpointAlive(baseUrl);
       if (termuxInfo) {
+        const isOldPublicRoot = String(termuxInfo.root || '').includes('/sdcard') || String(termuxInfo.root || '').includes('/storage/shared') || !termuxInfo.version;
         if (statusBox) {
-          statusBox.textContent = `连接手机 Termux 成功！本地保存目录：${termuxInfo.root || 'HakoniwaData'}，正在自动将现有图片与语音同步写入手机本地并释放内存...`;
+          statusBox.textContent = isOldPublicRoot
+            ? `已连接 Termux，但检测到当前后台仍是旧版公开目录 ${termuxInfo.root}。已为您复制新版命令，请去 Termux 粘贴回车升级为内部私密空间后再点同步！`
+            : `连接手机 Termux V3 私密空间成功！保存目录：${termuxInfo.root}，正在自动同步最新图片并清理淘汰旧图...`;
         }
-        await syncAllAssetsToLocalBridgeUI();
+        if (isOldPublicRoot) {
+          copyTermuxLocalBridgeCmd();
+        }
+        await syncAllAssetsToLocalBridgeUI(isOldPublicRoot);
+        await cleanupUnusedAssetsUI(true).catch(() => {});
         return;
       }
       const serverInfo = await checkLocalBridgeEndpointAlive('/api/local-assets');
       if (serverInfo) {
         if (statusBox) {
-          statusBox.textContent = `未检测到 8765 端口 Termux 服务，但已启用内置本地磁盘缓存目录 ${serverInfo.root}。如需直接存到手机下载目录，请重新复制上方新版命令到 Termux 运行后再点同步。`;
+          statusBox.textContent = `未检测到 8765 端口 Termux 服务，已启用内置私密磁盘目录 ${serverInfo.root}。如需存入手机 Termux 私密空间，请点复制按钮将命令粘贴到 Termux 运行。`;
         }
         await syncAllAssetsToLocalBridgeUI();
+        await cleanupUnusedAssetsUI(true).catch(() => {});
         return;
       }
       if (statusBox) {
@@ -6627,10 +6770,7 @@
             snapshotChar.tachieExpressions[snapshotExp] = savedExpUrl;
           }
           if (snapshotExp === '默认') {
-            const savedBaseUrl = await saveAssetToLocalBridge(`characters/${safeCharName}/base.png`, snapshotUrl);
-            if (snapshotChar.tachieBase === snapshotUrl) {
-              snapshotChar.tachieBase = savedBaseUrl;
-            }
+            snapshotChar.tachieBase = savedExpUrl;
           }
           await db.characters.put(snapshotChar);
         } catch (err) {
@@ -10456,10 +10596,9 @@ ZH: 修改后的纯客观中文服装配饰清单`
           if (thumbEl) thumbEl.innerHTML = `<img src="${toFastDisplayUrl(savedLockUrl)}" style="width:100%;height:100%;object-fit:cover;" />`;
           if (!charObj.tachieExpressions) charObj.tachieExpressions = {};
           if (!charObj.tachieRawExpressions) charObj.tachieRawExpressions = {};
-          const savedBaseUrl = await saveAssetToLocalBridge(`characters/${safeCharName}/base.png`, cleaned);
           const savedDefUrl = await saveAssetToLocalBridge(`characters/${safeCharName}/默认.png`, cleaned);
           const savedRawUrl = await saveAssetToLocalBridge(`characters/${safeCharName}/raw_默认.png`, appState.tachieAlignedRawDataUrl || dataUrl);
-          charObj.tachieBase = savedBaseUrl;
+          charObj.tachieBase = savedDefUrl;
           charObj.tachieExpressions['默认'] = savedDefUrl;
           charObj.tachieRawExpressions['默认'] = savedRawUrl;
           appState.tachieWorkingDataUrl = cleaned;
@@ -10623,10 +10762,9 @@ ZH: 修改后的纯客观中文服装配饰清单`
           charObj.tachieExpressions[targetExp] = savedExpUrl;
           charObj.tachieRawExpressions[targetExp] = savedRawUrl;
           if (targetExp === '默认' || !charObj.tachieBase) {
-            const savedBaseUrl = await saveAssetToLocalBridge(`characters/${safeCharName}/base.png`, cleaned);
-            charObj.tachieBase = savedBaseUrl;
+            charObj.tachieBase = savedExpUrl;
             if (!charObj.tachieExpressions['默认']) {
-              charObj.tachieExpressions['默认'] = savedBaseUrl;
+              charObj.tachieExpressions['默认'] = savedExpUrl;
               charObj.tachieRawExpressions['默认'] = savedRawUrl;
             }
             const normLock = await normalizeUploadedImageForNai(rawUrl, 1024);
@@ -10767,7 +10905,11 @@ ZH: 修改后的纯客观中文服装配饰清单`
         charObj.tachieExpressions[curExp] = savedExpUrl;
         appState.tachieWorkingDataUrl = savedExpUrl;
         if (curExp === '默认') {
-          charObj.tachieBase = await saveAssetToLocalBridge(`characters/${safeCharName}/base.png`, workingImg);
+          charObj.tachieBase = savedExpUrl;
+        }
+        if (charObj.tachieRawExpressions && charObj.tachieRawExpressions[curExp]) {
+          evictAssetFromMemoryCaches(charObj.tachieRawExpressions[curExp]);
+          delete charObj.tachieRawExpressions[curExp];
         }
       }
 
@@ -14575,7 +14717,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
       const reader = new FileReader();
       reader.onload = async (e) => {
         let finalUrl = await resizeUploadedImageDataUrl(e.target.result, 256, 'image/png');
-        finalUrl = await saveAssetToLocalBridge('theme', `icon_${appKey}.png`, finalUrl);
+        finalUrl = await saveAssetToLocalBridge(`theme/icon_${appKey}.png`, finalUrl);
         const cfg = getCustomAppIconsConfig();
         if (!cfg[appKey]) cfg[appKey] = {};
         cfg[appKey].iconUrl = finalUrl;
@@ -14596,7 +14738,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
         });
         const cleaned = await floodFillRemoveWhiteBg(dataUrl, 26, true, 1);
         const resized = await resizeUploadedImageDataUrl(cleaned, 256, 'image/png');
-        const finalUrl = await saveAssetToLocalBridge('theme', `icon_${appKey}.png`, resized);
+        const finalUrl = await saveAssetToLocalBridge(`theme/icon_${appKey}.png`, resized);
         const cfg = getCustomAppIconsConfig();
         if (!cfg[appKey]) cfg[appKey] = {};
         cfg[appKey].iconUrl = finalUrl;
@@ -14626,7 +14768,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
         const mime = targetType === 'homeAvatar' ? 'image/png' : 'image/jpeg';
         let compressed = await resizeUploadedImageDataUrl(e.target.result, maxDim, mime, 0.86);
         const ext = mime === 'image/png' ? 'png' : 'jpg';
-        compressed = await saveAssetToLocalBridge('theme', `bg_${targetType}.${ext}`, compressed);
+        compressed = await saveAssetToLocalBridge(`theme/bg_${targetType}.${ext}`, compressed);
         await saveAndApplyCustomBg(targetType, compressed);
       };
       reader.readAsDataURL(file);
@@ -17435,6 +17577,7 @@ SCENE_ITEM: 场景编号|2到5字简短场景名|NovelAI英文提示词|基底�
         });
       }
       await saveReplayProjectToDB(proj);
+      cleanupUnusedAssetsUI(true).catch(() => {});
       renderExtractedModuleScenesList();
       renderReplayCgStudio();
     }
@@ -19833,6 +19976,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         });
       }
       await saveReplayProjectToDB(proj);
+      cleanupUnusedAssetsUI(true).catch(() => {});
       renderReplayScriptEditor();
       renderReplayCgStudio();
     }
