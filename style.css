@@ -13,7 +13,7 @@
   --tukey-muted: #eff1f5;
   --tukey-danger: #e5484d;
   --tukey-success: #30a46c;
-  --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-sans: var(--custom-user-font, -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif);
 }
 
 * {
@@ -1558,15 +1558,18 @@ body.landscape-game-active #screen-theater.active {
   flex-direction: column;
   justify-content: space-between;
   user-select: none;
-  font-family: var(--custom-user-font, inherit);
+  font-family: var(--custom-user-font, var(--font-sans)) !important;
 }
 
+html,
 body,
+#phone-screen,
+#phone-screen *,
 input,
 textarea,
 select,
 button {
-  font-family: var(--custom-user-font, inherit);
+  font-family: var(--custom-user-font, var(--font-sans));
 }
 
 .vn-bg-layer {
@@ -1617,7 +1620,7 @@ button {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -62%;
+  bottom: -48%;
   top: 0;
   z-index: 5;
   display: flex;
@@ -1691,7 +1694,10 @@ button {
 
 .vn-cg-layer {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   width: 100%;
   height: 100%;
   z-index: 10;
@@ -1713,11 +1719,12 @@ button {
 }
 
 .vn-cg-layer img {
+  display: block;
   width: 100%;
   height: 100%;
   max-width: 100%;
   max-height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center center;
   cursor: pointer;
   transform: none;
@@ -2171,11 +2178,12 @@ button {
 }
 
 .vn-theater-wrapper > .modal > .modal-content {
-  width: 88% !important;
+  width: 92% !important;
   max-width: 780px !important;
+  height: 86% !important;
   max-height: 86% !important;
   margin: 0 !important;
-  padding: 18px 24px !important;
+  padding: 14px 18px !important;
   display: flex;
   flex-direction: column;
   border-radius: 14px;
@@ -2244,16 +2252,20 @@ button {
   display: flex !important;
   flex-direction: column !important;
   gap: 0 !important;
-  border-radius: 12px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--card-bg) 20%, transparent);
   background: color-mix(in srgb, var(--card-bg) 5%, transparent);
 }
 
 .vn-backlog-row {
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 14px 18px;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  min-height: 44px;
   border-radius: 0;
   background: transparent;
   border: none;
@@ -2274,13 +2286,13 @@ button {
 }
 
 .vn-backlog-speaker-col {
-  width: 96px;
+  width: 76px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
-  padding-right: 12px;
+  gap: 2px;
+  padding-right: 8px;
   border-right: 2px solid var(--accent-color);
 }
 
@@ -2289,11 +2301,11 @@ button {
 }
 
 .vn-backlog-speaker {
-  font-size: 13px;
+  font-size: 11.5px;
   font-weight: 800;
   color: var(--card-bg);
-  letter-spacing: 0.04em;
-  line-height: 1.35;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
   word-break: break-word;
 }
 
@@ -2303,10 +2315,10 @@ button {
 }
 
 .vn-backlog-seq {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
   color: color-mix(in srgb, var(--card-bg) 55%, transparent);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
 }
 
 .vn-backlog-center {
@@ -2315,12 +2327,11 @@ button {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding-top: 1px;
 }
 
 .vn-backlog-text {
-  font-size: 13.5px;
-  line-height: 1.75;
+  font-size: 12px;
+  line-height: 1.42;
   color: color-mix(in srgb, var(--card-bg) 94%, transparent);
   white-space: pre-wrap;
   word-break: break-word;
@@ -2335,20 +2346,30 @@ button {
 #theater-saveload-list {
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px !important;
+  gap: 10px !important;
   align-content: start;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+@media (max-width: 520px) {
+  #theater-saveload-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 .vn-save-slot-card {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 8px;
-  padding: 12px 14px;
-  border-radius: 12px;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
   background: color-mix(in srgb, var(--card-bg) 9%, transparent);
   border: 1px solid color-mix(in srgb, var(--card-bg) 22%, transparent);
-  min-height: 128px;
+  min-height: 108px;
   transition: border-color 0.18s ease, background 0.18s ease;
 }
 
@@ -2363,7 +2384,7 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding-bottom: 6px;
+  padding-bottom: 4px;
   border-bottom: 1px solid color-mix(in srgb, var(--card-bg) 14%, transparent);
 }
 
@@ -2371,7 +2392,7 @@ button {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.06em;
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: 6px;
   background: var(--accent-color);
   color: var(--card-bg);
@@ -2397,11 +2418,11 @@ button {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
 }
 
 .vn-save-slot-title {
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 800;
   color: var(--card-bg);
   white-space: nowrap;
@@ -2410,8 +2431,8 @@ button {
 }
 
 .vn-save-slot-preview {
-  font-size: 11.5px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.38;
   color: color-mix(in srgb, var(--card-bg) 78%, transparent);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -2425,17 +2446,19 @@ button {
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
-  padding-top: 6px;
+  padding-top: 5px;
   border-top: 1px dashed color-mix(in srgb, var(--card-bg) 14%, transparent);
+  flex-wrap: nowrap;
 }
 
 .vn-save-slot-btn {
-  height: 28px !important;
-  min-height: 28px !important;
-  padding: 0 10px !important;
+  height: 26px !important;
+  min-height: 26px !important;
+  padding: 0 8px !important;
   font-size: 11px !important;
-  border-radius: 8px !important;
+  border-radius: 7px !important;
   flex: 1;
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;

@@ -2520,11 +2520,11 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
 
           <div class="script-top-btn-grid" style="grid-template-columns:repeat(3, 1fr);">
             <button type="button" class="moe-btn" id="replay-gen-script-btn" onclick="generateCurrentChapterScriptViaAi()">整理</button>
+            <button type="button" class="moe-btn secondary" id="replay-ai-cg-opt-btn" onclick="aiOptimizeCurrentChapterCgNodes()">插图</button>
             <button type="button" class="moe-btn secondary" onclick="toggleScriptPromptEditor()">提示</button>
-            <button type="button" class="moe-btn" onclick="openTheaterForCurrentChapter()">播放</button>
             <button type="button" class="moe-btn secondary" id="replay-danmaku-btn" onclick="toggleDanmakuReviewPanel()">弹幕</button>
             <button type="button" class="moe-btn secondary" id="replay-typo-btn" onclick="toggleTypoReviewPanel()">错字</button>
-            <button type="button" class="moe-btn secondary" onclick="exportCurrentReplayProjectJson()">导出</button>
+            <button type="button" class="moe-btn" onclick="openTheaterForCurrentChapter()">播放</button>
           </div>
 
           <div id="replay-script-prompt-box" style="display:none;margin-top:8px;padding:10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
@@ -2817,7 +2817,7 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
               <span class="moe-card-title">剧情台词历史回看</span>
               <button type="button" class="moe-btn secondary" onclick="closeModal('theater-backlog-modal')">关闭</button>
             </div>
-            <div id="theater-backlog-list" style="display:flex;flex-direction:column;gap:8px;flex:1;overflow-y:auto;padding-right:4px;"></div>
+            <div id="theater-backlog-list"></div>
           </div>
         </div>
 
@@ -2870,11 +2870,11 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
             <div class="moe-card-header">
               <span class="moe-card-title" id="theater-saveload-modal-title">跨模组存档与读档</span>
               <div style="display:flex;gap:6px;">
-                <button type="button" class="moe-btn" id="theater-quick-new-save-btn" onclick="saveTheaterProgressSlot(-1)">新存</button>
+                <button type="button" class="moe-btn" id="theater-quick-new-save-btn" onclick="saveTheaterProgressSlot(-1, true)">新存</button>
                 <button type="button" class="moe-btn secondary" onclick="closeModal('theater-saveload-modal')">关闭</button>
               </div>
             </div>
-            <div id="theater-saveload-list" style="display:flex;flex-direction:column;gap:8px;flex:1;overflow-y:auto;padding-right:4px;"></div>
+            <div id="theater-saveload-list"></div>
           </div>
         </div>
       </div>
@@ -4984,8 +4984,9 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
 
       const rawNegativePrompt = options.negativePrompt || settings.default_negative;
       const hasRefImg = (Array.isArray(options.vibeImages) && options.vibeImages.length > 0) || Boolean(options.charRefImage && options.charRefImage.base64);
+      const isTachieCall = String(caller || '').includes('立绘');
       const negativePrompt = hasRefImg
-        ? `${rawNegativePrompt}, yellow tint, yellow background, warm color cast, sepia, oversaturated, color burn`
+        ? `yellow tint, warm color cast, yellow lighting, orange tint, sepia, oversaturated, color burn, burnt colors, yellow skin, yellow background, ${rawNegativePrompt}`
         : rawNegativePrompt;
       const styleRefEnabled = document.getElementById('tachie-enable-style-ref')
         ? document.getElementById('tachie-enable-style-ref').checked
@@ -5001,9 +5002,19 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
         : '';
       const qualityTags = settings.quality_toggle !== false ? (settings.quality_prompt || '') : '';
       const diffPromptBeforeBase = (options.diffPromptBeforeBase || '').trim();
-      const orderedCorePrompt = diffPromptBeforeBase
+      let orderedCorePrompt = diffPromptBeforeBase
         ? deduplicateFullNaiPrompt([diffPromptBeforeBase, prompt].filter(Boolean).join(', '))
         : prompt;
+      if (isTachieCall && hasRefImg) {
+        orderedCorePrompt = orderedCorePrompt
+          .replace(/\b(warm lighting|warm glow|warm light|warm tone|warm colors|yellow lighting|yellow light|golden hour|sunset lighting|amber light|sepia)\b\s*,?/gi, '')
+          .replace(/\bgentle warm smile\b/gi, 'gentle soft smile')
+          .replace(/\bwarm smile\b/gi, 'soft smile')
+          .replace(/\bwarm blush\b/gi, 'soft pink blush')
+          .replace(/,\s*,+/g, ', ')
+          .trim();
+        orderedCorePrompt = deduplicateFullNaiPrompt(`${orderedCorePrompt}, neutral white lighting, balanced colors`);
+      }
       const finalPrompt = [artist, orderedCorePrompt, qualityTags].filter(Boolean).join(', ');
       const preferredSeed = options.seed !== undefined ? Number(options.seed) : Number(settings.seed ?? -1);
       const usedSeed = (preferredSeed !== -1 && !isNaN(preferredSeed) && preferredSeed >= 0)
@@ -5014,7 +5025,7 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
       const commonParams = {
         width,
         height,
-        scale: options.scale ?? settings.cfg_scale ?? 5,
+        scale: options.scale ?? settings.cfg_scale ?? (isTachieCall && hasRefImg ? 4.6 : 5),
         sampler: options.sampler || settings.sampler || 'k_euler_ancestral',
         steps: options.steps || settings.steps || 28,
         seed: usedSeed,
@@ -5037,23 +5048,22 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
 
       if (Array.isArray(options.vibeImages) && options.vibeImages.length > 0) {
         const resolvedVibes = await Promise.all(options.vibeImages.map((v) => resolveImageToDataUrl(v.base64)));
-        const isTachieCall = String(caller || '').includes('立绘');
         commonParams.reference_image_multiple = resolvedVibes.map((b64) => b64.replace(/^data:image\/[^;]+;base64,/, ''));
         commonParams.reference_information_extracted_multiple = options.vibeImages.map((v) => {
           const rawInfo = Number(v.infoExtracted ?? 0.7);
-          return isTachieCall ? Math.min(0.65, rawInfo) : rawInfo;
+          return isTachieCall ? Math.min(0.6, rawInfo) : rawInfo;
         });
         commonParams.reference_strength_multiple = options.vibeImages.map((v) => {
           const rawStr = Number(v.strength ?? 0.45);
-          return isTachieCall ? Math.min(0.45, rawStr) : rawStr;
+          return isTachieCall ? Math.min(0.38, rawStr) : rawStr;
         });
       }
 
       if (options.charRefImage && options.charRefImage.base64 && (model.includes('nai-diffusion-4') || model.includes('nai-diffusion-5'))) {
         const normalizedCharUrl = await normalizeImageForNovelAiRef(options.charRefImage.base64);
         const cleanCharB64 = normalizedCharUrl.replace(/^data:image\/[^;]+;base64,/, '');
-        const cStrength = Math.max(0.05, Math.min(1, Number(options.charRefImage.strength ?? 0.58)));
-        const cFidelity = Math.max(0.05, Math.min(1, Number(options.charRefImage.fidelity ?? 0.72)));
+        const cStrength = Math.max(0.05, Math.min(1, Number(options.charRefImage.strength ?? 0.52)));
+        const cFidelity = Math.max(0.05, Math.min(1, Number(options.charRefImage.fidelity ?? 0.76)));
         const baseCap = options.charRefImage.characterOnly ? 'character' : 'character&style';
         commonParams.director_reference_images = [cleanCharB64];
         commonParams.director_reference_descriptions = [{
@@ -5065,7 +5075,7 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
         commonParams.director_reference_secondary_strength_values = [Math.max(0, Number((1 - cFidelity).toFixed(2)))];
       }
 
-      const effectiveCfgRescale = Number(options.cfgRescale ?? settings.cfg_rescale ?? (hasRefImg ? 0.2 : 0));
+      const effectiveCfgRescale = Number(options.cfgRescale ?? (hasRefImg ? Math.max(0.38, Number(settings.cfg_rescale || 0)) : (settings.cfg_rescale ?? 0)));
 
       let requestBody;
       if (model.includes('nai-diffusion-4') || model.includes('nai-diffusion-5')) {
@@ -6022,7 +6032,7 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
 
     const BUILTIN_STANDING_EXP_TAGS = {
       '默认': 'standing, calm neutral expression, closed mouth, looking at viewer',
-      '微笑': 'standing, three-quarter view, gentle warm smile, soft eyes, looking at viewer',
+      '微笑': 'standing, three-quarter view, gentle soft smile, soft eyes, looking at viewer',
       '大笑': 'standing, bright laughing expression, cheerful eyes, one hand on hip',
       '温柔': 'standing, three-quarter view, tender affectionate smile, softened gaze, head tilted slightly',
       '害羞': 'standing, angled side view, shy expression, soft blush on cheeks, averted gaze',
@@ -6040,7 +6050,7 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
       '哭泣': 'standing, three-quarter view, crying, tears flowing down cheeks, sad fragile expression',
       '绝望': 'standing, off-balance standing pose, hollow lifeless eyes, pale face, despair expression',
       '崩溃': 'standing, dynamic swaying standing pose, breakdown expression, tears, one hand covering forehead',
-      '微醺': 'standing, swaying standing pose, tipsy expression, half-closed eyes, warm blush',
+      '微醺': 'standing, swaying standing pose, tipsy expression, half-closed eyes, soft pink blush',
       '尴尬': 'standing, three-quarter view, awkward expression, sweatdrop on cheek, looking away, rubbing back of neck',
       '得意': 'standing, three-quarter view, proud confident expression, chin raised, hands on hips',
       '贼笑': 'standing, angled side view, sly mischievous expression, narrowed eyes',
@@ -9248,10 +9258,10 @@ ZH: 修改后的纯客观中文服装配饰清单`
 
       const useStyle = document.getElementById('tachie-enable-style-ref')?.checked;
       const useFirstRef = document.getElementById('tachie-use-first-ref-chk') ? document.getElementById('tachie-use-first-ref-chk').checked : true;
-      const rawLockStrength = parseFloat(document.getElementById('tachie-char-lock-strength')?.value || '0.58') || 0.58;
-      const rawLockFidelity = parseFloat(document.getElementById('tachie-char-lock-fidelity')?.value || '0.72') || 0.72;
+      const rawLockStrength = parseFloat(document.getElementById('tachie-char-lock-strength')?.value || '0.52') || 0.52;
+      const rawLockFidelity = parseFloat(document.getElementById('tachie-char-lock-fidelity')?.value || '0.76') || 0.76;
       const charCustomNeg = (document.getElementById('tachie-char-neg-prompt')?.value || charObj?.customNegativePrompt || '').trim();
-      const antiModernNeg = 'fang, fangs, snaggletooth, sitting, seated, kneeling, crouching, squatting, lying, lying down, sleeping, food, dessert, parfait, cake, cup, glass, object only, no humans, ' + (getNovelAISettings().default_negative || '') + (charCustomNeg ? `, ${charCustomNeg}` : '') + ', wide margin, empty space, small subject, distant, multiple people, multipleboys, multiplegirls, 2boys, 2girls, duo, two people, clone, split figure, crowd, extra head, floating head, small heads, side portraits, face inset, portrait inset, headshot inset, inset, picture in picture, multiple expressions, expression chart, expression sheet, facial expressions, character sheet, reference sheet, concept art, artbook page, character profile, multiple views, multi-panel, split screen, comic panel, border, frame, text, sneakers, running shoes, tennis shoes, athletic shoes, canvas shoes, trainers';
+      const antiModernNeg = 'yellow tint, warm color cast, yellow lighting, orange tint, sepia, oversaturated, color burn, burnt colors, yellow skin, fang, fangs, snaggletooth, sitting, seated, kneeling, crouching, squatting, lying, lying down, sleeping, food, dessert, parfait, cake, cup, glass, object only, no humans, ' + (getNovelAISettings().default_negative || '') + (charCustomNeg ? `, ${charCustomNeg}` : '') + ', wide margin, empty space, small subject, distant, multiple people, multipleboys, multiplegirls, 2boys, 2girls, duo, two people, clone, split figure, crowd, extra head, floating head, small heads, side portraits, face inset, portrait inset, headshot inset, inset, picture in picture, multiple expressions, expression chart, expression sheet, facial expressions, character sheet, reference sheet, concept art, artbook page, character profile, multiple views, multi-panel, split screen, comic panel, border, frame, text, sneakers, running shoes, tennis shoes, athletic shoes, canvas shoes, trainers';
 
       if (btn) {
         btn.textContent = '生成中';
@@ -11408,23 +11418,26 @@ ZH: 修改后的纯客观中文服装配饰清单`
       return c || null;
     }
 
-    async function syncCharacterDefaultVoiceToProjects(c) {
+    async function syncCharacterDefaultVoiceToProjects(c, forceSyncAllLines = false) {
       if (!c || !c.name || !Array.isArray(appState.replayProjects)) return;
-      const defSpd = c.voiceSpeedDefault ?? 1.0;
-      const defPtc = c.voicePitchDefault ?? 0;
+      const defSpd = typeof c.voiceSpeedDefault === 'number' && !isNaN(c.voiceSpeedDefault) ? c.voiceSpeedDefault : 1.0;
+      const defPtc = typeof c.voicePitchDefault === 'number' && !isNaN(c.voicePitchDefault) ? c.voicePitchDefault : 0;
       for (const proj of appState.replayProjects) {
         let projChanged = false;
-        (proj.chapters || []).forEach((chap) => {
-          (chap.scriptLines || []).forEach((line) => {
+        for (const chap of (proj.chapters || [])) {
+          for (const line of (chap.scriptLines || [])) {
             if (line.type === 'dialogue' && normalizeSpeakerName(line.speaker) === normalizeSpeakerName(c.name)) {
-              if (!line.ttsManualModified && (!line.ttsEmotion || line.ttsEmotion === 'neutral')) {
+              if (forceSyncAllLines || !line.ttsManualModified) {
                 line.ttsSpeed = defSpd;
                 line.ttsPitch = defPtc;
                 projChanged = true;
+                if (typeof invalidateSingleLineTtsCache === 'function') {
+                  await invalidateSingleLineTtsCache(chap.id, line.id);
+                }
               }
             }
-          });
-        });
+          }
+        }
         if (projChanged) {
           await saveReplayProjectToDB(proj);
         }
@@ -11549,7 +11562,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
       if (!c) return;
       syncVoiceSpeedAndPitchToCharacter(c, isInputEvent);
       await db.characters.put(c);
-      await syncCharacterDefaultVoiceToProjects(c);
+      await syncCharacterDefaultVoiceToProjects(c, true);
       if (!isInputEvent) {
         renderPersonaGrid();
       }
@@ -11699,7 +11712,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
       delete c.customPersonaText;
 
       await db.characters.put(c);
-      await syncCharacterDefaultVoiceToProjects(c);
+      await syncCharacterDefaultVoiceToProjects(c, true);
       updatePersonaPreviewBoxes(c);
       renderPersonaGrid();
       populateCharacterSelects();
@@ -15544,7 +15557,7 @@ SCENE_ITEM: 场景编号|2到5字简短场景名|NovelAI英文提示词|基底�
 规则五：立绘差分切换必须严格从下方提供的该角色可用差分池中选择！调查员与主要NPC拥有34个基础差分加专属差分，次要NPC仅拥有默认、开心、愤怒、伤心、害羞、疯狂、拿起武器、冷漠8个基础差分加专属差分，绝对禁止原创池子之外的差分名字！切换差分的频率必须适中自然。
 规则六：在氛围起承处标记推荐音乐开始 BGM_REC，在紧张解除、场景转换或音乐应当结束的那一行标记 BGM_STOP；没有音乐变化的普通台词行绝对不要乱标音乐。
 规则七：如果发现某行台词或旁白里有明显错别字，不要擅自直接篡改原句，必须用 TYPO_MARK 单独标记出来供用户自己核对。
-规则八：一章跑团剧本请每隔一段剧情规划一处 CG_MARK 插图节点，整章共规划 5 到 10 处，不必非要等到激烈高潮才插图，有画面感的日常互动或具体场景动作同样可以插入CG，例如两人一起吃饭、给对方喂饭、递交物品、包扎伤口、查看线索或肢体接触；但位置必须选在有具体互动或动作画面的句子处，绝对禁止插在两个人只是普通站着纯聊天、毫无动作与画面变化的无意义干聊台词处！只标记行号、简短画面说明和在场人物，此阶段不要编写英文生图提示词。同时结合下方提供的全部场景名字，使用 SCENE_RANGE 规划从第几句到第几句使用哪个场景背景、哪几句是纯CG填 CG、哪几句是黑幕转场填 blackout。
+规则八：一章跑团剧本请每隔一段剧情规划一处 CG_MARK 插图节点，整章共规划 5 到 10 处，不必非要等到激烈高潮才插图，有画面感的日常互动或具体场景动作同样可以插入CG，例如两人一起吃饭、给对方喂饭、递交物品、包扎伤口、查看线索或肢体接触；但位置必须选在有具体互动或动作画面的句子处，绝对禁止插在两个人只是普通站着纯聊天、毫无动作与画面变化的无意义干聊台词处！每一张插图都必须明确规划它的持续时间，即从哪一句开始持续显示到哪一句结束，写成 L起始行号-L结束行号 的格式，并填写简短画面说明和在场人物，此阶段不要编写英文生图提示词。同时结合下方提供的全部场景名字，使用 SCENE_RANGE 规划从第几句到第几句使用哪个场景背景、哪几句是纯CG填 CG、哪几句是黑幕转场填 blackout。
 规则九：在整理章节这一步，所有角色亲口说出的对话台词 dialogue 必须在 LINE_UPDATE 的最后一个字段结合整章上下文、该角色的性格语气以及对他人和自己的称呼习惯，写出贴合人设口吻的地道日语配音翻译，且日语台词前绝对不要写角色人名！旁白 narration 绝对不要翻译日语，最后一个字段直接填无。同时以视觉小说对话框视觉舒适度为切割基准，一个对话框最多只放四行字即约90字以内，如果KP或角色一次发了五到十句话的超长段落，请在保持完整不删减的前提下在合适句号处拆成多条同为 L行号 的 LINE_UPDATE 切到下一句对话框里。
 
 从头到尾严禁使用任何圆括号或方括号，严格按以下行格式输出：
@@ -15554,11 +15567,11 @@ LINE_UPDATE: L行号|类型dialogue或narration或ooc或delete|说话人姓名�
 BGM_REC: L行号|歌曲名称|歌手或作曲家名称|氛围分类如悬疑或日常或战斗
 BGM_STOP: L行号
 TYPO_MARK: L行号|疑似错字原词|建议修改词|简短原因
-CG_MARK: L行号|插图简短剧情画面说明|在场角色姓名用顿号分隔`;
+CG_MARK: L起始行号-L结束行号|插图简短剧情画面说明|在场角色姓名用顿号分隔`;
 
     function getCustomOrDefaultScriptPrompt() {
       const saved = localStorage.getItem('replay-custom-script-prompt');
-      if (saved && (!saved.includes('delete') || saved.includes('根据剧情高潮、关键调查与重要互动'))) {
+      if (saved && (!saved.includes('delete') || !saved.includes('CG_MARK: L起始行号-L结束行号') || saved.includes('根据剧情高潮、关键调查与重要互动'))) {
         return DEFAULT_REPLAY_SCRIPT_PROMPT;
       }
       return saved || DEFAULT_REPLAY_SCRIPT_PROMPT;
@@ -16053,26 +16066,33 @@ ${numberedChapterPreview}`;
             } else if (line.startsWith('CG_MARK:') || line.startsWith('CG_PLAN:')) {
               const parts = line.replace(/^CG_(?:MARK|PLAN):\s*/i, '').split('|').map((s) => s.trim());
               if (parts.length >= 2) {
-                const idxMatch = parts[0].match(/L?(\d+)/i);
-                const lineIdx = idxMatch ? Math.min(baseLines.length - 1, parseInt(idxMatch[1], 10)) : 0;
+                const rangeMatch = parts[0].match(/L?(\d+)\s*(?:-\s*L?(\d+))?/i);
+                const rawStart = rangeMatch ? parseInt(rangeMatch[1], 10) : 0;
+                const rawEnd = (rangeMatch && rangeMatch[2] !== undefined) ? parseInt(rangeMatch[2], 10) : (rawStart + 2);
+                const startLineIdx = Math.max(0, Math.min(baseLines.length - 1, Math.min(rawStart, rawEnd)));
+                const endLineIdx = Math.max(startLineIdx, Math.min(baseLines.length - 1, Math.max(rawStart, rawEnd)));
                 const cgId = `cg_${Date.now()}_${cgNodes.length + 1}`;
                 const presentNames = (parts[2] || '').split(/[、,，\s]+/).filter(Boolean);
-                if (presentNames.length === 0 && baseLines[lineIdx]?.speaker && baseLines[lineIdx].speaker !== '旁白') {
-                  presentNames.push(baseLines[lineIdx].speaker);
+                if (presentNames.length === 0 && baseLines[startLineIdx]?.speaker && baseLines[startLineIdx].speaker !== '旁白') {
+                  presentNames.push(baseLines[startLineIdx].speaker);
                 }
                 const singleChar = presentNames.length === 1 ? appState.characters.find((c) => c.name === presentNames[0]) : null;
                 cgNodes.push({
                   id: cgId,
-                  lineIdx,
-                  lineText: baseLines[lineIdx]?.text || '',
+                  lineIdx: startLineIdx,
+                  startLineIdx,
+                  endLineIdx,
+                  lineText: baseLines[startLineIdx]?.text || '',
                   zhDesc: parts[1] || '关键剧情CG插画点',
                   presentNames,
                   refCharId: singleChar ? singleChar.id : '',
                   prompt: '',
                   imageUrl: ''
                 });
-                if (baseLines[lineIdx]) {
-                  baseLines[lineIdx].cgId = cgId;
+                for (let cLine = startLineIdx; cLine <= endLineIdx; cLine++) {
+                  if (baseLines[cLine]) {
+                    baseLines[cLine].cgId = cgId;
+                  }
                 }
               }
             }
@@ -16279,9 +16299,12 @@ ${numberedChapterPreview}`;
               : (lineObj.speaker !== '旁白' ? [lineObj.speaker] : [appState.characters[0]?.name || '调查员']);
             const singleChar = present.length === 1 ? appState.characters.find((c) => c.name === present[0]) : null;
             const cgId = `cg_auto_${Date.now()}_${k + 1}`;
+            const endIdx = Math.min(filteredStoryLines.length - 1, chosenIdx + 2);
             cgNodes.push({
               id: cgId,
               lineIdx: chosenIdx,
+              startLineIdx: chosenIdx,
+              endLineIdx: endIdx,
               lineText: lineObj.text.slice(0, 80),
               zhDesc: `${present.join('与')}在「${lineObj.text.slice(0, 18)}」处的互动画面`,
               presentNames: present,
@@ -16289,10 +16312,38 @@ ${numberedChapterPreview}`;
               prompt: '',
               imageUrl: ''
             });
-            lineObj.cgId = cgId;
+            for (let cLine = chosenIdx; cLine <= endIdx; cLine++) {
+              if (filteredStoryLines[cLine]) {
+                filteredStoryLines[cLine].cgId = cgId;
+              }
+            }
           }
-          cgNodes.sort((a, b) => (a.lineIdx || 0) - (b.lineIdx || 0));
+          cgNodes.sort((a, b) => (a.startLineIdx ?? a.lineIdx ?? 0) - (b.startLineIdx ?? b.lineIdx ?? 0));
         }
+
+        // 校准所有CG节点的起止行号与filteredStoryLines中的cgId映射
+        cgNodes.forEach((cg) => {
+          const matchedIndices = [];
+          filteredStoryLines.forEach((l, fIdx) => {
+            if (l.cgId === cg.id) matchedIndices.push(fIdx);
+          });
+          if (matchedIndices.length > 0) {
+            cg.startLineIdx = matchedIndices[0];
+            cg.lineIdx = matchedIndices[0];
+            cg.endLineIdx = matchedIndices[matchedIndices.length - 1];
+            cg.lineText = filteredStoryLines[cg.startLineIdx]?.text || cg.lineText || '';
+          } else {
+            const safeStart = Math.max(0, Math.min(filteredStoryLines.length - 1, cg.startLineIdx ?? cg.lineIdx ?? 0));
+            const safeEnd = Math.max(safeStart, Math.min(filteredStoryLines.length - 1, cg.endLineIdx ?? safeStart));
+            cg.startLineIdx = safeStart;
+            cg.lineIdx = safeStart;
+            cg.endLineIdx = safeEnd;
+            cg.lineText = filteredStoryLines[safeStart]?.text || cg.lineText || '';
+            for (let cLine = safeStart; cLine <= safeEnd; cLine++) {
+              if (filteredStoryLines[cLine]) filteredStoryLines[cLine].cgId = cg.id;
+            }
+          }
+        });
 
         // 自动调用音乐台按权重搜索AI推荐的BGM起点并绑定播放地址，播放剧本到了标记行即自动响起
         for (const rec of bgmRecommendations) {
@@ -16436,6 +16487,152 @@ ${scriptPreview}`;
       } finally {
         if (btn) { btn.textContent = '差分'; btn.disabled = false; }
       }
+    }
+
+    // 点击剧本顶栏「插图」按钮：AI结合现有插图与整章剧情文本，思考并优化插图所在的起止句位置、调整或删除不合理的插图、并在有画面感的关键互动处补充新插图
+    async function aiOptimizeCurrentChapterCgNodes() {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      if (!proj || !chap || !Array.isArray(chap.scriptLines) || chap.scriptLines.length === 0) {
+        alert('请先选择已生成剧本的章节');
+        return;
+      }
+
+      const btn = document.getElementById('replay-ai-cg-opt-btn');
+      const statusEl = document.getElementById('replay-script-status-bar');
+      if (btn) { btn.textContent = '优化中'; btn.disabled = true; }
+      if (statusEl) statusEl.textContent = '正在调用AI通读本章剧情与现有插图，思考优化每张插图的起止句位置并增删插图...';
+
+      try {
+        const lines = chap.scriptLines;
+        const existingCgs = Array.isArray(chap.cgNodes) ? chap.cgNodes : [];
+        const existingSummary = existingCgs.length > 0
+          ? existingCgs.map((cg, idx) => {
+              const sIdx = cg.startLineIdx ?? cg.lineIdx ?? 0;
+              const eIdx = cg.endLineIdx ?? sIdx;
+              return `原CG序号:${idx}|编号:${cg.id}|当前起止行:L${sIdx}-L${eIdx}|已生图:${cg.imageUrl ? '是' : '否'}|画面说明:${cg.zhDesc || ''}|在场角色:${(cg.presentNames || []).join('、')}`;
+            }).join('\n')
+          : '当前章节暂无插图';
+
+        const charNames = (appState.characters || [])
+          .filter((c) => c.id !== 'narrator_kp' && c.name && c.name !== '旁白')
+          .map((c) => `${c.name} 定位:${c.trpgType || '调查员'}`)
+          .join('、');
+
+        const scriptText = lines.map((l, idx) => `L${idx}|${l.speaker || '旁白'}|${l.text}`).join('\n');
+
+        const sysPrompt = `你是专业视觉小说分镜与CG插图导演。请通读整章剧本台词与现有的插图列表，全面思考并优化本章所有插图的排布：
+1. 评估现有插图：如果某张现有插图放在了纯站桩干聊、毫无动作画面的地方，请将它挪到附近真正有动作互动的句子区间，或者直接删掉不合理的冗余无画面插图；如果某张现有插图已经生成了图片，优先保留该插图并将它的起止行号调整到最契合该画面说明的剧情句子区间。
+2. 规划新增插图：检查整章剧情中是否有极具画面感的动作、日常互动、喂食、递物、接触、调查线索、危机或高潮段落缺少插图，在合适位置增加新的插图，使整章插图总数保持在 5 到 10 张左右，节奏均匀自然。
+3. 明确持续区间：每一张插图都必须指定从哪一句开始显示、持续到哪一句结束，格式为 L起始行号-L结束行号，通常一张插图持续 2 到 6 句相关联的动作与对话。
+4. 如果某条插图是保留或移动自现有插图，第4项填写原有的编号如 cg_xxx；如果是全新增加的插图，第4项填 new。
+5. 从头到尾严禁使用任何圆括号或方括号，严格按以下行格式输出优化后的全章插图列表：
+CG_OPT: L起始行号-L结束行号|插图简短剧情画面说明|在场角色姓名用顿号分隔|原CG编号或new`;
+
+        const userPrompt = `本章登场角色：
+${charNames || '调查员'}
+
+本章现有插图列表：
+${existingSummary}
+
+本章完整剧本台词 L0 至 L${lines.length - 1}：
+${scriptText}`;
+
+        const reply = await callLlmCompletion(
+          [
+            { role: 'system', content: sysPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          null,
+          { caller: `AI智能优化章节插图排布·${chap.title}`, preferSubApi: false }
+        );
+
+        const newCgNodes = [];
+        const oldMap = new Map();
+        existingCgs.forEach((cg, idx) => {
+          oldMap.set(cg.id, cg);
+          oldMap.set(String(idx), cg);
+        });
+
+        if (reply) {
+          reply.split('\n').forEach((rawLine) => {
+            const l = rawLine.trim();
+            if (l.startsWith('CG_OPT:') || l.startsWith('CG_MARK:')) {
+              const parts = l.replace(/^CG_(?:OPT|MARK):\s*/i, '').split('|').map((s) => s.trim());
+              if (parts.length >= 2) {
+                const rangeMatch = parts[0].match(/L?(\d+)\s*(?:-\s*L?(\d+))?/i);
+                if (!rangeMatch) return;
+                const rStart = parseInt(rangeMatch[1], 10);
+                const rEnd = rangeMatch[2] !== undefined ? parseInt(rangeMatch[2], 10) : (rStart + 2);
+                const startLineIdx = Math.max(0, Math.min(lines.length - 1, Math.min(rStart, rEnd)));
+                const endLineIdx = Math.max(startLineIdx, Math.min(lines.length - 1, Math.max(rStart, rEnd)));
+                const zhDesc = parts[1] || '关键剧情互动画面';
+                const presentNames = (parts[2] || '').split(/[、,，\s]+/).filter(Boolean);
+                if (presentNames.length === 0 && lines[startLineIdx]?.speaker && lines[startLineIdx].speaker !== '旁白') {
+                  presentNames.push(lines[startLineIdx].speaker);
+                }
+                const refKey = (parts[3] || '').trim();
+                const matchedOld = (refKey && refKey.toLowerCase() !== 'new') ? oldMap.get(refKey) : null;
+                const singleChar = presentNames.length === 1 ? appState.characters.find((c) => c.name === presentNames[0]) : null;
+                const cgId = matchedOld?.id || `cg_opt_${Date.now()}_${newCgNodes.length + 1}`;
+                newCgNodes.push({
+                  id: cgId,
+                  lineIdx: startLineIdx,
+                  startLineIdx,
+                  endLineIdx,
+                  lineText: lines[startLineIdx]?.text || '',
+                  zhDesc,
+                  presentNames,
+                  refCharId: matchedOld?.refCharId || (singleChar ? singleChar.id : ''),
+                  prompt: matchedOld?.prompt || '',
+                  imageUrl: matchedOld?.imageUrl || '',
+                  customPadImg: matchedOld?.customPadImg || ''
+                });
+              }
+            }
+          });
+        }
+
+        if (newCgNodes.length > 0) {
+          newCgNodes.sort((a, b) => (a.startLineIdx ?? 0) - (b.startLineIdx ?? 0));
+          chap.cgNodes = newCgNodes;
+          syncChapterCgLineBindings(chap);
+          await saveReplayProjectToDB(proj);
+          renderReplayScriptEditor();
+          renderReplayCgStudio();
+          renderReplayChaptersList();
+          if (statusEl) {
+            statusEl.textContent = `AI已完成本章插图优化：共规划 ${newCgNodes.length} 张插图并设定好每张插图的起止持续句！`;
+          }
+        } else if (statusEl) {
+          statusEl.textContent = 'AI未返回有效插图调整结果，已保持原插图设置';
+        }
+      } catch (err) {
+        alert('优化章节插图失败：' + err.message);
+      } finally {
+        if (btn) { btn.textContent = '插图'; btn.disabled = false; }
+      }
+    }
+
+    function syncChapterCgLineBindings(chap) {
+      if (!chap || !Array.isArray(chap.scriptLines)) return;
+      const maxIdx = Math.max(0, chap.scriptLines.length - 1);
+      chap.scriptLines.forEach((l) => {
+        l.cgId = '';
+      });
+      (chap.cgNodes || []).forEach((cg) => {
+        const s = Math.max(0, Math.min(maxIdx, Number(cg.startLineIdx ?? cg.lineIdx ?? 0)));
+        const e = Math.max(s, Math.min(maxIdx, Number(cg.endLineIdx ?? s)));
+        cg.startLineIdx = s;
+        cg.lineIdx = s;
+        cg.endLineIdx = e;
+        cg.lineText = chap.scriptLines[s]?.text || cg.lineText || '';
+        for (let i = s; i <= e; i++) {
+          if (chap.scriptLines[i]) {
+            chap.scriptLines[i].cgId = cg.id;
+          }
+        }
+      });
     }
 
     async function insertScriptLineAfter(lineIdx) {
@@ -16592,8 +16789,13 @@ ${scriptPreview}`;
 
       box.innerHTML = '';
       chap.scriptLines.forEach((line, idx) => {
-        const hasCg = Boolean(line.cgId);
-        const cgObj = hasCg ? (chap.cgNodes || []).find((g) => g.id === line.cgId) : null;
+        const activeCgObj = (chap.cgNodes || []).find((g) => {
+          const s = g.startLineIdx ?? g.lineIdx ?? 0;
+          const e = g.endLineIdx ?? s;
+          return g.id === line.cgId || (idx >= s && idx <= e);
+        }) || null;
+        const hasCg = Boolean(activeCgObj);
+        const cgObj = activeCgObj;
         const hasTypo = Boolean(line.typoInfo && line.typoInfo.wrongWord);
         const isNarration = line.type === 'narration' || line.speaker === '旁白';
 
@@ -16617,8 +16819,11 @@ ${scriptPreview}`;
         } else if (line.bgmTag) {
           badges.push(`<span class="vn-console-badge">乐·${line.bgmTag}</span>`);
         }
-        if (hasCg) {
-          badges.push(`<span class="vn-console-badge accent">插图${cgObj?.imageUrl ? '已绘' : '节点'}</span>`);
+        if (hasCg && cgObj) {
+          const cgS = (cgObj.startLineIdx ?? cgObj.lineIdx ?? idx) + 1;
+          const cgE = (cgObj.endLineIdx ?? cgObj.startLineIdx ?? cgObj.lineIdx ?? idx) + 1;
+          const rangeLabel = cgS === cgE ? `第${cgS}句` : `第${cgS}-${cgE}句`;
+          badges.push(`<span class="vn-console-badge accent">插图${cgObj.imageUrl ? '已绘' : ''}·${rangeLabel}</span>`);
         }
         if (hasTypo) {
           badges.push(`<span class="vn-console-badge accent">错字·${line.typoInfo.wrongWord}</span>`);
@@ -16666,7 +16871,7 @@ ${scriptPreview}`;
             </div>
             <div class="vn-script-row-actions">
               <button type="button" class="moe-btn ${hasCg ? '' : 'secondary'}" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" id="line-add-cg-btn-${idx}" onmousedown="event.stopPropagation()" onclick="addManualCgForScriptLine(${idx})">${hasCg ? '撤图' : '插图'}</button>
-              ${hasCg ? `<button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="jumpToCgNodeFromScriptLine('${line.cgId}')">调图</button>` : ''}
+              ${hasCg && cgObj ? `<button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="jumpToCgNodeFromScriptLine('${cgObj.id}')">调图</button>` : ''}
               <button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="insertScriptLineAfter(${idx})">插行</button>
               <button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="deleteScriptLineByIdx(${idx})">删行</button>
             </div>
@@ -16739,11 +16944,17 @@ ${scriptPreview}`;
       if (!proj || !chap || !chap.scriptLines || !chap.scriptLines[lineIdx]) return;
       const line = chap.scriptLines[lineIdx];
 
-      if (line.cgId) {
+      const existingCg = (chap.cgNodes || []).find((g) => {
+        const s = g.startLineIdx ?? g.lineIdx ?? 0;
+        const e = g.endLineIdx ?? s;
+        return g.id === line.cgId || (lineIdx >= s && lineIdx <= e);
+      });
+
+      if (existingCg) {
         if (Array.isArray(chap.cgNodes)) {
-          chap.cgNodes = chap.cgNodes.filter((g) => g.id !== line.cgId);
+          chap.cgNodes = chap.cgNodes.filter((g) => g.id !== existingCg.id);
         }
-        line.cgId = '';
+        syncChapterCgLineBindings(chap);
         await saveReplayProjectToDB(proj);
         renderReplayScriptEditor();
         renderReplayCgStudio();
@@ -16755,10 +16966,13 @@ ${scriptPreview}`;
         : (line.speaker && line.speaker !== '旁白' ? [line.speaker] : [appState.characters[0]?.name || '调查员']);
       const singleChar = present.length === 1 ? appState.characters.find((c) => c.name === present[0]) : null;
       const newCgId = `cg_manual_${Date.now()}_${lineIdx}`;
+      const endLineIdx = Math.min(chap.scriptLines.length - 1, lineIdx + 2);
       if (!Array.isArray(chap.cgNodes)) chap.cgNodes = [];
       chap.cgNodes.push({
         id: newCgId,
         lineIdx,
+        startLineIdx: lineIdx,
+        endLineIdx,
         lineText: line.text,
         zhDesc: `${present.join('与')}在「${line.text.slice(0, 18)}」处的剧情画面`,
         presentNames: present,
@@ -16766,8 +16980,8 @@ ${scriptPreview}`;
         prompt: '',
         imageUrl: ''
       });
-      chap.cgNodes.sort((a, b) => (a.lineIdx || 0) - (b.lineIdx || 0));
-      line.cgId = newCgId;
+      chap.cgNodes.sort((a, b) => (a.startLineIdx ?? a.lineIdx ?? 0) - (b.startLineIdx ?? b.lineIdx ?? 0));
+      syncChapterCgLineBindings(chap);
       await saveReplayProjectToDB(proj);
       renderReplayScriptEditor();
       renderReplayCgStudio();
@@ -17093,6 +17307,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         cgBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">本章暂无CG节点，整理剧本时将自动标记CG插点，也可在剧本页任意台词处点插图</div>';
       } else {
         cgBox.innerHTML = '';
+        const totalScriptLines = Array.isArray(chap.scriptLines) ? chap.scriptLines.length : 0;
         cgNodes.forEach((cg, cIdx) => {
           const isMultiPerson = Array.isArray(cg.presentNames) && cg.presentNames.length > 1;
           const charOptionsHtml = [
@@ -17101,6 +17316,16 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
           ].join('');
           const hasCustomPad = Boolean(cg.customPadImg);
           const presentLabel = Array.isArray(cg.presentNames) && cg.presentNames.length > 0 ? cg.presentNames.join('、') : '待定';
+
+          const startIdx = Math.max(0, Math.min(Math.max(0, totalScriptLines - 1), Number(cg.startLineIdx ?? cg.lineIdx ?? 0)));
+          const endIdx = Math.max(startIdx, Math.min(Math.max(0, totalScriptLines - 1), Number(cg.endLineIdx ?? startIdx)));
+
+          const lineSelectOptionsStart = totalScriptLines > 0
+            ? chap.scriptLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === startIdx ? 'selected' : ''}>从第 ${lIdx + 1} 句：${(l.speaker || '旁白')}·${String(l.text || '').slice(0, 14)}</option>`).join('')
+            : `<option value="0">第 1 句</option>`;
+          const lineSelectOptionsEnd = totalScriptLines > 0
+            ? chap.scriptLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === endIdx ? 'selected' : ''}>到第 ${lIdx + 1} 句：${(l.speaker || '旁白')}·${String(l.text || '').slice(0, 14)}</option>`).join('')
+            : `<option value="0">第 1 句</option>`;
 
           const realChars = (appState.characters || []).filter((c) => c.id !== 'narrator_kp' && c.trpgType !== '旁白');
           const charChipsHtml = realChars.map((c) => {
@@ -17122,10 +17347,18 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
           card.style.gap = '8px';
           card.innerHTML = `
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-              <span style="font-size:12px;font-weight:800;color:var(--accent-color);">CG #${cIdx + 1} · 第 ${(cg.lineIdx || 0) + 1} 句</span>
+              <span style="font-size:12px;font-weight:800;color:var(--accent-color);">CG #${cIdx + 1} · 持续第 ${startIdx + 1} 至第 ${endIdx + 1} 句</span>
               <span style="font-size:11px;font-weight:700;color:var(--text-secondary);">在场：${presentLabel}${isMultiPerson ? ' · 多人同框' : ''}</span>
             </div>
-            <div style="font-size:11px;color:var(--text-secondary);line-height:1.45;white-space:normal;">原句：${cg.lineText || '章节互动画面'}</div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <select class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplayCgNodeField(${cIdx}, 'startLineIdx', this.value)">
+                ${lineSelectOptionsStart}
+              </select>
+              <select class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplayCgNodeField(${cIdx}, 'endLineIdx', this.value)">
+                ${lineSelectOptionsEnd}
+              </select>
+            </div>
+            <div style="font-size:11px;color:var(--text-secondary);line-height:1.45;white-space:normal;">起始原句：${cg.lineText || '章节互动画面'}</div>
             <div class="char-selector-strip" style="margin-bottom:0;">${charChipsHtml}</div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
               <select class="moe-input" style="flex:1;min-width:150px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplayCgNodeField(${cIdx}, 'refCharId', this.value)">
@@ -17145,7 +17378,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
               <input type="file" id="cg-upload-input-${cIdx}" accept="image/*" style="display:none;" onchange="handleReplayCgUpload(event, ${cIdx})" />
               <button type="button" class="moe-btn secondary" onclick="deleteReplayCgNode(${cIdx})">删除</button>
             </div>
-            ${cg.imageUrl ? `<img src="${cg.imageUrl}" alt="CG预览" style="width:100%;height:165px;object-fit:cover;border-radius:8px;border:1.5px solid var(--border-color);cursor:pointer;" title="连续点击三下下载CG" onclick="handleStageImgTripleClick(event, 'CG_${cIdx + 1}')" />` : `<div style="padding:8px 10px;text-align:center;font-size:11px;color:var(--text-secondary);background:var(--card-bg);border:1px dashed var(--border-color);border-radius:8px;">${cg.prompt ? '已就绪 · 可直接修改上方生图提示词后点生图或排队' : '点选登场角色后点顶部写词按钮，或直接在上方输入框手写提示词'}</div>`}
+            ${cg.imageUrl ? `<img src="${cg.imageUrl}" alt="CG预览" style="width:100%;height:165px;object-fit:contain;background:var(--secondary-bg);border-radius:8px;border:1.5px solid var(--border-color);cursor:pointer;" title="连续点击三下下载CG" onclick="handleStageImgTripleClick(event, 'CG_${cIdx + 1}')" />` : `<div style="padding:8px 10px;text-align:center;font-size:11px;color:var(--text-secondary);background:var(--card-bg);border:1px dashed var(--border-color);border-radius:8px;">${cg.prompt ? '已就绪 · 可直接修改上方生图提示词后点生图或排队' : '点选登场角色后点顶部写词按钮，或直接在上方输入框手写提示词'}</div>`}
           `;
           cgBox.appendChild(card);
         });
@@ -17202,7 +17435,28 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
       if (!proj || !chap || !chap.cgNodes || !chap.cgNodes[cIdx]) return;
-      chap.cgNodes[cIdx][field] = val;
+      const cg = chap.cgNodes[cIdx];
+      if (field === 'startLineIdx' || field === 'endLineIdx') {
+        const maxIdx = Math.max(0, (chap.scriptLines?.length || 1) - 1);
+        const num = Math.max(0, Math.min(maxIdx, parseInt(val, 10) || 0));
+        if (field === 'startLineIdx') {
+          cg.startLineIdx = num;
+          cg.lineIdx = num;
+          if ((cg.endLineIdx ?? num) < num) cg.endLineIdx = num;
+        } else {
+          cg.endLineIdx = num;
+          if ((cg.startLineIdx ?? cg.lineIdx ?? 0) > num) {
+            cg.startLineIdx = num;
+            cg.lineIdx = num;
+          }
+        }
+        syncChapterCgLineBindings(chap);
+        await saveReplayProjectToDB(proj);
+        renderReplayScriptEditor();
+        renderReplayCgStudio();
+        return;
+      }
+      cg[field] = val;
       await saveReplayProjectToDB(proj);
     }
 
@@ -17460,8 +17714,21 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         setBgmDuckingActive(false);
       }
 
-      const key = cacheKey || `tts_${voiceId}_${cleanText.slice(0, 48)}`;
+      const speedVal = Math.max(0.5, Math.min(2.0, Number(voiceParams?.speed ?? 1.0)));
+      const pitchRead = Number(voiceParams?.pitch);
+      const pitchVal = isNaN(pitchRead) ? 0 : Math.max(-12, Math.min(12, Math.round(pitchRead)));
+      const validEmotions = ['happy', 'sad', 'angry', 'fearful', 'disgusted', 'surprised', 'neutral'];
+      const emotionVal = validEmotions.includes(voiceParams?.emotion) ? voiceParams.emotion : '';
+      const paramSig = `${voiceId || 'default'}_s${speedVal.toFixed(2)}_p${pitchVal}_e${emotionVal || 'none'}`;
+
+      const key = cacheKey || `tts_${paramSig}_${cleanText.slice(0, 48)}`;
       let cachedItem = !forceRegen ? await db.ttsCache.get(key) : null;
+      if (cachedItem && cachedItem.paramSig && cachedItem.paramSig !== paramSig) {
+        cachedItem = null;
+      }
+      if (cachedItem && !cachedItem.paramSig && voiceParams && (pitchVal !== 0 || speedVal !== 1.0 || emotionVal)) {
+        cachedItem = null;
+      }
       let audioDataUrl = cachedItem?.audioDataUrl || '';
 
       if (!audioDataUrl) {
@@ -17472,11 +17739,6 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         if (!groupId || !apiKey) {
           throw new Error('请先在设置中填入 MiniMax GroupId 与 API Key');
         }
-
-        const speedVal = Math.max(0.5, Math.min(2.0, Number(voiceParams?.speed) || 1.0));
-        const pitchVal = Math.max(-12, Math.min(12, Math.round(Number(voiceParams?.pitch) || 0)));
-        const validEmotions = ['happy', 'sad', 'angry', 'fearful', 'disgusted', 'surprised', 'neutral'];
-        const emotionVal = validEmotions.includes(voiceParams?.emotion) ? voiceParams.emotion : '';
 
         const voiceSettingObj = {
           voice_id: voiceId || 'male-qn-qingse',
@@ -17548,6 +17810,10 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         await db.ttsCache.put({
           id: key,
           voiceId,
+          paramSig,
+          speed: speedVal,
+          pitch: pitchVal,
+          emotion: emotionVal,
           text: cleanText,
           audioDataUrl,
           updatedAt: Date.now()
@@ -17559,7 +17825,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
           apiType: 'MiniMax',
           target: `${model} · ${voiceId}`,
           ok: true,
-          detail: `已合成并缓存：${cleanText.slice(0, 26)}`
+          detail: `已合成并缓存：语速${speedVal} 语调${pitchVal} · ${cleanText.slice(0, 22)}`
         });
       }
 
@@ -17585,11 +17851,23 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
 
     function getSpeakerVoiceId(speakerName) {
       const norm = normalizeSpeakerName(speakerName);
-      const found = appState.characters.find((c) => c.name === norm);
+      const found = appState.characters.find((c) => normalizeSpeakerName(c.name) === norm);
       if (found && found.voiceId && String(found.voiceId).trim()) {
         return String(found.voiceId).trim();
       }
       return '';
+    }
+
+    function resolveLineEffectiveVoiceParams(line) {
+      const bounds = getSpeakerVoiceBounds(line?.speaker || '');
+      const isAdvancedMode = getReplayVoiceStudioMode() === 'advanced';
+      const speedRaw = Number(line?.ttsSpeed);
+      const pitchRaw = Number(line?.ttsPitch);
+      return {
+        emotion: isAdvancedMode ? (line?.ttsEmotion || 'neutral') : '',
+        speed: !isNaN(speedRaw) && speedRaw >= 0.5 ? speedRaw : (bounds.defaultSpeed ?? 1.0),
+        pitch: !isNaN(pitchRaw) ? Math.max(-12, Math.min(12, Math.round(pitchRaw))) : (bounds.defaultPitch ?? 0)
+      };
     }
 
     async function playSingleScriptLineTts(lineIdx, forceRegen = false) {
@@ -17597,6 +17875,16 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       if (!chap || !chap.scriptLines || !chap.scriptLines[lineIdx]) return;
       const line = chap.scriptLines[lineIdx];
       if (line.type === 'narration' || line.speaker === '旁白') return;
+      const spdEl = document.getElementById(`voice-speed-input-${lineIdx}`);
+      const ptcEl = document.getElementById(`voice-pitch-input-${lineIdx}`);
+      if (spdEl && spdEl.value !== '') {
+        const sv = parseFloat(spdEl.value);
+        if (!isNaN(sv)) line.ttsSpeed = Number(Math.max(0.5, Math.min(2.0, sv)).toFixed(2));
+      }
+      if (ptcEl && ptcEl.value !== '' && ptcEl.value !== '-') {
+        const pv = parseInt(ptcEl.value, 10);
+        if (!isNaN(pv)) line.ttsPitch = Math.max(-12, Math.min(12, pv));
+      }
       const useJp = appState.theaterTtsLang === 'jp' && line.jpText && line.jpText.trim();
       const ttsText = useJp ? line.jpText.trim() : line.text.trim();
       const voiceId = getSpeakerVoiceId(line.speaker);
@@ -17604,7 +17892,6 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         alert(`角色 ${line.speaker} 尚未填写语音音色编号，请先前往角色档案填写`);
         return;
       }
-      const isAdvancedMode = getReplayVoiceStudioMode() === 'advanced';
       const cacheKey = `line_${chap.id}_${line.id}_${appState.theaterTtsLang}`;
       const btn = document.getElementById(`line-tts-btn-${lineIdx}`);
       const voiceBtn = document.getElementById(`voice-studio-play-btn-${lineIdx}`);
@@ -17617,12 +17904,8 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         voiceBtn.textContent = '播放';
       }
       try {
-        const bounds = getSpeakerVoiceBounds(line.speaker);
-        await synthesizeAndPlayReplayTts(ttsText, voiceId, cacheKey, forceRegen, {
-          emotion: isAdvancedMode ? (line.ttsEmotion || 'neutral') : '',
-          speed: line.ttsSpeed ?? bounds.defaultSpeed ?? 1.0,
-          pitch: line.ttsPitch ?? bounds.defaultPitch ?? 0
-        });
+        const effParams = resolveLineEffectiveVoiceParams(line);
+        await synthesizeAndPlayReplayTts(ttsText, voiceId, cacheKey, forceRegen, effParams);
         if (btn) btn.classList.add('cached');
       } catch (err) {
         alert('语音合成失败：' + err.message);
@@ -17687,8 +17970,8 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         const cleanJp = cleanJapaneseLineText(line.jpText || '', line.speaker);
         const bounds = getSpeakerVoiceBounds(line.speaker);
         const curEmo = line.ttsEmotion || 'neutral';
-        const curSpeed = line.ttsSpeed ?? bounds.defaultSpeed;
-        const curPitch = line.ttsPitch ?? bounds.defaultPitch;
+        const curSpeed = (typeof line.ttsSpeed === 'number' && !isNaN(line.ttsSpeed)) ? line.ttsSpeed : bounds.defaultSpeed;
+        const curPitch = (typeof line.ttsPitch === 'number' && !isNaN(line.ttsPitch)) ? line.ttsPitch : bounds.defaultPitch;
         const voiceId = getSpeakerVoiceId(line.speaker);
 
         const card = document.createElement('div');
@@ -17741,8 +18024,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       } else if (field === 'ttsSpeed') {
         if (isInputEvent && (val === '' || val === '.')) return;
         const parsed = parseFloat(val);
-        if (isNaN(parsed)) return;
-        const s = Math.max(0.5, Math.min(2.0, parsed));
+        const s = isNaN(parsed) ? bounds.defaultSpeed : Math.max(0.5, Math.min(2.0, parsed));
         line.ttsSpeed = Number(s.toFixed(2));
         line.ttsManualModified = true;
         if (!isInputEvent) {
@@ -17752,8 +18034,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       } else if (field === 'ttsPitch') {
         if (isInputEvent && (val === '' || val === '-')) return;
         const parsed = parseInt(val, 10);
-        if (isNaN(parsed)) return;
-        const p = Math.max(-12, Math.min(12, parsed));
+        const p = isNaN(parsed) ? bounds.defaultPitch : Math.max(-12, Math.min(12, parsed));
         line.ttsPitch = p;
         line.ttsManualModified = true;
         if (!isInputEvent) {
@@ -17769,7 +18050,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       await saveReplayProjectToDB(proj);
     }
 
-    // 点击配音页顶部「生成」按钮：按当前模式调用MiniMax合成语音，普通模式不传emotion仅传语速语调，高级模式传emotion、语速与语调
+    // 点击配音页顶部「生成」按钮：按当前模式调用MiniMax合成语音，若语调或语速已修改会自动按新参数重新合成
     async function aiConfigureAndSynthesizeChapterVoice() {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
@@ -17797,7 +18078,17 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         }
 
         let doneCount = 0;
-        for (const { l: line } of validVoiceItems) {
+        for (const { l: line, idx } of validVoiceItems) {
+          const spdEl = document.getElementById(`voice-speed-input-${idx}`);
+          const ptcEl = document.getElementById(`voice-pitch-input-${idx}`);
+          if (spdEl && spdEl.value !== '') {
+            const sv = parseFloat(spdEl.value);
+            if (!isNaN(sv)) line.ttsSpeed = Number(Math.max(0.5, Math.min(2.0, sv)).toFixed(2));
+          }
+          if (ptcEl && ptcEl.value !== '' && ptcEl.value !== '-') {
+            const pv = parseInt(ptcEl.value, 10);
+            if (!isNaN(pv)) line.ttsPitch = Math.max(-12, Math.min(12, pv));
+          }
           const useJp = appState.theaterTtsLang === 'jp' && line.jpText && line.jpText.trim();
           const ttsText = useJp ? line.jpText.trim() : line.text.trim();
           if (!ttsText) continue;
@@ -17822,6 +18113,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
             pitch: clamped.pitch
           });
         }
+        await saveReplayProjectToDB(proj);
         if (statusEl) {
           statusEl.textContent = `本章已设置音色的 ${doneCount} 句角色台词已逐条合成完毕！`;
         }
@@ -18713,8 +19005,13 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         }
       }
 
-      // 4. 判断当前行是否有已生成图片的CG节点
-      const cgObj = (chap.cgNodes || []).find((g) => (line.cgId && g.id === line.cgId) || Number(g.lineIdx) === idx) || null;
+      // 4. 判断当前行是否处于某张已生成图片的CG节点的起止持续行范围内
+      const cgObj = (chap.cgNodes || []).find((g) => {
+        if (!g || !g.imageUrl) return false;
+        const s = Number(g.startLineIdx ?? g.lineIdx ?? 0);
+        const e = Number(g.endLineIdx ?? s);
+        return (line.cgId && g.id === line.cgId) || (idx >= s && idx <= e);
+      }) || null;
       if (cgLayer && cgImg) {
         if (cgObj && cgObj.imageUrl) {
           if (cgImg.getAttribute('src') !== cgObj.imageUrl) {
@@ -18829,7 +19126,8 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         if (cached && cached.audioDataUrl) {
           voiceDone = false;
           try {
-            await synthesizeAndPlayReplayTts(ttsText, getSpeakerVoiceId(line.speaker), cacheKey, false);
+            const effParams = resolveLineEffectiveVoiceParams(line);
+            await synthesizeAndPlayReplayTts(ttsText, getSpeakerVoiceId(line.speaker), cacheKey, false, effParams);
           } catch (_) {}
           voiceDone = true;
           scheduleAutoAdvanceIfReady();
@@ -19086,14 +19384,27 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       } catch (_) {}
     }
 
+    let _pendingOverwriteSlotIdx = -1;
+
     function openTheaterSaveLoadModal(mode = 'save') {
       appState.theaterSaveLoadMode = mode;
+      _pendingOverwriteSlotIdx = -1;
       const titleEl = document.getElementById('theater-saveload-modal-title');
       if (titleEl) {
-        titleEl.textContent = mode === 'load' ? '跨模组读档 选择任意存档继续观看' : '跨模组存档 保存当前模组章节与台词进度';
+        titleEl.textContent = mode === 'load' ? '跨模组读档与存档 点读档恢复进度' : '跨模组存档与读档 点存档记录进度';
       }
       renderTheaterSaveLoadList();
       document.getElementById('theater-saveload-modal').classList.add('active');
+    }
+
+    function requestOverwriteTheaterSlot(slotIdx) {
+      _pendingOverwriteSlotIdx = slotIdx;
+      renderTheaterSaveLoadList();
+    }
+
+    function cancelOverwriteTheaterSlot() {
+      _pendingOverwriteSlotIdx = -1;
+      renderTheaterSaveLoadList();
     }
 
     function renderTheaterSaveLoadList() {
@@ -19110,6 +19421,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         const card = document.createElement('div');
         card.className = 'vn-save-slot-card' + (sv ? '' : ' is-empty');
         if (sv) {
+          const isConfirmingOverwrite = _pendingOverwriteSlotIdx === i;
           card.innerHTML = `
             <div class="vn-save-slot-header">
               <span class="vn-save-slot-badge">${slotCode}</span>
@@ -19117,12 +19429,17 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
             </div>
             <div class="vn-save-slot-body">
               <div class="vn-save-slot-title">${sv.projectTitle || '跑团模组'} · ${sv.chapterTitle || ('第' + ((sv.chapterIdx || 0) + 1) + '章')} · 第 ${(sv.lineIdx || 0) + 1} 句</div>
-              <div class="vn-save-slot-preview">${sv.speaker || '旁白'}：${(sv.text || '').slice(0, 56)}</div>
+              <div class="vn-save-slot-preview">${isConfirmingOverwrite ? '确定用当前进度覆盖此存档吗？请点下方确认或取消' : ((sv.speaker || '旁白') + '：' + (sv.text || '').slice(0, 56))}</div>
             </div>
             <div class="vn-save-slot-footer">
-              <button type="button" class="moe-btn vn-save-slot-btn" onclick="loadTheaterProgressSlot(${i})">读档</button>
-              <button type="button" class="moe-btn secondary vn-save-slot-btn" onclick="saveTheaterProgressSlot(${i})">存档</button>
-              <button type="button" class="moe-btn secondary vn-save-slot-btn" onclick="deleteTheaterProgressSlot(${i})">删除</button>
+              ${isConfirmingOverwrite ? `
+                <button type="button" class="moe-btn vn-save-slot-btn" onclick="saveTheaterProgressSlot(${i}, true)">确认</button>
+                <button type="button" class="moe-btn secondary vn-save-slot-btn" onclick="cancelOverwriteTheaterSlot()">取消</button>
+              ` : `
+                <button type="button" class="moe-btn vn-save-slot-btn" onclick="loadTheaterProgressSlot(${i})">读档</button>
+                <button type="button" class="moe-btn secondary vn-save-slot-btn" onclick="requestOverwriteTheaterSlot(${i})">覆盖</button>
+                <button type="button" class="moe-btn secondary vn-save-slot-btn" onclick="deleteTheaterProgressSlot(${i})">删除</button>
+              `}
             </div>
           `;
         } else {
@@ -19136,7 +19453,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
               <div class="vn-save-slot-preview">点击下方存档按钮可将当前模组与台词进度写入此槽位</div>
             </div>
             <div class="vn-save-slot-footer">
-              <button type="button" class="moe-btn secondary vn-save-slot-btn" onclick="saveTheaterProgressSlot(${i})">存档</button>
+              <button type="button" class="moe-btn vn-save-slot-btn" onclick="saveTheaterProgressSlot(${i}, true)">存档</button>
             </div>
           `;
         }
@@ -19144,13 +19461,19 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       }
     }
 
-    function saveTheaterProgressSlot(slotIdx = -1) {
+    function saveTheaterProgressSlot(slotIdx = -1, confirmed = false) {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
       if (!proj || !chap) {
         alert('请先进入一个已生成的模组章节再存档');
         return;
       }
+      const saves = getGlobalTheaterSaves();
+      if (slotIdx >= 0 && slotIdx < saves.length && saves[slotIdx] && !confirmed) {
+        requestOverwriteTheaterSlot(slotIdx);
+        return;
+      }
+      _pendingOverwriteSlotIdx = -1;
       const lineIdx = Math.max(0, appState.theaterLineIdx || 0);
       const curLine = (chap.scriptLines && chap.scriptLines[lineIdx]) || {};
       const now = new Date();
@@ -19166,7 +19489,6 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         text: curLine.text || '',
         timeStr
       };
-      const saves = getGlobalTheaterSaves();
       if (slotIdx >= 0 && slotIdx <= saves.length) {
         saves[slotIdx] = record;
       } else {
@@ -19186,6 +19508,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         alert('未找到该存档对应的模组工程');
         return;
       }
+      _pendingOverwriteSlotIdx = -1;
       stopTheaterAutoAndSkip();
       appState.currentReplayProjectId = targetProj.id;
       const maxChap = Math.max(0, (targetProj.chapters?.length || 1) - 1);
@@ -19203,6 +19526,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
     function deleteTheaterProgressSlot(slotIdx) {
       const saves = getGlobalTheaterSaves();
       if (slotIdx < 0 || slotIdx >= saves.length) return;
+      _pendingOverwriteSlotIdx = -1;
       saves.splice(slotIdx, 1);
       setGlobalTheaterSaves(saves);
       renderTheaterSaveLoadList();
@@ -19593,8 +19917,9 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         }
         :root {
           --custom-user-font: 'UserCustomGlobalFont', -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+          --font-sans: 'UserCustomGlobalFont', -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
         }
-        body, button, input, select, textarea, .vn-dialogue-text, .vn-speaker-badge, .vn-ooc-item, .vn-blackout-text {
+        html, body, #phone-screen, #phone-screen *, button, input, select, textarea, .vn-script-card, .vn-script-card *, .vn-theater-wrapper, .vn-theater-wrapper *, .vn-dialogue-text, .vn-speaker-badge, .vn-ooc-item, .vn-blackout-text {
           font-family: var(--custom-user-font) !important;
         }
       `;
