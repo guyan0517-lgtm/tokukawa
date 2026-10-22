@@ -2571,6 +2571,7 @@
         <div class="moe-card">
           <div class="moe-card-header" style="justify-content:flex-end;">
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button type="button" class="moe-btn secondary" onclick="resetChapterVoiceParamsToDefault()">默认</button>
               <button type="button" class="moe-btn secondary" onclick="toggleVoiceSystemPromptEditor()">提示</button>
               <button type="button" class="moe-btn secondary" id="replay-voice-jp-btn" onclick="translateCurrentChapterToJapanese()">日译</button>
               <button type="button" class="moe-btn" id="replay-voice-ai-gen-btn" onclick="aiConfigureAndSynthesizeChapterVoice()">生成</button>
@@ -19056,6 +19057,63 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       if (!chap || !chap.scriptLines || !chap.scriptLines[lineIdx]) return;
       const line = chap.scriptLines[lineIdx];
       if (line.type === 'narration' || line.speaker === '旁白') return;
+      const cacheKey = `line_${chap.id}_${line.id}_${appState.theaterTtsLang}`;
+      const btn = document.getElementById(`line-tts-btn-${lineIdx}`);
+      const voiceBtn = document.getElementById(`voice-studio-play-btn-${lineIdx}`);
+
+      if (!forceRegen) {
+        const cached = await db.ttsCache.get(cacheKey);
+        if (!cached || !cached.audioDataUrl) {
+          const statusEl = document.getElementById('replay-voice-status-bar');
+          if (statusEl) statusEl.textContent = `第 #${lineIdx + 1} 句暂无已生成的语音，未播放`;
+          return;
+        }
+        if (btn) {
+          btn.disabled = true;
+          btn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>`;
+        }
+        if (voiceBtn) {
+          voiceBtn.disabled = true;
+          voiceBtn.textContent = '播放';
+        }
+        try {
+          if (_activeReplayTtsAudio) {
+            _activeReplayTtsAudio.pause();
+            _activeReplayTtsAudio = null;
+          }
+          await new Promise((resolve) => {
+            const audio = new Audio(cached.audioDataUrl);
+            audio.volume = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
+            _activeReplayTtsAudio = audio;
+            setBgmDuckingActive(true);
+            audio.onended = () => {
+              if (_activeReplayTtsAudio === audio) _activeReplayTtsAudio = null;
+              setBgmDuckingActive(false);
+              resolve();
+            };
+            audio.onerror = () => {
+              if (_activeReplayTtsAudio === audio) _activeReplayTtsAudio = null;
+              setBgmDuckingActive(false);
+              resolve();
+            };
+            audio.play().catch(() => {
+              setBgmDuckingActive(false);
+              resolve();
+            });
+          });
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>`;
+          }
+          if (voiceBtn) {
+            voiceBtn.disabled = false;
+            voiceBtn.textContent = '试听';
+          }
+        }
+        return;
+      }
+
       const spdEl = document.getElementById(`voice-speed-input-${lineIdx}`);
       const ptcEl = document.getElementById(`voice-pitch-input-${lineIdx}`);
       if (spdEl && spdEl.value !== '') {
@@ -19073,9 +19131,6 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         alert(`角色 ${line.speaker} 尚未填写语音音色编号，请先前往角色档案填写`);
         return;
       }
-      const cacheKey = `line_${chap.id}_${line.id}_${appState.theaterTtsLang}`;
-      const btn = document.getElementById(`line-tts-btn-${lineIdx}`);
-      const voiceBtn = document.getElementById(`voice-studio-play-btn-${lineIdx}`);
       if (btn) {
         btn.disabled = true;
         btn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>`;
@@ -19228,6 +19283,25 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         line[field] = val;
       }
       await saveReplayProjectToDB(proj);
+    }
+
+    async function resetChapterVoiceParamsToDefault() {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      if (!proj || !chap || !Array.isArray(chap.scriptLines)) return;
+      chap.scriptLines.forEach((line) => {
+        if (line.type === 'dialogue' && line.speaker && line.speaker !== '旁白') {
+          const bounds = getSpeakerVoiceBounds(line.speaker);
+          line.ttsSpeed = bounds.defaultSpeed;
+          line.ttsPitch = bounds.defaultPitch;
+          line.ttsEmotion = 'neutral';
+          line.ttsManualModified = false;
+        }
+      });
+      await saveReplayProjectToDB(proj);
+      renderReplayVoiceStudio();
+      const statusEl = document.getElementById('replay-voice-status-bar');
+      if (statusEl) statusEl.textContent = '已将当前章节所有台词的语速、语调、情绪恢复为对应角色默认值';
     }
 
     // 点击配音页顶部「生成」按钮：按当前模式调用MiniMax合成语音，若语调或语速已修改会自动按新参数重新合成
@@ -20386,7 +20460,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
     }
 
     function replayCurrentTheaterLineTts() {
-      playSingleScriptLineTts(appState.theaterLineIdx || 0, true);
+      playSingleScriptLineTts(appState.theaterLineIdx || 0, false);
     }
 
     function stopTheaterAutoAndSkip() {
@@ -20528,7 +20602,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
 
           const canPlayVoice = !isNarr && Boolean(getSpeakerVoiceId(l.speaker));
           const playBtnHtml = canPlayVoice
-            ? `<button type="button" class="vn-play-tri-btn" title="播放此句语音" onclick="event.stopPropagation(); playSingleScriptLineTts(${actualIdx}, true);"><svg viewBox="0 0 24 24"><polygon points="7 5 19 12 7 19 7 5"></polygon></svg></button>`
+            ? `<button type="button" class="vn-play-tri-btn" title="播放此句语音" onclick="event.stopPropagation(); playSingleScriptLineTts(${actualIdx}, false);"><svg viewBox="0 0 24 24"><polygon points="7 5 19 12 7 19 7 5"></polygon></svg></button>`
             : '';
 
           const speakerLabel = isNarr ? '旁白' : l.speaker;
