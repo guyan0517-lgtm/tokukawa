@@ -1619,26 +1619,34 @@ button {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -30%;
+  bottom: -43%;
   top: auto;
-  height: 155%;
+  height: 170%;
   z-index: 5;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: 36px;
-  padding: 0 36px;
+  gap: 4px;
+  padding: 0 12px;
   pointer-events: none;
 }
 
 .vn-tachie-layer[data-actor-count="2"] {
-  gap: 44px;
-  padding: 0 40px;
+  gap: 0;
+  padding: 0 16px;
+}
+
+.vn-tachie-layer[data-actor-count="2"] .vn-stage-actor {
+  margin: 0 -22px;
 }
 
 .vn-tachie-layer[data-actor-count="3"] {
-  gap: 18px;
-  padding: 0 20px;
+  gap: 0;
+  padding: 0 8px;
+}
+
+.vn-tachie-layer[data-actor-count="3"] .vn-stage-actor {
+  margin: 0 -32px;
 }
 
 .vn-stage-actor {
@@ -1647,7 +1655,8 @@ button {
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
   transition: transform 0.36s cubic-bezier(0.16, 1, 0.3, 1), filter 0.32s ease, opacity 0.32s ease;
   transform-origin: bottom center;
 }
@@ -1711,7 +1720,7 @@ button {
   width: 100%;
   height: 100%;
   z-index: 10;
-  background: var(--text-primary);
+  background: #000000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2257,106 +2266,175 @@ button {
   border-left: 2px solid var(--accent-color) !important;
 }
 
-/* 视觉小说原生剧本回顾台账布局与双列存档卡片 */
+/* 视觉小说日乙风历史回看布局 */
 #theater-backlog-list {
   display: flex !important;
   flex-direction: column !important;
-  gap: 0 !important;
+  gap: 10px !important;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--card-bg) 20%, transparent);
-  background: color-mix(in srgb, var(--card-bg) 5%, transparent);
+  padding: 6px 4px 10px 2px;
+  border-radius: 0;
+  border: none;
+  background: transparent;
 }
 
 .vn-backlog-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
-  padding: 7px 12px;
-  min-height: 44px;
-  border-radius: 0;
+  padding: 2px 4px;
+  border-radius: 12px;
   background: transparent;
   border: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--card-bg) 14%, transparent);
-  transition: background 0.18s ease;
+  transition: opacity 0.18s ease;
 }
 
-.vn-backlog-row:last-child {
-  border-bottom: none;
-}
-
-.vn-backlog-row.is-narration {
-  background: color-mix(in srgb, var(--card-bg) 3%, transparent);
-}
-
-.vn-backlog-row.is-current {
-  background: color-mix(in srgb, var(--card-bg) 14%, transparent);
-}
-
-.vn-backlog-speaker-col {
-  width: 76px;
+.vn-backlog-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
   flex-shrink: 0;
+  overflow: hidden;
+  border: 1.5px solid color-mix(in srgb, var(--card-bg) 42%, transparent);
+  background: color-mix(in srgb, var(--card-bg) 14%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--text-primary) 24%, transparent);
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding-right: 8px;
-  border-right: 2px solid var(--accent-color);
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
 }
 
-.vn-backlog-row.is-narration .vn-backlog-speaker-col {
-  border-right-color: color-mix(in srgb, var(--card-bg) 32%, transparent);
+.vn-backlog-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 16%;
+  display: block;
 }
 
-.vn-backlog-speaker {
-  font-size: 11.5px;
+.vn-backlog-avatar img.is-full-crop {
+  transform: scale(2.15);
+  transform-origin: 50% 16%;
+}
+
+.vn-backlog-avatar.is-monogram span {
+  font-size: 13px;
   font-weight: 800;
   color: var(--card-bg);
-  letter-spacing: 0.02em;
-  line-height: 1.25;
-  word-break: break-word;
+  opacity: 0.88;
 }
 
-.vn-backlog-row.is-narration .vn-backlog-speaker {
-  color: color-mix(in srgb, var(--card-bg) 72%, transparent);
-  font-weight: 700;
-}
-
-.vn-backlog-seq {
-  font-size: 9.5px;
-  font-weight: 700;
-  color: color-mix(in srgb, var(--card-bg) 55%, transparent);
-  letter-spacing: 0.04em;
-}
-
-.vn-backlog-center {
+.vn-backlog-main {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  gap: 4px;
+}
+
+.vn-backlog-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px;
+}
+
+.vn-backlog-speaker {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--card-bg);
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vn-backlog-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.vn-backlog-icon-btn {
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  min-height: 22px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  border: 1px solid color-mix(in srgb, var(--card-bg) 28%, transparent) !important;
+  background: color-mix(in srgb, var(--card-bg) 12%, transparent) !important;
+  color: color-mix(in srgb, var(--card-bg) 88%, transparent) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer;
+  flex-shrink: 0 !important;
+  transition: background 0.16s ease, transform 0.16s ease, border-color 0.16s ease;
+}
+
+.vn-backlog-icon-btn:hover,
+.vn-backlog-icon-btn:active {
+  background: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+  color: var(--card-bg) !important;
+  transform: scale(0.95);
+}
+
+.vn-backlog-icon-btn svg {
+  width: 11px;
+  height: 11px;
+  display: block;
+}
+
+.vn-backlog-bubble {
+  padding: 8px 12px;
+  border-radius: 4px 12px 12px 12px;
+  background: color-mix(in srgb, var(--card-bg) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-bg) 22%, transparent);
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.vn-backlog-row.is-current .vn-backlog-bubble {
+  background: color-mix(in srgb, var(--card-bg) 20%, transparent);
+  border-color: color-mix(in srgb, var(--card-bg) 42%, transparent);
+}
+
+.vn-backlog-bubble.is-narration-bubble {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--card-bg) 6%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--card-bg) 18%, transparent);
+  padding: 7px 11px;
 }
 
 .vn-backlog-text {
   font-size: 12px;
-  line-height: 1.42;
-  color: color-mix(in srgb, var(--card-bg) 94%, transparent);
+  line-height: 1.48;
+  color: color-mix(in srgb, var(--card-bg) 95%, transparent);
   white-space: pre-wrap;
   word-break: break-word;
+  flex: 1;
+  min-width: 0;
 }
 
 .vn-backlog-row.is-narration .vn-backlog-text {
-  color: color-mix(in srgb, var(--card-bg) 80%, transparent);
-  font-style: italic;
+  color: color-mix(in srgb, var(--card-bg) 78%, transparent);
 }
 
 /* 跨模组存读档：一行两个视觉小说档案槽位网格 */
 #theater-saveload-list {
   display: grid !important;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
   align-content: start;
   flex: 1;
   min-height: 0;
@@ -2364,22 +2442,18 @@ button {
   padding-right: 4px;
 }
 
-@media (max-width: 520px) {
-  #theater-saveload-list {
-    grid-template-columns: 1fr;
-  }
-}
-
 .vn-save-slot-card {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 6px;
-  padding: 10px 12px;
+  gap: 5px;
+  padding: 8px 10px;
   border-radius: 10px;
   background: color-mix(in srgb, var(--card-bg) 9%, transparent);
   border: 1px solid color-mix(in srgb, var(--card-bg) 22%, transparent);
-  min-height: 108px;
+  min-height: 96px;
+  min-width: 0;
+  overflow: hidden;
   transition: border-color 0.18s ease, background 0.18s ease;
 }
 
@@ -2393,17 +2467,18 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   padding-bottom: 4px;
   border-bottom: 1px solid color-mix(in srgb, var(--card-bg) 14%, transparent);
+  min-width: 0;
 }
 
 .vn-save-slot-badge {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 800;
-  letter-spacing: 0.06em;
-  padding: 2px 7px;
-  border-radius: 6px;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 5px;
   background: var(--accent-color);
   color: var(--card-bg);
   flex-shrink: 0;
@@ -2415,11 +2490,12 @@ button {
 }
 
 .vn-save-slot-time {
-  font-size: 10px;
+  font-size: 9.5px;
   color: color-mix(in srgb, var(--card-bg) 68%, transparent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .vn-save-slot-body {
@@ -2428,11 +2504,11 @@ button {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
 }
 
 .vn-save-slot-title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   color: var(--card-bg);
   white-space: nowrap;
@@ -2441,8 +2517,8 @@ button {
 }
 
 .vn-save-slot-preview {
-  font-size: 11px;
-  line-height: 1.38;
+  font-size: 10.5px;
+  line-height: 1.35;
   color: color-mix(in srgb, var(--card-bg) 78%, transparent);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -2455,23 +2531,26 @@ button {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
-  padding-top: 5px;
+  gap: 4px;
+  padding-top: 4px;
   border-top: 1px dashed color-mix(in srgb, var(--card-bg) 14%, transparent);
   flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .vn-save-slot-btn {
-  height: 26px !important;
-  min-height: 26px !important;
-  padding: 0 8px !important;
-  font-size: 11px !important;
-  border-radius: 7px !important;
-  flex: 1;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  height: 22px !important;
+  min-height: 22px !important;
+  padding: 0 7px !important;
+  font-size: 10px !important;
+  line-height: 1 !important;
+  border-radius: 6px !important;
+  flex: 0 1 auto !important;
+  min-width: 0 !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 .vn-theater-wrapper > .modal .moe-input {

@@ -201,11 +201,11 @@
     }
     #vn-theater-tachie-layer {
       top: auto !important;
-      height: 155% !important;
-      bottom: -30% !important;
+      height: 170% !important;
+      bottom: -43% !important;
     }
     #vn-theater-cg-layer {
-      background: var(--text-primary) !important;
+      background: #000000 !important;
     }
     .persona-folder-group {
       background: var(--card-bg);
@@ -2681,7 +2681,7 @@
 
         <!-- 第3层：全屏剧情CG插画层 仅当该节点已生成CG图片时显示 -->
         <div class="vn-cg-layer" id="vn-theater-cg-layer" onclick="handleTheaterDockClick()">
-          <img id="vn-theater-cg-img" src="" alt="剧情CG" title="点击进入下一句，连续点击三下下载CG" onclick="handleTheaterCgClick(event)" />
+          <img id="vn-theater-cg-img" src="" alt="剧情CG" title="点击进入下一句，连续点击三下下载CG" onclick="event.stopPropagation(); handleTheaterCgClick(event); handleTheaterDockClick();" />
         </div>
 
         <!-- 第3.5层：全屏暗角呼吸氛围层 -->
@@ -13881,14 +13881,14 @@ ${BUILTIN_CSS_TEMPLATE}`;
     let _bgmIsDucking = false;
 
     const DEFAULT_REPLAY_BGM_TRACKS = [
-      { id: 'bgm_daily_1', name: '木漏れ日の散歩道 · 日系日常纯音乐', tag: '日常', url: 'https://music.163.com/song/media/outer/url?id=139774.mp3' },
-      { id: 'bgm_daily_2', name: '穏やかな午後 · 视觉小说日常纯音乐', tag: '日常', url: 'https://music.163.com/song/media/outer/url?id=476592630.mp3' },
-      { id: 'bgm_mystery_1', name: '霧の古館調査 · 悬疑推理纯音乐', tag: '悬疑', url: 'https://music.163.com/song/media/outer/url?id=281951.mp3' },
-      { id: 'bgm_mystery_2', name: '静寂の推理 · 动漫悬疑纯音乐', tag: '悬疑', url: 'https://music.163.com/song/media/outer/url?id=22707008.mp3' },
-      { id: 'bgm_eerie_1', name: '深淵の囁き · 诡异暗黑纯音乐', tag: '诡异', url: 'https://music.163.com/song/media/outer/url?id=5264842.mp3' },
-      { id: 'bgm_battle_1', name: '宿命の対峙 · 动漫燃系战斗纯音乐', tag: '战斗', url: 'https://music.163.com/song/media/outer/url?id=496869422.mp3' },
-      { id: 'bgm_lyric_1', name: '夜明けの別れ · 钢琴抒情纯音乐', tag: '抒情', url: 'https://music.163.com/song/media/outer/url?id=26113988.mp3' },
-      { id: 'bgm_happy_1', name: '陽だまりの笑顔 · 欢快日常纯音乐', tag: '欢快', url: 'https://music.163.com/song/media/outer/url?id=22677610.mp3' }
+      { id: 'bgm_daily_1', name: '微風と紅茶 · 舒缓钢琴日常纯音乐', tag: '日常', url: 'https://music.163.com/song/media/outer/url?id=139774.mp3' },
+      { id: 'bgm_daily_2', name: '静かな午後の窓辺 · 治愈吉他纯音乐', tag: '日常', url: 'https://music.163.com/song/media/outer/url?id=26113988.mp3' },
+      { id: 'bgm_mystery_1', name: '時計塔の影 · 轻悬疑氛围纯音乐', tag: '悬疑', url: 'https://music.163.com/song/media/outer/url?id=22707008.mp3' },
+      { id: 'bgm_mystery_2', name: '古書室の静寂 · 沉静推理纯音乐', tag: '悬疑', url: 'https://music.163.com/song/media/outer/url?id=139774.mp3' },
+      { id: 'bgm_eerie_1', name: '夜霧の回廊 · 幽静深夜纯音乐', tag: '诡异', url: 'https://music.163.com/song/media/outer/url?id=22707008.mp3' },
+      { id: 'bgm_battle_1', name: '疾風の刻 · 紧凑弦乐纯音乐', tag: '战斗', url: 'https://music.163.com/song/media/outer/url?id=26113988.mp3' },
+      { id: 'bgm_lyric_1', name: '星降る夜の祈り · 温柔钢琴纯音乐', tag: '抒情', url: 'https://music.163.com/song/media/outer/url?id=26113988.mp3' },
+      { id: 'bgm_happy_1', name: '木漏れ日のワルツ · 轻快漫步纯音乐', tag: '欢快', url: 'https://music.163.com/song/media/outer/url?id=139774.mp3' }
     ];
 
     function getFallbackInstrumentalBgmUrl(tagOrName = '') {
@@ -19552,8 +19552,22 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       renderTheaterCurrentLine();
     }
 
+    function stopAllTheaterStageAudio() {
+      if (_activeReplayTtsAudio) {
+        try {
+          _activeReplayTtsAudio.onended = null;
+          _activeReplayTtsAudio.onerror = null;
+          _activeReplayTtsAudio.pause();
+        } catch (_) {}
+        _activeReplayTtsAudio = null;
+      }
+      setBgmDuckingActive(false);
+      stopReplayBgmPreview(false);
+    }
+
     function openTheaterSelectorLobby() {
       stopTheaterAutoAndSkip();
+      stopAllTheaterStageAudio();
       appState.inLandscapeGame = false;
       document.body.classList.remove('landscape-game-active');
       renderTheaterSelectorLobby();
@@ -19838,6 +19852,9 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       renderTheaterCurrentLine();
     }
 
+    let _theaterRenderSeq = 0;
+    let _lastTheaterDockClickAt = 0;
+
     function initTheaterScreen() {
       stopTheaterAutoAndSkip();
       renderReplayProjectSelectors();
@@ -19850,20 +19867,23 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       if (document.getElementById('theater-bgm-vol-val')) document.getElementById('theater-bgm-vol-val').textContent = appState.theaterBgmVolume;
       const dmBtn = document.getElementById('vn-bottom-danmaku-btn');
       if (dmBtn) dmBtn.classList.toggle('active', Boolean(appState.theaterShowDanmaku));
+      const lobby = document.getElementById('vn-theater-selector-lobby');
+      if (lobby && lobby.classList.contains('active')) {
+        stopAllTheaterStageAudio();
+        return;
+      }
       renderTheaterCurrentLine();
     }
 
     function exitTheaterToHome() {
+      _theaterRenderSeq += 1;
       stopTheaterAutoAndSkip();
       if (_theaterTypewriterTimer) {
         clearInterval(_theaterTypewriterTimer);
         _theaterTypewriterTimer = null;
       }
       _theaterIsTyping = false;
-      if (_activeReplayTtsAudio) {
-        try { _activeReplayTtsAudio.pause(); } catch (_) {}
-        _activeReplayTtsAudio = null;
-      }
+      stopAllTheaterStageAudio();
       openDesktopHomeScreen();
     }
 
@@ -19970,6 +19990,9 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
 
     function handleTheaterDockClick() {
       if (appState.theaterEditMode) return;
+      const now = Date.now();
+      if (now - _lastTheaterDockClickAt < 110) return;
+      _lastTheaterDockClickAt = now;
       if (_theaterIsTyping) {
         if (_theaterTypewriterTimer) {
           clearInterval(_theaterTypewriterTimer);
@@ -19980,8 +20003,9 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         if (textEl) textEl.textContent = _theaterFullLineText;
         if (appState.theaterAutoPlay === true) {
           if (_theaterStepTimer) clearTimeout(_theaterStepTimer);
+          const curSeq = _theaterRenderSeq;
           _theaterStepTimer = setTimeout(() => {
-            if (appState.theaterAutoPlay === true && !_theaterIsTyping) nextTheaterLine();
+            if (curSeq === _theaterRenderSeq && appState.theaterAutoPlay === true && !_theaterIsTyping) nextTheaterLine();
           }, 1600);
         }
         return;
@@ -20008,6 +20032,9 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
     }
 
     async function renderTheaterCurrentLine() {
+      _theaterRenderSeq += 1;
+      const myRenderSeq = _theaterRenderSeq;
+
       if (_theaterStepTimer) {
         clearTimeout(_theaterStepTimer);
         _theaterStepTimer = null;
@@ -20032,6 +20059,12 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       const topEditBtn = document.getElementById('theater-edit-mode-btn');
       const sideBustBox = document.getElementById('vn-stage-side-bust');
       const sideBustImg = document.getElementById('vn-stage-side-bust-img');
+
+      const lobbyEl = document.getElementById('vn-theater-selector-lobby');
+      const isLobbyOpen = Boolean(lobbyEl && lobbyEl.classList.contains('active'));
+      const theaterScreenEl = document.getElementById('screen-theater');
+      const isTheaterActive = Boolean(theaterScreenEl && theaterScreenEl.classList.contains('active'));
+      const canPlayStageAudio = isTheaterActive && !isLobbyOpen;
 
       if (appState.theaterPureStageMode) {
         appState.theaterEditMode = false;
@@ -20069,7 +20102,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       const line = chap.scriptLines[idx];
 
       const curDmKey = `${chap.id || 'ch'}_${idx}`;
-      if (!appState.theaterEditMode && _lastSpawnedDanmakuLineKey !== curDmKey) {
+      if (!appState.theaterEditMode && canPlayStageAudio && _lastSpawnedDanmakuLineKey !== curDmKey) {
         _lastSpawnedDanmakuLineKey = curDmKey;
         oocToSpawn.forEach((txt) => spawnTheaterDanmaku(txt));
         if (Array.isArray(chap.danmakuList)) {
@@ -20083,11 +20116,52 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
 
       const activeEffect = inferNaturalLineEffect(line, idx);
       const displayLineText = String(line.text || '').replace(/^[\s\u3000]+/gm, '');
+      const isDialogueLine = line.type !== 'narration' && Boolean(line.speaker && line.speaker !== '旁白' && line.speaker !== '检定');
 
-      if (speakerEl) speakerEl.textContent = line.speaker || '旁白';
+      // 语音衔接规则：如果进入下一句时上一句还没播完，若当前句是对话则立刻停止上一句；若当前句是旁白则让上一句继续播完
+      if (!canPlayStageAudio || isDialogueLine) {
+        if (_activeReplayTtsAudio) {
+          try {
+            _activeReplayTtsAudio.onended = null;
+            _activeReplayTtsAudio.onerror = null;
+            _activeReplayTtsAudio.pause();
+          } catch (_) {}
+          _activeReplayTtsAudio = null;
+          setBgmDuckingActive(false);
+        }
+      }
+
+      // 同步原子更新左上角人名与启动打字机，彻底杜绝异步等待期间人名与台词错位或点击跳下下句
+      if (speakerEl) speakerEl.textContent = isDialogueLine ? line.speaker : '旁白';
       if (expEl) expEl.textContent = '';
       if (jpEl) jpEl.textContent = '';
       saveCurrentSessionNavState();
+
+      let typewriterDone = false;
+      let voiceDone = true;
+
+      const scheduleAutoAdvanceIfReady = () => {
+        if (myRenderSeq !== _theaterRenderSeq || appState.theaterLineIdx !== idx) return;
+        if (appState.theaterSkipPlay === true) {
+          if (_theaterStepTimer) clearTimeout(_theaterStepTimer);
+          _theaterStepTimer = setTimeout(() => {
+            if (myRenderSeq === _theaterRenderSeq && appState.theaterSkipPlay === true) nextTheaterLine();
+          }, 420);
+          return;
+        }
+        if (appState.theaterAutoPlay === true && typewriterDone && voiceDone) {
+          if (_theaterStepTimer) clearTimeout(_theaterStepTimer);
+          _theaterStepTimer = setTimeout(() => {
+            if (myRenderSeq === _theaterRenderSeq && appState.theaterAutoPlay === true && !_theaterIsTyping) nextTheaterLine();
+          }, 1200);
+        }
+      };
+
+      startTheaterTypewriter(textEl, displayLineText, () => {
+        if (myRenderSeq !== _theaterRenderSeq) return;
+        typewriterDone = true;
+        scheduleAutoAdvanceIfReady();
+      });
 
       // 舞台可视化编辑模式同步控件值
       if (editPanel) {
@@ -20140,7 +20214,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       }
 
       // 0. 播放本行音效
-      if (line.sfxTag) {
+      if (canPlayStageAudio && line.sfxTag) {
         playTheaterSfx(line.sfxTag);
       }
 
@@ -20184,54 +20258,60 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         }
       }
 
-      // 2. 自动检测当前行及之前最近的音乐标记 bgmTag 并自动1秒渐入播放或1秒渐出停止，无需手动去搜
-      let activeBgmLine = null;
-      for (let k = idx; k >= 0; k--) {
-        const cand = chap.scriptLines[k];
-        if (cand && cand.bgmTag && String(cand.bgmTag).trim()) {
-          activeBgmLine = cand;
-          break;
+      // 2. 自动检测当前行及之前最近的音乐标记 bgmTag 并仅在已进入舞台时播放
+      if (canPlayStageAudio) {
+        let activeBgmLine = null;
+        for (let k = idx; k >= 0; k--) {
+          const cand = chap.scriptLines[k];
+          if (cand && cand.bgmTag && String(cand.bgmTag).trim()) {
+            activeBgmLine = cand;
+            break;
+          }
         }
-      }
-      if (activeBgmLine) {
-        const bgmTagStr = String(activeBgmLine.bgmTag).trim();
-        if (bgmTagStr === '停止') {
-          stopReplayBgmPreview(true);
-        } else {
-          (async () => {
-            try {
-              if (!activeBgmLine.bgmUrl) {
-                const matchedTrack = (appState.bgmTracks || []).find((t) => t.tag === bgmTagStr || t.name === bgmTagStr || t.name.includes(bgmTagStr));
-                if (matchedTrack && matchedTrack.url) {
-                  activeBgmLine.bgmUrl = normalizeMusicTrackUrl(matchedTrack.url);
-                } else {
-                  let sName = bgmTagStr;
-                  let aName = activeBgmLine.bgmArtist || '';
-                  if (bgmTagStr.includes('-')) {
-                    const [sp, ...ap] = bgmTagStr.split('-');
-                    sName = sp.trim();
-                    aName = ap.join('-').trim();
-                  }
-                  const resolved = await searchAndResolveMusicByWeight(sName, aName || '纯音乐', activeBgmLine.bgmMood || '日常');
-                  if (resolved && resolved.best && resolved.best.url) {
-                    activeBgmLine.bgmUrl = normalizeMusicTrackUrl(resolved.best.url);
-                    if (curProj) saveReplayProjectToDB(curProj);
+        if (activeBgmLine) {
+          const bgmTagStr = String(activeBgmLine.bgmTag).trim();
+          if (bgmTagStr === '停止') {
+            stopReplayBgmPreview(true);
+          } else {
+            (async () => {
+              try {
+                if (!activeBgmLine.bgmUrl) {
+                  const matchedTrack = (appState.bgmTracks || []).find((t) => t.tag === bgmTagStr || t.name === bgmTagStr || t.name.includes(bgmTagStr));
+                  if (matchedTrack && matchedTrack.url) {
+                    activeBgmLine.bgmUrl = normalizeMusicTrackUrl(matchedTrack.url);
                   } else {
-                    activeBgmLine.bgmUrl = getFallbackInstrumentalBgmUrl(activeBgmLine.bgmMood || bgmTagStr);
+                    let sName = bgmTagStr;
+                    let aName = activeBgmLine.bgmArtist || '';
+                    if (bgmTagStr.includes('-')) {
+                      const [sp, ...ap] = bgmTagStr.split('-');
+                      sName = sp.trim();
+                      aName = ap.join('-').trim();
+                    }
+                    const resolved = await searchAndResolveMusicByWeight(sName, aName || '纯音乐', activeBgmLine.bgmMood || '日常');
+                    if (resolved && resolved.best && resolved.best.url) {
+                      activeBgmLine.bgmUrl = normalizeMusicTrackUrl(resolved.best.url);
+                      if (curProj) saveReplayProjectToDB(curProj);
+                    } else {
+                      activeBgmLine.bgmUrl = getFallbackInstrumentalBgmUrl(activeBgmLine.bgmMood || bgmTagStr);
+                    }
                   }
                 }
-              }
-              if (activeBgmLine.bgmUrl) {
-                const player = document.getElementById('bgm-audio-player');
-                const targetUrl = normalizeMusicTrackUrl(activeBgmLine.bgmUrl);
-                if (player && (player.paused || _currentReplayBgmUrl !== targetUrl || !player.src)) {
-                  previewReplayBgmTrack(targetUrl, activeBgmLine.bgmMood || bgmTagStr);
+                if (myRenderSeq !== _theaterRenderSeq) return;
+                const curLobby = document.getElementById('vn-theater-selector-lobby');
+                const curScreen = document.getElementById('screen-theater');
+                if (!curScreen?.classList.contains('active') || curLobby?.classList.contains('active')) return;
+                if (activeBgmLine.bgmUrl) {
+                  const player = document.getElementById('bgm-audio-player');
+                  const targetUrl = normalizeMusicTrackUrl(activeBgmLine.bgmUrl);
+                  if (player && (player.paused || _currentReplayBgmUrl !== targetUrl || !player.src)) {
+                    previewReplayBgmTrack(targetUrl, activeBgmLine.bgmMood || bgmTagStr);
+                  }
                 }
+              } catch (bgmErr) {
+                console.warn('舞台BGM自动播放异常:', bgmErr);
               }
-            } catch (bgmErr) {
-              console.warn('舞台BGM自动播放异常:', bgmErr);
-            }
-          })();
+            })();
+          }
         }
       }
 
@@ -20280,20 +20360,34 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         }
       }
 
-      // 5. 渲染在场角色立绘：支持1人居中、2人左右固定、3人左中右固定，说话时保持各自槽位只高亮不乱换位
+      // 5. 更新对话框左侧说话人小头像相框：旁白或无真实图片时不显示默认小人图标
+      if (sideBustBox && sideBustImg) {
+        const showSideBust = localStorage.getItem('theater-show-side-bust') !== 'false';
+        const sideChk = document.getElementById('theater-show-side-bust-chk');
+        if (sideChk) sideChk.checked = showSideBust;
+        const avatarInfo = (showSideBust && isDialogueLine)
+          ? resolveCharacterMiniAvatarInfo(line.speaker, line.exp || '默认')
+          : null;
+        if (avatarInfo && avatarInfo.src && !String(avatarInfo.src).startsWith('data:image/svg+xml')) {
+          sideBustImg.src = toFastDisplayUrl(avatarInfo.src);
+          sideBustImg.classList.toggle('crop-tachie-head', Boolean(avatarInfo.isFullTachieCrop));
+          sideBustBox.classList.remove('empty');
+        } else {
+          sideBustBox.classList.add('empty');
+        }
+      }
+
+      // 6. 渲染在场角色立绘：若角色尚无真实立绘或仅为svg默认图标则留白不渲染
       if (tachieLayer) {
         if (chap._slotsComputedLen !== chap.scriptLines.length) {
           computeChapterStageSlots(chap.scriptLines);
           chap._slotsComputedLen = chap.scriptLines.length;
         }
-        tachieLayer.innerHTML = '';
         const rawPresent = Array.isArray(line.presentSpeakers) && line.presentSpeakers.length > 0
           ? line.presentSpeakers
           : (line.speaker && line.speaker !== '旁白' && line.speaker !== '检定' ? [line.speaker] : []);
         const presentNames = rawPresent.slice(0, 3);
-        tachieLayer.setAttribute('data-actor-count', String(presentNames.length));
 
-        // 记录同场角色最近一次使用的表情差分，使未说话的同场角色保持自然神态而非每句重置回默认
         const lastExpBySpeaker = {};
         for (let k = Math.max(0, idx - 12); k <= idx; k++) {
           const prevL = chap.scriptLines[k];
@@ -20303,6 +20397,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         }
 
         const maxScaleCm = 205;
+        const actorNodes = [];
 
         for (const spkName of presentNames) {
           const charObj = appState.characters.find((c) => c.name === spkName);
@@ -20318,7 +20413,11 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
             || (charObj.tachieExpressions && charObj.tachieExpressions['默认'])
             || charObj.tachieBase
             || charObj.chibiImg;
+          if (!rawSprite || String(rawSprite).startsWith('data:image/svg+xml')) continue;
+
           const croppedSprite = await getCroppedSpriteForHeightStage(rawSprite);
+          if (myRenderSeq !== _theaterRenderSeq) return;
+          if (!croppedSprite || String(croppedSprite).startsWith('data:image/svg+xml')) continue;
 
           let fxClass = '';
           if (isCurrentSpeaker) {
@@ -20333,79 +20432,56 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
           actorDiv.innerHTML = `
             <img src="${croppedSprite}" decoding="async" alt="${charObj.name}" style="height:100%;width:auto;max-width:none;" title="${charObj.name} · ${netCm}cm · ${expKey}" />
           `;
-          tachieLayer.appendChild(actorDiv);
+          actorNodes.push(actorDiv);
         }
+
+        if (myRenderSeq !== _theaterRenderSeq) return;
+        tachieLayer.innerHTML = '';
+        tachieLayer.setAttribute('data-actor-count', String(actorNodes.length));
+        actorNodes.forEach((node) => tachieLayer.appendChild(node));
       }
 
-      // 5.5 更新对话框左侧说话人小头像相框：旁白不显示头像，角色优先显示小头像，若无小头像则自动截取角色立绘头部
-      if (sideBustBox && sideBustImg) {
-        const showSideBust = localStorage.getItem('theater-show-side-bust') !== 'false';
-        const sideChk = document.getElementById('theater-show-side-bust-chk');
-        if (sideChk) sideChk.checked = showSideBust;
-        const isDialogueLine = line.type !== 'narration' && line.speaker && line.speaker !== '旁白' && line.speaker !== '检定';
-        const avatarInfo = (showSideBust && isDialogueLine)
-          ? resolveCharacterMiniAvatarInfo(line.speaker, line.exp || '默认')
-          : null;
-        if (avatarInfo && avatarInfo.src) {
-          sideBustImg.src = toFastDisplayUrl(avatarInfo.src);
-          sideBustImg.classList.toggle('crop-tachie-head', Boolean(avatarInfo.isFullTachieCrop));
-          sideBustBox.classList.remove('empty');
-        } else {
-          sideBustBox.classList.add('empty');
-        }
-      }
-
-      // 6. 启动打字机，且仅当用户明确开启「自动」或「快进」时才在打字及配音完成后自动切下一句
-      let typewriterDone = false;
-      let voiceDone = true;
-
-      const scheduleAutoAdvanceIfReady = () => {
-        if (appState.theaterLineIdx !== idx) return;
-        if (appState.theaterSkipPlay === true) {
-          if (_theaterStepTimer) clearTimeout(_theaterStepTimer);
-          _theaterStepTimer = setTimeout(() => {
-            if (appState.theaterSkipPlay === true) nextTheaterLine();
-          }, 420);
-          return;
-        }
-        if (appState.theaterAutoPlay === true && typewriterDone && voiceDone) {
-          if (_theaterStepTimer) clearTimeout(_theaterStepTimer);
-          _theaterStepTimer = setTimeout(() => {
-            if (appState.theaterAutoPlay === true && !_theaterIsTyping) nextTheaterLine();
-          }, 1200);
-        }
-      };
-
-      startTheaterTypewriter(textEl, displayLineText, () => {
-        typewriterDone = true;
-        scheduleAutoAdvanceIfReady();
-      });
-
-      if (!appState.theaterSkipPlay && !appState.theaterEditMode && line.type === 'dialogue' && line.speaker !== '旁白') {
+      // 7. 仅当真正处于舞台画面中且当前为对话台词时播放语音
+      if (canPlayStageAudio && !appState.theaterSkipPlay && !appState.theaterEditMode && isDialogueLine) {
         const cacheKey = `line_${chap.id}_${line.id}_${appState.theaterTtsLang}`;
         const cached = await db.ttsCache.get(cacheKey);
+        if (myRenderSeq !== _theaterRenderSeq) return;
         if (cached && cached.audioDataUrl) {
           voiceDone = false;
           try {
             await new Promise((resolve) => {
+              if (myRenderSeq !== _theaterRenderSeq) {
+                resolve(false);
+                return;
+              }
               const audio = new Audio(cached.audioDataUrl);
               _activeReplayTtsAudio = audio;
               audio.volume = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
               setBgmDuckingActive(true);
               audio.onended = () => {
-                setBgmDuckingActive(false);
+                if (_activeReplayTtsAudio === audio) {
+                  _activeReplayTtsAudio = null;
+                  setBgmDuckingActive(false);
+                }
                 resolve(true);
               };
               audio.onerror = () => {
-                setBgmDuckingActive(false);
+                if (_activeReplayTtsAudio === audio) {
+                  _activeReplayTtsAudio = null;
+                  setBgmDuckingActive(false);
+                }
                 resolve(false);
               };
               audio.play().catch(() => {
-                setBgmDuckingActive(false);
+                if (_activeReplayTtsAudio === audio) {
+                  _activeReplayTtsAudio = null;
+                  setBgmDuckingActive(false);
+                }
                 resolve(false);
               });
             });
           } catch (_) {}
+          if (myRenderSeq !== _theaterRenderSeq) return;
           voiceDone = true;
           scheduleAutoAdvanceIfReady();
         }
@@ -20590,6 +20666,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       if (lines.length === 0) {
         box.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);padding:24px;text-align:center;">暂无台词记录</div>';
       } else {
+        const showSideBust = localStorage.getItem('theater-show-side-bust') !== 'false';
         const maxIdx = Math.max(0, Math.min(lines.length - 1, appState.theaterLineIdx || 0));
         const startIdx = Math.max(0, maxIdx - 99);
         const visibleLines = lines.slice(startIdx, maxIdx + 1);
@@ -20602,25 +20679,49 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
 
           const canPlayVoice = !isNarr && Boolean(getSpeakerVoiceId(l.speaker));
           const playBtnHtml = canPlayVoice
-            ? `<button type="button" class="vn-play-tri-btn" title="播放此句语音" onclick="event.stopPropagation(); playSingleScriptLineTts(${actualIdx}, false);"><svg viewBox="0 0 24 24"><polygon points="7 5 19 12 7 19 7 5"></polygon></svg></button>`
+            ? `<button type="button" class="vn-backlog-icon-btn" title="播放语音" onclick="event.stopPropagation(); playSingleScriptLineTts(${actualIdx}, false);"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="8 5 19 12 8 19 8 5"></polygon></svg></button>`
             : '';
 
-          const speakerLabel = isNarr ? '旁白' : l.speaker;
-          const seqCode = 'NO.' + String(actualIdx + 1).padStart(2, '0');
+          const jumpBtnHtml = `<button type="button" class="vn-backlog-icon-btn" title="回到此句" onclick="event.stopPropagation(); rewindTheaterToLine(${actualIdx});"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg></button>`;
 
-          item.innerHTML = `
-            <div class="vn-backlog-speaker-col">
-              <div class="vn-backlog-speaker">${speakerLabel}</div>
-              <div class="vn-backlog-seq">${seqCode}</div>
-            </div>
-            <div class="vn-backlog-center">
-              <div class="vn-backlog-text">${l.text || ''}</div>
-            </div>
-            <div class="setting-item-right" style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
-              ${playBtnHtml}
-              <button type="button" class="moe-btn secondary" style="height:28px;min-height:28px;padding:0 10px;font-size:11px;" onclick="event.stopPropagation(); rewindTheaterToLine(${actualIdx});">回退</button>
-            </div>
-          `;
+          let avatarHtml = '';
+          if (showSideBust && !isNarr) {
+            const avInfo = resolveCharacterMiniAvatarInfo(l.speaker, l.exp || '默认');
+            const validSrc = avInfo && avInfo.src && !String(avInfo.src).startsWith('data:image/svg+xml') ? avInfo.src : '';
+            if (validSrc) {
+              avatarHtml = `<div class="vn-backlog-avatar"><img src="${validSrc}" class="${avInfo.isFullTachieCrop ? 'is-full-crop' : ''}" alt="" /></div>`;
+            } else {
+              const firstChar = String(l.speaker || '').trim().slice(0, 1) || '角';
+              avatarHtml = `<div class="vn-backlog-avatar is-monogram"><span>${firstChar}</span></div>`;
+            }
+          }
+
+          if (isNarr) {
+            item.innerHTML = `
+              <div class="vn-backlog-main is-narration-main">
+                <div class="vn-backlog-bubble is-narration-bubble">
+                  <div class="vn-backlog-text">${l.text || ''}</div>
+                  <div class="vn-backlog-actions">${jumpBtnHtml}</div>
+                </div>
+              </div>
+            `;
+          } else {
+            item.innerHTML = `
+              ${avatarHtml}
+              <div class="vn-backlog-main">
+                <div class="vn-backlog-meta">
+                  <span class="vn-backlog-speaker">${l.speaker || ''}</span>
+                  <div class="vn-backlog-actions">
+                    ${playBtnHtml}
+                    ${jumpBtnHtml}
+                  </div>
+                </div>
+                <div class="vn-backlog-bubble">
+                  <div class="vn-backlog-text">${l.text || ''}</div>
+                </div>
+              </div>
+            `;
+          }
           box.appendChild(item);
         });
       }
