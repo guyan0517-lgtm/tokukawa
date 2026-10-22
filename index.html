@@ -11153,7 +11153,9 @@ ZH: 修改后的纯客观中文服装配饰清单`
           const cm = c.heightCm || DEFAULT_HEIGHT_MAP[c.id] || 175;
           const tType = c.trpgType || (c.name === '旁白' ? '旁白' : '调查员');
           const isUniv = c.isUniversal !== false;
-          const vBadge = c.voiceId ? `音色 ${c.voiceId}` : '未设音色';
+          const vSpd = c.voiceSpeedDefault ?? 1.0;
+          const vPtc = c.voicePitchDefault ?? 0;
+          const vBadge = `${c.voiceId ? ('音色 ' + c.voiceId) : '未设音色'} · 语速 ${vSpd} · 语调 ${vPtc}`;
           const expCount = c.tachieExpressions ? Object.keys(c.tachieExpressions).length : 1;
           const bodyNote = c.body ? c.body.slice(0, 22) : '待写外貌';
 
@@ -11248,77 +11250,124 @@ ZH: 修改后的纯客观中文服装配饰清单`
       switchSubPage('screen-persona', 'persona-basic');
     }
 
+    function resolveEditingPersonaCharacter() {
+      let c = appState.characters.find((x) => x.id === appState.selectedPersonaId);
+      if (!c) {
+        const nameVal = document.getElementById('oc-name')?.value.trim();
+        if (nameVal) {
+          c = appState.characters.find((x) => x.name === nameVal);
+        }
+      }
+      if (!c && appState.characters.length > 0) {
+        c = appState.characters[0];
+      }
+      if (c) {
+        appState.selectedPersonaId = c.id;
+      }
+      return c || null;
+    }
+
+    async function syncCharacterDefaultVoiceToProjects(c) {
+      if (!c || !c.name || !Array.isArray(appState.replayProjects)) return;
+      const defSpd = c.voiceSpeedDefault ?? 1.0;
+      const defPtc = c.voicePitchDefault ?? 0;
+      for (const proj of appState.replayProjects) {
+        let projChanged = false;
+        (proj.chapters || []).forEach((chap) => {
+          (chap.scriptLines || []).forEach((line) => {
+            if (line.type === 'dialogue' && normalizeSpeakerName(line.speaker) === normalizeSpeakerName(c.name)) {
+              if (!line.ttsManualModified && (!line.ttsEmotion || line.ttsEmotion === 'neutral')) {
+                line.ttsSpeed = defSpd;
+                line.ttsPitch = defPtc;
+                projChanged = true;
+              }
+            }
+          });
+        });
+        if (projChanged) {
+          await saveReplayProjectToDB(proj);
+        }
+      }
+      if (typeof renderReplayVoiceStudio === 'function') {
+        renderReplayVoiceStudio();
+      }
+    }
+
     function syncVoiceSpeedAndPitchToCharacter(c) {
       if (!c) return;
-      if (document.getElementById('oc-voice-id')) {
-        c.voiceId = document.getElementById('oc-voice-id').value.trim();
+      const voiceEl = document.getElementById('oc-voice-id');
+      if (voiceEl) {
+        c.voiceId = voiceEl.value.trim();
       }
-      if (document.getElementById('oc-voice-speed-default')) {
-        const sd = parseFloat(document.getElementById('oc-voice-speed-default').value);
-        c.voiceSpeedDefault = isNaN(sd) ? 1.0 : Math.max(0.5, Math.min(2.0, sd));
+      const sdEl = document.getElementById('oc-voice-speed-default');
+      if (sdEl) {
+        const sd = parseFloat(sdEl.value);
+        c.voiceSpeedDefault = isNaN(sd) ? (c.voiceSpeedDefault ?? 1.0) : Number(Math.max(0.5, Math.min(2.0, sd)).toFixed(2));
+        sdEl.value = c.voiceSpeedDefault;
       }
-      if (document.getElementById('oc-voice-speed-min')) {
-        const smin = parseFloat(document.getElementById('oc-voice-speed-min').value);
-        c.voiceSpeedMin = isNaN(smin) ? 0.8 : Math.max(0.5, Math.min(2.0, smin));
+      const sminEl = document.getElementById('oc-voice-speed-min');
+      if (sminEl) {
+        const smin = parseFloat(sminEl.value);
+        c.voiceSpeedMin = isNaN(smin) ? (c.voiceSpeedMin ?? 0.8) : Number(Math.max(0.5, Math.min(2.0, smin)).toFixed(2));
+        sminEl.value = c.voiceSpeedMin;
       }
-      if (document.getElementById('oc-voice-speed-max')) {
-        const smax = parseFloat(document.getElementById('oc-voice-speed-max').value);
-        c.voiceSpeedMax = isNaN(smax) ? 1.3 : Math.max(0.5, Math.min(2.0, smax));
+      const smaxEl = document.getElementById('oc-voice-speed-max');
+      if (smaxEl) {
+        const smax = parseFloat(smaxEl.value);
+        c.voiceSpeedMax = isNaN(smax) ? (c.voiceSpeedMax ?? 1.3) : Number(Math.max(0.5, Math.min(2.0, smax)).toFixed(2));
+        smaxEl.value = c.voiceSpeedMax;
       }
       if (c.voiceSpeedMin > c.voiceSpeedMax) {
         const tmp = c.voiceSpeedMin;
         c.voiceSpeedMin = c.voiceSpeedMax;
         c.voiceSpeedMax = tmp;
+        if (sminEl) sminEl.value = c.voiceSpeedMin;
+        if (smaxEl) smaxEl.value = c.voiceSpeedMax;
       }
-      if (c.voiceSpeedDefault < c.voiceSpeedMin) {
-        c.voiceSpeedMin = c.voiceSpeedDefault;
-        if (document.getElementById('oc-voice-speed-min')) document.getElementById('oc-voice-speed-min').value = c.voiceSpeedMin;
+
+      const pdEl = document.getElementById('oc-voice-pitch-default');
+      if (pdEl) {
+        const pd = parseInt(pdEl.value, 10);
+        c.voicePitchDefault = isNaN(pd) ? (c.voicePitchDefault ?? 0) : Math.max(-12, Math.min(12, pd));
+        pdEl.value = c.voicePitchDefault;
       }
-      if (c.voiceSpeedDefault > c.voiceSpeedMax) {
-        c.voiceSpeedMax = c.voiceSpeedDefault;
-        if (document.getElementById('oc-voice-speed-max')) document.getElementById('oc-voice-speed-max').value = c.voiceSpeedMax;
+      const pminEl = document.getElementById('oc-voice-pitch-min');
+      if (pminEl) {
+        const pmin = parseInt(pminEl.value, 10);
+        c.voicePitchMin = isNaN(pmin) ? (c.voicePitchMin ?? -4) : Math.max(-12, Math.min(12, pmin));
+        pminEl.value = c.voicePitchMin;
       }
-      if (document.getElementById('oc-voice-pitch-default')) {
-        const pd = parseInt(document.getElementById('oc-voice-pitch-default').value, 10);
-        c.voicePitchDefault = isNaN(pd) ? 0 : Math.max(-12, Math.min(12, pd));
-      }
-      if (document.getElementById('oc-voice-pitch-min')) {
-        const pmin = parseInt(document.getElementById('oc-voice-pitch-min').value, 10);
-        c.voicePitchMin = isNaN(pmin) ? -4 : Math.max(-12, Math.min(12, pmin));
-      }
-      if (document.getElementById('oc-voice-pitch-max')) {
-        const pmax = parseInt(document.getElementById('oc-voice-pitch-max').value, 10);
-        c.voicePitchMax = isNaN(pmax) ? 4 : Math.max(-12, Math.min(12, pmax));
+      const pmaxEl = document.getElementById('oc-voice-pitch-max');
+      if (pmaxEl) {
+        const pmax = parseInt(pmaxEl.value, 10);
+        c.voicePitchMax = isNaN(pmax) ? (c.voicePitchMax ?? 4) : Math.max(-12, Math.min(12, pmax));
+        pmaxEl.value = c.voicePitchMax;
       }
       if (c.voicePitchMin > c.voicePitchMax) {
         const tmpP = c.voicePitchMin;
         c.voicePitchMin = c.voicePitchMax;
         c.voicePitchMax = tmpP;
-      }
-      if (c.voicePitchDefault < c.voicePitchMin) {
-        c.voicePitchMin = c.voicePitchDefault;
-        if (document.getElementById('oc-voice-pitch-min')) document.getElementById('oc-voice-pitch-min').value = c.voicePitchMin;
-      }
-      if (c.voicePitchDefault > c.voicePitchMax) {
-        c.voicePitchMax = c.voicePitchDefault;
-        if (document.getElementById('oc-voice-pitch-max')) document.getElementById('oc-voice-pitch-max').value = c.voicePitchMax;
+        if (pminEl) pminEl.value = c.voicePitchMin;
+        if (pmaxEl) pmaxEl.value = c.voicePitchMax;
       }
     }
 
     async function autoSavePersonaVoiceFields() {
-      const c = appState.characters.find((x) => x.id === appState.selectedPersonaId);
+      const c = resolveEditingPersonaCharacter();
       if (!c) return;
       syncVoiceSpeedAndPitchToCharacter(c);
       await db.characters.put(c);
+      await syncCharacterDefaultVoiceToProjects(c);
       renderPersonaGrid();
     }
 
     async function previewPersonaVoiceTts() {
       const btn = document.getElementById('oc-voice-test-btn');
-      const c = appState.characters.find((x) => x.id === appState.selectedPersonaId);
+      const c = resolveEditingPersonaCharacter();
       if (c) {
         syncVoiceSpeedAndPitchToCharacter(c);
         await db.characters.put(c);
+        await syncCharacterDefaultVoiceToProjects(c);
       }
       const voiceId = document.getElementById('oc-voice-id')?.value.trim() || c?.voiceId || '';
       if (!voiceId) {
@@ -11348,9 +11397,12 @@ ZH: 修改后的纯客观中文服装配饰清单`
     }
 
     function selectPersonaForEdit(charId) {
-      appState.selectedPersonaId = charId;
-      const c = appState.characters.find((x) => x.id === charId);
+      let c = appState.characters.find((x) => x.id === charId);
+      if (!c && appState.characters.length > 0) {
+        c = appState.characters[0];
+      }
       if (!c) return;
+      appState.selectedPersonaId = c.id;
       document.getElementById('persona-editing-title').textContent = `${c.name} · 角色档案`;
       const avatarPrev = document.getElementById('oc-profile-avatar-preview');
       if (avatarPrev) {
@@ -11419,7 +11471,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
     }
 
     async function saveCurrentPersona(stayOnPage = false) {
-      const c = appState.characters.find((x) => x.id === appState.selectedPersonaId);
+      const c = resolveEditingPersonaCharacter();
       if (!c) return;
       if (document.getElementById('oc-name')) c.name = document.getElementById('oc-name').value.trim() || c.name;
       if (document.getElementById('oc-age')) c.age = document.getElementById('oc-age').value.trim();
@@ -11452,6 +11504,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
       delete c.customPersonaText;
 
       await db.characters.put(c);
+      await syncCharacterDefaultVoiceToProjects(c);
       updatePersonaPreviewBoxes(c);
       renderPersonaGrid();
       populateCharacterSelects();
@@ -14687,45 +14740,43 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
 
     function getSpeakerVoiceBounds(speakerName) {
       const norm = normalizeSpeakerName(speakerName);
-      const found = appState.characters.find((c) => c.name === norm);
+      const found = appState.characters.find((c) => normalizeSpeakerName(c.name) === norm);
       const minSpdRaw = parseFloat(found?.voiceSpeedMin);
       const maxSpdRaw = parseFloat(found?.voiceSpeedMax);
       const defSpdRaw = parseFloat(found?.voiceSpeedDefault);
       const minSpeed = isNaN(minSpdRaw) ? 0.8 : Math.max(0.5, Math.min(2.0, minSpdRaw));
       const maxSpeed = isNaN(maxSpdRaw) ? 1.3 : Math.max(minSpeed, Math.min(2.0, maxSpdRaw));
-      const defaultSpeed = isNaN(defSpdRaw) ? Math.max(minSpeed, Math.min(maxSpeed, 1.0)) : Math.max(minSpeed, Math.min(maxSpeed, defSpdRaw));
+      const defaultSpeed = isNaN(defSpdRaw) ? 1.0 : Number(Math.max(0.5, Math.min(2.0, defSpdRaw)).toFixed(2));
 
       const minPtcRaw = parseInt(found?.voicePitchMin, 10);
       const maxPtcRaw = parseInt(found?.voicePitchMax, 10);
       const defPtcRaw = parseInt(found?.voicePitchDefault, 10);
       const minPitch = isNaN(minPtcRaw) ? -4 : Math.max(-12, Math.min(12, minPtcRaw));
       const maxPitch = isNaN(maxPtcRaw) ? 4 : Math.max(minPitch, Math.min(12, maxPtcRaw));
-      const defaultPitch = isNaN(defPtcRaw) ? Math.max(minPitch, Math.min(maxPitch, 0)) : Math.max(minPitch, Math.min(maxPitch, defPtcRaw));
+      const defaultPitch = isNaN(defPtcRaw) ? 0 : Math.max(-12, Math.min(12, defPtcRaw));
 
       return { defaultSpeed, minSpeed, maxSpeed, defaultPitch, minPitch, maxPitch };
     }
 
-    function clampSpeakerVoiceParams(speakerName, rawEmotion, rawSpeed, rawPitch) {
+    function clampSpeakerVoiceParams(speakerName, rawEmotion, rawSpeed, rawPitch, useRoleBounds = false) {
       const bounds = getSpeakerVoiceBounds(speakerName);
       const validEmotions = ['neutral', 'happy', 'sad', 'angry', 'fearful', 'disgusted', 'surprised'];
       const emo = validEmotions.includes(String(rawEmotion || '').trim().toLowerCase())
         ? String(rawEmotion).trim().toLowerCase()
         : 'neutral';
-      if (emo === 'neutral') {
-        return {
-          emotion: 'neutral',
-          speed: bounds.defaultSpeed,
-          pitch: bounds.defaultPitch
-        };
-      }
+      const minSpd = useRoleBounds ? bounds.minSpeed : 0.5;
+      const maxSpd = useRoleBounds ? bounds.maxSpeed : 2.0;
+      const minPtc = useRoleBounds ? bounds.minPitch : -12;
+      const maxPtc = useRoleBounds ? bounds.maxPitch : 12;
+
       const parsedSpd = parseFloat(rawSpeed);
       const speed = isNaN(parsedSpd)
         ? bounds.defaultSpeed
-        : Number(Math.max(bounds.minSpeed, Math.min(bounds.maxSpeed, parsedSpd)).toFixed(2));
+        : Number(Math.max(minSpd, Math.min(maxSpd, parsedSpd)).toFixed(2));
       const parsedPtc = parseInt(rawPitch, 10);
       const pitch = isNaN(parsedPtc)
         ? bounds.defaultPitch
-        : Math.max(bounds.minPitch, Math.min(bounds.maxPitch, parsedPtc));
+        : Math.max(minPtc, Math.min(maxPtc, parsedPtc));
       return { emotion: emo, speed, pitch };
     }
 
@@ -14856,10 +14907,12 @@ JP_VOICE: L行号|润色后的纯日语配音台词`;
               if (lIdx >= 0 && lIdx < chap.scriptLines.length) {
                 const targetLine = chap.scriptLines[lIdx];
                 if (targetLine.type === 'dialogue' && targetLine.speaker !== '旁白') {
-                  const clamped = clampSpeakerVoiceParams(targetLine.speaker, parts[1], parts[2], parts[3]);
+                  const clamped = clampSpeakerVoiceParams(targetLine.speaker, parts[1], parts[2], parts[3], true);
                   targetLine.ttsEmotion = clamped.emotion;
-                  targetLine.ttsSpeed = clamped.speed;
-                  targetLine.ttsPitch = clamped.pitch;
+                  if (!targetLine.ttsManualModified) {
+                    targetLine.ttsSpeed = clamped.speed;
+                    targetLine.ttsPitch = clamped.pitch;
+                  }
                   const jp = cleanJapaneseLineText(parts.slice(4).join('|').trim(), targetLine.speaker);
                   if (jp) targetLine.jpText = jp;
                   updatedCount += 1;
@@ -14876,14 +14929,18 @@ JP_VOICE: L行号|润色后的纯日语配音台词`;
                   const jp = cleanJapaneseLineText(rawJpPart, targetLine.speaker);
                   if (jp) targetLine.jpText = jp;
                   if (isAdvancedMode) {
-                    const clamped = clampSpeakerVoiceParams(targetLine.speaker, targetLine.ttsEmotion || 'neutral', targetLine.ttsSpeed, targetLine.ttsPitch);
+                    const clamped = clampSpeakerVoiceParams(targetLine.speaker, targetLine.ttsEmotion || 'neutral', targetLine.ttsSpeed, targetLine.ttsPitch, false);
                     targetLine.ttsEmotion = clamped.emotion;
-                    targetLine.ttsSpeed = clamped.speed;
-                    targetLine.ttsPitch = clamped.pitch;
+                    if (!targetLine.ttsManualModified) {
+                      targetLine.ttsSpeed = clamped.speed;
+                      targetLine.ttsPitch = clamped.pitch;
+                    }
                   } else {
                     targetLine.ttsEmotion = '';
-                    targetLine.ttsSpeed = bounds.defaultSpeed;
-                    targetLine.ttsPitch = bounds.defaultPitch;
+                    if (!targetLine.ttsManualModified) {
+                      targetLine.ttsSpeed = bounds.defaultSpeed;
+                      targetLine.ttsPitch = bounds.defaultPitch;
+                    }
                   }
                   updatedCount += 1;
                 }
@@ -14897,8 +14954,10 @@ JP_VOICE: L行号|润色后的纯日语配音台词`;
             if (l.type === 'dialogue' && l.speaker && l.speaker !== '旁白') {
               const bounds = getSpeakerVoiceBounds(l.speaker);
               l.ttsEmotion = '';
-              l.ttsSpeed = bounds.defaultSpeed;
-              l.ttsPitch = bounds.defaultPitch;
+              if (!l.ttsManualModified) {
+                l.ttsSpeed = bounds.defaultSpeed;
+                l.ttsPitch = bounds.defaultPitch;
+              }
             }
           });
         }
@@ -17432,20 +17491,28 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
                 </select>
               ` : ''}
               <span style="font-size:11px;color:var(--text-secondary);">语速</span>
-              <input type="number" step="0.05" min="${bounds.minSpeed}" max="${bounds.maxSpeed}" class="moe-input" value="${curSpeed}" style="width:58px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" onchange="updateReplayVoiceParam(${idx}, 'ttsSpeed', parseFloat(this.value))" />
+              <input type="number" step="0.05" min="0.5" max="2.0" id="voice-speed-input-${idx}" class="moe-input" value="${curSpeed}" style="width:62px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" onchange="updateReplayVoiceParam(${idx}, 'ttsSpeed', this.value)" />
               <span style="font-size:11px;color:var(--text-secondary);">语调</span>
-              <input type="number" step="1" min="${bounds.minPitch}" max="${bounds.maxPitch}" class="moe-input" value="${curPitch}" style="width:54px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" onchange="updateReplayVoiceParam(${idx}, 'ttsPitch', parseInt(this.value, 10))" />
+              <input type="number" step="1" min="-12" max="12" id="voice-pitch-input-${idx}" class="moe-input" value="${curPitch}" style="width:58px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" onchange="updateReplayVoiceParam(${idx}, 'ttsPitch', this.value)" />
             </div>
             <div class="vn-script-row-actions">
               <button type="button" class="moe-btn secondary" id="voice-studio-play-btn-${idx}" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="playSingleScriptLineTts(${idx}, false)">试听</button>
               <button type="button" class="moe-btn" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="playSingleScriptLineTts(${idx}, true)">重配</button>
             </div>
           </div>
-          <textarea rows="2" class="moe-input" style="min-height:48px;height:48px;resize:vertical;font-size:12px;line-height:1.45;padding:6px 10px;" onchange="updateReplayScriptLineField(${idx}, 'text', this.value);renderReplayVoiceStudio();">${line.text || ''}</textarea>
-          <input type="text" class="moe-input" value="${cleanJp.replace(/"/g, '&quot;')}" placeholder="日语配音台词" style="height:30px;min-height:30px;font-size:11px;color:var(--text-secondary);" onchange="updateReplayScriptLineField(${idx}, 'jpText', this.value);renderReplayVoiceStudio();" />
+          <textarea rows="2" class="moe-input" style="min-height:48px;height:48px;resize:vertical;font-size:12px;line-height:1.45;padding:6px 10px;" onchange="updateReplayVoiceParam(${idx}, 'text', this.value)">${line.text || ''}</textarea>
+          <input type="text" class="moe-input" value="${cleanJp.replace(/"/g, '&quot;')}" placeholder="日语配音台词" style="height:30px;min-height:30px;font-size:11px;color:var(--text-secondary);" onchange="updateReplayVoiceParam(${idx}, 'jpText', this.value)" />
         `;
         box.appendChild(card);
       });
+    }
+
+    async function invalidateSingleLineTtsCache(chapId, lineId) {
+      if (!chapId || !lineId) return;
+      try {
+        await db.ttsCache.delete(`line_${chapId}_${lineId}_jp`);
+        await db.ttsCache.delete(`line_${chapId}_${lineId}_zh`);
+      } catch (_) {}
     }
 
     async function updateReplayVoiceParam(lineIdx, field, val) {
@@ -17456,21 +17523,28 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       const bounds = getSpeakerVoiceBounds(line.speaker);
       if (field === 'ttsEmotion') {
         line.ttsEmotion = val;
-        if (val === 'neutral') {
-          line.ttsSpeed = bounds.defaultSpeed;
-          line.ttsPitch = bounds.defaultPitch;
-        }
+        line.ttsManualModified = true;
       } else if (field === 'ttsSpeed') {
-        const s = isNaN(val) ? bounds.defaultSpeed : Math.max(bounds.minSpeed, Math.min(bounds.maxSpeed, val));
+        const parsed = parseFloat(val);
+        const s = isNaN(parsed) ? bounds.defaultSpeed : Math.max(0.5, Math.min(2.0, parsed));
         line.ttsSpeed = Number(s.toFixed(2));
+        line.ttsManualModified = true;
+        const spdInput = document.getElementById(`voice-speed-input-${lineIdx}`);
+        if (spdInput) spdInput.value = line.ttsSpeed;
       } else if (field === 'ttsPitch') {
-        const p = isNaN(val) ? bounds.defaultPitch : Math.max(bounds.minPitch, Math.min(bounds.maxPitch, val));
+        const parsed = parseInt(val, 10);
+        const p = isNaN(parsed) ? bounds.defaultPitch : Math.max(-12, Math.min(12, parsed));
         line.ttsPitch = p;
+        line.ttsManualModified = true;
+        const ptcInput = document.getElementById(`voice-pitch-input-${lineIdx}`);
+        if (ptcInput) ptcInput.value = line.ttsPitch;
       } else {
         line[field] = val;
       }
+      await invalidateSingleLineTtsCache(chap.id, line.id);
+      const lineBtn = document.getElementById(`line-tts-btn-${lineIdx}`);
+      if (lineBtn) lineBtn.classList.remove('cached');
       await saveReplayProjectToDB(proj);
-      renderReplayVoiceStudio();
     }
 
     // 点击配音页顶部「生成」按钮：按当前模式调用MiniMax合成语音，普通模式不传emotion仅传语速语调，高级模式传emotion、语速与语调
@@ -17513,7 +17587,8 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
             line.speaker,
             line.ttsEmotion || 'neutral',
             line.ttsSpeed ?? bounds.defaultSpeed,
-            line.ttsPitch ?? bounds.defaultPitch
+            line.ttsPitch ?? bounds.defaultPitch,
+            false
           );
           const cacheKey = `line_${chap.id}_${line.id}_${appState.theaterTtsLang}`;
           if (statusEl) {
@@ -19458,11 +19533,14 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       if (document.getElementById('chibi-seat-span-val')) document.getElementById('chibi-seat-span-val').textContent = appState.chibiSeatSpan;
       if (document.getElementById('chibi-seat-y-val')) document.getElementById('chibi-seat-y-val').textContent = appState.chibiSeatY;
 
+      if (!appState.characters.some((c) => c.id === appState.selectedPersonaId)) {
+        appState.selectedPersonaId = appState.characters[0]?.id || '';
+      }
       populateCharacterSelects();
       populateBuilderSceneSelect();
       syncCustomTableSurfaceUI();
       renderPersonaGrid();
-      selectPersonaForEdit(appState.selectedPersonaId || appState.characters[0]?.id || '');
+      selectPersonaForEdit(appState.selectedPersonaId);
       loadCharToChibiPanel();
       loadCharToTachiePanel();
       await renderStylePresetSelect();
