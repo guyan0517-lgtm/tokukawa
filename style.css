@@ -31,7 +31,10 @@ html, body {
   font-size: 13px;
   line-height: 1.45;
   color: var(--text-primary);
-  background: #e8eaef;
+  background-color: #e8eaef;
+  background-image: var(--custom-desktop-bg, none);
+  background-size: cover;
+  background-position: center;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -43,7 +46,10 @@ html, body {
   max-width: 420px;
   height: 100dvh;
   max-height: 880px;
-  background: var(--background-color);
+  background-color: var(--background-color);
+  background-image: var(--custom-screen-bg, none);
+  background-size: cover;
+  background-position: center;
   position: relative;
   overflow: hidden;
   display: flex;
@@ -124,7 +130,10 @@ body.landscape-game-active #status-bar {
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--background-color);
+  background-color: var(--background-color);
+  background-image: var(--custom-screen-bg, none);
+  background-size: cover;
+  background-position: center;
   display: none;
   flex-direction: column;
   overflow: hidden;
@@ -144,12 +153,18 @@ body.landscape-game-active .screen {
   padding: 18px 18px 22px;
   justify-content: space-between;
   gap: 16px;
-  background: var(--background-color);
+  background-color: var(--background-color);
+  background-image: var(--custom-screen-bg, none);
+  background-size: cover;
+  background-position: center;
 }
 
 /* 顶部日式四字标题卡片 */
 .home-profile-widget {
-  background: var(--card-bg);
+  background-color: var(--card-bg);
+  background-image: var(--custom-card-bg, none);
+  background-size: cover;
+  background-position: center;
   border: 1px solid var(--border-color);
   border-radius: 20px;
   padding: 20px 16px 18px;
@@ -348,8 +363,9 @@ body.landscape-game-active .screen {
 }
 
 .app-back-btn {
+  width: 32px;
   height: 32px;
-  padding: 0 10px 0 6px;
+  padding: 0;
   border-radius: 8px;
   border: 1px solid var(--border-color);
   background: var(--secondary-bg);
@@ -358,6 +374,7 @@ body.landscape-game-active .screen {
   font-weight: 600;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 3px;
   cursor: pointer;
   flex-shrink: 0;
@@ -430,7 +447,10 @@ body.landscape-game-active .screen {
 
 /* ==================== 复用标准组件类 (.moe-card, .moe-btn, .moe-input, .form-group, .setting-item) ==================== */
 .moe-card {
-  background: var(--card-bg);
+  background-color: var(--card-bg);
+  background-image: var(--custom-card-bg, none);
+  background-size: cover;
+  background-position: center;
   border: 1px solid var(--border-color);
   border-radius: 14px;
   padding: 14px;
@@ -665,6 +685,11 @@ input[type="radio"] {
   position: relative;
   overflow: hidden;
   min-height: 200px;
+}
+
+.checkerboard-stage.black-bg-preview {
+  background-color: #16161a !important;
+  background-image: none !important;
 }
 
 /* ==================== 全屏横屏游戏地图世界 ==================== */

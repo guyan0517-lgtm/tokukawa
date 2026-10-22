@@ -418,19 +418,15 @@
           <div id="app-icon-box-start"></div><span id="app-label-start">开始</span>
           <div id="app-icon-box-map"></div><span id="app-label-map">地图</span>
           <div id="app-icon-box-theater"></div>
-          <div id="app-icon-box-stage"></div>
         </div>
       </div>
 
       <!-- 底部固定栏：剧本与舞台保持原有配色并采用正方形按钮容器 -->
       <div class="home-dock">
-        <button type="button" class="home-dock-main-btn" data-app-key="theater" onclick="openTheaterWithLobby()">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="2"/><polygon points="10 9 15 12 10 15 10 9"/></svg>
-          <span id="app-label-theater">剧本</span>
-        </button>
-
         <button type="button" class="home-dock-main-btn primary-dock-btn" data-app-key="stage" onclick="openTheaterStageSelectorLobby()">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          <span id="app-icon-box-stage" style="width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;border-radius:6px;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </span>
           <span id="app-label-stage">舞台</span>
         </button>
       </div>
@@ -544,12 +540,12 @@
     <!-- ==================== 2. 角色分类档案柜 App ==================== -->
     <section id="screen-persona" class="screen">
       <div class="app-header">
-        <button type="button" class="app-back-btn" onclick="handlePersonaBackBtn()">返回</button>
+        <button type="button" class="app-back-btn" onclick="handlePersonaBackBtn()" title="返回"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
         <span class="app-header-title">角色</span>
         <div class="app-header-actions">
           <button type="button" class="moe-btn secondary" onclick="document.getElementById('persona-import-pack-input').click()">导包</button>
           <input type="file" id="persona-import-pack-input" accept=".zip,.json" style="display:none;" onchange="importSingleCharacterPack(event)" />
-          <button type="button" class="moe-btn" onclick="saveCurrentPersona()">保存</button>
+          <button type="button" id="persona-save-btn" class="moe-btn" onclick="saveCurrentPersona(true)">保存</button>
         </div>
       </div>
 
@@ -569,7 +565,6 @@
             <button type="button" class="moe-btn" data-cat="all" onclick="onSelectPersonaCategoryFilter('all')">全部</button>
             <button type="button" class="moe-btn secondary" data-cat="调查员" onclick="onSelectPersonaCategoryFilter('调查员')">主角</button>
             <button type="button" class="moe-btn secondary" data-cat="NPC" onclick="onSelectPersonaCategoryFilter('NPC')">配角</button>
-            <button type="button" class="moe-btn secondary" data-cat="旁白" onclick="onSelectPersonaCategoryFilter('旁白')">旁白</button>
             <button type="button" class="moe-btn secondary" data-cat="universal" onclick="onSelectPersonaCategoryFilter('universal')">通用</button>
           </div>
           <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;line-height:1.5;">
@@ -618,7 +613,6 @@
               <select id="oc-trpg-type" class="moe-input">
                 <option value="调查员">调查员</option>
                 <option value="NPC">NPC</option>
-                <option value="旁白">旁白</option>
               </select>
             </div>
           </div>
@@ -711,10 +705,11 @@
     <!-- ==================== 3 & 4. 立绘工作台 ==================== -->
     <section id="screen-tachie" class="screen">
       <div class="app-header">
-        <button type="button" class="app-back-btn" onclick="goHomeScreen()">返回</button>
+        <button type="button" class="app-back-btn" onclick="goHomeScreen()" title="返回"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
         <span class="app-header-title">立绘</span>
         <div class="app-header-actions">
-          <select id="tachie-target-char" class="moe-input" style="height:36px;min-height:36px;width:136px;font-size:13px;" onchange="onMergedStudioCharChange(this.value)"></select>
+          <select id="tachie-target-module" class="moe-input" style="height:36px;min-height:36px;width:112px;font-size:13px;" onchange="onTachieModuleFilterChange(this.value)"></select>
+          <select id="tachie-target-char" class="moe-input" style="height:36px;min-height:36px;width:112px;font-size:13px;" onchange="onMergedStudioCharChange(this.value)"></select>
           <select id="chibi-target-char" style="display:none;" onchange="onMergedStudioCharChange(this.value)"></select>
         </div>
       </div>
@@ -855,6 +850,7 @@
                 <div class="stage-side-toolbar">
                   <button type="button" class="moe-btn" id="tachie-gen-base-btn" onclick="generateTachieImageViaNai()">生图</button>
                   <button type="button" class="moe-btn secondary" onclick="document.getElementById('tachie-local-upload').click()">导入</button>
+                  <button type="button" class="moe-btn secondary" id="tachie-black-bg-btn" onclick="toggleTachieBlackBgPreview()">黑底</button>
                   <button type="button" class="moe-btn secondary" onclick="exportTachieTransparentPng()">导出</button>
                   <button type="button" class="moe-btn" id="tachie-brush-none-btn" title="预览" onclick="setTachieBrushMode('none')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg></button>
                   <button type="button" class="moe-btn secondary" title="去底" onclick="applyFloodFillToTachie()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg></button>
@@ -1215,7 +1211,7 @@
     <!-- ==================== 5. 世界书 App ==================== -->
     <section id="screen-worldbook" class="screen">
       <div class="app-header">
-        <button type="button" class="app-back-btn" onclick="goHomeScreen()">返回</button>
+        <button type="button" class="app-back-btn" onclick="goHomeScreen()" title="返回"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
         <span class="app-header-title">世界书</span>
         <div class="app-header-actions">
           <button type="button" class="moe-btn" onclick="addNewWorldbookEntry()">新增</button>
@@ -1229,7 +1225,7 @@
     <!-- ==================== 6. 关系 App ==================== -->
     <section id="screen-relation" class="screen">
       <div class="app-header">
-        <button type="button" class="app-back-btn" onclick="goHomeScreen()">返回</button>
+        <button type="button" class="app-back-btn" onclick="goHomeScreen()" title="返回"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
         <span class="app-header-title">关系</span>
         <div class="app-header-actions">
           <button type="button" class="moe-btn" onclick="openAddRelationModal()">新增</button>
@@ -1260,7 +1256,7 @@
     <!-- ==================== 7. 记忆 App ==================== -->
     <section id="screen-memory" class="screen">
       <div class="app-header">
-        <button type="button" class="app-back-btn" onclick="goHomeScreen()">返回</button>
+        <button type="button" class="app-back-btn" onclick="goHomeScreen()" title="返回"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
         <span class="app-header-title">记忆</span>
         <div class="app-header-actions">
           <button type="button" class="moe-btn" onclick="addManualMemoryEntry()">新增</button>
@@ -1275,7 +1271,7 @@
     <!-- ==================== 8. 手机 App ==================== -->
     <section id="screen-phone" class="screen">
       <div class="app-header">
-        <button type="button" class="app-back-btn" onclick="goHomeScreen()">返回</button>
+        <button type="button" class="app-back-btn" onclick="goHomeScreen()" title="返回"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
         <span class="app-header-title">手机</span>
         <div class="app-header-actions"></div>
       </div>
@@ -1303,7 +1299,7 @@
     <!-- ==================== 9. 论坛 App ==================== -->
     <section id="screen-forum" class="screen">
       <div class="app-header">
-        <button type="button" class="app-back-btn" onclick="goHomeScreen()">返回</button>
+        <button type="button" class="app-back-btn" onclick="goHomeScreen()" title="返回"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
         <span class="app-header-title">论坛</span>
         <div class="app-header-actions">
           <button type="button" class="moe-btn secondary" onclick="generateAiForumPost()">刷新</button>
@@ -1318,7 +1314,7 @@
     <!-- ==================== 9.5 美化 App（换肤 | 装修 | 图标 | 背景） ==================== -->
     <section id="screen-theme" class="screen">
       <div class="app-header">
-        <button type="button" class="app-back-btn" onclick="goHomeScreen()">返回</button>
+        <button type="button" class="app-back-btn" onclick="goHomeScreen()" title="返回"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
         <span class="app-header-title">美化</span>
         <div class="app-header-actions">
           <button type="button" class="moe-btn secondary" onclick="exportFullThemePackJson()">导出</button>
@@ -1452,7 +1448,7 @@
     <!-- ==================== 10. 设置 App（音乐 | 主API | 副API | 生图 | 语音 | 日志） ==================== -->
     <section id="screen-settings" class="screen">
       <div class="app-header">
-        <button type="button" class="app-back-btn" onclick="goHomeScreen()">返回</button>
+        <button type="button" class="app-back-btn" onclick="goHomeScreen()" title="返回"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
         <span class="app-header-title">设置</span>
         <div class="app-header-actions">
           <button type="button" class="moe-btn secondary" id="settings-pwa-install-btn" onclick="triggerPwaInstallPrompt()">安装</button>
@@ -1999,7 +1995,7 @@
     <!-- ==================== 10. 建图 App：餐桌 | 家具 | 地图 ==================== -->
     <section id="screen-builder" class="screen">
       <div class="app-header">
-        <button type="button" class="app-back-btn" onclick="goHomeScreen()">返回</button>
+        <button type="button" class="app-back-btn" onclick="goHomeScreen()" title="返回"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
         <span class="app-header-title">建图</span>
         <div class="app-header-actions">
           <button type="button" class="moe-btn secondary" onclick="openAppScreen('tachie');switchSubPage('screen-tachie','chibi-sub-table');renderChibiTablePreview();">测桌</button>
@@ -2217,7 +2213,7 @@
     <!-- ==================== 12. 音乐库与音乐台权重搜歌 App ==================== -->
     <section id="screen-music" class="screen">
       <div class="app-header">
-        <button type="button" class="app-back-btn" onclick="goHomeScreen()">返回</button>
+        <button type="button" class="app-back-btn" onclick="goHomeScreen()" title="返回"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
         <span class="app-header-title">音乐</span>
         <div class="app-header-actions">
           <button type="button" class="moe-btn secondary" onclick="stopReplayBgmPreview()">停止</button>
@@ -2300,7 +2296,7 @@
     <!-- ==================== 13. 跑团模组工坊 App ==================== -->
     <section id="screen-replay" class="screen">
       <div class="app-header">
-        <button type="button" class="app-back-btn" onclick="goHomeScreen()">返回</button>
+        <button type="button" class="app-back-btn" onclick="goHomeScreen()" title="返回"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
         <span class="app-header-title">模组</span>
         <div class="app-header-actions">
           <button type="button" class="moe-btn secondary" onclick="openTheaterWithLobby()">剧本</button>
@@ -2785,12 +2781,14 @@
         <div class="vn-selector-lobby" id="vn-theater-selector-lobby">
           <div class="vn-lobby-card">
             <div class="moe-card-header">
-              <span class="moe-card-title">选择要观看的模组与章节 或直接读取跨模组存档</span>
+              <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                <button type="button" class="app-back-btn" onclick="exitTheaterToHome()" title="返回"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+                <span class="moe-card-title">选择要观看的模组与章节 或直接读取跨模组存档</span>
+              </div>
               <div style="display:flex;gap:6px;">
                 <button type="button" class="moe-btn secondary" onclick="openTheaterSaveLoadModal('load')">读档</button>
                 <button type="button" class="moe-btn secondary" onclick="openAppScreen('replay')">模组</button>
                 <button type="button" class="moe-btn secondary" onclick="closeTheaterSelectorLobby()">继续</button>
-                <button type="button" class="moe-btn" onclick="exitTheaterToHome()">返回</button>
               </div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
@@ -3422,6 +3420,18 @@
       saveCurrentSessionNavState();
     }
 
+    function onTachieModuleFilterChange(modId) {
+      appState.tachieFilterModule = modId || 'all';
+      try {
+        localStorage.setItem('last-tachie-module-id', appState.tachieFilterModule);
+      } catch (_) {}
+      populateCharacterSelects();
+      const tSel = document.getElementById('tachie-target-char');
+      if (tSel && tSel.value) {
+        onMergedStudioCharChange(tSel.value);
+      }
+    }
+
     function onMergedStudioCharChange(charId) {
       if (!charId) return;
       const tSel = document.getElementById('tachie-target-char');
@@ -3430,6 +3440,9 @@
       if (cSel && cSel.value !== charId) cSel.value = charId;
       appState.selectedTachieCharId = charId;
       appState.selectedChibiCharId = charId;
+      try {
+        localStorage.setItem('last-tachie-char-id', charId);
+      } catch (_) {}
       loadCharToTachiePanel();
       loadCharToChibiPanel();
       saveCurrentSessionNavState();
@@ -9458,6 +9471,10 @@ ZH: 修改后的纯客观中文服装配饰清单`
       renderTachieExpButtons();
     }
 
+    function isRealCharacterImage(url) {
+      return Boolean(url && typeof url === 'string' && !url.startsWith('data:image/svg+xml'));
+    }
+
     function renderTachieExpButtons() {
       const group = document.getElementById('tachie-exp-btn-group');
       if (!group) return;
@@ -9465,7 +9482,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const actions = getCharActionList(charObj);
       group.innerHTML = '';
       actions.forEach((act) => {
-        const hasImg = Boolean(charObj?.tachieExpressions && charObj.tachieExpressions[act.name]);
+        const hasImg = Boolean(charObj?.tachieExpressions && isRealCharacterImage(charObj.tachieExpressions[act.name]));
         const isSelected = act.name === appState.selectedTachieExp;
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -9485,7 +9502,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
       initStageZoomPan('tachie');
       const charObj = appState.characters.find((c) => c.id === appState.selectedTachieCharId);
       document.querySelectorAll('#tachie-exp-btn-group button').forEach((b) => {
-        const hasImg = Boolean(charObj?.tachieExpressions && charObj.tachieExpressions[b.dataset.exp]);
+        const hasImg = Boolean(charObj?.tachieExpressions && isRealCharacterImage(charObj.tachieExpressions[b.dataset.exp]));
         b.className = (b.dataset.exp === expName ? 'moe-btn' : 'moe-btn secondary') + (hasImg ? ' exp-ready' : '');
       });
       const actions = getCharActionList(charObj);
@@ -9496,8 +9513,9 @@ ZH: 修改后的纯客观中文服装配饰清单`
 
       const expDict = (charObj && charObj.tachieExpressions) || {};
       const rawDict = (charObj && charObj.tachieRawExpressions) || {};
-      const imgUrl = expDict[expName] || '';
-      const rawUrl = rawDict[expName] || imgUrl;
+      const rawCandidate = expDict[expName] || '';
+      const imgUrl = isRealCharacterImage(rawCandidate) ? rawCandidate : '';
+      const rawUrl = isRealCharacterImage(rawDict[expName]) ? rawDict[expName] : imgUrl;
       const imgEl = document.getElementById('tachie-stage-img');
       const emptyEl = document.getElementById('tachie-stage-empty');
       setTachieBrushMode('none');
@@ -9510,10 +9528,14 @@ ZH: 修改后的纯客观中文服装配饰清单`
         imgEl.style.display = 'block';
         emptyEl.style.display = 'none';
       } else {
+        appState.tachieWorkingDataUrl = '';
+        appState.tachieRawDataUrl = '';
+        appState.tachieAlignedRawDataUrl = '';
         resetStageHistory('tachie', '');
+        imgEl.src = '';
         imgEl.style.display = 'none';
         emptyEl.style.display = 'block';
-        emptyEl.textContent = `当前选中「${expName}」尚未生成立绘，点击右侧生图即可生成该状态`;
+        emptyEl.textContent = '';
       }
     }
 
@@ -10441,21 +10463,74 @@ ZH: 修改后的纯客观中文服装配饰清单`
       }
     }
 
-    // 通用：所有生成的图片连续点击三下直接下载保存 PNG
+    function toggleTachieBlackBgPreview() {
+      const stageBox = document.getElementById('tachie-stage-container');
+      const btn = document.getElementById('tachie-black-bg-btn');
+      if (!stageBox) return;
+      const isBlack = stageBox.classList.toggle('black-bg-preview');
+      if (btn) {
+        btn.className = isBlack ? 'moe-btn' : 'moe-btn secondary';
+      }
+    }
+
+    // 通用：所有生成的图片连续点击三下直接下载保存 PNG 到相册
     let _imgClickTracker = { el: null, count: 0, timer: null };
-    function triggerDataUrlDownload(dataUrl, prefixName) {
+    async function triggerDataUrlDownload(dataUrl, prefixName) {
       if (!dataUrl) return;
+      const cleanName = String(prefixName || '图片').replace(/[\\/:*?"<>|\s]+/g, '_');
+      const fileName = `${cleanName}_${Date.now()}.png`;
+      try {
+        let blob = null;
+        try {
+          const resp = await fetch(dataUrl);
+          if (resp.ok) {
+            blob = await resp.blob();
+          }
+        } catch (_) {}
+        if (!blob) {
+          blob = await new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+              const c = document.createElement('canvas');
+              c.width = img.naturalWidth || img.width || 832;
+              c.height = img.naturalHeight || img.height || 1216;
+              c.getContext('2d').drawImage(img, 0, 0);
+              c.toBlob((b) => resolve(b), 'image/png');
+            };
+            img.onerror = () => resolve(null);
+            img.src = dataUrl;
+          });
+        }
+        if (blob) {
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = fileName;
+          a.style.display = 'none';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 8000);
+          return;
+        }
+      } catch (_) {}
       const a = document.createElement('a');
       a.href = dataUrl;
-      a.download = `${prefixName || '图片'}_${Date.now()}.png`;
+      a.download = fileName;
+      a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
     }
 
     function handleStageImgTripleClick(event, typeLabel) {
+      if (event) {
+        event.stopPropagation();
+      }
       const imgEl = event.currentTarget;
-      if (!imgEl || !imgEl.src) return;
+      const srcUrl = (imgEl && imgEl.src) || (typeLabel === '立绘' ? appState.tachieWorkingDataUrl : '');
+      if (!srcUrl) return;
       if (_imgClickTracker.el === imgEl) {
         _imgClickTracker.count += 1;
       } else {
@@ -10464,18 +10539,19 @@ ZH: 修改后的纯客观中文服装配饰清单`
       }
       if (_imgClickTracker.timer) clearTimeout(_imgClickTracker.timer);
       if (_imgClickTracker.count >= 3) {
+        if (event && event.cancelable) event.preventDefault();
         _imgClickTracker.count = 0;
         _imgClickTracker.el = null;
         const charObj = appState.characters.find((c) => c.id === (typeLabel.includes('小人') ? appState.selectedChibiCharId : appState.selectedTachieCharId));
         const charName = charObj ? charObj.name : '';
         const expSuffix = typeLabel === '立绘' ? `_${appState.selectedTachieExp || '默认'}` : '';
-        triggerDataUrlDownload(imgEl.src, `${charName}_${typeLabel}${expSuffix}`);
+        triggerDataUrlDownload(srcUrl, `${charName}_${typeLabel}${expSuffix}`);
         return;
       }
       _imgClickTracker.timer = setTimeout(() => {
         _imgClickTracker.count = 0;
         _imgClickTracker.el = null;
-      }, 600);
+      }, 650);
     }
 
     function handleHeightActorClick(event, charId, labelName) {
@@ -11813,22 +11889,94 @@ ZH: 修改后的纯客观中文服装配饰清单`
     // =========================================================================
     // 八、 各独立 App 列表与子页面数据渲染
     // =========================================================================
+    function isNarratorCharacter(c) {
+      if (!c) return true;
+      return c.id === 'narrator_kp' || c.name === '旁白' || c.trpgType === '旁白';
+    }
+
+    function populateTachieModuleHeaderSelect() {
+      const modSel = document.getElementById('tachie-target-module');
+      if (!modSel) return;
+      const savedMod = appState.tachieFilterModule || localStorage.getItem('last-tachie-module-id') || 'all';
+      modSel.innerHTML = '';
+      const allOpt = document.createElement('option');
+      allOpt.value = 'all';
+      allOpt.textContent = '全部模组';
+      modSel.appendChild(allOpt);
+
+      (appState.replayProjects || []).forEach((p) => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.title || '未命名模组';
+        modSel.appendChild(opt);
+      });
+
+      const univOpt = document.createElement('option');
+      univOpt.value = 'universal';
+      univOpt.textContent = '通用档案';
+      modSel.appendChild(univOpt);
+
+      if ([...modSel.options].some((o) => o.value === savedMod)) {
+        modSel.value = savedMod;
+        appState.tachieFilterModule = savedMod;
+      } else {
+        modSel.value = 'all';
+        appState.tachieFilterModule = 'all';
+      }
+    }
+
+    function getFilteredCharactersForTachieModule(modFilter) {
+      const validChars = (appState.characters || []).filter((c) => !isNarratorCharacter(c));
+      if (!modFilter || modFilter === 'all') return validChars;
+      if (modFilter === 'universal') {
+        return validChars.filter((c) => c.isUniversal !== false);
+      }
+      const targetProj = (appState.replayProjects || []).find((p) => p.id === modFilter);
+      const projSpeakerNames = new Set(
+        ((targetProj && targetProj.extractedSpeakers) || [])
+          .map((s) => (s.trueName || s.rawName || s.name || '').trim())
+          .filter(Boolean)
+      );
+      return validChars.filter((c) => {
+        if (c.moduleId === modFilter) return true;
+        if (targetProj && c.moduleTitle && c.moduleTitle === targetProj.title) return true;
+        if (projSpeakerNames.has(c.name)) return true;
+        return false;
+      });
+    }
+
     function populateCharacterSelects() {
+      populateTachieModuleHeaderSelect();
+      const savedTachieCharId = localStorage.getItem('last-tachie-char-id') || appState.selectedTachieCharId || '';
+      const modFilter = appState.tachieFilterModule || 'all';
+      const tachieChars = getFilteredCharactersForTachieModule(modFilter);
+      const allValidChars = (appState.characters || []).filter((c) => !isNarratorCharacter(c));
+
       ['chibi-target-char', 'tachie-target-char', 'height-stage-add-char-select'].forEach((selId) => {
         const sel = document.getElementById(selId);
         if (!sel) return;
-        const prev = sel.value;
+        const prev = sel.value || savedTachieCharId;
         sel.innerHTML = '';
         const isHeaderCompact = selId === 'chibi-target-char' || selId === 'tachie-target-char';
-        appState.characters.forEach((c) => {
+        const listToUse = isHeaderCompact ? tachieChars : allValidChars;
+        listToUse.forEach((c) => {
           const cm = c.heightCm || DEFAULT_HEIGHT_MAP[c.id] || 175;
           const opt = document.createElement('option');
           opt.value = c.id;
           opt.textContent = isHeaderCompact ? c.name : `${c.name} · ${cm}cm · ${c.role}`;
           sel.appendChild(opt);
         });
-        if (prev && appState.characters.some((c) => c.id === prev)) sel.value = prev;
+        if (prev && listToUse.some((c) => c.id === prev)) {
+          sel.value = prev;
+        } else if (listToUse[0]) {
+          sel.value = listToUse[0].id;
+        }
       });
+      const tSel = document.getElementById('tachie-target-char');
+      if (tSel && tSel.value) {
+        appState.selectedTachieCharId = tSel.value;
+        appState.selectedChibiCharId = tSel.value;
+      }
       onHeightStageCharSelectChange();
       if (typeof renderTachieCharacterCardStrip === 'function') renderTachieCharacterCardStrip();
     }
@@ -11921,7 +12069,8 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const catFilter = appState.personaFilterCategory || 'all';
 
       const filtered = appState.characters.filter((c) => {
-        const tType = c.trpgType || (c.name === '旁白' ? '旁白' : '调查员');
+        if (c.id === 'narrator_kp' || c.name === '旁白' || c.trpgType === '旁白') return false;
+        const tType = c.trpgType || '调查员';
         const isUniv = c.isUniversal !== false;
         if (modFilter === 'universal' && !isUniv) return false;
         if (modFilter !== 'all' && modFilter !== 'universal') {
@@ -12014,8 +12163,10 @@ ZH: 修改后的纯客观中文服装配饰清单`
           const vSpd = c.voiceSpeedDefault ?? 1.0;
           const vPtc = c.voicePitchDefault ?? 0;
           const vBadge = `${c.voiceId ? ('音色 ' + c.voiceId) : '未设音色'} · 语速 ${vSpd} · 语调 ${vPtc}`;
-          const expCount = c.tachieExpressions ? Object.keys(c.tachieExpressions).length : 1;
+          const expCount = c.tachieExpressions ? Object.keys(c.tachieExpressions).filter((k) => isRealCharacterImage(c.tachieExpressions[k])).length : 0;
           const bodyNote = c.body ? c.body.slice(0, 22) : '待写外貌';
+          const rawAv = c.profileAvatar || c.tachieBase || c.chibiImg || '';
+          const validAv = isRealCharacterImage(rawAv) ? toFastDisplayUrl(rawAv) : '';
 
           const item = document.createElement('div');
           item.className = 'setting-item';
@@ -12027,7 +12178,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
           };
           item.innerHTML = `
             <div class="setting-item-left">
-              <img src="${toFastDisplayUrl(c.profileAvatar || c.tachieBase || c.chibiImg)}" decoding="async" loading="lazy" alt="${c.name}" style="width:100%;height:100%;object-fit:cover;" />
+              ${validAv ? `<img src="${validAv}" decoding="async" loading="lazy" alt="${c.name}" style="width:100%;height:100%;object-fit:cover;" />` : ''}
             </div>
             <div class="setting-item-center">
               <div class="setting-item-title">${c.name} · ${tType}${c.age ? (' · ' + c.age) : ''} · ${cm}cm</div>
@@ -12330,7 +12481,10 @@ ZH: 修改后的纯客观中文服装配饰清单`
       document.getElementById('persona-editing-title').textContent = `${c.name} · 角色档案`;
       const avatarPrev = document.getElementById('oc-profile-avatar-preview');
       if (avatarPrev) {
-        avatarPrev.src = c.profileAvatar || c.tachieBase || c.chibiImg || '';
+        const rawAv = c.profileAvatar || c.tachieBase || c.chibiImg || '';
+        const validAv = isRealCharacterImage(rawAv) ? toFastDisplayUrl(rawAv) : '';
+        avatarPrev.src = validAv;
+        avatarPrev.style.display = validAv ? 'block' : 'none';
       }
       if (document.getElementById('oc-name')) document.getElementById('oc-name').value = c.name || '';
       if (document.getElementById('oc-age')) document.getElementById('oc-age').value = c.age || '';
@@ -12398,7 +12552,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
       event.target.value = '';
     }
 
-    async function saveCurrentPersona(stayOnPage = false) {
+    async function saveCurrentPersona(stayOnPage = true) {
       const c = resolveEditingPersonaCharacter();
       if (!c) return;
       if (document.getElementById('oc-name')) c.name = document.getElementById('oc-name').value.trim() || c.name;
@@ -12436,6 +12590,15 @@ ZH: 修改后的纯客观中文服装配饰清单`
       renderPersonaGrid();
       populateCharacterSelects();
       renderHeightStage();
+      const saveBtn = document.getElementById('persona-save-btn');
+      if (saveBtn) {
+        saveBtn.textContent = '已存';
+        setTimeout(() => {
+          if (document.getElementById('persona-save-btn')) {
+            document.getElementById('persona-save-btn').textContent = '保存';
+          }
+        }, 1200);
+      }
       if (!stayOnPage) {
         switchSubPage('screen-persona', 'persona-list');
       }
@@ -12443,7 +12606,6 @@ ZH: 修改后的纯客观中文服装配饰清单`
 
     async function createNewBlankCharacter() {
       const newId = 'oc_' + Date.now();
-      const avatar = makeSvgAvatarDataUrl('新', '#4f6ef7', '#2c3545', '#4f6ef7');
       const curProj = getCurrentReplayProject();
       const blankChar = {
         id: newId,
@@ -12467,9 +12629,9 @@ ZH: 修改后的纯客观中文服装配饰清单`
         quotes: '',
         chapters: '',
         naiTags: 'solo, single character, full body, standing, anime style, white background',
-        chibiImg: avatar,
-        tachieBase: avatar,
-        tachieExpressions: { '默认': avatar },
+        chibiImg: '',
+        tachieBase: '',
+        tachieExpressions: {},
         isFriend: true
       };
       appState.characters.push(blankChar);
@@ -12898,7 +13060,7 @@ body {
       { app: 'tachie', defaultName: '立绘' },
       { app: 'persona', defaultName: '角色' },
       { app: 'replay', defaultName: '模组' },
-      { app: 'theater', defaultName: '剧本' },
+      { app: 'stage', defaultName: '舞台' },
       { app: 'music', defaultName: '音乐' },
       { app: 'worldbook', defaultName: '世界书' },
       { app: 'theme', defaultName: '美化' },
@@ -13657,11 +13819,31 @@ ${BUILTIN_CSS_TEMPLATE}`;
     }
 
     function getCustomAppIconsConfig() {
-      try {
-        return JSON.parse(localStorage.getItem('custom-desktop-apps-config') || '{}');
-      } catch (_) {
-        return {};
+      if (appState.customAppIconsConfig && typeof appState.customAppIconsConfig === 'object') {
+        return appState.customAppIconsConfig;
       }
+      try {
+        appState.customAppIconsConfig = JSON.parse(localStorage.getItem('custom-desktop-apps-config') || '{}');
+      } catch (_) {
+        appState.customAppIconsConfig = {};
+      }
+      return appState.customAppIconsConfig;
+    }
+
+    async function persistCustomUiAssetsToDb() {
+      const cfg = getCustomAppIconsConfig();
+      try {
+        localStorage.setItem('custom-desktop-apps-config', JSON.stringify(cfg));
+      } catch (_) {}
+      const customBgs = appState.customBgsConfig || {};
+      try {
+        await db.themes.put({
+          id: '__custom_ui_assets__',
+          name: '自定义桌面图标与背景',
+          appIcons: cfg,
+          customBgs
+        });
+      } catch (_) {}
     }
 
     function applySavedDesktopAppCustomizations() {
@@ -13676,7 +13858,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
             iconBox.dataset.defaultSvg = iconBox.innerHTML;
           }
           if (custom.iconUrl) {
-            iconBox.innerHTML = `<img src="${custom.iconUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:14px;" />`;
+            iconBox.innerHTML = `<img src="${custom.iconUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" />`;
           } else {
             iconBox.innerHTML = iconBox.dataset.defaultSvg;
           }
@@ -13713,12 +13895,44 @@ ${BUILTIN_CSS_TEMPLATE}`;
       });
     }
 
-    function saveSingleAppName(appKey, newName) {
+    async function saveSingleAppName(appKey, newName) {
       const cfg = getCustomAppIconsConfig();
       if (!cfg[appKey]) cfg[appKey] = {};
       cfg[appKey].name = newName.trim() || appKey;
-      localStorage.setItem('custom-desktop-apps-config', JSON.stringify(cfg));
+      await persistCustomUiAssetsToDb();
       applySavedDesktopAppCustomizations();
+    }
+
+    function resizeUploadedImageDataUrl(dataUrl, maxDim = 1024, mimeType = 'image/png', quality = 0.88) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          let w = img.naturalWidth || img.width || 256;
+          let h = img.naturalHeight || img.height || 256;
+          if (w > maxDim || h > maxDim) {
+            if (w >= h) {
+              h = Math.max(1, Math.round((h * maxDim) / w));
+              w = maxDim;
+            } else {
+              w = Math.max(1, Math.round((w * maxDim) / h));
+              h = maxDim;
+            }
+          }
+          const c = document.createElement('canvas');
+          c.width = w;
+          c.height = h;
+          const ctx = c.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          try {
+            resolve(c.toDataURL(mimeType, quality));
+          } catch (_) {
+            resolve(dataUrl);
+          }
+        };
+        img.onerror = () => resolve(dataUrl);
+        img.src = dataUrl;
+      });
     }
 
     function handleAppIconUpload(event, appKey) {
@@ -13726,15 +13940,17 @@ ${BUILTIN_CSS_TEMPLATE}`;
       if (!file) return;
       const reader = new FileReader();
       reader.onload = async (e) => {
-        const cleaned = await floodFillRemoveWhiteBg(e.target.result, 24, true, 1);
+        let finalUrl = await resizeUploadedImageDataUrl(e.target.result, 256, 'image/png');
+        finalUrl = await saveAssetToLocalBridge('theme', `icon_${appKey}.png`, finalUrl);
         const cfg = getCustomAppIconsConfig();
         if (!cfg[appKey]) cfg[appKey] = {};
-        cfg[appKey].iconUrl = cleaned;
-        localStorage.setItem('custom-desktop-apps-config', JSON.stringify(cfg));
+        cfg[appKey].iconUrl = finalUrl;
+        await persistCustomUiAssetsToDb();
         applySavedDesktopAppCustomizations();
         renderThemeAppIconsList();
       };
       reader.readAsDataURL(file);
+      event.target.value = '';
     }
 
     async function generateAppIconViaNai(appKey, defaultName) {
@@ -13745,10 +13961,12 @@ ${BUILTIN_CSS_TEMPLATE}`;
           caller: `美化图标生图·${defaultName}`
         });
         const cleaned = await floodFillRemoveWhiteBg(dataUrl, 26, true, 1);
+        const resized = await resizeUploadedImageDataUrl(cleaned, 256, 'image/png');
+        const finalUrl = await saveAssetToLocalBridge('theme', `icon_${appKey}.png`, resized);
         const cfg = getCustomAppIconsConfig();
         if (!cfg[appKey]) cfg[appKey] = {};
-        cfg[appKey].iconUrl = cleaned;
-        localStorage.setItem('custom-desktop-apps-config', JSON.stringify(cfg));
+        cfg[appKey].iconUrl = finalUrl;
+        await persistCustomUiAssetsToDb();
         applySavedDesktopAppCustomizations();
         renderThemeAppIconsList();
       } catch (err) {
@@ -13756,8 +13974,10 @@ ${BUILTIN_CSS_TEMPLATE}`;
       }
     }
 
-    function resetAllAppIconsAndNames() {
+    async function resetAllAppIconsAndNames() {
+      appState.customAppIconsConfig = {};
       localStorage.removeItem('custom-desktop-apps-config');
+      await persistCustomUiAssetsToDb();
       applySavedDesktopAppCustomizations();
       renderThemeAppIconsList();
     }
@@ -13767,45 +13987,62 @@ ${BUILTIN_CSS_TEMPLATE}`;
       const file = event.target.files?.[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = (e) => {
-        saveAndApplyCustomBg(targetType, e.target.result);
+      reader.onload = async (e) => {
+        const maxDim = targetType === 'homeAvatar' ? 320 : 1280;
+        const mime = targetType === 'homeAvatar' ? 'image/png' : 'image/jpeg';
+        let compressed = await resizeUploadedImageDataUrl(e.target.result, maxDim, mime, 0.86);
+        const ext = mime === 'image/png' ? 'png' : 'jpg';
+        compressed = await saveAssetToLocalBridge('theme', `bg_${targetType}.${ext}`, compressed);
+        await saveAndApplyCustomBg(targetType, compressed);
       };
       reader.readAsDataURL(file);
+      event.target.value = '';
     }
 
-    function applyCustomBgUrlInput(targetType, inputId) {
+    async function applyCustomBgUrlInput(targetType, inputId) {
       const url = document.getElementById(inputId)?.value.trim();
       if (!url) return;
-      saveAndApplyCustomBg(targetType, url);
+      await saveAndApplyCustomBg(targetType, url);
     }
 
-    function clearCustomBg(targetType) {
+    async function clearCustomBg(targetType) {
+      if (!appState.customBgsConfig) appState.customBgsConfig = {};
+      delete appState.customBgsConfig[targetType];
       localStorage.removeItem('custom-bg-' + targetType);
+      await persistCustomUiAssetsToDb();
       applySavedCustomBackgrounds();
     }
 
-    function saveAndApplyCustomBg(targetType, urlOrData) {
-      localStorage.setItem('custom-bg-' + targetType, urlOrData);
+    async function saveAndApplyCustomBg(targetType, urlOrData) {
+      if (!appState.customBgsConfig) appState.customBgsConfig = {};
+      appState.customBgsConfig[targetType] = urlOrData;
+      try {
+        localStorage.setItem('custom-bg-' + targetType, urlOrData);
+      } catch (_) {}
+      await persistCustomUiAssetsToDb();
       applySavedCustomBackgrounds();
     }
 
     function applySavedCustomBackgrounds() {
       const root = document.documentElement;
-      const desktopBg = localStorage.getItem('custom-bg-desktopBg');
-      const screenBg = localStorage.getItem('custom-bg-screenBg');
-      const cardBg = localStorage.getItem('custom-bg-cardBg');
-      const homeAvatar = localStorage.getItem('custom-bg-homeAvatar');
+      const bgs = appState.customBgsConfig || {};
+      const desktopBg = bgs.desktopBg || localStorage.getItem('custom-bg-desktopBg') || '';
+      const screenBg = bgs.screenBg || localStorage.getItem('custom-bg-screenBg') || '';
+      const cardBg = bgs.cardBg || localStorage.getItem('custom-bg-cardBg') || '';
+      const homeAvatar = bgs.homeAvatar || localStorage.getItem('custom-bg-homeAvatar') || '';
 
-      root.style.setProperty('--custom-desktop-bg', desktopBg ? `url(${desktopBg})` : 'none');
-      root.style.setProperty('--custom-screen-bg', screenBg ? `url(${screenBg})` : 'none');
-      root.style.setProperty('--custom-card-bg', cardBg ? `url(${cardBg})` : 'none');
+      root.style.setProperty('--custom-desktop-bg', desktopBg ? `url("${desktopBg}")` : 'none');
+      root.style.setProperty('--custom-screen-bg', screenBg ? `url("${screenBg}")` : 'none');
+      root.style.setProperty('--custom-card-bg', cardBg ? `url("${cardBg}")` : 'none');
 
       const homeAv = document.getElementById('home-widget-avatar');
       if (homeAv) {
         if (homeAvatar) {
           homeAv.innerHTML = `<img src="${homeAvatar}" style="width:100%;height:100%;object-fit:cover;" />`;
-        } else if (appState.characters[0]) {
+        } else if (appState.characters[0] && appState.characters[0].chibiImg) {
           homeAv.innerHTML = `<img src="${appState.characters[0].chibiImg}" style="width:100%;height:100%;object-fit:contain;" />`;
+        } else {
+          homeAv.innerHTML = '';
         }
       }
     }
@@ -15383,25 +15620,23 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       for (let i = 0; i < speakers.length; i++) {
         const spk = speakers[i];
         if (spk.trpgType === 'NPC') spk.trpgType = '主要NPC';
-        if (spk.trpgType === '场外' || spk.trpgType === '骰子') continue;
+        if (spk.trpgType === '场外' || spk.trpgType === '骰子' || spk.trpgType === '旁白') continue;
         const targetName = spk.trueName || spk.name;
-        if (!targetName || isFakeOrDiceSpeakerName(targetName)) continue;
+        if (!targetName || targetName === '旁白' || isFakeOrDiceSpeakerName(targetName)) continue;
         let existing = appState.characters.find((c) => c.name === targetName);
         if (!existing) {
-          const isNarrator = targetName === '旁白' || spk.trpgType === '旁白';
-          const avatar = makeSvgAvatarDataUrl(targetName.slice(0, 1), palette[i % palette.length], '#1e293b', palette[i % palette.length]);
-          const roleTypeVal = isNarrator ? '旁白' : (spk.trpgType || '调查员');
+          const roleTypeVal = spk.trpgType || '调查员';
           const newChar = {
-            id: isNarrator ? 'narrator_kp' : ('trpg_char_' + Date.now() + '_' + i),
+            id: 'trpg_char_' + Date.now() + '_' + i,
             name: targetName,
             trpgType: roleTypeVal,
             trpgRoleType: roleTypeVal,
-            isUniversal: isNarrator || roleTypeVal === '调查员',
+            isUniversal: roleTypeVal === '调查员',
             moduleId: proj.id,
             moduleTitle: proj.title || '跑团模组',
             region: 'alta_kilig',
             role: '',
-            heightCm: isNarrator ? 175 : 172,
+            heightCm: 172,
             earHatCm: 0,
             body: '',
             quirk: '',
@@ -15411,12 +15646,10 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
             cot: '',
             quotes: '',
             chapters: proj.title || '',
-            naiTags: isNarrator
-              ? 'no humans, scenery, atmospheric anime background'
-              : 'solo, single character, full body, standing, anime style, white background',
-            chibiImg: avatar,
-            tachieBase: avatar,
-            tachieExpressions: { '默认': avatar },
+            naiTags: 'solo, single character, full body, standing, anime style, white background',
+            chibiImg: '',
+            tachieBase: '',
+            tachieExpressions: {},
             isFriend: true
           };
           newChar.customActionList = buildPersonaMatchedActions(newChar);
@@ -21385,7 +21618,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
 
       const existingChars = await db.characters.toArray();
       for (const c of existingChars) {
-        if (legacyOcIds.has(c.id) || legacyOcNames.has(c.name) || isFakeOrDiceSpeakerName(c.name)) {
+        if (legacyOcIds.has(c.id) || legacyOcNames.has(c.name) || c.id === 'narrator_kp' || c.name === '旁白' || c.trpgType === '旁白' || isFakeOrDiceSpeakerName(c.name)) {
           await db.characters.delete(c.id);
         }
       }
@@ -21415,34 +21648,6 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         }
       }
 
-      const remainingCount = await db.characters.count();
-      if (remainingCount === 0) {
-        const avatar = makeSvgAvatarDataUrl('旁', '#6366f1', '#1e293b', '#6366f1');
-        await db.characters.put({
-          id: 'narrator_kp',
-          name: '旁白',
-          trpgType: '旁白',
-          isUniversal: true,
-          region: 'alta_kilig',
-          role: '守密人与环境叙述',
-          heightCm: 175,
-          earHatCm: 0,
-          body: '',
-          quirk: '',
-          voiceId: 'male-qn-jingying',
-          surface: '',
-          secret: '',
-          cot: '',
-          quotes: '',
-          chapters: '',
-          naiTags: 'no humans, scenery, atmospheric lighting, anime background art',
-          chibiImg: avatar,
-          tachieBase: avatar,
-          tachieExpressions: { '默认': avatar },
-          isFriend: false
-        });
-      }
-
       appState.characters = await db.characters.toArray();
       const palette = ['#4f6ef7', '#3b82f6', '#8b5cf6', '#6366f1', '#f59e0b', '#ec4899', '#10b981', '#06b6d4', '#f97316', '#64748b', '#a855f7', '#14b8a6'];
       for (let idx = 0; idx < appState.characters.length; idx++) {
@@ -21453,19 +21658,33 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
           c.heightCm = DEFAULT_HEIGHT_MAP[c.id] || 175;
           changed = true;
         }
-        if (typeof c.chibiImg === 'string' && c.chibiImg.startsWith('data:image/svg+xml') && c.chibiImg.includes('width%3D%22200%22')) {
-          const newSvg = makeSvgAvatarDataUrl(c.name, palette[idx % palette.length], idx === 10 ? '#f8fafc' : '#334155', '#4f6ef7');
-          c.chibiImg = newSvg;
-          if (c.chibiPoseImgs && typeof c.chibiPoseImgs.down === 'string' && c.chibiPoseImgs.down.startsWith('data:image/svg+xml')) {
-            c.chibiPoseImgs.down = newSvg;
-          }
-          if (typeof c.tachieBase === 'string' && c.tachieBase.startsWith('data:image/svg+xml')) {
-            c.tachieBase = newSvg;
-            if (c.tachieExpressions && typeof c.tachieExpressions['默认'] === 'string' && c.tachieExpressions['默认'].startsWith('data:image/svg+xml')) {
-              c.tachieExpressions['默认'] = newSvg;
-            }
-          }
+        if (typeof c.profileAvatar === 'string' && c.profileAvatar.startsWith('data:image/svg+xml')) {
+          c.profileAvatar = '';
           changed = true;
+        }
+        if (typeof c.chibiImg === 'string' && c.chibiImg.startsWith('data:image/svg+xml')) {
+          c.chibiImg = '';
+          changed = true;
+        }
+        if (c.chibiPoseImgs && typeof c.chibiPoseImgs === 'object') {
+          Object.keys(c.chibiPoseImgs).forEach((k) => {
+            if (typeof c.chibiPoseImgs[k] === 'string' && c.chibiPoseImgs[k].startsWith('data:image/svg+xml')) {
+              delete c.chibiPoseImgs[k];
+              changed = true;
+            }
+          });
+        }
+        if (typeof c.tachieBase === 'string' && c.tachieBase.startsWith('data:image/svg+xml')) {
+          c.tachieBase = '';
+          changed = true;
+        }
+        if (c.tachieExpressions && typeof c.tachieExpressions === 'object') {
+          Object.keys(c.tachieExpressions).forEach((k) => {
+            if (typeof c.tachieExpressions[k] === 'string' && c.tachieExpressions[k].startsWith('data:image/svg+xml')) {
+              delete c.tachieExpressions[k];
+              changed = true;
+            }
+          });
         }
         const hasOldGenericActions =
           !Array.isArray(c.customActionList) ||
@@ -21535,6 +21754,20 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       if (!appState.characters.some((c) => c.id === appState.selectedPersonaId)) {
         appState.selectedPersonaId = appState.characters[0]?.id || '';
       }
+      await initReplayAndMusicData();
+      const rememberedModId = localStorage.getItem('last-tachie-module-id');
+      if (rememberedModId) {
+        appState.tachieFilterModule = rememberedModId;
+      }
+      const rememberedTachieCharId = localStorage.getItem('last-tachie-char-id');
+      if (rememberedTachieCharId && appState.characters.some((c) => c.id === rememberedTachieCharId && !isNarratorCharacter(c))) {
+        appState.selectedTachieCharId = rememberedTachieCharId;
+        appState.selectedChibiCharId = rememberedTachieCharId;
+      } else {
+        const firstValid = appState.characters.find((c) => !isNarratorCharacter(c));
+        appState.selectedTachieCharId = firstValid?.id || '';
+        appState.selectedChibiCharId = firstValid?.id || '';
+      }
       populateCharacterSelects();
       populateBuilderSceneSelect();
       syncCustomTableSurfaceUI();
@@ -21552,7 +21785,6 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       openPhoneChat(appState.selectedPhoneCharId);
       renderForumPosts();
       renderMapStage();
-      await initReplayAndMusicData();
 
       await renderThemePresetSelect();
       const savedCss = localStorage.getItem('custom-theme-css-code');
@@ -21563,8 +21795,16 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       if (savedCss) {
         document.getElementById('custom-theme-style-tag').textContent = savedCss;
       }
+      try {
+        const savedUiAssets = await db.themes.get('__custom_ui_assets__');
+        if (savedUiAssets) {
+          if (savedUiAssets.appIcons) appState.customAppIconsConfig = savedUiAssets.appIcons;
+          if (savedUiAssets.customBgs) appState.customBgsConfig = savedUiAssets.customBgs;
+        }
+      } catch (_) {}
       applySavedDesktopAppCustomizations();
       renderThemeAppIconsList();
+      applySavedCustomBackgrounds();
       const savedVol = localStorage.getItem('bgm-volume') || '70';
       const volSlider = document.getElementById('bgm-volume-slider');
       if (volSlider) volSlider.value = savedVol;
@@ -21613,7 +21853,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
 
     function restoreSessionNavAndDrafts() {
       try {
-        const rawNav = localStorage.getItem('trpg-vn-last-session-nav');
+        const rawNav = localStorage.getItem('quarter_century_nav_state_v1') || localStorage.getItem('trpg-vn-last-session-nav');
         if (rawNav) {
           const nav = JSON.parse(rawNav);
           if (nav.currentReplayProjectId && appState.replayProjects.some((p) => p.id === nav.currentReplayProjectId)) {
@@ -21635,15 +21875,20 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
             appState.selectedPersonaId = nav.selectedPersonaId;
             selectPersonaForEdit(nav.selectedPersonaId);
           }
+          const targetTachieId = localStorage.getItem('last-tachie-char-id') || nav.selectedTachieCharId;
+          if (targetTachieId && appState.characters.some((c) => c.id === targetTachieId && !isNarratorCharacter(c))) {
+            onMergedStudioCharChange(targetTachieId);
+          }
           renderReplayStudioUI();
-          if (nav.screen && nav.screen !== 'home') {
-            openAppScreen(nav.screen);
-            if (nav.screen === 'persona' && nav.personaSub === 'detail') {
+          const targetScreen = (nav.activeScreen || nav.screen || '').replace(/^screen-/, '');
+          if (targetScreen && targetScreen !== 'home') {
+            openAppScreen(targetScreen);
+            if (targetScreen === 'persona' && nav.personaSub === 'detail') {
               openPersonaDetailPage();
-            } else if (nav.screen === 'replay' && nav.replaySubTab) {
+            } else if (targetScreen === 'replay' && nav.replaySubTab) {
               switchReplaySubTab(nav.replaySubTab);
-            } else if (nav.screen === 'theater') {
-              if (nav.lobbyActive) {
+            } else if (targetScreen === 'theater') {
+              if (nav.lobbyActive || nav.theaterLobbyOpen) {
                 openTheaterSelectorLobby();
               } else {
                 closeTheaterSelectorLobby();
