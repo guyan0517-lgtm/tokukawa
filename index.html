@@ -650,36 +650,36 @@
           <div class="form-group">
             <label>MiniMax 语音音色编号</label>
             <div style="display:flex;gap:6px;align-items:center;">
-              <input type="text" id="oc-voice-id" class="moe-input" style="flex:1;" placeholder="填入MiniMax音色编号 如 male-qn-qingse 或 female-shaonv，未填默认留空" onchange="autoSavePersonaVoiceFields()" />
+              <input type="text" id="oc-voice-id" class="moe-input" style="flex:1;" placeholder="填入MiniMax音色编号 如 male-qn-qingse 或 female-shaonv，未填默认留空" oninput="autoSavePersonaVoiceFields(true)" onchange="autoSavePersonaVoiceFields(false)" />
               <button type="button" class="moe-btn secondary" id="oc-voice-test-btn" onclick="previewPersonaVoiceTts()">试听</button>
             </div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <div class="form-group" style="flex:1;min-width:92px;">
               <label>默认语速</label>
-              <input type="number" step="0.05" min="0.5" max="2.0" id="oc-voice-speed-default" class="moe-input" value="1.0" onchange="autoSavePersonaVoiceFields()" />
+              <input type="number" step="0.05" min="0.5" max="2.0" id="oc-voice-speed-default" class="moe-input" value="1.0" oninput="autoSavePersonaVoiceFields(true)" onchange="autoSavePersonaVoiceFields(false)" />
             </div>
             <div class="form-group" style="flex:1;min-width:92px;">
               <label>最低语速</label>
-              <input type="number" step="0.05" min="0.5" max="2.0" id="oc-voice-speed-min" class="moe-input" value="0.8" onchange="autoSavePersonaVoiceFields()" />
+              <input type="number" step="0.05" min="0.5" max="2.0" id="oc-voice-speed-min" class="moe-input" value="0.8" oninput="autoSavePersonaVoiceFields(true)" onchange="autoSavePersonaVoiceFields(false)" />
             </div>
             <div class="form-group" style="flex:1;min-width:92px;">
               <label>最高语速</label>
-              <input type="number" step="0.05" min="0.5" max="2.0" id="oc-voice-speed-max" class="moe-input" value="1.3" onchange="autoSavePersonaVoiceFields()" />
+              <input type="number" step="0.05" min="0.5" max="2.0" id="oc-voice-speed-max" class="moe-input" value="1.3" oninput="autoSavePersonaVoiceFields(true)" onchange="autoSavePersonaVoiceFields(false)" />
             </div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <div class="form-group" style="flex:1;min-width:92px;">
               <label>默认语调</label>
-              <input type="number" step="1" min="-12" max="12" id="oc-voice-pitch-default" class="moe-input" value="0" onchange="autoSavePersonaVoiceFields()" />
+              <input type="number" step="1" min="-12" max="12" id="oc-voice-pitch-default" class="moe-input" value="0" oninput="autoSavePersonaVoiceFields(true)" onchange="autoSavePersonaVoiceFields(false)" />
             </div>
             <div class="form-group" style="flex:1;min-width:92px;">
               <label>最低语调</label>
-              <input type="number" step="1" min="-12" max="12" id="oc-voice-pitch-min" class="moe-input" value="-4" onchange="autoSavePersonaVoiceFields()" />
+              <input type="number" step="1" min="-12" max="12" id="oc-voice-pitch-min" class="moe-input" value="-4" oninput="autoSavePersonaVoiceFields(true)" onchange="autoSavePersonaVoiceFields(false)" />
             </div>
             <div class="form-group" style="flex:1;min-width:92px;">
               <label>最高语调</label>
-              <input type="number" step="1" min="-12" max="12" id="oc-voice-pitch-max" class="moe-input" value="4" onchange="autoSavePersonaVoiceFields()" />
+              <input type="number" step="1" min="-12" max="12" id="oc-voice-pitch-max" class="moe-input" value="4" oninput="autoSavePersonaVoiceFields(true)" onchange="autoSavePersonaVoiceFields(false)" />
             </div>
           </div>
           <div class="form-group" style="margin-bottom:0;">
@@ -4982,7 +4982,11 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
         height = parts[1] || 1024;
       }
 
-      const negativePrompt = options.negativePrompt || settings.default_negative;
+      const rawNegativePrompt = options.negativePrompt || settings.default_negative;
+      const hasRefImg = (Array.isArray(options.vibeImages) && options.vibeImages.length > 0) || Boolean(options.charRefImage && options.charRefImage.base64);
+      const negativePrompt = hasRefImg
+        ? `${rawNegativePrompt}, yellow tint, yellow background, warm color cast, sepia, oversaturated, color burn`
+        : rawNegativePrompt;
       const styleRefEnabled = document.getElementById('tachie-enable-style-ref')
         ? document.getElementById('tachie-enable-style-ref').checked
         : true;
@@ -4996,7 +5000,11 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
         ? liveArtistStr
         : '';
       const qualityTags = settings.quality_toggle !== false ? (settings.quality_prompt || '') : '';
-      const finalPrompt = [artist, prompt, qualityTags].filter(Boolean).join(', ');
+      const diffPromptBeforeBase = (options.diffPromptBeforeBase || '').trim();
+      const orderedCorePrompt = diffPromptBeforeBase
+        ? deduplicateFullNaiPrompt([diffPromptBeforeBase, prompt].filter(Boolean).join(', '))
+        : prompt;
+      const finalPrompt = [artist, orderedCorePrompt, qualityTags].filter(Boolean).join(', ');
       const preferredSeed = options.seed !== undefined ? Number(options.seed) : Number(settings.seed ?? -1);
       const usedSeed = (preferredSeed !== -1 && !isNaN(preferredSeed) && preferredSeed >= 0)
         ? preferredSeed
@@ -5029,17 +5037,24 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
 
       if (Array.isArray(options.vibeImages) && options.vibeImages.length > 0) {
         const resolvedVibes = await Promise.all(options.vibeImages.map((v) => resolveImageToDataUrl(v.base64)));
+        const isTachieCall = String(caller || '').includes('立绘');
         commonParams.reference_image_multiple = resolvedVibes.map((b64) => b64.replace(/^data:image\/[^;]+;base64,/, ''));
-        commonParams.reference_information_extracted_multiple = options.vibeImages.map((v) => Number(v.infoExtracted ?? 1.0));
-        commonParams.reference_strength_multiple = options.vibeImages.map((v) => Number(v.strength ?? 0.6));
+        commonParams.reference_information_extracted_multiple = options.vibeImages.map((v) => {
+          const rawInfo = Number(v.infoExtracted ?? 0.7);
+          return isTachieCall ? Math.min(0.65, rawInfo) : rawInfo;
+        });
+        commonParams.reference_strength_multiple = options.vibeImages.map((v) => {
+          const rawStr = Number(v.strength ?? 0.45);
+          return isTachieCall ? Math.min(0.45, rawStr) : rawStr;
+        });
       }
 
       if (options.charRefImage && options.charRefImage.base64 && (model.includes('nai-diffusion-4') || model.includes('nai-diffusion-5'))) {
         const normalizedCharUrl = await normalizeImageForNovelAiRef(options.charRefImage.base64);
         const cleanCharB64 = normalizedCharUrl.replace(/^data:image\/[^;]+;base64,/, '');
-        const cStrength = Math.max(0.05, Math.min(1, Number(options.charRefImage.strength ?? 0.65)));
-        const cFidelity = Math.max(0.05, Math.min(1, Number(options.charRefImage.fidelity ?? 0.78)));
-        const baseCap = options.charRefImage.characterOnly === false ? 'character' : 'character&style';
+        const cStrength = Math.max(0.05, Math.min(1, Number(options.charRefImage.strength ?? 0.58)));
+        const cFidelity = Math.max(0.05, Math.min(1, Number(options.charRefImage.fidelity ?? 0.72)));
+        const baseCap = options.charRefImage.characterOnly ? 'character' : 'character&style';
         commonParams.director_reference_images = [cleanCharB64];
         commonParams.director_reference_descriptions = [{
           caption: { base_caption: baseCap, char_captions: [] },
@@ -5050,7 +5065,7 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
         commonParams.director_reference_secondary_strength_values = [Math.max(0, Number((1 - cFidelity).toFixed(2)))];
       }
 
-      const effectiveCfgRescale = Number(options.cfgRescale ?? settings.cfg_rescale ?? 0);
+      const effectiveCfgRescale = Number(options.cfgRescale ?? settings.cfg_rescale ?? (hasRefImg ? 0.2 : 0));
 
       let requestBody;
       if (model.includes('nai-diffusion-4') || model.includes('nai-diffusion-5')) {
@@ -9123,7 +9138,12 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const charId = appState.selectedTachieCharId || document.getElementById('tachie-target-char')?.value;
       const charObj = appState.characters.find((c) => c.id === charId);
       const rawBase = sanitizeFantasyOutfitPrompt(document.getElementById('tachie-nai-prompt').value.trim() || charObj?.naiTags || '');
-      const pureAppearanceAndOutfit = stripBasePoseAndExpFromPrompt(rawBase);
+      let pureAppearanceAndOutfit = stripBasePoseAndExpFromPrompt(rawBase);
+      if (!/\b(1girl|1boy|girl|boy|man|woman|male|female|person)\b/i.test(pureAppearanceAndOutfit)) {
+        const bodyHint = String(charObj?.body || charObj?.surface || '');
+        const inferredGenderTag = /女|少女|姐|妹|娘|裙|她/.test(bodyHint) ? '1girl' : '1boy';
+        pureAppearanceAndOutfit = [inferredGenderTag, pureAppearanceAndOutfit || 'anime character, detailed outfit'].filter(Boolean).join(', ');
+      }
       const actions = getCharActionList(charObj);
       const defaultAct = actions.find((a) => a.name === '默认') || actions[0];
       const rawDefaultActTags = (appState.selectedTachieExp === '默认' && document.getElementById('tachie-custom-action-tags')?.value.trim()) || defaultAct?.enTags || BUILTIN_STANDING_EXP_TAGS['默认'] || '';
@@ -9131,18 +9151,18 @@ ZH: 修改后的纯客观中文服装配饰清单`
         .replace(/\b(cute fang|single fang|twin fangs|little fang|small fang|sharp fang|sharp fangs|fangs|fang|snaggletooth|smile|grin|smirk)\b\s*,?/gi, '')
         .replace(/,\s*,+/g, ', ')
         .trim();
-      const rawPrompt = ['solo, single character, full body, standing, head to toe, shoes in frame, filling frame, large subject, close-up full body, no margin, simple background, pure white background', pureAppearanceAndOutfit, defaultActTags].filter(Boolean).join(', ');
-      const prompt = deduplicateFullNaiPrompt(rawPrompt);
+      const baseDefaultPrompt = deduplicateFullNaiPrompt(['solo, single character, full body, standing, head to toe, shoes in frame, filling frame, large subject, close-up full body, no margin, simple background, pure white background', pureAppearanceAndOutfit].filter(Boolean).join(', '));
       const useStyle = document.getElementById('tachie-enable-style-ref')?.checked;
       const charCustomNeg = (document.getElementById('tachie-char-neg-prompt')?.value || charObj?.customNegativePrompt || '').trim();
-      const antiModernNeg = 'fang, fangs, snaggletooth, sitting, seated, kneeling, crouching, squatting, lying, lying down, sleeping, ' + (getNovelAISettings().default_negative || '') + (charCustomNeg ? `, ${charCustomNeg}` : '') + ', wide margin, empty space, small subject, distant, multiple people, multipleboys, multiplegirls, 2boys, 2girls, duo, two people, clone, split figure, crowd, extra head, floating head, small heads, side portraits, face inset, portrait inset, headshot inset, inset, picture in picture, multiple expressions, expression chart, expression sheet, facial expressions, character sheet, reference sheet, concept art, artbook page, character profile, multiple views, multi-panel, split screen, comic panel, border, frame, text, sneakers, running shoes, tennis shoes, athletic shoes, canvas shoes, trainers';
+      const antiModernNeg = 'fang, fangs, snaggletooth, sitting, seated, kneeling, crouching, squatting, lying, lying down, sleeping, food, dessert, parfait, cake, cup, glass, object only, no humans, ' + (getNovelAISettings().default_negative || '') + (charCustomNeg ? `, ${charCustomNeg}` : '') + ', wide margin, empty space, small subject, distant, multiple people, multipleboys, multiplegirls, 2boys, 2girls, duo, two people, clone, split figure, crowd, extra head, floating head, small heads, side portraits, face inset, portrait inset, headshot inset, inset, picture in picture, multiple expressions, expression chart, expression sheet, facial expressions, character sheet, reference sheet, concept art, artbook page, character profile, multiple views, multi-panel, split screen, comic panel, border, frame, text, sneakers, running shoes, tennis shoes, athletic shoes, canvas shoes, trainers';
 
       if (btn) {
         btn.textContent = '生成中';
         btn.disabled = true;
       }
       try {
-        const { dataUrl, seed } = await callNovelAiDirect(prompt, {
+        const { dataUrl, seed } = await callNovelAiDirect(baseDefaultPrompt, {
+          diffPromptBeforeBase: defaultActTags,
           resolution: '832x1216',
           seed: -1,
           negativePrompt: antiModernNeg,
@@ -9214,7 +9234,12 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const charId = appState.selectedTachieCharId || document.getElementById('tachie-target-char')?.value;
       const charObj = appState.characters.find((c) => c.id === charId);
       const rawBasePrompt = sanitizeFantasyOutfitPrompt(document.getElementById('tachie-nai-prompt').value.trim() || charObj?.naiTags || '');
-      const pureAppearanceAndOutfitPrompt = stripBasePoseAndExpFromPrompt(rawBasePrompt);
+      let pureAppearanceAndOutfitPrompt = stripBasePoseAndExpFromPrompt(rawBasePrompt);
+      if (!/\b(1girl|1boy|girl|boy|man|woman|male|female|person)\b/i.test(pureAppearanceAndOutfitPrompt)) {
+        const bodyHint = String(charObj?.body || charObj?.surface || '');
+        const inferredGenderTag = /女|少女|姐|妹|娘|裙|她/.test(bodyHint) ? '1girl' : '1boy';
+        pureAppearanceAndOutfitPrompt = [inferredGenderTag, pureAppearanceAndOutfitPrompt || 'anime character, detailed outfit'].filter(Boolean).join(', ');
+      }
       const actions = getCharActionList(charObj);
       const matchedAct = actions.find((a) => a.name === expName);
       const customBoxVal = document.getElementById('tachie-custom-action-tags')?.value.trim() || '';
@@ -9223,10 +9248,10 @@ ZH: 修改后的纯客观中文服装配饰清单`
 
       const useStyle = document.getElementById('tachie-enable-style-ref')?.checked;
       const useFirstRef = document.getElementById('tachie-use-first-ref-chk') ? document.getElementById('tachie-use-first-ref-chk').checked : true;
-      const rawLockStrength = parseFloat(document.getElementById('tachie-char-lock-strength')?.value || '0.62') || 0.62;
-      const rawLockFidelity = parseFloat(document.getElementById('tachie-char-lock-fidelity')?.value || '0.78') || 0.78;
+      const rawLockStrength = parseFloat(document.getElementById('tachie-char-lock-strength')?.value || '0.58') || 0.58;
+      const rawLockFidelity = parseFloat(document.getElementById('tachie-char-lock-fidelity')?.value || '0.72') || 0.72;
       const charCustomNeg = (document.getElementById('tachie-char-neg-prompt')?.value || charObj?.customNegativePrompt || '').trim();
-      const antiModernNeg = 'fang, fangs, snaggletooth, sitting, seated, kneeling, crouching, squatting, lying, lying down, sleeping, ' + (getNovelAISettings().default_negative || '') + (charCustomNeg ? `, ${charCustomNeg}` : '') + ', wide margin, empty space, small subject, distant, multiple people, multipleboys, multiplegirls, 2boys, 2girls, duo, two people, clone, split figure, crowd, extra head, floating head, small heads, side portraits, face inset, portrait inset, headshot inset, inset, picture in picture, multiple expressions, expression chart, expression sheet, facial expressions, character sheet, reference sheet, concept art, artbook page, character profile, multiple views, multi-panel, split screen, comic panel, border, frame, text, sneakers, running shoes, tennis shoes, athletic shoes, canvas shoes, trainers';
+      const antiModernNeg = 'fang, fangs, snaggletooth, sitting, seated, kneeling, crouching, squatting, lying, lying down, sleeping, food, dessert, parfait, cake, cup, glass, object only, no humans, ' + (getNovelAISettings().default_negative || '') + (charCustomNeg ? `, ${charCustomNeg}` : '') + ', wide margin, empty space, small subject, distant, multiple people, multipleboys, multiplegirls, 2boys, 2girls, duo, two people, clone, split figure, crowd, extra head, floating head, small heads, side portraits, face inset, portrait inset, headshot inset, inset, picture in picture, multiple expressions, expression chart, expression sheet, facial expressions, character sheet, reference sheet, concept art, artbook page, character profile, multiple views, multi-panel, split screen, comic panel, border, frame, text, sneakers, running shoes, tennis shoes, athletic shoes, canvas shoes, trainers';
 
       if (btn) {
         btn.textContent = '生成中';
@@ -9237,13 +9262,12 @@ ZH: 修改后的纯客观中文服装配饰清单`
           charObj?.tachieRawExpressions && charObj.tachieRawExpressions['默认'],
           charObj?.charLockImg,
           charObj?.tachieExpressions && charObj.tachieExpressions['默认'],
-          charObj?.tachieBase,
-          appState.charLockBase64
+          charObj?.tachieBase
         ];
         const defaultBaseImg = candidateImgs.find((u) => typeof u === 'string' && u.length > 20 && !u.startsWith('data:image/svg+xml')) || null;
         const baseFullPrompt = deduplicateFullNaiPrompt(['solo, single character, full body, standing, head to toe, shoes in frame, filling frame, large subject, close-up full body, no margin, simple background, pure white background', pureAppearanceAndOutfitPrompt].filter(Boolean).join(', '));
-        const diffFullPrompt = deduplicateFullNaiPrompt([baseFullPrompt, expTag].filter(Boolean).join(', '));
-        const { dataUrl, seed } = await callNovelAiDirect(diffFullPrompt, {
+        const { dataUrl, seed } = await callNovelAiDirect(baseFullPrompt, {
+          diffPromptBeforeBase: expTag,
           resolution: '832x1216',
           seed: -1,
           negativePrompt: antiModernNeg,
@@ -11410,31 +11434,75 @@ ZH: 修改后的纯客观中文服装配饰清单`
       }
     }
 
-    function syncVoiceSpeedAndPitchToCharacter(c) {
+    function persistPersonaVoiceBackup(c) {
+      if (!c || !c.id) return;
+      try {
+        const raw = localStorage.getItem('persona-voice-backup-v1');
+        const map = raw ? JSON.parse(raw) : {};
+        const entry = {
+          voiceId: c.voiceId || '',
+          voiceSpeedDefault: c.voiceSpeedDefault ?? 1.0,
+          voiceSpeedMin: c.voiceSpeedMin ?? 0.8,
+          voiceSpeedMax: c.voiceSpeedMax ?? 1.3,
+          voicePitchDefault: c.voicePitchDefault ?? 0,
+          voicePitchMin: c.voicePitchMin ?? -4,
+          voicePitchMax: c.voicePitchMax ?? 4
+        };
+        map[c.id] = entry;
+        if (c.name) map[`name_${c.name}`] = entry;
+        localStorage.setItem('persona-voice-backup-v1', JSON.stringify(map));
+      } catch (_) {}
+    }
+
+    function restorePersonaVoiceFromBackup(c) {
+      if (!c) return;
+      try {
+        const raw = localStorage.getItem('persona-voice-backup-v1');
+        if (!raw) return;
+        const map = JSON.parse(raw);
+        const saved = map[c.id] || (c.name ? map[`name_${c.name}`] : null);
+        if (!saved) return;
+        if (saved.voiceId && !c.voiceId) c.voiceId = saved.voiceId;
+        if (typeof saved.voiceSpeedDefault === 'number') c.voiceSpeedDefault = saved.voiceSpeedDefault;
+        if (typeof saved.voiceSpeedMin === 'number') c.voiceSpeedMin = saved.voiceSpeedMin;
+        if (typeof saved.voiceSpeedMax === 'number') c.voiceSpeedMax = saved.voiceSpeedMax;
+        if (typeof saved.voicePitchDefault === 'number') c.voicePitchDefault = saved.voicePitchDefault;
+        if (typeof saved.voicePitchMin === 'number') c.voicePitchMin = saved.voicePitchMin;
+        if (typeof saved.voicePitchMax === 'number') c.voicePitchMax = saved.voicePitchMax;
+      } catch (_) {}
+    }
+
+    function syncVoiceSpeedAndPitchToCharacter(c, isInputEvent = false) {
       if (!c) return;
       const voiceEl = document.getElementById('oc-voice-id');
       if (voiceEl) {
         c.voiceId = voiceEl.value.trim();
       }
       const sdEl = document.getElementById('oc-voice-speed-default');
-      if (sdEl) {
+      if (sdEl && sdEl.value !== '') {
         const sd = parseFloat(sdEl.value);
-        c.voiceSpeedDefault = isNaN(sd) ? (c.voiceSpeedDefault ?? 1.0) : Number(Math.max(0.5, Math.min(2.0, sd)).toFixed(2));
-        sdEl.value = c.voiceSpeedDefault;
+        if (!isNaN(sd)) {
+          c.voiceSpeedDefault = Number(Math.max(0.5, Math.min(2.0, sd)).toFixed(2));
+          if (!isInputEvent) sdEl.value = c.voiceSpeedDefault;
+        }
       }
       const sminEl = document.getElementById('oc-voice-speed-min');
-      if (sminEl) {
+      if (sminEl && sminEl.value !== '') {
         const smin = parseFloat(sminEl.value);
-        c.voiceSpeedMin = isNaN(smin) ? (c.voiceSpeedMin ?? 0.8) : Number(Math.max(0.5, Math.min(2.0, smin)).toFixed(2));
-        sminEl.value = c.voiceSpeedMin;
+        if (!isNaN(smin)) {
+          c.voiceSpeedMin = Number(Math.max(0.5, Math.min(2.0, smin)).toFixed(2));
+          if (!isInputEvent) sminEl.value = c.voiceSpeedMin;
+        }
       }
       const smaxEl = document.getElementById('oc-voice-speed-max');
-      if (smaxEl) {
+      if (smaxEl && smaxEl.value !== '') {
         const smax = parseFloat(smaxEl.value);
-        c.voiceSpeedMax = isNaN(smax) ? (c.voiceSpeedMax ?? 1.3) : Number(Math.max(0.5, Math.min(2.0, smax)).toFixed(2));
-        smaxEl.value = c.voiceSpeedMax;
+        if (!isNaN(smax)) {
+          c.voiceSpeedMax = Number(Math.max(0.5, Math.min(2.0, smax)).toFixed(2));
+          if (!isInputEvent) smaxEl.value = c.voiceSpeedMax;
+        }
       }
-      if (c.voiceSpeedMin > c.voiceSpeedMax) {
+      if (!isInputEvent && (c.voiceSpeedMin ?? 0.8) > (c.voiceSpeedMax ?? 1.3)) {
         const tmp = c.voiceSpeedMin;
         c.voiceSpeedMin = c.voiceSpeedMax;
         c.voiceSpeedMax = tmp;
@@ -11443,46 +11511,55 @@ ZH: 修改后的纯客观中文服装配饰清单`
       }
 
       const pdEl = document.getElementById('oc-voice-pitch-default');
-      if (pdEl) {
+      if (pdEl && pdEl.value !== '' && pdEl.value !== '-') {
         const pd = parseInt(pdEl.value, 10);
-        c.voicePitchDefault = isNaN(pd) ? (c.voicePitchDefault ?? 0) : Math.max(-12, Math.min(12, pd));
-        pdEl.value = c.voicePitchDefault;
+        if (!isNaN(pd)) {
+          c.voicePitchDefault = Math.max(-12, Math.min(12, pd));
+          if (!isInputEvent) pdEl.value = c.voicePitchDefault;
+        }
       }
       const pminEl = document.getElementById('oc-voice-pitch-min');
-      if (pminEl) {
+      if (pminEl && pminEl.value !== '' && pminEl.value !== '-') {
         const pmin = parseInt(pminEl.value, 10);
-        c.voicePitchMin = isNaN(pmin) ? (c.voicePitchMin ?? -4) : Math.max(-12, Math.min(12, pmin));
-        pminEl.value = c.voicePitchMin;
+        if (!isNaN(pmin)) {
+          c.voicePitchMin = Math.max(-12, Math.min(12, pmin));
+          if (!isInputEvent) pminEl.value = c.voicePitchMin;
+        }
       }
       const pmaxEl = document.getElementById('oc-voice-pitch-max');
-      if (pmaxEl) {
+      if (pmaxEl && pmaxEl.value !== '' && pmaxEl.value !== '-') {
         const pmax = parseInt(pmaxEl.value, 10);
-        c.voicePitchMax = isNaN(pmax) ? (c.voicePitchMax ?? 4) : Math.max(-12, Math.min(12, pmax));
-        pmaxEl.value = c.voicePitchMax;
+        if (!isNaN(pmax)) {
+          c.voicePitchMax = Math.max(-12, Math.min(12, pmax));
+          if (!isInputEvent) pmaxEl.value = c.voicePitchMax;
+        }
       }
-      if (c.voicePitchMin > c.voicePitchMax) {
+      if (!isInputEvent && (c.voicePitchMin ?? -4) > (c.voicePitchMax ?? 4)) {
         const tmpP = c.voicePitchMin;
         c.voicePitchMin = c.voicePitchMax;
         c.voicePitchMax = tmpP;
         if (pminEl) pminEl.value = c.voicePitchMin;
         if (pmaxEl) pmaxEl.value = c.voicePitchMax;
       }
+      persistPersonaVoiceBackup(c);
     }
 
-    async function autoSavePersonaVoiceFields() {
+    async function autoSavePersonaVoiceFields(isInputEvent = false) {
       const c = resolveEditingPersonaCharacter();
       if (!c) return;
-      syncVoiceSpeedAndPitchToCharacter(c);
+      syncVoiceSpeedAndPitchToCharacter(c, isInputEvent);
       await db.characters.put(c);
       await syncCharacterDefaultVoiceToProjects(c);
-      renderPersonaGrid();
+      if (!isInputEvent) {
+        renderPersonaGrid();
+      }
     }
 
     async function previewPersonaVoiceTts() {
       const btn = document.getElementById('oc-voice-test-btn');
       const c = resolveEditingPersonaCharacter();
       if (c) {
-        syncVoiceSpeedAndPitchToCharacter(c);
+        syncVoiceSpeedAndPitchToCharacter(c, false);
         await db.characters.put(c);
         await syncCharacterDefaultVoiceToProjects(c);
       }
@@ -11519,6 +11596,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
         c = appState.characters[0];
       }
       if (!c) return;
+      restorePersonaVoiceFromBackup(c);
       appState.selectedPersonaId = c.id;
       document.getElementById('persona-editing-title').textContent = `${c.name} · 角色档案`;
       const avatarPrev = document.getElementById('oc-profile-avatar-preview');
@@ -17627,17 +17705,17 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
                 </select>
               ` : ''}
               <span style="font-size:11px;color:var(--text-secondary);">语速</span>
-              <input type="number" step="0.05" min="0.5" max="2.0" id="voice-speed-input-${idx}" class="moe-input" value="${curSpeed}" style="width:62px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" onchange="updateReplayVoiceParam(${idx}, 'ttsSpeed', this.value)" />
+              <input type="number" step="0.05" min="0.5" max="2.0" id="voice-speed-input-${idx}" class="moe-input" value="${curSpeed}" style="width:62px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" oninput="updateReplayVoiceParam(${idx}, 'ttsSpeed', this.value, true)" onchange="updateReplayVoiceParam(${idx}, 'ttsSpeed', this.value, false)" />
               <span style="font-size:11px;color:var(--text-secondary);">语调</span>
-              <input type="number" step="1" min="-12" max="12" id="voice-pitch-input-${idx}" class="moe-input" value="${curPitch}" style="width:58px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" onchange="updateReplayVoiceParam(${idx}, 'ttsPitch', this.value)" />
+              <input type="number" step="1" min="-12" max="12" id="voice-pitch-input-${idx}" class="moe-input" value="${curPitch}" style="width:58px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" oninput="updateReplayVoiceParam(${idx}, 'ttsPitch', this.value, true)" onchange="updateReplayVoiceParam(${idx}, 'ttsPitch', this.value, false)" />
             </div>
             <div class="vn-script-row-actions">
               <button type="button" class="moe-btn secondary" id="voice-studio-play-btn-${idx}" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="playSingleScriptLineTts(${idx}, false)">试听</button>
               <button type="button" class="moe-btn" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="playSingleScriptLineTts(${idx}, true)">重配</button>
             </div>
           </div>
-          <textarea rows="2" class="moe-input" style="min-height:48px;height:48px;resize:vertical;font-size:12px;line-height:1.45;padding:6px 10px;" onchange="updateReplayVoiceParam(${idx}, 'text', this.value)">${line.text || ''}</textarea>
-          <input type="text" class="moe-input" value="${cleanJp.replace(/"/g, '&quot;')}" placeholder="日语配音台词" style="height:30px;min-height:30px;font-size:11px;color:var(--text-secondary);" onchange="updateReplayVoiceParam(${idx}, 'jpText', this.value)" />
+          <textarea rows="2" class="moe-input" style="min-height:48px;height:48px;resize:vertical;font-size:12px;line-height:1.45;padding:6px 10px;" onchange="updateReplayVoiceParam(${idx}, 'text', this.value, false)">${line.text || ''}</textarea>
+          <input type="text" class="moe-input" value="${cleanJp.replace(/"/g, '&quot;')}" placeholder="日语配音台词" style="height:30px;min-height:30px;font-size:11px;color:var(--text-secondary);" onchange="updateReplayVoiceParam(${idx}, 'jpText', this.value, false)" />
         `;
         box.appendChild(card);
       });
@@ -17651,7 +17729,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       } catch (_) {}
     }
 
-    async function updateReplayVoiceParam(lineIdx, field, val) {
+    async function updateReplayVoiceParam(lineIdx, field, val, isInputEvent = false) {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
       if (!proj || !chap || !chap.scriptLines || !chap.scriptLines[lineIdx]) return;
@@ -17661,19 +17739,27 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         line.ttsEmotion = val;
         line.ttsManualModified = true;
       } else if (field === 'ttsSpeed') {
+        if (isInputEvent && (val === '' || val === '.')) return;
         const parsed = parseFloat(val);
-        const s = isNaN(parsed) ? bounds.defaultSpeed : Math.max(0.5, Math.min(2.0, parsed));
+        if (isNaN(parsed)) return;
+        const s = Math.max(0.5, Math.min(2.0, parsed));
         line.ttsSpeed = Number(s.toFixed(2));
         line.ttsManualModified = true;
-        const spdInput = document.getElementById(`voice-speed-input-${lineIdx}`);
-        if (spdInput) spdInput.value = line.ttsSpeed;
+        if (!isInputEvent) {
+          const spdInput = document.getElementById(`voice-speed-input-${lineIdx}`);
+          if (spdInput) spdInput.value = line.ttsSpeed;
+        }
       } else if (field === 'ttsPitch') {
+        if (isInputEvent && (val === '' || val === '-')) return;
         const parsed = parseInt(val, 10);
-        const p = isNaN(parsed) ? bounds.defaultPitch : Math.max(-12, Math.min(12, parsed));
+        if (isNaN(parsed)) return;
+        const p = Math.max(-12, Math.min(12, parsed));
         line.ttsPitch = p;
         line.ttsManualModified = true;
-        const ptcInput = document.getElementById(`voice-pitch-input-${lineIdx}`);
-        if (ptcInput) ptcInput.value = line.ttsPitch;
+        if (!isInputEvent) {
+          const ptcInput = document.getElementById(`voice-pitch-input-${lineIdx}`);
+          if (ptcInput) ptcInput.value = line.ttsPitch;
+        }
       } else {
         line[field] = val;
       }
@@ -18242,9 +18328,10 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       renderTheaterCurrentLine();
     }
 
-    const _danmakuTrackNextFreeMs = [0, 0, 0, 0];
-    const _danmakuTrackTops = [8, 38, 68, 98];
+    const _danmakuTrackNextFreeMs = [0, 0, 0, 0, 0];
+    const _danmakuTrackTops = [8, 38, 68, 98, 128];
     let _danmakuPendingTimers = [];
+    let _lastSpawnedDanmakuLineKey = '';
 
     function spawnTheaterDanmaku(text) {
       if (!appState.theaterShowDanmaku) return;
@@ -18266,12 +18353,12 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       const delayMs = launchTime - now;
 
       const stageRoot = document.getElementById('vn-theater-stage-root');
-      const stageW = layer.clientWidth || stageRoot?.clientWidth || window.innerWidth || 960;
-      const estTextW = Math.max(220, cleanText.length * 16 + 110);
+      const stageW = Math.max(640, layer.clientWidth || stageRoot?.clientWidth || window.innerWidth || 960);
+      const estTextW = Math.max(280, cleanText.length * 22 + 160);
       const totalTravelPx = stageW + estTextW;
-      const durSec = 14.8;
+      const durSec = 20.5;
       const speedPxPerMs = totalTravelPx / (durSec * 1000);
-      const safeGapMs = Math.ceil((estTextW + 90) / speedPxPerMs);
+      const safeGapMs = Math.ceil((estTextW + 180) / speedPxPerMs) + 600;
       _danmakuTrackNextFreeMs[bestTrack] = launchTime + safeGapMs;
 
       const topPx = _danmakuTrackTops[bestTrack];
@@ -18425,21 +18512,27 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       }
 
       let idx = Math.max(0, Math.min(chap.scriptLines.length - 1, appState.theaterLineIdx || 0));
+      const oocToSpawn = [];
       if (!appState.theaterEditMode) {
         while (idx < chap.scriptLines.length - 1 && chap.scriptLines[idx].type === 'ooc') {
-          spawnTheaterDanmaku(`${chap.scriptLines[idx].speaker}：${chap.scriptLines[idx].text}`);
+          oocToSpawn.push(`${chap.scriptLines[idx].speaker}：${chap.scriptLines[idx].text}`);
           idx += 1;
         }
       }
       appState.theaterLineIdx = idx;
       const line = chap.scriptLines[idx];
 
-      if (!appState.theaterEditMode && Array.isArray(chap.danmakuList)) {
-        chap.danmakuList
-          .filter((dm) => Number(dm.lineIdx) === idx && dm.text)
-          .forEach((dm) => {
-            spawnTheaterDanmaku(`${dm.speaker || '场外'}：${dm.text}`);
-          });
+      const curDmKey = `${chap.id || 'ch'}_${idx}`;
+      if (!appState.theaterEditMode && _lastSpawnedDanmakuLineKey !== curDmKey) {
+        _lastSpawnedDanmakuLineKey = curDmKey;
+        oocToSpawn.forEach((txt) => spawnTheaterDanmaku(txt));
+        if (Array.isArray(chap.danmakuList)) {
+          chap.danmakuList
+            .filter((dm) => Number(dm.lineIdx) === idx && dm.text)
+            .forEach((dm) => {
+              spawnTheaterDanmaku(`${dm.speaker || '场外'}：${dm.text}`);
+            });
+        }
       }
 
       const activeEffect = inferNaturalLineEffect(line, idx);
@@ -18596,12 +18689,24 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
 
       // 3. 更新底层场所背景图
       if (bgLayer) {
-        if (line.sceneId === 'cg_only') {
+        let activeSceneId = line.sceneId || '';
+        if (!activeSceneId) {
+          for (let k = idx - 1; k >= 0; k--) {
+            if (chap.scriptLines[k] && chap.scriptLines[k].sceneId) {
+              activeSceneId = chap.scriptLines[k].sceneId;
+              break;
+            }
+          }
+        }
+        if (activeSceneId === 'cg_only') {
           bgLayer.style.backgroundImage = 'none';
         } else {
-          const sceneObj = (chap.scenes || []).find((s) => s.id === line.sceneId || s.name === line.sceneId) || (chap.scenes || [])[0];
+          const allScenes = [...(chap.scenes || []), ...(curProj?.globalScenes || [])];
+          const sceneObj = allScenes.find((s) => s && (s.id === activeSceneId || s.name === activeSceneId))
+            || allScenes.find((s) => s && s.imageUrl)
+            || allScenes[0];
           if (sceneObj && sceneObj.imageUrl) {
-            bgLayer.style.backgroundImage = `url(${sceneObj.imageUrl})`;
+            bgLayer.style.backgroundImage = `url("${sceneObj.imageUrl}")`;
           } else {
             bgLayer.style.backgroundImage = 'linear-gradient(160deg, var(--secondary-bg) 0%, var(--background-color) 100%)';
           }
@@ -18609,7 +18714,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       }
 
       // 4. 判断当前行是否有已生成图片的CG节点
-      const cgObj = line.cgId ? (chap.cgNodes || []).find((g) => g.id === line.cgId) : null;
+      const cgObj = (chap.cgNodes || []).find((g) => (line.cgId && g.id === line.cgId) || Number(g.lineIdx) === idx) || null;
       if (cgLayer && cgImg) {
         if (cgObj && cgObj.imageUrl) {
           if (cgImg.getAttribute('src') !== cgObj.imageUrl) {
@@ -19639,6 +19744,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       const palette = ['#4f6ef7', '#3b82f6', '#8b5cf6', '#6366f1', '#f59e0b', '#ec4899', '#10b981', '#06b6d4', '#f97316', '#64748b', '#a855f7', '#14b8a6'];
       for (let idx = 0; idx < appState.characters.length; idx++) {
         const c = appState.characters[idx];
+        restorePersonaVoiceFromBackup(c);
         let changed = false;
         if (!c.heightCm) {
           c.heightCm = DEFAULT_HEIGHT_MAP[c.id] || 175;
@@ -19903,7 +20009,16 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
 
     window.addEventListener('DOMContentLoaded', async () => {
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js').catch(() => {});
+        navigator.serviceWorker.register('./sw.js').then((reg) => {
+          reg.update().catch(() => {});
+        }).catch(() => {});
+        if ('caches' in window) {
+          caches.keys().then((keys) => {
+            keys.forEach((k) => {
+              if (k !== 'ephone-tuk-cache-v25') caches.delete(k);
+            });
+          }).catch(() => {});
+        }
       }
       loadAllApiSettings();
       initMapSelectors();

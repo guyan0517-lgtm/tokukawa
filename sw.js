@@ -1,4 +1,4 @@
-const CACHE_NAME = "ephone-tuk-cache-v15";
+const CACHE_NAME = "ephone-tuk-cache-v25";
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
@@ -54,20 +54,17 @@ self.addEventListener("fetch", event => {
 
   if (isCodeOrDoc) {
     event.respondWith(
-      caches.match(event.request).then(cachedResponse => {
-        const fetchPromise = fetch(event.request)
-          .then(networkResponse => {
-            if (networkResponse && networkResponse.status === 200) {
-              const responseClone = networkResponse.clone();
-              caches.open(CACHE_NAME).then(cache => {
-                cache.put(event.request, responseClone);
-              });
-            }
-            return networkResponse;
-          })
-          .catch(() => cachedResponse || caches.match("./index.html"));
-        return cachedResponse || fetchPromise;
-      })
+      fetch(event.request, { cache: "no-store" })
+        .then(networkResponse => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request).then(res => res || caches.match("./index.html")))
     );
     return;
   }
