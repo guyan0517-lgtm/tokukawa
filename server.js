@@ -37,10 +37,12 @@ for (const cand of LOCAL_ASSET_CANDIDATES) {
 }
 
 app.use('/local-assets', express.static(LOCAL_ASSETS_ROOT, {
-  maxAge: '365d',
+  maxAge: 0,
+  etag: true,
+  lastModified: true,
   setHeaders: (res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 'public, max-age=31536000');
+    res.setHeader('Cache-Control', 'no-cache');
   }
 }));
 
@@ -55,7 +57,7 @@ app.get('/api/local-assets/ping', (_req, res) => {
 
 app.post('/api/local-assets/save', async (req, res) => {
   try {
-    const rawRel = String(req.body?.path || 'file.bin').replace(/^\/+/, '').replace(/\.\./g, '_');
+    const rawRel = String(req.body?.path || 'file.bin').split('?')[0].replace(/^\/+/, '').replace(/\.\./g, '_');
     const dataUrl = String(req.body?.dataUrl || '');
     if (!dataUrl) {
       return res.status(400).json({ ok: false, error: 'Missing dataUrl' });
@@ -75,6 +77,50 @@ app.post('/api/local-assets/save', async (req, res) => {
       path: targetPath,
       root: LOCAL_ASSETS_ROOT
     });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post('/api/local-assets/cleanup', async (req, res) => {
+  try {
+    const activeRelList = Array.isArray(req.body?.activePaths) ? req.body.activePaths : [];
+    const activeSet = new Set(
+      activeRelList.map((p) => String(p || '').split('?')[0].replace(/^\/+/, '').replace(/\.\./g, '_'))
+    );
+    const rootAbs = path.resolve(LOCAL_ASSETS_ROOT);
+    let removedCount = 0;
+
+    const walkAndClean = async (dirPath) => {
+      let entries = [];
+      try {
+        entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
+      } catch (_) {
+        return;
+      }
+      for (const entry of entries) {
+        if (entry.name === '.wt') continue;
+        const fullPath = path.join(dirPath, entry.name);
+        if (entry.isDirectory()) {
+          await walkAndClean(fullPath);
+          try {
+            const rem = await fs.promises.readdir(fullPath);
+            if (rem.length === 0) await fs.promises.rmdir(fullPath);
+          } catch (_) {}
+        } else if (entry.isFile()) {
+          const rel = path.relative(rootAbs, fullPath).split(path.sep).join('/');
+          if (!activeSet.has(rel)) {
+            try {
+              await fs.promises.unlink(fullPath);
+              removedCount += 1;
+            } catch (_) {}
+          }
+        }
+      }
+    };
+
+    await walkAndClean(rootAbs);
+    res.json({ ok: true, removedCount, root: LOCAL_ASSETS_ROOT });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }

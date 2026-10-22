@@ -1967,6 +1967,7 @@
             <span class="moe-card-title">本地无损文件直存 安卓Termux</span>
             <div style="display:flex;gap:6px;">
               <button type="button" class="moe-btn secondary" onclick="testLocalBridgeConnectionUI()">检测</button>
+              <button type="button" class="moe-btn secondary" onclick="cleanupUnusedAssetsUI(false)">清理</button>
               <button type="button" class="moe-btn" onclick="syncAllAssetsToLocalBridgeUI()">同步</button>
             </div>
           </div>
@@ -1986,11 +1987,11 @@
           <div class="form-group">
             <label>安卓 Termux 一键启动命令 点右侧复制后粘贴到 Termux 回车即可</label>
             <div style="display:flex;gap:6px;align-items:stretch;">
-              <textarea id="termux-local-bridge-cmd" class="moe-input" style="min-height:74px;font-size:11px;font-family:monospace;flex:1;" readonly>pkg install -y python; test -d "$HOME/storage" || termux-setup-storage; pkill -9 -f python3 2>/dev/null; echo aW1wb3J0IG9zLCBqc29uLCBiYXNlNjQsIHVybGxpYi5wYXJzZSwgbWltZXR5cGVzLCBodHRwLnNlcnZlciwgc29ja2V0c2VydmVyCmNhbmRpZGF0ZXMgPSBbCiAgICBvcy5wYXRoLmV4cGFuZHVzZXIoJ34vc3RvcmFnZS9zaGFyZWQvRG93bmxvYWQvSGFrb25pd2FEYXRhJyksCiAgICBvcy5wYXRoLmV4cGFuZHVzZXIoJ34vc3RvcmFnZS9zaGFyZWQvSGFrb25pd2FEYXRhJyksCiAgICAnL3NkY2FyZC9Eb3dubG9hZC9IYWtvbml3YURhdGEnLAogICAgJy9zZGNhcmQvSGFrb25pd2FEYXRhJywKICAgIG9zLnBhdGguZXhwYW5kdXNlcignfi9IYWtvbml3YURhdGEnKQpdCnJvb3QgPSBjYW5kaWRhdGVzWy0xXQpmb3IgYyBpbiBjYW5kaWRhdGVzOgogICAgdHJ5OgogICAgICAgIG9zLm1ha2VkaXJzKGMsIGV4aXN0X29rPVRydWUpCiAgICAgICAgdGYgPSBvcy5wYXRoLmpvaW4oYywgJy53dCcpCiAgICAgICAgb3Blbih0ZiwgJ3diJykud3JpdGUoYicxJykKICAgICAgICBvcy5yZW1vdmUodGYpCiAgICAgICAgcm9vdCA9IGMKICAgICAgICBicmVhawogICAgZXhjZXB0IEV4Y2VwdGlvbjoKICAgICAgICBwYXNzCgpjbGFzcyBTKHNvY2tldHNlcnZlci5UaHJlYWRpbmdNaXhJbiwgaHR0cC5zZXJ2ZXIuSFRUUFNlcnZlcik6CiAgICBhbGxvd19yZXVzZV9hZGRyZXNzID0gVHJ1ZQogICAgZGFlbW9uX3RocmVhZHMgPSBUcnVlCgpjbGFzcyBIKGh0dHAuc2VydmVyLkJhc2VIVFRQUmVxdWVzdEhhbmRsZXIpOgogICAgZGVmIGxvZ19tZXNzYWdlKHMsICphKToKICAgICAgICBwYXNzCiAgICBkZWYgX2NvcnMocyk6CiAgICAgICAgbyA9IHMuaGVhZGVycy5nZXQoJ09yaWdpbicpIG9yICcqJwogICAgICAgIHMuc2VuZF9oZWFkZXIoJ0FjY2Vzcy1Db250cm9sLUFsbG93LU9yaWdpbicsIG8pCiAgICAgICAgcy5zZW5kX2hlYWRlcignQWNjZXNzLUNvbnRyb2wtQWxsb3ctTWV0aG9kcycsICdHRVQsIFBPU1QsIE9QVElPTlMnKQogICAgICAgIHMuc2VuZF9oZWFkZXIoJ0FjY2Vzcy1Db250cm9sLUFsbG93LUhlYWRlcnMnLCAnKicpCiAgICAgICAgcy5zZW5kX2hlYWRlcignQWNjZXNzLUNvbnRyb2wtQWxsb3ctUHJpdmF0ZS1OZXR3b3JrJywgJ3RydWUnKQogICAgICAgIHMuc2VuZF9oZWFkZXIoJ0FjY2Vzcy1Db250cm9sLU1heC1BZ2UnLCAnODY0MDAnKQogICAgZGVmIGRvX09QVElPTlMocyk6CiAgICAgICAgcy5zZW5kX3Jlc3BvbnNlKDIwMCkKICAgICAgICBzLl9jb3JzKCkKICAgICAgICBzLmVuZF9oZWFkZXJzKCkKICAgIGRlZiBkb19HRVQocyk6CiAgICAgICAgcCA9IHMucGF0aC5zcGxpdCgnPycpWzBdCiAgICAgICAgaWYgcC5zdGFydHN3aXRoKCcvcGluZycpOgogICAgICAgICAgICBzLnNlbmRfcmVzcG9uc2UoMjAwKQogICAgICAgICAgICBzLl9jb3JzKCkKICAgICAgICAgICAgcy5zZW5kX2hlYWRlcignQ29udGVudC1UeXBlJywgJ2FwcGxpY2F0aW9uL2pzb247IGNoYXJzZXQ9dXRmLTgnKQogICAgICAgICAgICBzLmVuZF9oZWFkZXJzKCkKICAgICAgICAgICAgcy53ZmlsZS53cml0ZShqc29uLmR1bXBzKHsnb2snOiBUcnVlLCAnc2VydmljZSc6ICdoYWtvbml3YS1sb2NhbC1icmlkZ2UnLCAncm9vdCc6IHJvb3R9KS5lbmNvZGUoJ3V0Zi04JykpCiAgICAgICAgICAgIHJldHVybgogICAgICAgIHJlbCA9IHVybGxpYi5wYXJzZS51bnF1b3RlKHApLmxzdHJpcCgnLycpCiAgICAgICAgZnAgPSBvcy5wYXRoLmFic3BhdGgob3MucGF0aC5qb2luKHJvb3QsIHJlbCkpCiAgICAgICAgaWYgZnAuc3RhcnRzd2l0aChvcy5wYXRoLmFic3BhdGgocm9vdCkpIGFuZCBvcy5wYXRoLmlzZmlsZShmcCk6CiAgICAgICAgICAgIG10ID0gbWltZXR5cGVzLmd1ZXNzX3R5cGUoZnApWzBdIG9yICdhcHBsaWNhdGlvbi9vY3RldC1zdHJlYW0nCiAgICAgICAgICAgIGRhdGEgPSBvcGVuKGZwLCAncmInKS5yZWFkKCkKICAgICAgICAgICAgcy5zZW5kX3Jlc3BvbnNlKDIwMCkKICAgICAgICAgICAgcy5fY29ycygpCiAgICAgICAgICAgIHMuc2VuZF9oZWFkZXIoJ0NvbnRlbnQtVHlwZScsIG10KQogICAgICAgICAgICBzLnNlbmRfaGVhZGVyKCdDb250ZW50LUxlbmd0aCcsIHN0cihsZW4oZGF0YSkpKQogICAgICAgICAgICBzLnNlbmRfaGVhZGVyKCdDYWNoZS1Db250cm9sJywgJ3B1YmxpYywgbWF4LWFnZT0zMTUzNjAwMCcpCiAgICAgICAgICAgIHMuZW5kX2hlYWRlcnMoKQogICAgICAgICAgICBzLndmaWxlLndyaXRlKGRhdGEpCiAgICAgICAgZWxzZToKICAgICAgICAgICAgcy5zZW5kX3Jlc3BvbnNlKDQwNCkKICAgICAgICAgICAgcy5fY29ycygpCiAgICAgICAgICAgIHMuZW5kX2hlYWRlcnMoKQogICAgZGVmIGRvX1BPU1Qocyk6CiAgICAgICAgdHJ5OgogICAgICAgICAgICBuID0gaW50KHMuaGVhZGVycy5nZXQoJ0NvbnRlbnQtTGVuZ3RoJywgJzAnKSkKICAgICAgICAgICAgZCA9IGpzb24ubG9hZHMocy5yZmlsZS5yZWFkKG4pLmRlY29kZSgndXRmLTgnKSkKICAgICAgICAgICAgcmVsID0gc3RyKGQuZ2V0KCdwYXRoJywgJ2ZpbGUuYmluJykpLmxzdHJpcCgnLycpLnJlcGxhY2UoJy4uJywgJ18nKQogICAgICAgICAgICBmcCA9IG9zLnBhdGguYWJzcGF0aChvcy5wYXRoLmpvaW4ocm9vdCwgcmVsKSkKICAgICAgICAgICAgb3MubWFrZWRpcnMob3MucGF0aC5kaXJuYW1lKGZwKSwgZXhpc3Rfb2s9VHJ1ZSkKICAgICAgICAgICAgcmF3ID0gc3RyKGQuZ2V0KCdkYXRhVXJsJywgJycpKQogICAgICAgICAgICBiNjQgPSByYXcuc3BsaXQoJywnLCAxKVsxXSBpZiAnLCcgaW4gcmF3IGVsc2UgcmF3CiAgICAgICAgICAgIGJ1ZiA9IGJhc2U2NC5iNjRkZWNvZGUoYjY0KQogICAgICAgICAgICBvcGVuKGZwLCAnd2InKS53cml0ZShidWYpCiAgICAgICAgICAgIHByaW50KCflt7LlrZjmnKzlnLA6JywgcmVsLCBsZW4oYnVmKSAvLyAxMDI0LCAnS0InLCBmbHVzaD1UcnVlKQogICAgICAgICAgICBlbmMgPSAnLycuam9pbih1cmxsaWIucGFyc2UucXVvdGUoeCkgZm9yIHggaW4gcmVsLnNwbGl0KCcvJykpCiAgICAgICAgICAgIGggPSBzLmhlYWRlcnMuZ2V0KCdIb3N0Jykgb3IgJzEyNy4wLjAuMTo4NzY1JwogICAgICAgICAgICBzLnNlbmRfcmVzcG9uc2UoMjAwKQogICAgICAgICAgICBzLl9jb3JzKCkKICAgICAgICAgICAgcy5zZW5kX2hlYWRlcignQ29udGVudC1UeXBlJywgJ2FwcGxpY2F0aW9uL2pzb247IGNoYXJzZXQ9dXRmLTgnKQogICAgICAgICAgICBzLmVuZF9oZWFkZXJzKCkKICAgICAgICAgICAgcy53ZmlsZS53cml0ZShqc29uLmR1bXBzKHsnb2snOiBUcnVlLCAndXJsJzogJ2h0dHA6Ly8nICsgaCArICcvJyArIGVuYywgJ3BhdGgnOiBmcCwgJ3Jvb3QnOiByb290fSkuZW5jb2RlKCd1dGYtOCcpKQogICAgICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZToKICAgICAgICAgICAgcy5zZW5kX3Jlc3BvbnNlKDUwMCkKICAgICAgICAgICAgcy5fY29ycygpCiAgICAgICAgICAgIHMuc2VuZF9oZWFkZXIoJ0NvbnRlbnQtVHlwZScsICdhcHBsaWNhdGlvbi9qc29uOyBjaGFyc2V0PXV0Zi04JykKICAgICAgICAgICAgcy5lbmRfaGVhZGVycygpCiAgICAgICAgICAgIHMud2ZpbGUud3JpdGUoanNvbi5kdW1wcyh7J29rJzogRmFsc2UsICdlcnJvcic6IHN0cihlKX0pLmVuY29kZSgndXRmLTgnKSkKCnByaW50KCc9PT0g566x5bqt54mp6K+t5pys5Zyw55u05a2Y5bey5ZCv5YqoID09PScsIGZsdXNoPVRydWUpCnByaW50KCfmnKzlnLDkv53lrZjot6/lvoQ6Jywgcm9vdCwgZmx1c2g9VHJ1ZSkKcHJpbnQoJ+ebkeWQrOWcsOWdgDogaHR0cDovLzEyNy4wLjAuMTo4NzY1JywgZmx1c2g9VHJ1ZSkKUygoJzAuMC4wLjAnLCA4NzY1KSwgSCkuc2VydmVfZm9yZXZlcigpCg== | base64 -d | python3 -u</textarea>
+              <textarea id="termux-local-bridge-cmd" class="moe-input" style="min-height:74px;font-size:11px;font-family:monospace;flex:1;" readonly>pkg install -y python; test -d "$HOME/storage" || termux-setup-storage; pkill -9 -f python3 2>/dev/null; echo aW1wb3J0IG9zLCBqc29uLCBiYXNlNjQsIHVybGxpYi5wYXJzZSwgbWltZXR5cGVzLCBodHRwLnNlcnZlciwgc29ja2V0c2VydmVyCmNhbmRpZGF0ZXMgPSBbCiAgICBvcy5wYXRoLmV4cGFuZHVzZXIoJ34vc3RvcmFnZS9zaGFyZWQvRG93bmxvYWQvSGFrb25pd2FEYXRhJyksCiAgICBvcy5wYXRoLmV4cGFuZHVzZXIoJ34vc3RvcmFnZS9zaGFyZWQvSGFrb25pd2FEYXRhJyksCiAgICAnL3NkY2FyZC9Eb3dubG9hZC9IYWtvbml3YURhdGEnLAogICAgJy9zZGNhcmQvSGFrb25pd2FEYXRhJywKICAgIG9zLnBhdGguZXhwYW5kdXNlcignfi9IYWtvbml3YURhdGEnKQpdCnJvb3QgPSBjYW5kaWRhdGVzWy0xXQpmb3IgYyBpbiBjYW5kaWRhdGVzOgogICAgdHJ5OgogICAgICAgIG9zLm1ha2VkaXJzKGMsIGV4aXN0X29rPVRydWUpCiAgICAgICAgdGYgPSBvcy5wYXRoLmpvaW4oYywgJy53dCcpCiAgICAgICAgb3Blbih0ZiwgJ3diJykud3JpdGUoYicxJykKICAgICAgICBvcy5yZW1vdmUodGYpCiAgICAgICAgcm9vdCA9IGMKICAgICAgICBicmVhawogICAgZXhjZXB0IEV4Y2VwdGlvbjoKICAgICAgICBwYXNzCgpjbGFzcyBTKHNvY2tldHNlcnZlci5UaHJlYWRpbmdNaXhJbiwgaHR0cC5zZXJ2ZXIuSFRUUFNlcnZlcik6CiAgICBhbGxvd19yZXVzZV9hZGRyZXNzID0gVHJ1ZQogICAgZGFlbW9uX3RocmVhZHMgPSBUcnVlCgpjbGFzcyBIKGh0dHAuc2VydmVyLkJhc2VIVFRQUmVxdWVzdEhhbmRsZXIpOgogICAgZGVmIGxvZ19tZXNzYWdlKHMsICphKToKICAgICAgICBwYXNzCiAgICBkZWYgX2NvcnMocyk6CiAgICAgICAgbyA9IHMuaGVhZGVycy5nZXQoJ09yaWdpbicpIG9yICcqJwogICAgICAgIHMuc2VuZF9oZWFkZXIoJ0FjY2Vzcy1Db250cm9sLUFsbG93LU9yaWdpbicsIG8pCiAgICAgICAgcy5zZW5kX2hlYWRlcignQWNjZXNzLUNvbnRyb2wtQWxsb3ctTWV0aG9kcycsICdHRVQsIFBPU1QsIE9QVElPTlMnKQogICAgICAgIHMuc2VuZF9oZWFkZXIoJ0FjY2Vzcy1Db250cm9sLUFsbG93LUhlYWRlcnMnLCAnKicpCiAgICAgICAgcy5zZW5kX2hlYWRlcignQWNjZXNzLUNvbnRyb2wtQWxsb3ctUHJpdmF0ZS1OZXR3b3JrJywgJ3RydWUnKQogICAgICAgIHMuc2VuZF9oZWFkZXIoJ0FjY2Vzcy1Db250cm9sLU1heC1BZ2UnLCAnODY0MDAnKQogICAgZGVmIGRvX09QVElPTlMocyk6CiAgICAgICAgcy5zZW5kX3Jlc3BvbnNlKDIwMCkKICAgICAgICBzLl9jb3JzKCkKICAgICAgICBzLmVuZF9oZWFkZXJzKCkKICAgIGRlZiBkb19HRVQocyk6CiAgICAgICAgcCA9IHMucGF0aC5zcGxpdCgnPycpWzBdCiAgICAgICAgaWYgcC5zdGFydHN3aXRoKCcvcGluZycpOgogICAgICAgICAgICBzLnNlbmRfcmVzcG9uc2UoMjAwKQogICAgICAgICAgICBzLl9jb3JzKCkKICAgICAgICAgICAgcy5zZW5kX2hlYWRlcignQ29udGVudC1UeXBlJywgJ2FwcGxpY2F0aW9uL2pzb247IGNoYXJzZXQ9dXRmLTgnKQogICAgICAgICAgICBzLmVuZF9oZWFkZXJzKCkKICAgICAgICAgICAgcy53ZmlsZS53cml0ZShqc29uLmR1bXBzKHsnb2snOiBUcnVlLCAnc2VydmljZSc6ICdoYWtvbml3YS1sb2NhbC1icmlkZ2UnLCAncm9vdCc6IHJvb3R9KS5lbmNvZGUoJ3V0Zi04JykpCiAgICAgICAgICAgIHJldHVybgogICAgICAgIHJlbCA9IHVybGxpYi5wYXJzZS51bnF1b3RlKHApLmxzdHJpcCgnLycpCiAgICAgICAgZnAgPSBvcy5wYXRoLmFic3BhdGgob3MucGF0aC5qb2luKHJvb3QsIHJlbCkpCiAgICAgICAgaWYgZnAuc3RhcnRzd2l0aChvcy5wYXRoLmFic3BhdGgocm9vdCkpIGFuZCBvcy5wYXRoLmlzZmlsZShmcCk6CiAgICAgICAgICAgIG10ID0gbWltZXR5cGVzLmd1ZXNzX3R5cGUoZnApWzBdIG9yICdhcHBsaWNhdGlvbi9vY3RldC1zdHJlYW0nCiAgICAgICAgICAgIGRhdGEgPSBvcGVuKGZwLCAncmInKS5yZWFkKCkKICAgICAgICAgICAgcy5zZW5kX3Jlc3BvbnNlKDIwMCkKICAgICAgICAgICAgcy5fY29ycygpCiAgICAgICAgICAgIHMuc2VuZF9oZWFkZXIoJ0NvbnRlbnQtVHlwZScsIG10KQogICAgICAgICAgICBzLnNlbmRfaGVhZGVyKCdDb250ZW50LUxlbmd0aCcsIHN0cihsZW4oZGF0YSkpKQogICAgICAgICAgICBzLnNlbmRfaGVhZGVyKCdDYWNoZS1Db250cm9sJywgJ25vLWNhY2hlJykKICAgICAgICAgICAgcy5lbmRfaGVhZGVycygpCiAgICAgICAgICAgIHMud2ZpbGUud3JpdGUoZGF0YSkKICAgICAgICBlbHNlOgogICAgICAgICAgICBzLnNlbmRfcmVzcG9uc2UoNDA0KQogICAgICAgICAgICBzLl9jb3JzKCkKICAgICAgICAgICAgcy5lbmRfaGVhZGVycygpCiAgICBkZWYgZG9fUE9TVChzKToKICAgICAgICB0cnk6CiAgICAgICAgICAgIG4gPSBpbnQocy5oZWFkZXJzLmdldCgnQ29udGVudC1MZW5ndGgnLCAnMCcpKQogICAgICAgICAgICBkID0ganNvbi5sb2FkcyhzLnJmaWxlLnJlYWQobikuZGVjb2RlKCd1dGYtOCcpKQogICAgICAgICAgICBpZiBzLnBhdGguc3RhcnRzd2l0aCgnL2NsZWFudXAnKToKICAgICAgICAgICAgICAgIGFjdCA9IHNldChzdHIoeCkuc3BsaXQoJz8nKVswXS5sc3RyaXAoJy8nKS5yZXBsYWNlKCcuLicsICdfJykgZm9yIHggaW4gZC5nZXQoJ2FjdGl2ZVBhdGhzJywgW10pKQogICAgICAgICAgICAgICAgcm0gPSAwCiAgICAgICAgICAgICAgICBmb3IgZHBhdGgsIGRuYW1lcywgZm5hbWVzIGluIG9zLndhbGsocm9vdCwgdG9wZG93bj1GYWxzZSk6CiAgICAgICAgICAgICAgICAgICAgZm9yIGZuIGluIGZuYW1lczoKICAgICAgICAgICAgICAgICAgICAgICAgaWYgZm4gPT0gJy53dCc6IGNvbnRpbnVlCiAgICAgICAgICAgICAgICAgICAgICAgIGZ1bGwgPSBvcy5wYXRoLmpvaW4oZHBhdGgsIGZuKQogICAgICAgICAgICAgICAgICAgICAgICByZWxwID0gb3MucGF0aC5yZWxwYXRoKGZ1bGwsIHJvb3QpLnJlcGxhY2UoJ1xcJywgJy8nKQogICAgICAgICAgICAgICAgICAgICAgICBpZiByZWxwIG5vdCBpbiBhY3Q6CiAgICAgICAgICAgICAgICAgICAgICAgICAgICB0cnk6CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgb3MucmVtb3ZlKGZ1bGwpCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgcm0gKz0gMQogICAgICAgICAgICAgICAgICAgICAgICAgICAgZXhjZXB0IEV4Y2VwdGlvbjoKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBwYXNzCiAgICAgICAgICAgICAgICAgICAgdHJ5OgogICAgICAgICAgICAgICAgICAgICAgICBpZiBkcGF0aCAhPSByb290IGFuZCBub3Qgb3MubGlzdGRpcihkcGF0aCk6CiAgICAgICAgICAgICAgICAgICAgICAgICAgICBvcy5ybWRpcihkcGF0aCkKICAgICAgICAgICAgICAgICAgICBleGNlcHQgRXhjZXB0aW9uOgogICAgICAgICAgICAgICAgICAgICAgICBwYXNzCiAgICAgICAgICAgICAgICBzLnNlbmRfcmVzcG9uc2UoMjAwKQogICAgICAgICAgICAgICAgcy5fY29ycygpCiAgICAgICAgICAgICAgICBzLnNlbmRfaGVhZGVyKCdDb250ZW50LVR5cGUnLCAnYXBwbGljYXRpb24vanNvbjsgY2hhcnNldD11dGYtOCcpCiAgICAgICAgICAgICAgICBzLmVuZF9oZWFkZXJzKCkKICAgICAgICAgICAgICAgIHMud2ZpbGUud3JpdGUoanNvbi5kdW1wcyh7J29rJzogVHJ1ZSwgJ3JlbW92ZWRDb3VudCc6IHJtfSkuZW5jb2RlKCd1dGYtOCcpKQogICAgICAgICAgICAgICAgcmV0dXJuCiAgICAgICAgICAgIHJlbCA9IHN0cihkLmdldCgncGF0aCcsICdmaWxlLmJpbicpKS5zcGxpdCgnPycpWzBdLmxzdHJpcCgnLycpLnJlcGxhY2UoJy4uJywgJ18nKQogICAgICAgICAgICBmcCA9IG9zLnBhdGguYWJzcGF0aChvcy5wYXRoLmpvaW4ocm9vdCwgcmVsKSkKICAgICAgICAgICAgb3MubWFrZWRpcnMob3MucGF0aC5kaXJuYW1lKGZwKSwgZXhpc3Rfb2s9VHJ1ZSkKICAgICAgICAgICAgcmF3ID0gc3RyKGQuZ2V0KCdkYXRhVXJsJywgJycpKQogICAgICAgICAgICBiNjQgPSByYXcuc3BsaXQoJywnLCAxKVsxXSBpZiAnLCcgaW4gcmF3IGVsc2UgcmF3CiAgICAgICAgICAgIGJ1ZiA9IGJhc2U2NC5iNjRkZWNvZGUoYjY0KQogICAgICAgICAgICBvcGVuKGZwLCAnd2InKS53cml0ZShidWYpCiAgICAgICAgICAgIHByaW50KCflt7LlrZjmnKzlnLA6JywgcmVsLCBsZW4oYnVmKSAvLyAxMDI0LCAnS0InLCBmbHVzaD1UcnVlKQogICAgICAgICAgICBlbmMgPSAnLycuam9pbih1cmxsaWIucGFyc2UucXVvdGUoeCkgZm9yIHggaW4gcmVsLnNwbGl0KCcvJykpCiAgICAgICAgICAgIGggPSBzLmhlYWRlcnMuZ2V0KCdIb3N0Jykgb3IgJzEyNy4wLjAuMTo4NzY1JwogICAgICAgICAgICBzLnNlbmRfcmVzcG9uc2UoMjAwKQogICAgICAgICAgICBzLl9jb3JzKCkKICAgICAgICAgICAgcy5zZW5kX2hlYWRlcignQ29udGVudC1UeXBlJywgJ2FwcGxpY2F0aW9uL2pzb247IGNoYXJzZXQ9dXRmLTgnKQogICAgICAgICAgICBzLmVuZF9oZWFkZXJzKCkKICAgICAgICAgICAgcy53ZmlsZS53cml0ZShqc29uLmR1bXBzKHsnb2snOiBUcnVlLCAndXJsJzogJ2h0dHA6Ly8nICsgaCArICcvJyArIGVuYywgJ3BhdGgnOiBmcCwgJ3Jvb3QnOiByb290fSkuZW5jb2RlKCd1dGYtOCcpKQogICAgICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZToKICAgICAgICAgICAgcy5zZW5kX3Jlc3BvbnNlKDUwMCkKICAgICAgICAgICAgcy5fY29ycygpCiAgICAgICAgICAgIHMuc2VuZF9oZWFkZXIoJ0NvbnRlbnQtVHlwZScsICdhcHBsaWNhdGlvbi9qc29uOyBjaGFyc2V0PXV0Zi04JykKICAgICAgICAgICAgcy5lbmRfaGVhZGVycygpCiAgICAgICAgICAgIHMud2ZpbGUud3JpdGUoanNvbi5kdW1wcyh7J29rJzogRmFsc2UsICdlcnJvcic6IHN0cihlKX0pLmVuY29kZSgndXRmLTgnKSkKCnByaW50KCc9PT0g566x5bqt54mp6K+t5pys5Zyw55u05a2Y5bey5ZCv5YqoID09PScsIGZsdXNoPVRydWUpCnByaW50KCfmnKzlnLDkv53lrZjot6/lvoQ6Jywgcm9vdCwgZmx1c2g9VHJ1ZSkKcHJpbnQoJ+ebkeWQrOWcsOWdgDogaHR0cDovLzEyNy4wLjAuMTo4NzY1JywgZmx1c2g9VHJ1ZSkKUygoJzAuMC4wLjAnLCA4NzY1KSwgSCkuc2VydmVfZm9yZXZlcigpCg== | base64 -d | python3 -u</textarea>
               <button type="button" class="moe-btn" onclick="copyTermuxLocalBridgeCmd()">复制</button>
             </div>
           </div>
-          <div id="local-bridge-status-box" style="font-size:12px;color:var(--text-secondary);padding:10px;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:8px;">在 Termux 运行上方命令后点右上角检测或同步即可将全部图片与配音写入手机本地下载目录 HakoniwaData，彻底释放浏览器内存防卡顿</div>
+          <div id="local-bridge-status-box" style="font-size:12px;color:var(--text-secondary);padding:10px;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:8px;">在 Termux 运行上方命令后点右上角检测或同步即可将全部图片与配音写入手机本地下载目录 HakoniwaData，点清理可一键删除未启用的旧图片释放空间</div>
         </div>
       </div>
     </section>
@@ -4791,6 +4792,55 @@
       return null;
     }
 
+    function evictAssetFromMemoryCaches(relOrUrl) {
+      if (!relOrUrl || typeof relOrUrl !== 'string') return;
+      const cleanKey = relOrUrl.split('?')[0].replace(/^\/+/, '');
+      const encodedKey = cleanKey.split('/').map((seg) => encodeURIComponent(seg)).join('/');
+      if (typeof _heightCroppedSpriteCache !== 'undefined' && _heightCroppedSpriteCache) {
+        for (const [k, v] of _heightCroppedSpriteCache.entries()) {
+          const kClean = String(k || '').split('?')[0];
+          if (k === relOrUrl || kClean.endsWith(cleanKey) || kClean.endsWith(encodedKey)) {
+            if (typeof v === 'string' && v.startsWith('blob:')) {
+              try { URL.revokeObjectURL(v); } catch (_) {}
+            }
+            _heightCroppedSpriteCache.delete(k);
+          }
+        }
+      }
+      if (typeof _fastBlobUrlCache !== 'undefined' && _fastBlobUrlCache) {
+        if (_fastBlobUrlCache.has(relOrUrl)) {
+          const bUrl = _fastBlobUrlCache.get(relOrUrl);
+          if (bUrl && bUrl.startsWith('blob:')) {
+            try { URL.revokeObjectURL(bUrl); } catch (_) {}
+            _blobToOriginDataUrl.delete(bUrl);
+          }
+          _fastBlobUrlCache.delete(relOrUrl);
+        }
+      }
+    }
+
+    function evictCharacterTachieCaches(charObj, expName = '') {
+      if (!charObj) return;
+      const safeCharName = (charObj.name || charObj.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
+      if (expName) {
+        const safeExp = String(expName).replace(/[\\/:*?"<>|]/g, '_');
+        evictAssetFromMemoryCaches(`characters/${safeCharName}/${safeExp}.png`);
+        evictAssetFromMemoryCaches(`characters/${safeCharName}/raw_${safeExp}.png`);
+        if (charObj.tachieExpressions && charObj.tachieExpressions[expName]) {
+          evictAssetFromMemoryCaches(charObj.tachieExpressions[expName]);
+        }
+        if (charObj.tachieRawExpressions && charObj.tachieRawExpressions[expName]) {
+          evictAssetFromMemoryCaches(charObj.tachieRawExpressions[expName]);
+        }
+      }
+      if (!expName || expName === '默认') {
+        evictAssetFromMemoryCaches(`characters/${safeCharName}/base.png`);
+        evictAssetFromMemoryCaches(`characters/${safeCharName}/lock.png`);
+        if (charObj.tachieBase) evictAssetFromMemoryCaches(charObj.tachieBase);
+        if (charObj.charLockImg) evictAssetFromMemoryCaches(charObj.charLockImg);
+      }
+    }
+
     async function saveAssetToLocalBridge(relPath, dataUrl, preferTermuxOnly = false) {
       if (!dataUrl || typeof dataUrl !== 'string') return dataUrl;
       if (dataUrl.startsWith('data:image/svg+xml')) return dataUrl;
@@ -4804,8 +4854,11 @@
         }
       }
       const baseUrl = getLocalBridgeBaseUrl();
-      const cleanRel = String(relPath || 'file.bin').replace(/^\/+/, '').replace(/\.\./g, '_');
+      const cleanRel = String(relPath || 'file.bin').split('?')[0].replace(/^\/+/, '').replace(/\.\./g, '_');
       const encodedRel = cleanRel.split('/').map((seg) => encodeURIComponent(seg)).join('/');
+      const verSuffix = `?v=${Date.now()}`;
+
+      evictAssetFromMemoryCaches(cleanRel);
 
       let savedTermuxUrl = '';
       if (isLocalBridgeEnabled()) {
@@ -4822,7 +4875,7 @@
           if (res.ok) {
             const info = await res.json();
             if (info && info.ok) {
-              savedTermuxUrl = `${baseUrl}/${encodedRel}`;
+              savedTermuxUrl = `${baseUrl}/${encodedRel}${verSuffix}`;
             }
           }
         } catch (_) {}
@@ -4847,13 +4900,172 @@
           if (srvRes.ok) {
             const srvInfo = await srvRes.json();
             if (srvInfo && srvInfo.ok) {
-              return `/local-assets/${encodedRel}`;
+              return `/local-assets/${encodedRel}${verSuffix}`;
             }
           }
         } catch (_) {}
       }
 
       return dataUrl;
+    }
+
+    function extractRelativeAssetPath(urlStr, baseUrl) {
+      if (!urlStr || typeof urlStr !== 'string') return '';
+      if (urlStr.startsWith('data:') || urlStr.startsWith('blob:')) return '';
+      const noQuery = urlStr.split('?')[0];
+      let rawRel = '';
+      if (baseUrl && noQuery.startsWith(baseUrl + '/')) {
+        rawRel = noQuery.slice(baseUrl.length + 1);
+      } else if (noQuery.startsWith('/local-assets/')) {
+        rawRel = noQuery.slice('/local-assets/'.length);
+      }
+      if (!rawRel) return '';
+      try {
+        return rawRel.split('/').map((s) => decodeURIComponent(s)).join('/').replace(/^\/+/, '');
+      } catch (_) {
+        return rawRel.replace(/^\/+/, '');
+      }
+    }
+
+    async function cleanupUnusedAssetsUI(silentMode = false) {
+      const statusBox = document.getElementById('local-bridge-status-box');
+      const baseUrl = getLocalBridgeBaseUrl();
+      let dbCleanedCount = 0;
+
+      for (const c of (appState.characters || [])) {
+        let changed = false;
+        const validActNames = new Set((getCharActionList(c) || []).map((a) => a.name));
+        validActNames.add('默认');
+        if (c.tachieExpressions && typeof c.tachieExpressions === 'object') {
+          for (const k of Object.keys(c.tachieExpressions)) {
+            if (!validActNames.has(k) || !c.tachieExpressions[k]) {
+              evictAssetFromMemoryCaches(c.tachieExpressions[k]);
+              delete c.tachieExpressions[k];
+              changed = true;
+              dbCleanedCount += 1;
+            }
+          }
+        }
+        if (c.tachieRawExpressions && typeof c.tachieRawExpressions === 'object') {
+          for (const k of Object.keys(c.tachieRawExpressions)) {
+            if (!validActNames.has(k) || !c.tachieRawExpressions[k]) {
+              evictAssetFromMemoryCaches(c.tachieRawExpressions[k]);
+              delete c.tachieRawExpressions[k];
+              changed = true;
+              dbCleanedCount += 1;
+            }
+          }
+        }
+        if (changed) {
+          await db.characters.put(c);
+        }
+      }
+
+      const activePaths = new Set();
+      const collectUrl = (u) => {
+        const rel = extractRelativeAssetPath(u, baseUrl);
+        if (rel) activePaths.add(rel);
+      };
+
+      for (const c of (appState.characters || [])) {
+        const safeName = (c.name || c.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
+        collectUrl(c.profileAvatar);
+        collectUrl(c.stageBustAvatar);
+        collectUrl(c.tachieBase);
+        collectUrl(c.charLockImg);
+        if (c.tachieBase) activePaths.add(`characters/${safeName}/base.png`);
+        if (c.charLockImg) activePaths.add(`characters/${safeName}/lock.png`);
+        if (c.profileAvatar) activePaths.add(`characters/${safeName}/profile_avatar.png`);
+        if (c.stageBustAvatar) activePaths.add(`characters/${safeName}/stage_bust.png`);
+        Object.entries(c.tachieExpressions || {}).forEach(([exp, u]) => {
+          collectUrl(u);
+          const safeExp = String(exp).replace(/[\\/:*?"<>|]/g, '_');
+          activePaths.add(`characters/${safeName}/${safeExp}.png`);
+        });
+        Object.entries(c.tachieRawExpressions || {}).forEach(([exp, u]) => {
+          collectUrl(u);
+          const safeExp = String(exp).replace(/[\\/:*?"<>|]/g, '_');
+          activePaths.add(`characters/${safeName}/raw_${safeExp}.png`);
+        });
+        ['chibiImg', 'chibiRawImg', 'chibiAlignedRawImg', 'chibiBackImg', 'chibiSideImg', 'chibiRightImg', 'chibiSeatedImg'].forEach((fKey) => {
+          if (c[fKey]) {
+            collectUrl(c[fKey]);
+            activePaths.add(`characters/${safeName}/${fKey}.png`);
+          }
+        });
+        ['chibiPoseImgs', 'chibiPoseRawImgs', 'chibiPoseAlignedRawImgs'].forEach((sKey) => {
+          if (c[sKey] && typeof c[sKey] === 'object') {
+            Object.entries(c[sKey]).forEach(([pKey, u]) => {
+              if (u) {
+                collectUrl(u);
+                activePaths.add(`characters/${safeName}/${sKey}_${pKey}.png`);
+              }
+            });
+          }
+        });
+      }
+
+      for (const proj of (appState.replayProjects || [])) {
+        (proj.globalScenes || []).forEach((gsc) => collectUrl(gsc.imageUrl));
+        (proj.chapters || []).forEach((ch) => {
+          (ch.scenes || []).forEach((sc) => collectUrl(sc.imageUrl));
+          (ch.cgNodes || []).forEach((cg) => {
+            collectUrl(cg.imageUrl);
+            collectUrl(cg.customPadImg);
+          });
+        });
+      }
+
+      (appState.styleRefList || []).forEach((item) => collectUrl(item?.base64));
+      const stylePresetList = await db.styles.toArray();
+      stylePresetList.forEach((sp) => (sp.refs || []).forEach((r) => collectUrl(r?.base64)));
+      const mapList = await db.maps.toArray();
+      mapList.forEach((m) => {
+        collectUrl(m.bgDataUrl);
+        collectUrl(m.tableSurfaceUrl);
+      });
+      (appState.furnitures || []).forEach((f) => {
+        collectUrl(f.img);
+        collectUrl(f.rawImg);
+        collectUrl(f.spriteUrl);
+      });
+      (appState.foods || []).forEach((fd) => collectUrl(fd.img));
+      const ttsList = await db.ttsCache.toArray();
+      ttsList.forEach((item) => collectUrl(item.audioDataUrl));
+
+      const activePathsArr = Array.from(activePaths);
+      let diskRemovedCount = 0;
+
+      if (isLocalBridgeEnabled()) {
+        try {
+          const res = await fetch(baseUrl + '/cleanup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ activePaths: activePathsArr })
+          });
+          if (res.ok) {
+            const info = await res.json();
+            diskRemovedCount += Number(info?.removedCount || 0);
+          }
+        } catch (_) {}
+      }
+
+      try {
+        const srvRes = await fetch('/api/local-assets/cleanup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ activePaths: activePathsArr })
+        });
+        if (srvRes.ok) {
+          const srvInfo = await srvRes.json();
+          diskRemovedCount = Math.max(diskRemovedCount, Number(srvInfo?.removedCount || 0));
+        }
+      } catch (_) {}
+
+      if (!silentMode && statusBox) {
+        statusBox.textContent = `清理完成！已自动删除 ${diskRemovedCount} 个未启用的历史残留本地文件与 ${dbCleanedCount} 条失效差分记录，所有正在使用的立绘均已保留最新覆盖版本。`;
+      }
+      return diskRemovedCount + dbCleanedCount;
     }
 
     async function resolveImageToDataUrl(src) {
@@ -9619,6 +9831,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
         appState.tachieWorkingDataUrl = cleaned;
 
         if (charObj) {
+          evictCharacterTachieCaches(charObj, '默认');
           charObj.tachieSeed = seed;
           const safeCharName = (charObj.name || charObj.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
           const normLock = await normalizeUploadedImageForNai(dataUrl);
@@ -9635,10 +9848,11 @@ ZH: 修改后的纯客观中文服装配饰清单`
           charObj.tachieBase = savedBaseUrl;
           charObj.tachieExpressions['默认'] = savedDefUrl;
           charObj.tachieRawExpressions['默认'] = savedRawUrl;
-          appState.tachieWorkingDataUrl = savedDefUrl;
-          appState.tachieRawDataUrl = savedRawUrl;
-          appState.tachieAlignedRawDataUrl = savedRawUrl;
+          appState.tachieWorkingDataUrl = cleaned;
+          appState.tachieRawDataUrl = dataUrl;
+          appState.tachieAlignedRawDataUrl = dataUrl;
           await db.characters.put(charObj);
+          cleanupUnusedAssetsUI(true).catch(() => {});
         }
 
         appState.selectedTachieExp = '默认';
@@ -9654,6 +9868,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
         }
         if (emptyEl) emptyEl.style.display = 'none';
         renderHeightStage();
+        renderPersonaGrid();
       } catch (err) {
         alert('立绘首图生成失败：' + err.message);
       } finally {
@@ -9731,6 +9946,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
         const cleaned = await normalizeTachieSpriteScale(bgRemoved, dataUrl);
         appState.tachieWorkingDataUrl = cleaned;
         if (charObj) {
+          evictCharacterTachieCaches(charObj, expName);
           if (!charObj.tachieExpressions) charObj.tachieExpressions = {};
           if (!charObj.tachieRawExpressions) charObj.tachieRawExpressions = {};
           const safeCharName = (charObj.name || charObj.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
@@ -9740,12 +9956,21 @@ ZH: 修改后的纯客观中文服装配饰清单`
           charObj.tachieExpressions[expName] = savedExpUrl;
           charObj.tachieRawExpressions[expName] = savedRawUrl;
           await db.characters.put(charObj);
+          cleanupUnusedAssetsUI(true).catch(() => {});
         }
         setTachieBrushMode('none');
         renderTachieActionPlanList();
         renderTachieExpButtons();
         selectTachieExpression(expName);
+        const stageImgEl = document.getElementById('tachie-stage-img');
+        const emptyEl = document.getElementById('tachie-stage-empty');
+        if (stageImgEl) {
+          stageImgEl.src = cleaned;
+          stageImgEl.style.display = 'block';
+        }
+        if (emptyEl) emptyEl.style.display = 'none';
         renderHeightStage();
+        renderPersonaGrid();
       } catch (err) {
         alert('立绘生成失败：' + err.message);
       } finally {
@@ -9768,13 +9993,16 @@ ZH: 修改后的纯客观中文服装配饰清单`
         const cleaned = await normalizeTachieSpriteScale(bgRemoved, rawUrl);
         const targetExp = appState.selectedTachieExp || '默认';
         const charObj = appState.characters.find((c) => c.id === appState.selectedTachieCharId);
+        if (charObj) {
+          evictCharacterTachieCaches(charObj, targetExp);
+        }
         const safeCharName = (charObj?.name || charObj?.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
         const safeExp = String(targetExp).replace(/[\\/:*?"<>|]/g, '_');
         const savedExpUrl = await saveAssetToLocalBridge(`characters/${safeCharName}/${safeExp}.png`, cleaned);
         const savedRawUrl = await saveAssetToLocalBridge(`characters/${safeCharName}/raw_${safeExp}.png`, rawUrl);
-        appState.tachieWorkingDataUrl = savedExpUrl;
-        appState.tachieRawDataUrl = savedRawUrl;
-        appState.tachieAlignedRawDataUrl = savedRawUrl;
+        appState.tachieWorkingDataUrl = cleaned;
+        appState.tachieRawDataUrl = rawUrl;
+        appState.tachieAlignedRawDataUrl = rawUrl;
         if (charObj) {
           if (!charObj.tachieExpressions) charObj.tachieExpressions = {};
           if (!charObj.tachieRawExpressions) charObj.tachieRawExpressions = {};
@@ -9795,12 +10023,22 @@ ZH: 修改后的纯客观中文服装配饰清单`
             if (thumbEl) thumbEl.innerHTML = `<img src="${toFastDisplayUrl(savedLockUrl)}" style="width:100%;height:100%;object-fit:cover;" />`;
           }
           await db.characters.put(charObj);
+          cleanupUnusedAssetsUI(true).catch(() => {});
         }
         appState.selectedTachieExp = targetExp;
         setTachieBrushMode('none');
+        renderTachieActionPlanList();
         renderTachieExpButtons();
         selectTachieExpression(targetExp);
+        const stageImgEl = document.getElementById('tachie-stage-img');
+        const emptyEl = document.getElementById('tachie-stage-empty');
+        if (stageImgEl) {
+          stageImgEl.src = cleaned;
+          stageImgEl.style.display = 'block';
+        }
+        if (emptyEl) emptyEl.style.display = 'none';
         renderHeightStage();
+        renderPersonaGrid();
       };
       reader.readAsDataURL(file);
       event.target.value = '';
@@ -9899,6 +10137,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const workingImg = appState.tachieWorkingDataUrl || stageSrc || (charObj.tachieExpressions && charObj.tachieExpressions[curExp]) || '';
 
       if (workingImg) {
+        evictCharacterTachieCaches(charObj, curExp);
         if (!charObj.tachieExpressions) charObj.tachieExpressions = {};
         const safeCharName = (charObj.name || charObj.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
         const safeExp = String(curExp).replace(/[\\/:*?"<>|]/g, '_');
@@ -9930,6 +10169,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
       }
 
       await db.characters.put(charObj);
+      cleanupUnusedAssetsUI(true).catch(() => {});
       renderTachieActionPlanList();
       renderTachieExpButtons();
       renderHeightStage();
