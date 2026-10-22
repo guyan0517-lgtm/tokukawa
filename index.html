@@ -2468,7 +2468,6 @@
           <div class="moe-card-header">
             <span class="moe-card-title">分章后场景整理：提取各章细分场景与同场景状态差分</span>
             <div style="display:flex;gap:6px;">
-              <button type="button" class="moe-btn secondary" id="replay-diff-match-btn" onclick="aiMatchCurrentChapterExpressions()">差分</button>
               <button type="button" class="moe-btn secondary" onclick="addManualGlobalModuleScene()">新增</button>
               <button type="button" class="moe-btn" id="replay-extract-scenes-btn" onclick="extractAndDeduplicateModuleScenesViaAi()">场景</button>
             </div>
@@ -2517,12 +2516,14 @@
             <select id="replay-script-chapter-select" class="moe-input" onchange="onSelectReplayChapter(this.value)"></select>
           </div>
 
-          <div class="script-top-btn-grid" style="grid-template-columns:repeat(3, 1fr);">
+          <div class="script-top-btn-grid" style="grid-template-columns:repeat(4, 1fr);">
             <button type="button" class="moe-btn" id="replay-gen-script-btn" onclick="generateCurrentChapterScriptViaAi()">整理</button>
+            <button type="button" class="moe-btn secondary" id="replay-ai-bgm-btn" onclick="aiMatchCurrentChapterBgm()">配乐</button>
+            <button type="button" class="moe-btn secondary" id="replay-ai-exp-btn" onclick="aiMatchCurrentChapterExpressions()">差分</button>
             <button type="button" class="moe-btn secondary" id="replay-ai-cg-opt-btn" onclick="aiOptimizeCurrentChapterCgNodes()">插图</button>
-            <button type="button" class="moe-btn secondary" onclick="toggleScriptPromptEditor()">提示</button>
             <button type="button" class="moe-btn secondary" id="replay-danmaku-btn" onclick="toggleDanmakuReviewPanel()">弹幕</button>
             <button type="button" class="moe-btn secondary" id="replay-typo-btn" onclick="toggleTypoReviewPanel()">错字</button>
+            <button type="button" class="moe-btn secondary" onclick="toggleScriptPromptEditor()">提示</button>
             <button type="button" class="moe-btn" onclick="openTheaterForCurrentChapter()">播放</button>
           </div>
 
@@ -13634,14 +13635,44 @@ ${BUILTIN_CSS_TEMPLATE}`;
     appState.theaterBgmVolume = Number(localStorage.getItem('theater-bgm-volume') || 65);
     let _activeReplayTtsAudio = null;
     let _theaterStepTimer = null;
+    let _currentReplayBgmUrl = '';
+    let _bgmFadeTimer = null;
+    let _bgmIsDucking = false;
 
     const DEFAULT_REPLAY_BGM_TRACKS = [
-      { id: 'bgm_daily_1', name: '午后街角日常', tag: '日常', url: 'https://music.163.com/song/media/outer/url?id=139774.mp3' },
-      { id: 'bgm_mystery_1', name: '雾夜古宅调查', tag: '悬疑', url: 'https://music.163.com/song/media/outer/url?id=281951.mp3' },
-      { id: 'bgm_eerie_1', name: '旧日低语异变', tag: '诡异', url: 'https://music.163.com/song/media/outer/url?id=5264842.mp3' },
-      { id: 'bgm_battle_1', name: '绝境交锋时刻', tag: '战斗', url: 'https://music.163.com/song/media/outer/url?id=496869422.mp3' },
-      { id: 'bgm_lyric_1', name: '黎明前的告别', tag: '抒情', url: 'https://music.163.com/song/media/outer/url?id=26113988.mp3' }
+      { id: 'bgm_daily_1', name: '木漏れ日の散歩道 · 日系日常纯音乐', tag: '日常', url: 'https://music.163.com/song/media/outer/url?id=139774.mp3' },
+      { id: 'bgm_daily_2', name: '穏やかな午後 · 视觉小说日常纯音乐', tag: '日常', url: 'https://music.163.com/song/media/outer/url?id=476592630.mp3' },
+      { id: 'bgm_mystery_1', name: '霧の古館調査 · 悬疑推理纯音乐', tag: '悬疑', url: 'https://music.163.com/song/media/outer/url?id=281951.mp3' },
+      { id: 'bgm_mystery_2', name: '静寂の推理 · 动漫悬疑纯音乐', tag: '悬疑', url: 'https://music.163.com/song/media/outer/url?id=22707008.mp3' },
+      { id: 'bgm_eerie_1', name: '深淵の囁き · 诡异暗黑纯音乐', tag: '诡异', url: 'https://music.163.com/song/media/outer/url?id=5264842.mp3' },
+      { id: 'bgm_battle_1', name: '宿命の対峙 · 动漫燃系战斗纯音乐', tag: '战斗', url: 'https://music.163.com/song/media/outer/url?id=496869422.mp3' },
+      { id: 'bgm_lyric_1', name: '夜明けの別れ · 钢琴抒情纯音乐', tag: '抒情', url: 'https://music.163.com/song/media/outer/url?id=26113988.mp3' },
+      { id: 'bgm_happy_1', name: '陽だまりの笑顔 · 欢快日常纯音乐', tag: '欢快', url: 'https://music.163.com/song/media/outer/url?id=22677610.mp3' }
     ];
+
+    function getFallbackInstrumentalBgmUrl(tagOrName = '') {
+      const s = String(tagOrName || '').trim();
+      const allTracks = (Array.isArray(appState.bgmTracks) && appState.bgmTracks.length > 0)
+        ? appState.bgmTracks
+        : DEFAULT_REPLAY_BGM_TRACKS;
+      let matched = allTracks.find((t) => t.url && (t.tag === s || t.name === s || s.includes(t.tag)));
+      if (!matched) {
+        if (/悬疑|调查|推理|神秘|迷雾|线索|古宅|安静|思考/.test(s)) {
+          matched = DEFAULT_REPLAY_BGM_TRACKS.find((t) => t.tag === '悬疑');
+        } else if (/诡异|恐怖|压抑|惊悚|SAN|理智|旧日|异变|暗黑|深渊/.test(s)) {
+          matched = DEFAULT_REPLAY_BGM_TRACKS.find((t) => t.tag === '诡异');
+        } else if (/战斗|危机|激烈|追逐|交锋|决战|紧张|燃/.test(s)) {
+          matched = DEFAULT_REPLAY_BGM_TRACKS.find((t) => t.tag === '战斗');
+        } else if (/抒情|悲伤|回忆|温柔|告别|钢琴|感人|治愈/.test(s)) {
+          matched = DEFAULT_REPLAY_BGM_TRACKS.find((t) => t.tag === '抒情');
+        } else if (/欢快|轻松|搞笑|热闹|愉快|早晨/.test(s)) {
+          matched = DEFAULT_REPLAY_BGM_TRACKS.find((t) => t.tag === '欢快');
+        } else {
+          matched = DEFAULT_REPLAY_BGM_TRACKS[0];
+        }
+      }
+      return normalizeMusicTrackUrl((matched && matched.url) || DEFAULT_REPLAY_BGM_TRACKS[0].url);
+    }
 
     function normalizeMusicTrackUrl(rawUrl) {
       const str = String(rawUrl || '').trim();
@@ -13812,20 +13843,114 @@ ${BUILTIN_CSS_TEMPLATE}`;
       renderReplayBgmList();
     }
 
-    function previewReplayBgmTrack(url) {
-      const player = document.getElementById('bgm-audio-player');
-      if (!player || !url) return;
-      const finalUrl = normalizeMusicTrackUrl(url);
-      player.volume = Math.max(0, Math.min(1, (appState.theaterBgmVolume || 65) / 100));
-      player.src = finalUrl;
-      player.play().catch(() => {});
+    function getTargetTheaterBgmVolume() {
+      const baseVol = Math.max(0, Math.min(1, (appState.theaterBgmVolume || 65) / 100));
+      const duckEnabled = localStorage.getItem('theater-bgm-ducking') !== 'false';
+      return (_bgmIsDucking && duckEnabled) ? Number((baseVol * 0.32).toFixed(3)) : baseVol;
     }
 
-    function stopReplayBgmPreview() {
-      const player = document.getElementById('bgm-audio-player');
-      if (player) {
-        player.pause();
+    function clearBgmFadeTimer() {
+      if (_bgmFadeTimer) {
+        clearInterval(_bgmFadeTimer);
+        _bgmFadeTimer = null;
       }
+    }
+
+    // 1秒平滑音量渐入渐出控制器
+    function fadeBgmVolumeTo(player, targetVol, durationMs = 1000, onComplete = null) {
+      if (!player) {
+        if (typeof onComplete === 'function') onComplete();
+        return;
+      }
+      clearBgmFadeTimer();
+      const clampedTarget = Math.max(0, Math.min(1, Number(targetVol) || 0));
+      const startVol = Math.max(0, Math.min(1, Number(player.volume) || 0));
+      const steps = 20;
+      const stepMs = Math.max(20, Math.round(durationMs / steps));
+      let curStep = 0;
+      _bgmFadeTimer = setInterval(() => {
+        curStep += 1;
+        if (curStep >= steps) {
+          player.volume = clampedTarget;
+          clearBgmFadeTimer();
+          if (typeof onComplete === 'function') onComplete();
+        } else {
+          const ratio = curStep / steps;
+          player.volume = Math.max(0, Math.min(1, Number((startVol + (clampedTarget - startVol) * ratio).toFixed(3))));
+        }
+      }, stepMs);
+    }
+
+    function onBgmVolumeChange(val) {
+      const v = Math.max(0, Math.min(100, Number(val) || 65));
+      appState.theaterBgmVolume = v;
+      localStorage.setItem('theater-bgm-volume', String(v));
+      const player = document.getElementById('bgm-audio-player');
+      if (player && !player.paused) {
+        clearBgmFadeTimer();
+        player.volume = getTargetTheaterBgmVolume();
+      }
+    }
+
+    function previewReplayBgmTrack(url, fallbackTag = '日常') {
+      const player = document.getElementById('bgm-audio-player');
+      if (!player) return;
+      const finalUrl = normalizeMusicTrackUrl(url || getFallbackInstrumentalBgmUrl(fallbackTag));
+      if (!finalUrl) return;
+
+      if (!player.paused && _currentReplayBgmUrl === finalUrl && player.src) {
+        fadeBgmVolumeTo(player, getTargetTheaterBgmVolume(), 1000);
+        return;
+      }
+
+      const startNewTrackWithFadeIn = (playUrl, isFallbackRetry = false) => {
+        clearBgmFadeTimer();
+        _currentReplayBgmUrl = playUrl;
+        player.volume = 0;
+        player.src = playUrl;
+        player.onerror = () => {
+          if (!isFallbackRetry) {
+            const fbUrl = getFallbackInstrumentalBgmUrl(fallbackTag);
+            if (fbUrl && fbUrl !== playUrl) {
+              startNewTrackWithFadeIn(fbUrl, true);
+            }
+          }
+        };
+        player.play().then(() => {
+          fadeBgmVolumeTo(player, getTargetTheaterBgmVolume(), 1000);
+        }).catch(() => {
+          if (!isFallbackRetry) {
+            const fbUrl = getFallbackInstrumentalBgmUrl(fallbackTag);
+            if (fbUrl && fbUrl !== playUrl) {
+              startNewTrackWithFadeIn(fbUrl, true);
+            }
+          }
+        });
+      };
+
+      if (!player.paused && _currentReplayBgmUrl && _currentReplayBgmUrl !== finalUrl && player.volume > 0.02) {
+        fadeBgmVolumeTo(player, 0, 1000, () => {
+          player.pause();
+          startNewTrackWithFadeIn(finalUrl, false);
+        });
+      } else {
+        startNewTrackWithFadeIn(finalUrl, false);
+      }
+    }
+
+    function stopReplayBgmPreview(useFade = true) {
+      const player = document.getElementById('bgm-audio-player');
+      if (!player) return;
+      if (!useFade || player.paused || player.volume <= 0.01) {
+        clearBgmFadeTimer();
+        player.pause();
+        _currentReplayBgmUrl = '';
+        return;
+      }
+      fadeBgmVolumeTo(player, 0, 1000, () => {
+        player.pause();
+        _currentReplayBgmUrl = '';
+      });
     }
 
     function renderReplayBgmList() {
@@ -15350,7 +15475,107 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       }
 
       chap.danmakuList = danmakuList;
+      computeChapterStageSlots(lines);
       return lines;
+    }
+
+    // 视觉小说舞台 1人 / 2人 / 3人 动态自适应槽位锁定算法（0额度纯系统计算，同场说话绝不左右乱跳换位）
+    function computeChapterStageSlots(scriptLines) {
+      if (!Array.isArray(scriptLines) || scriptLines.length === 0) return scriptLines;
+      const isValidActor = (name) => Boolean(name && name !== '旁白' && name !== '检定' && name !== '场外');
+
+      let slots = [];
+      let lastSpokeIdxMap = new Map();
+      let currentSceneKey = '';
+
+      for (let i = 0; i < scriptLines.length; i++) {
+        const line = scriptLines[i];
+        if (!line) continue;
+
+        const sceneKey = String(line.sceneId || 'scene_1');
+        const isBlackout = line.effect === 'blackout';
+        if (isBlackout || (currentSceneKey && sceneKey !== currentSceneKey)) {
+          slots = [];
+          lastSpokeIdxMap.clear();
+        }
+        currentSceneKey = sceneKey;
+
+        // 计算当前小段对话窗口边界（不跨越场景切换或黑幕）
+        let winEnd = i;
+        for (let k = i + 1; k <= Math.min(scriptLines.length - 1, i + 6); k++) {
+          const nextL = scriptLines[k];
+          if (!nextL) break;
+          if (nextL.effect === 'blackout' || (nextL.sceneId && nextL.sceneId !== sceneKey)) break;
+          winEnd = k;
+        }
+
+        // 统计从当前句往后短窗口内即将开口的角色顺序
+        const upcomingSpeakers = [];
+        for (let k = i; k <= winEnd; k++) {
+          const sp = scriptLines[k]?.speaker;
+          if (isValidActor(sp) && !upcomingSpeakers.includes(sp)) {
+            upcomingSpeakers.push(sp);
+          }
+        }
+
+        // 移除已经很久没说话（超过8句）且接下来也不会说话的退场角色，让舞台从3人或2人自然回落
+        slots = slots.filter((actor) => {
+          const lastIdx = lastSpokeIdxMap.has(actor) ? lastSpokeIdxMap.get(actor) : -999;
+          const speaksSoon = upcomingSpeakers.includes(actor);
+          return (i - lastIdx <= 8) || speaksSoon;
+        });
+
+        const curSpk = (line.type !== 'ooc' && isValidActor(line.speaker)) ? line.speaker : '';
+        if (curSpk) {
+          lastSpokeIdxMap.set(curSpk, i);
+        }
+
+        // 当舞台为空或刚开始一段新对话时，根据本段对话实际参与人数（1人、2人或3人）预读同场站位并锁定槽位
+        if (slots.length === 0 && upcomingSpeakers.length > 0) {
+          if (upcomingSpeakers.length === 1) {
+            slots = [upcomingSpeakers[0]];
+          } else if (upcomingSpeakers.length === 2) {
+            slots = [upcomingSpeakers[0], upcomingSpeakers[1]];
+          } else {
+            slots = [upcomingSpeakers[0], upcomingSpeakers[1], upcomingSpeakers[2]];
+          }
+          slots.forEach((s) => {
+            if (!lastSpokeIdxMap.has(s)) lastSpokeIdxMap.set(s, i);
+          });
+        } else if (curSpk) {
+          // 如果当前说话人已经在舞台槽位中：保持原槽位顺序绝对不动！只靠说话高亮区分
+          if (!slots.includes(curSpk)) {
+            if (slots.length === 1 && upcomingSpeakers.length >= 2) {
+              // 从单人独白进入双人或三人对话，平滑加入右侧槽位
+              slots.push(curSpk);
+              if (upcomingSpeakers.length >= 3) {
+                const third = upcomingSpeakers.find((u) => !slots.includes(u));
+                if (third && slots.length < 3) slots.push(third);
+              }
+            } else if (slots.length < 3) {
+              slots.push(curSpk);
+            } else {
+              // 舞台已满3人时出现第4个人：只原位替换掉最久未说话且接下来不说话的那1个槽位，另外2人位置完全不动
+              let replaceSlotIdx = 0;
+              let oldestLine = Infinity;
+              for (let sIdx = 0; sIdx < slots.length; sIdx++) {
+                const occupant = slots[sIdx];
+                const lastLine = lastSpokeIdxMap.has(occupant) ? lastSpokeIdxMap.get(occupant) : -999;
+                const penalty = upcomingSpeakers.slice(0, 3).includes(occupant) ? 1000 : 0;
+                const score = lastLine + penalty;
+                if (score < oldestLine) {
+                  oldestLine = score;
+                  replaceSlotIdx = sIdx;
+                }
+              }
+              slots[replaceSlotIdx] = curSpk;
+            }
+          }
+        }
+
+        line.presentSpeakers = [...slots];
+      }
+      return scriptLines;
     }
 
     // 自动解析当前章节所有台词中的歌名与歌手，去音乐台按权重搜索排名第一的歌曲并绑定播放链接
@@ -16088,7 +16313,7 @@ SCENE_ITEM: 场景编号|2到5字简短场景名|NovelAI英文提示词|基底�
 规则三：在整理章节这一步彻底剔除 logs 记录指令与无用废话：凡是遇到诸如点log、logs开启关闭、日志保存链接、已绑卡、已改名、进行了什么鉴定等骰娘指令或系统废话，一律将该行的类型标记为 delete 彻底剔除，绝对禁止保留在旁白或对话中！只有最终的鉴定成功或失败结果、以及生命值或理智值变化才属于右上角检定提示。
 规则四：以括号开头的场外发言已在发给你之前提取到了独立弹幕区域；如果在剩下的句子里发现没有带括号的漏网之鱼，只有百分之百明确脱离模组剧情的玩家场外闲聊吐槽才将其类型标记为 ooc 移入弹幕区；模棱两可的一律视为正常剧情内容。
 规则五：立绘差分切换必须严格从下方提供的该角色可用差分池中选择！调查员与主要NPC拥有34个基础差分加专属差分，次要NPC仅拥有默认、开心、愤怒、伤心、害羞、疯狂、拿起武器、冷漠8个基础差分加专属差分，绝对禁止原创池子之外的差分名字！切换差分的频率必须适中自然。
-规则六：在氛围起承处标记推荐音乐开始 BGM_REC，在紧张解除、场景转换或音乐应当结束的那一行标记 BGM_STOP；没有音乐变化的普通台词行绝对不要乱标音乐。
+规则六：配乐是视觉小说的灵魂环节！每一章必须根据剧情起承转合规划3到6处 BGM_REC 音乐开始标记，并在紧张解除、压抑留白、突发惊吓或场景切换处标记 BGM_STOP 音乐停止！所选曲目必须全部是日系动漫、视觉小说或日系RPG游戏中的纯音乐与原声带伴奏，例如泽野弘之、梶浦由记、神前晓、折户伸治、高梨康治、川井宪次、牛尾宪辅、光田康典、下村阳子、横山克等作曲家的纯音乐作品或经典Galgame纯音乐，严禁推荐带有人声演唱的流行歌曲，使角色说话与日系背景纯音乐自然融合！
 规则七：如果发现某行台词或旁白里有明显错别字，不要擅自直接篡改原句，必须用 TYPO_MARK 单独标记出来供用户自己核对。
 规则八：一章跑团剧本请每隔一段剧情规划一处 CG_MARK 插图节点，整章共规划 5 到 10 处，不必非要等到激烈高潮才插图，有画面感的日常互动或具体场景动作同样可以插入CG，例如两人一起吃饭、给对方喂饭、递交物品、包扎伤口、查看线索或肢体接触；但位置必须选在有具体互动或动作画面的句子处，绝对禁止插在两个人只是普通站着纯聊天、毫无动作与画面变化的无意义干聊台词处！每一张插图都必须明确规划它的持续时间，即从哪一句开始持续显示到哪一句结束，写成 L起始行号-L结束行号 的格式，并填写简短画面说明和在场人物，此阶段不要编写英文生图提示词。同时结合下方提供的全部场景名字，使用 SCENE_RANGE 规划从第几句到第几句使用哪个场景背景、哪几句是纯CG填 CG、哪几句是黑幕转场填 blackout。
 规则九：在整理章节这一步，所有角色亲口说出的对话台词 dialogue 必须在 LINE_UPDATE 的最后一个字段结合整章上下文、该角色的性格语气以及对他人和自己的称呼习惯，写出贴合人设口吻的地道日语配音翻译，且日语台词前绝对不要写角色人名！旁白 narration 绝对不要翻译日语，最后一个字段直接填无。同时以视觉小说对话框视觉舒适度为切割基准，一个对话框最多只放四行字即约90字以内，如果KP或角色一次发了五到十句话的超长段落，请在保持完整不删减的前提下在合适句号处拆成多条同为 L行号 的 LINE_UPDATE 切到下一句对话框里。
@@ -16097,14 +16322,14 @@ SCENE_ITEM: 场景编号|2到5字简短场景名|NovelAI英文提示词|基底�
 SCENE_BG: 场景编号如scene_1|场所中文名称|纯景物2D视觉小说背景NovelAI英文提示词
 SCENE_RANGE: L起始行号-L结束行号|场景编号如scene_1或CG或blackout
 LINE_UPDATE: L行号|类型dialogue或narration或ooc或delete|说话人姓名或旁白|该角色可用差分池内的准确表情名称|音效名称或无|演出特效none或blackout或shake_char或zoom_char或jump_char或shake_screen|顶格纯中文台词或第三人称旁白文本|仅对话必填的贴合角色语气与称呼的不带人名纯日语翻译或旁白填无
-BGM_REC: L行号|歌曲名称|歌手或作曲家名称|氛围分类如悬疑或日常或战斗
+BGM_REC: L行号|日系动漫游戏纯音乐曲名|作曲家或原声带名称|氛围分类如日常或悬疑或诡异或战斗或抒情或欢快
 BGM_STOP: L行号
 TYPO_MARK: L行号|疑似错字原词|建议修改词|简短原因
 CG_MARK: L起始行号-L结束行号|插图简短剧情画面说明|在场角色姓名用顿号分隔`;
 
     function getCustomOrDefaultScriptPrompt() {
       const saved = localStorage.getItem('replay-custom-script-prompt');
-      if (saved && (!saved.includes('delete') || !saved.includes('CG_MARK: L起始行号-L结束行号') || saved.includes('根据剧情高潮、关键调查与重要互动'))) {
+      if (saved && (!saved.includes('delete') || !saved.includes('CG_MARK: L起始行号-L结束行号') || !saved.includes('日系动漫') || saved.includes('根据剧情高潮、关键调查与重要互动'))) {
         return DEFAULT_REPLAY_SCRIPT_PROMPT;
       }
       return saved || DEFAULT_REPLAY_SCRIPT_PROMPT;
@@ -16565,21 +16790,27 @@ ${numberedChapterPreview}`;
               const parts = line.replace(/^BGM_REC:\s*/i, '').split('|').map((s) => s.trim());
               if (parts.length >= 2) {
                 const idxMatch = parts[0].match(/L?(\d+)/i);
-                const lineIdx = idxMatch ? Math.min(baseLines.length - 1, parseInt(idxMatch[1], 10)) : 0;
-                bgmRecommendations.push({
+                const lineIdx = idxMatch ? Math.max(0, Math.min(baseLines.length - 1, parseInt(idxMatch[1], 10))) : 0;
+                const recObj = {
                   lineIdx,
                   song: parts[1] || '',
                   artist: parts[2] || '',
                   tag: parts[3] || '日常'
-                });
+                };
+                bgmRecommendations.push(recObj);
+                if (baseLines[lineIdx]) {
+                  baseLines[lineIdx].bgmRec = recObj;
+                  baseLines[lineIdx].bgmMood = recObj.tag;
+                }
               }
             } else if (line.startsWith('BGM_STOP:')) {
               const idxMatch = line.replace(/^BGM_STOP:\s*/i, '').match(/L?(\d+)/i);
               if (idxMatch) {
-                const stopIdx = Math.min(baseLines.length - 1, parseInt(idxMatch[1], 10));
-                if (stopIdx >= 0 && baseLines[stopIdx]) {
+                const stopIdx = Math.max(0, Math.min(baseLines.length - 1, parseInt(idxMatch[1], 10)));
+                if (baseLines[stopIdx]) {
                   baseLines[stopIdx].bgmTag = '停止';
                   baseLines[stopIdx].bgmUrl = '';
+                  delete baseLines[stopIdx].bgmRec;
                   bgmStopLines.push(stopIdx);
                 }
               }
@@ -16687,6 +16918,8 @@ ${numberedChapterPreview}`;
                 effect: item.effect && item.effect !== 'none' ? item.effect : (origLine.effect || 'none'),
                 cgId: subIdx === 0 ? (origLine.cgId || item.cgId || '') : '',
                 bgmTag: subIdx === 0 ? (origLine.bgmTag || item.bgmTag || '') : '',
+                bgmRec: subIdx === 0 ? origLine.bgmRec : undefined,
+                bgmMood: subIdx === 0 ? origLine.bgmMood : undefined,
                 typoInfo: subIdx === 0 ? origLine.typoInfo : undefined
               }))
             : [origLine];
@@ -16726,6 +16959,8 @@ ${numberedChapterPreview}`;
                   jpText: sIdx === 0 ? (l.jpText || '') : '',
                   cgId: sIdx === 0 ? (l.cgId || '') : '',
                   bgmTag: sIdx === 0 ? (l.bgmTag || '') : '',
+                  bgmRec: sIdx === 0 ? l.bgmRec : undefined,
+                  bgmMood: sIdx === 0 ? l.bgmMood : undefined,
                   hudEvents: sIdx === 0 ? (l.hudEvents || []) : []
                 });
               });
@@ -16878,20 +17113,52 @@ ${numberedChapterPreview}`;
           }
         });
 
-        // 自动调用音乐台按权重搜索AI推荐的BGM起点并绑定播放地址，播放剧本到了标记行即自动响起
-        for (const rec of bgmRecommendations) {
-          const safeIdx = Math.min(filteredStoryLines.length - 1, Math.max(0, rec.lineIdx));
-          if (!rec.song || !filteredStoryLines[safeIdx]) continue;
+        // 若AI未在开头标记配乐，自动根据开场文本氛围补齐首句日系纯音乐标记
+        const hasAnyBgmRec = filteredStoryLines.some((l) => l.bgmRec || (l.bgmTag && l.bgmTag !== '停止'));
+        if (!hasAnyBgmRec && filteredStoryLines.length > 0) {
+          const sampleTxt = filteredStoryLines.slice(0, 8).map((l) => l.text).join(' ');
+          let autoMood = '日常';
+          let autoSong = '木漏れ日の散歩道';
+          if (/雾|夜|古宅|调查|线索|秘密|奇怪|锁/.test(sampleTxt)) {
+            autoMood = '悬疑';
+            autoSong = '霧の古館調査';
+          } else if (/血|怪物|深渊|理智|恐怖|诡异|尸体/.test(sampleTxt)) {
+            autoMood = '诡异';
+            autoSong = '深淵の囁き';
+          } else if (/战斗|攻击|枪|刀|追逐|逃跑/.test(sampleTxt)) {
+            autoMood = '战斗';
+            autoSong = '宿命の対峙';
+          }
+          filteredStoryLines[0].bgmRec = { song: autoSong, artist: '纯音乐', tag: autoMood };
+          filteredStoryLines[0].bgmMood = autoMood;
+        }
+
+        // 自动调用音乐台按权重搜索AI推荐的日系纯音乐起点并直接绑定可播放音频流地址，播放剧本到了标记行即自动响起
+        let resolvedBgmCount = 0;
+        for (let fIdx = 0; fIdx < filteredStoryLines.length; fIdx++) {
+          const lineObj = filteredStoryLines[fIdx];
+          if (!lineObj || !lineObj.bgmRec) continue;
+          const rec = lineObj.bgmRec;
+          delete lineObj.bgmRec;
+          if (!rec.song) continue;
+          const searchArtist = rec.artist ? `${rec.artist} 纯音乐` : '纯音乐 OST';
           const label = rec.artist ? `${rec.song} - ${rec.artist}` : rec.song;
-          filteredStoryLines[safeIdx].bgmTag = label;
-          filteredStoryLines[safeIdx].bgmArtist = rec.artist || '';
-          const resolved = await searchAndResolveMusicByWeight(rec.song, rec.artist, rec.tag);
+          lineObj.bgmTag = label;
+          lineObj.bgmArtist = rec.artist || '';
+          lineObj.bgmMood = rec.tag || '日常';
+          if (statusEl) {
+            statusEl.textContent = `正在自动解析并绑定日系纯音乐音源：${label}...`;
+          }
+          const resolved = await searchAndResolveMusicByWeight(rec.song, searchArtist, rec.tag || '日常');
           if (resolved && resolved.best && resolved.best.url) {
-            filteredStoryLines[safeIdx].bgmUrl = resolved.best.url;
-            filteredStoryLines[safeIdx].bgmTag = resolved.best.artist
+            lineObj.bgmUrl = normalizeMusicTrackUrl(resolved.best.url);
+            lineObj.bgmTag = resolved.best.artist
               ? `${resolved.best.title} - ${resolved.best.artist}`
               : resolved.best.title;
+          } else {
+            lineObj.bgmUrl = getFallbackInstrumentalBgmUrl(rec.tag || rec.song);
           }
+          resolvedBgmCount += 1;
         }
 
         let currentSceneId = scenes[0]?.id || 'scene_1';
@@ -16900,9 +17167,12 @@ ${numberedChapterPreview}`;
           else l.sceneId = currentSceneId;
           if (l.bgmTag && l.bgmTag !== '停止' && !l.bgmUrl) {
             const matchedTrack = (appState.bgmTracks || []).find((t) => t.tag === l.bgmTag || t.name.includes(l.bgmTag));
-            if (matchedTrack) l.bgmUrl = matchedTrack.url;
+            l.bgmUrl = matchedTrack ? normalizeMusicTrackUrl(matchedTrack.url) : getFallbackInstrumentalBgmUrl(l.bgmMood || l.bgmTag);
           }
         });
+
+        // 运行 1人 / 2人 / 3人 动态自适应槽位锁定算法
+        computeChapterStageSlots(filteredStoryLines);
 
         chap.scenes = scenes;
         chap.cgNodes = cgNodes;
@@ -16916,7 +17186,7 @@ ${numberedChapterPreview}`;
         const typoCount = filteredStoryLines.filter((l) => l.typoInfo && l.typoInfo.wrongWord).length;
         const dmCount = Array.isArray(chap.danmakuList) ? chap.danmakuList.length : 0;
         if (statusEl) {
-          statusEl.textContent = `${chap.title} 整章整理完成：共 ${filteredStoryLines.length} 句正文，分离场外弹幕 ${dmCount} 条、自动配乐节点 ${bgmRecommendations.length} 处、音乐停止 ${bgmStopLines.length} 处、CG插点 ${cgNodes.length} 处、疑似错字 ${typoCount} 处！`;
+          statusEl.textContent = `${chap.title} 整章整理完成：共 ${filteredStoryLines.length} 句正文，分离场外弹幕 ${dmCount} 条、自动配乐节点 ${resolvedBgmCount} 处、音乐停止 ${bgmStopLines.length} 处、CG插点 ${cgNodes.length} 处、疑似错字 ${typoCount} 处！`;
         }
         if (splitStatusEl) {
           splitStatusEl.textContent = `${chap.title} 已整理完成，共 ${filteredStoryLines.length} 句剧本`;
@@ -16931,6 +17201,117 @@ ${numberedChapterPreview}`;
 
     async function generateCurrentChapterScriptViaAi() {
       await generateChapterScriptByIndex(appState.currentReplayChapterIdx || 0);
+    }
+
+    // 点击剧本顶栏「配乐」按钮：AI通读本章已生成的剧本，专门规划日系动漫游戏纯音乐开始与停止节点，并自动解析绑定在线音源
+    async function aiMatchCurrentChapterBgm() {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      if (!proj || !chap || !Array.isArray(chap.scriptLines) || chap.scriptLines.length === 0) {
+        alert('请先选择已生成剧本的章节');
+        return;
+      }
+
+      const btn = document.getElementById('replay-ai-bgm-btn');
+      const statusEl = document.getElementById('replay-script-status-bar');
+      if (btn) { btn.textContent = '配乐中'; btn.disabled = true; }
+      if (statusEl) statusEl.textContent = `正在通读 ${chap.title} 剧情脉络，规划日系动漫游戏纯音乐开始与停止节点...`;
+
+      try {
+        const scriptDigest = chap.scriptLines.map((l, idx) => `L${idx}|${l.speaker}|${String(l.text || '').slice(0, 65)}`).join('\n');
+        const sysPrompt = `你是日本视觉小说与动漫配乐总监。请通读整章剧本，根据剧情氛围起承转合、日常闲聊、悬疑调查、诡异异变、战斗冲突与温情告别，为本章规划4到7处背景音乐开始节点 BGM_REC 与合适的音乐停止节点 BGM_STOP。
+严格遵守以下规则：
+1. 推荐的曲目必须全部是日系动漫、视觉小说Galgame或日系RPG游戏中的纯音乐与原声带伴奏，例如泽野弘之、梶浦由记、神前晓、折户伸治、高梨康治、川井宪次、牛尾宪辅、光田康典、下村阳子、横山克等作曲家的经典纯音乐，绝对禁止推荐有人声唱歌的流行歌曲。
+2. 在氛围转换、真相揭晓前夕、突发惊吓或场景切换需要安静留白的那一行标记 BGM_STOP。
+3. 从头到尾严禁使用任何圆括号或方括号，严格按以下行格式输出：
+BGM_REC: L行号|日系动漫游戏纯音乐曲名|作曲家或原声带名称|氛围分类如日常或悬疑或诡异或战斗或抒情或欢快
+BGM_STOP: L行号`;
+
+        const reply = await callLlmCompletion(
+          [
+            { role: 'system', content: sysPrompt },
+            { role: 'user', content: `章节标题：${chap.title}\n本章剧本行：\n${scriptDigest}` }
+          ],
+          null,
+          { caller: `章节单独配乐规划·${chap.title}`, preferSubApi: false }
+        );
+
+        const recs = [];
+        const stops = [];
+        if (reply) {
+          reply.split('\n').forEach((rawLine) => {
+            const line = rawLine.trim();
+            if (line.startsWith('BGM_REC:')) {
+              const parts = line.replace(/^BGM_REC:\s*/i, '').split('|').map((s) => s.trim());
+              if (parts.length >= 2) {
+                const m = parts[0].match(/L?(\d+)/i);
+                const lIdx = m ? Math.max(0, Math.min(chap.scriptLines.length - 1, parseInt(m[1], 10))) : 0;
+                recs.push({
+                  lineIdx: lIdx,
+                  song: parts[1] || '',
+                  artist: parts[2] || '',
+                  tag: parts[3] || '日常'
+                });
+              }
+            } else if (line.startsWith('BGM_STOP:')) {
+              const m = line.replace(/^BGM_STOP:\s*/i, '').match(/L?(\d+)/i);
+              if (m) {
+                const sIdx = Math.max(0, Math.min(chap.scriptLines.length - 1, parseInt(m[1], 10)));
+                stops.push(sIdx);
+              }
+            }
+          });
+        }
+
+        // 先清空旧的音乐标记再写入新规划的日系纯音乐节点
+        chap.scriptLines.forEach((l) => {
+          l.bgmTag = '';
+          l.bgmUrl = '';
+          l.bgmArtist = '';
+          l.bgmMood = '';
+        });
+
+        stops.forEach((sIdx) => {
+          if (chap.scriptLines[sIdx]) {
+            chap.scriptLines[sIdx].bgmTag = '停止';
+            chap.scriptLines[sIdx].bgmUrl = '';
+          }
+        });
+
+        let boundCount = 0;
+        for (const rec of recs) {
+          const targetLine = chap.scriptLines[rec.lineIdx];
+          if (!targetLine || !rec.song) continue;
+          const label = rec.artist ? `${rec.song} - ${rec.artist}` : rec.song;
+          targetLine.bgmTag = label;
+          targetLine.bgmArtist = rec.artist || '';
+          targetLine.bgmMood = rec.tag || '日常';
+          if (statusEl) {
+            statusEl.textContent = `正在从音乐台自动检索并绑定日系纯音乐：${label}...`;
+          }
+          const searchArtist = rec.artist ? `${rec.artist} 纯音乐` : '纯音乐 OST';
+          const resolved = await searchAndResolveMusicByWeight(rec.song, searchArtist, rec.tag || '日常');
+          if (resolved && resolved.best && resolved.best.url) {
+            targetLine.bgmUrl = normalizeMusicTrackUrl(resolved.best.url);
+            targetLine.bgmTag = resolved.best.artist
+              ? `${resolved.best.title} - ${resolved.best.artist}`
+              : resolved.best.title;
+          } else {
+            targetLine.bgmUrl = getFallbackInstrumentalBgmUrl(rec.tag || rec.song);
+          }
+          boundCount += 1;
+        }
+
+        await saveReplayProjectToDB(proj);
+        renderReplayScriptEditor();
+        if (statusEl) {
+          statusEl.textContent = `本章日系纯音乐配乐完成：共标记并自动绑定 ${boundCount} 处音乐起点与 ${stops.length} 处音乐停止点，进入舞台即可自动渐入渐出播放！`;
+        }
+      } catch (err) {
+        alert('章节配乐规划失败：' + err.message);
+      } finally {
+        if (btn) { btn.textContent = '配乐'; btn.disabled = false; }
+      }
     }
 
     // 点击剧本顶栏「差分」按钮：AI重读整章剧本，并查看系统默认差分池与每个角色当前的单独差分池（包含后续新增的自定义差分），以适中自然的节奏优化各句差分
@@ -17441,6 +17822,9 @@ ${scriptText}`;
         chap.scriptLines[lineIdx].type = val === '旁白' ? 'narration' : 'dialogue';
         if (val === '旁白') chap.scriptLines[lineIdx].jpText = '';
       }
+      if (field === 'speaker' || field === 'sceneId' || field === 'effect') {
+        computeChapterStageSlots(chap.scriptLines);
+      }
       if (field === 'bgmTag') {
         const cleanVal = String(val || '').trim();
         if (!cleanVal || cleanVal === '停止') {
@@ -17448,7 +17832,7 @@ ${scriptText}`;
         } else {
           const matched = (appState.bgmTracks || []).find((t) => t.tag === cleanVal || t.name.includes(cleanVal));
           if (matched) {
-            chap.scriptLines[lineIdx].bgmUrl = matched.url;
+            chap.scriptLines[lineIdx].bgmUrl = normalizeMusicTrackUrl(matched.url);
           } else {
             let sName = cleanVal;
             let aName = '';
@@ -17457,9 +17841,11 @@ ${scriptText}`;
               sName = sp.trim();
               aName = ap.join('-').trim();
             }
-            const res = await searchAndResolveMusicByWeight(sName, aName, '日常');
+            const res = await searchAndResolveMusicByWeight(sName, aName || '纯音乐', '日常');
             if (res && res.best && res.best.url) {
-              chap.scriptLines[lineIdx].bgmUrl = res.best.url;
+              chap.scriptLines[lineIdx].bgmUrl = normalizeMusicTrackUrl(res.best.url);
+            } else {
+              chap.scriptLines[lineIdx].bgmUrl = getFallbackInstrumentalBgmUrl(cleanVal);
             }
           }
         }
@@ -18252,14 +18638,11 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
 
     // MiniMax 语音合成与 IndexedDB 永久缓存 + BGM自动闪避压低
     function setBgmDuckingActive(isSpeaking) {
+      _bgmIsDucking = Boolean(isSpeaking);
       const player = document.getElementById('bgm-audio-player');
-      if (!player) return;
-      const baseVol = Math.max(0, Math.min(1, (appState.theaterBgmVolume || 65) / 100));
-      const duckEnabled = localStorage.getItem('theater-bgm-ducking') !== 'false';
-      if (isSpeaking && duckEnabled) {
-        player.volume = Number((baseVol * 0.32).toFixed(2));
-      } else {
-        player.volume = baseVol;
+      if (!player || player.paused) return;
+      if (!_bgmFadeTimer) {
+        player.volume = getTargetTheaterBgmVolume();
       }
     }
 
@@ -18814,10 +19197,8 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         line.type = 'narration';
         line.jpText = '';
       }
-      if (field === 'speaker' && val && val !== '旁白') {
-        if (!Array.isArray(line.presentSpeakers) || !line.presentSpeakers.includes(val)) {
-          line.presentSpeakers = [val, ...(line.presentSpeakers || []).filter((n) => n !== val && n !== '旁白')].slice(0, 3);
-        }
+      if (field === 'speaker' || field === 'sceneId' || field === 'effect') {
+        computeChapterStageSlots(chap.scriptLines);
       }
       if (field === 'bgmTag') {
         const cleanVal = String(val || '').trim();
@@ -18826,7 +19207,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         } else {
           const matched = (appState.bgmTracks || []).find((t) => t.tag === cleanVal || t.name.includes(cleanVal));
           if (matched) {
-            line.bgmUrl = matched.url;
+            line.bgmUrl = normalizeMusicTrackUrl(matched.url);
           } else {
             let sName = cleanVal;
             let aName = '';
@@ -18835,9 +19216,11 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
               sName = sp.trim();
               aName = ap.join('-').trim();
             }
-            const res = await searchAndResolveMusicByWeight(sName, aName, '日常');
+            const res = await searchAndResolveMusicByWeight(sName, aName || '纯音乐', '日常');
             if (res && res.best && res.best.url) {
-              line.bgmUrl = res.best.url;
+              line.bgmUrl = normalizeMusicTrackUrl(res.best.url);
+            } else {
+              line.bgmUrl = getFallbackInstrumentalBgmUrl(cleanVal);
             }
           }
         }
@@ -19487,7 +19870,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         }
       }
 
-      // 2. 自动检测当前行及之前最近的音乐标记 bgmTag 并自动播放或停止，无需手动去搜
+      // 2. 自动检测当前行及之前最近的音乐标记 bgmTag 并自动1秒渐入播放或1秒渐出停止，无需手动去搜
       let activeBgmLine = null;
       for (let k = idx; k >= 0; k--) {
         const cand = chap.scriptLines[k];
@@ -19499,14 +19882,14 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       if (activeBgmLine) {
         const bgmTagStr = String(activeBgmLine.bgmTag).trim();
         if (bgmTagStr === '停止') {
-          stopReplayBgmPreview();
+          stopReplayBgmPreview(true);
         } else {
           (async () => {
             try {
               if (!activeBgmLine.bgmUrl) {
                 const matchedTrack = (appState.bgmTracks || []).find((t) => t.tag === bgmTagStr || t.name === bgmTagStr || t.name.includes(bgmTagStr));
                 if (matchedTrack && matchedTrack.url) {
-                  activeBgmLine.bgmUrl = matchedTrack.url;
+                  activeBgmLine.bgmUrl = normalizeMusicTrackUrl(matchedTrack.url);
                 } else {
                   let sName = bgmTagStr;
                   let aName = activeBgmLine.bgmArtist || '';
@@ -19515,10 +19898,12 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
                     sName = sp.trim();
                     aName = ap.join('-').trim();
                   }
-                  const resolved = await searchAndResolveMusicByWeight(sName, aName, '日常');
+                  const resolved = await searchAndResolveMusicByWeight(sName, aName || '纯音乐', activeBgmLine.bgmMood || '日常');
                   if (resolved && resolved.best && resolved.best.url) {
-                    activeBgmLine.bgmUrl = resolved.best.url;
+                    activeBgmLine.bgmUrl = normalizeMusicTrackUrl(resolved.best.url);
                     if (curProj) saveReplayProjectToDB(curProj);
+                  } else {
+                    activeBgmLine.bgmUrl = getFallbackInstrumentalBgmUrl(activeBgmLine.bgmMood || bgmTagStr);
                   }
                 }
               }
@@ -19526,7 +19911,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
                 const player = document.getElementById('bgm-audio-player');
                 const targetUrl = normalizeMusicTrackUrl(activeBgmLine.bgmUrl);
                 if (player && (player.paused || _currentReplayBgmUrl !== targetUrl || !player.src)) {
-                  previewReplayBgmTrack(targetUrl);
+                  previewReplayBgmTrack(targetUrl, activeBgmLine.bgmMood || bgmTagStr);
                 }
               }
             } catch (bgmErr) {
@@ -19581,19 +19966,25 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         }
       }
 
-      // 5. 渲染在场角色立绘：采用纯百分比高度与2倍黄金半身/全身舞台比例，彻底解决读档瞬间横竖屏切换导致立绘暴涨的Bug
+      // 5. 渲染在场角色立绘：支持1人居中、2人左右固定、3人左中右固定，说话时保持各自槽位只高亮不乱换位
       if (tachieLayer) {
+        if (chap._slotsComputedLen !== chap.scriptLines.length) {
+          computeChapterStageSlots(chap.scriptLines);
+          chap._slotsComputedLen = chap.scriptLines.length;
+        }
         tachieLayer.innerHTML = '';
         const rawPresent = Array.isArray(line.presentSpeakers) && line.presentSpeakers.length > 0
           ? line.presentSpeakers
           : (line.speaker && line.speaker !== '旁白' && line.speaker !== '检定' ? [line.speaker] : []);
-        let presentNames = [...rawPresent];
-        if (presentNames.length > 2) {
-          if (line.speaker && line.speaker !== '旁白' && line.speaker !== '检定' && presentNames.includes(line.speaker)) {
-            const others = presentNames.filter((n) => n !== line.speaker);
-            presentNames = [others[others.length - 1], line.speaker].filter(Boolean);
-          } else {
-            presentNames = presentNames.slice(-2);
+        const presentNames = rawPresent.slice(0, 3);
+        tachieLayer.setAttribute('data-actor-count', String(presentNames.length));
+
+        // 记录同场角色最近一次使用的表情差分，使未说话的同场角色保持自然神态而非每句重置回默认
+        const lastExpBySpeaker = {};
+        for (let k = Math.max(0, idx - 12); k <= idx; k++) {
+          const prevL = chap.scriptLines[k];
+          if (prevL && prevL.speaker && prevL.speaker !== '旁白' && prevL.exp) {
+            lastExpBySpeaker[prevL.speaker] = prevL.exp;
           }
         }
 
@@ -19608,7 +19999,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
           const heightPct = Math.round((totalCm / maxScaleCm) * 100);
 
           const isCurrentSpeaker = line.speaker === spkName;
-          const expKey = isCurrentSpeaker ? (line.exp || '默认') : '默认';
+          const expKey = isCurrentSpeaker ? (line.exp || '默认') : (lastExpBySpeaker[spkName] || '默认');
           const rawSprite = (charObj.tachieExpressions && charObj.tachieExpressions[expKey])
             || (charObj.tachieExpressions && charObj.tachieExpressions['默认'])
             || charObj.tachieBase

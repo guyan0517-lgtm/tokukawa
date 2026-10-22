@@ -273,7 +273,11 @@ function calcMusicMatchScore(candidateTitle, candidateArtist, targetSong, target
     if (cArtist === tArtist) score += 35;
     else if (cArtist.includes(tArtist) || tArtist.includes(cArtist)) score += 25;
   }
-  if (!/cover|翻唱|伴奏|inst|live|remix|dj/i.test(String(candidateTitle || ''))) {
+  const combinedMeta = `${candidateTitle || ''} ${candidateArtist || ''}`;
+  if (/纯音乐|instrumental|inst\b|ost|soundtrack|bgm|piano|orchestra|配乐|原声/i.test(combinedMeta)) {
+    score += 14;
+  }
+  if (!/cover|翻唱|live|remix|dj|夜店|慢摇/i.test(String(candidateTitle || ''))) {
     score += 6;
   }
   if (hasDirectUrl) {

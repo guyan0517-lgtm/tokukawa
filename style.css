@@ -1631,6 +1631,16 @@ button {
   pointer-events: none;
 }
 
+.vn-tachie-layer[data-actor-count="2"] {
+  gap: 44px;
+  padding: 0 40px;
+}
+
+.vn-tachie-layer[data-actor-count="3"] {
+  gap: 18px;
+  padding: 0 20px;
+}
+
 .vn-stage-actor {
   position: relative;
   display: flex;
