@@ -1,4 +1,4 @@
-const CACHE_NAME = "ephone-tuk-cache-v26";
+const CACHE_NAME = "ephone-tuk-cache-v27";
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
@@ -41,7 +41,8 @@ self.addEventListener("fetch", event => {
   
   const url = new URL(event.request.url);
   if (!url.protocol.startsWith("http")) return;
-  if (url.pathname.startsWith("/api") || url.hostname.includes("socket") || url.hostname.includes("hmr")) {
+  if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith("/api") || url.pathname.startsWith("/local-assets") || url.hostname.includes("socket") || url.hostname.includes("hmr")) {
     return;
   }
 

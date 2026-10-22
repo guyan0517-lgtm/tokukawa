@@ -1984,24 +1984,11 @@
           <div class="form-group">
             <label>安卓 Termux 一键启动命令 点右侧复制后粘贴到 Termux 回车即可</label>
             <div style="display:flex;gap:6px;align-items:stretch;">
-              <textarea id="termux-local-bridge-cmd" class="moe-input" style="min-height:74px;font-size:11px;font-family:monospace;flex:1;" readonly>pkg install -y python &amp;&amp; termux-setup-storage &amp;&amp; python3 -c "import os,json,base64,urllib.parse,mimetypes,http.server;root=os.path.expanduser('~/storage/shared/HakoniwaData');os.makedirs(root,exist_ok=True);
-class H(http.server.BaseHTTPRequestHandler):
- def log_message(s,*a):pass
- def _cors(s):s.send_header('Access-Control-Allow-Origin','*');s.send_header('Access-Control-Allow-Methods','GET,POST,OPTIONS');s.send_header('Access-Control-Allow-Headers','Content-Type');s.send_header('Access-Control-Allow-Private-Network','true')
- def do_OPTIONS(s):s.send_response(200);s._cors();s.end_headers()
- def do_GET(s):
-  if s.path.startswith('/ping'):s.send_response(200);s._cors();s.end_headers();s.wfile.write(b'ok');return
-  rel=urllib.parse.unquote(s.path.split('?')[0]).lstrip('/');p=os.path.join(root,rel)
-  if os.path.isfile(p):
-   mt=mimetypes.guess_type(p)[0] or 'application/octet-stream';s.send_response(200);s._cors();s.send_header('Content-Type',mt);s.send_header('Cache-Control','public,max-age=31536000');s.end_headers();s.wfile.write(open(p,'rb').read())
-  else:s.send_response(404);s._cors();s.end_headers()
- def do_POST(s):
-  d=json.loads(s.rfile.read(int(s.headers['Content-Length'])));rel=d.get('path','file.bin').lstrip('/');fp=os.path.join(root,rel);os.makedirs(os.path.dirname(fp),exist_ok=True);raw=d.get('dataUrl','');b64=raw.split(',',1)[1] if ',' in raw else raw;open(fp,'wb').write(base64.b64decode(b64));enc='/'.join(urllib.parse.quote(x) for x in rel.split('/'));s.send_response(200);s._cors();s.send_header('Content-Type','application/json');s.end_headers();s.wfile.write(json.dumps({'ok':True,'url':'http://127.0.0.1:8765/'+enc}).encode())
-http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
+              <textarea id="termux-local-bridge-cmd" class="moe-input" style="min-height:74px;font-size:11px;font-family:monospace;flex:1;" readonly>pkg install -y python; test -d "$HOME/storage" || termux-setup-storage; pkill -9 -f python3 2>/dev/null; echo aW1wb3J0IG9zLCBqc29uLCBiYXNlNjQsIHVybGxpYi5wYXJzZSwgbWltZXR5cGVzLCBodHRwLnNlcnZlciwgc29ja2V0c2VydmVyCmNhbmRpZGF0ZXMgPSBbCiAgICBvcy5wYXRoLmV4cGFuZHVzZXIoJ34vc3RvcmFnZS9zaGFyZWQvRG93bmxvYWQvSGFrb25pd2FEYXRhJyksCiAgICBvcy5wYXRoLmV4cGFuZHVzZXIoJ34vc3RvcmFnZS9zaGFyZWQvSGFrb25pd2FEYXRhJyksCiAgICAnL3NkY2FyZC9Eb3dubG9hZC9IYWtvbml3YURhdGEnLAogICAgJy9zZGNhcmQvSGFrb25pd2FEYXRhJywKICAgIG9zLnBhdGguZXhwYW5kdXNlcignfi9IYWtvbml3YURhdGEnKQpdCnJvb3QgPSBjYW5kaWRhdGVzWy0xXQpmb3IgYyBpbiBjYW5kaWRhdGVzOgogICAgdHJ5OgogICAgICAgIG9zLm1ha2VkaXJzKGMsIGV4aXN0X29rPVRydWUpCiAgICAgICAgdGYgPSBvcy5wYXRoLmpvaW4oYywgJy53dCcpCiAgICAgICAgb3Blbih0ZiwgJ3diJykud3JpdGUoYicxJykKICAgICAgICBvcy5yZW1vdmUodGYpCiAgICAgICAgcm9vdCA9IGMKICAgICAgICBicmVhawogICAgZXhjZXB0IEV4Y2VwdGlvbjoKICAgICAgICBwYXNzCgpjbGFzcyBTKHNvY2tldHNlcnZlci5UaHJlYWRpbmdNaXhJbiwgaHR0cC5zZXJ2ZXIuSFRUUFNlcnZlcik6CiAgICBhbGxvd19yZXVzZV9hZGRyZXNzID0gVHJ1ZQogICAgZGFlbW9uX3RocmVhZHMgPSBUcnVlCgpjbGFzcyBIKGh0dHAuc2VydmVyLkJhc2VIVFRQUmVxdWVzdEhhbmRsZXIpOgogICAgZGVmIGxvZ19tZXNzYWdlKHMsICphKToKICAgICAgICBwYXNzCiAgICBkZWYgX2NvcnMocyk6CiAgICAgICAgbyA9IHMuaGVhZGVycy5nZXQoJ09yaWdpbicpIG9yICcqJwogICAgICAgIHMuc2VuZF9oZWFkZXIoJ0FjY2Vzcy1Db250cm9sLUFsbG93LU9yaWdpbicsIG8pCiAgICAgICAgcy5zZW5kX2hlYWRlcignQWNjZXNzLUNvbnRyb2wtQWxsb3ctTWV0aG9kcycsICdHRVQsIFBPU1QsIE9QVElPTlMnKQogICAgICAgIHMuc2VuZF9oZWFkZXIoJ0FjY2Vzcy1Db250cm9sLUFsbG93LUhlYWRlcnMnLCAnKicpCiAgICAgICAgcy5zZW5kX2hlYWRlcignQWNjZXNzLUNvbnRyb2wtQWxsb3ctUHJpdmF0ZS1OZXR3b3JrJywgJ3RydWUnKQogICAgICAgIHMuc2VuZF9oZWFkZXIoJ0FjY2Vzcy1Db250cm9sLU1heC1BZ2UnLCAnODY0MDAnKQogICAgZGVmIGRvX09QVElPTlMocyk6CiAgICAgICAgcy5zZW5kX3Jlc3BvbnNlKDIwMCkKICAgICAgICBzLl9jb3JzKCkKICAgICAgICBzLmVuZF9oZWFkZXJzKCkKICAgIGRlZiBkb19HRVQocyk6CiAgICAgICAgcCA9IHMucGF0aC5zcGxpdCgnPycpWzBdCiAgICAgICAgaWYgcC5zdGFydHN3aXRoKCcvcGluZycpOgogICAgICAgICAgICBzLnNlbmRfcmVzcG9uc2UoMjAwKQogICAgICAgICAgICBzLl9jb3JzKCkKICAgICAgICAgICAgcy5zZW5kX2hlYWRlcignQ29udGVudC1UeXBlJywgJ2FwcGxpY2F0aW9uL2pzb247IGNoYXJzZXQ9dXRmLTgnKQogICAgICAgICAgICBzLmVuZF9oZWFkZXJzKCkKICAgICAgICAgICAgcy53ZmlsZS53cml0ZShqc29uLmR1bXBzKHsnb2snOiBUcnVlLCAnc2VydmljZSc6ICdoYWtvbml3YS1sb2NhbC1icmlkZ2UnLCAncm9vdCc6IHJvb3R9KS5lbmNvZGUoJ3V0Zi04JykpCiAgICAgICAgICAgIHJldHVybgogICAgICAgIHJlbCA9IHVybGxpYi5wYXJzZS51bnF1b3RlKHApLmxzdHJpcCgnLycpCiAgICAgICAgZnAgPSBvcy5wYXRoLmFic3BhdGgob3MucGF0aC5qb2luKHJvb3QsIHJlbCkpCiAgICAgICAgaWYgZnAuc3RhcnRzd2l0aChvcy5wYXRoLmFic3BhdGgocm9vdCkpIGFuZCBvcy5wYXRoLmlzZmlsZShmcCk6CiAgICAgICAgICAgIG10ID0gbWltZXR5cGVzLmd1ZXNzX3R5cGUoZnApWzBdIG9yICdhcHBsaWNhdGlvbi9vY3RldC1zdHJlYW0nCiAgICAgICAgICAgIGRhdGEgPSBvcGVuKGZwLCAncmInKS5yZWFkKCkKICAgICAgICAgICAgcy5zZW5kX3Jlc3BvbnNlKDIwMCkKICAgICAgICAgICAgcy5fY29ycygpCiAgICAgICAgICAgIHMuc2VuZF9oZWFkZXIoJ0NvbnRlbnQtVHlwZScsIG10KQogICAgICAgICAgICBzLnNlbmRfaGVhZGVyKCdDb250ZW50LUxlbmd0aCcsIHN0cihsZW4oZGF0YSkpKQogICAgICAgICAgICBzLnNlbmRfaGVhZGVyKCdDYWNoZS1Db250cm9sJywgJ3B1YmxpYywgbWF4LWFnZT0zMTUzNjAwMCcpCiAgICAgICAgICAgIHMuZW5kX2hlYWRlcnMoKQogICAgICAgICAgICBzLndmaWxlLndyaXRlKGRhdGEpCiAgICAgICAgZWxzZToKICAgICAgICAgICAgcy5zZW5kX3Jlc3BvbnNlKDQwNCkKICAgICAgICAgICAgcy5fY29ycygpCiAgICAgICAgICAgIHMuZW5kX2hlYWRlcnMoKQogICAgZGVmIGRvX1BPU1Qocyk6CiAgICAgICAgdHJ5OgogICAgICAgICAgICBuID0gaW50KHMuaGVhZGVycy5nZXQoJ0NvbnRlbnQtTGVuZ3RoJywgJzAnKSkKICAgICAgICAgICAgZCA9IGpzb24ubG9hZHMocy5yZmlsZS5yZWFkKG4pLmRlY29kZSgndXRmLTgnKSkKICAgICAgICAgICAgcmVsID0gc3RyKGQuZ2V0KCdwYXRoJywgJ2ZpbGUuYmluJykpLmxzdHJpcCgnLycpLnJlcGxhY2UoJy4uJywgJ18nKQogICAgICAgICAgICBmcCA9IG9zLnBhdGguYWJzcGF0aChvcy5wYXRoLmpvaW4ocm9vdCwgcmVsKSkKICAgICAgICAgICAgb3MubWFrZWRpcnMob3MucGF0aC5kaXJuYW1lKGZwKSwgZXhpc3Rfb2s9VHJ1ZSkKICAgICAgICAgICAgcmF3ID0gc3RyKGQuZ2V0KCdkYXRhVXJsJywgJycpKQogICAgICAgICAgICBiNjQgPSByYXcuc3BsaXQoJywnLCAxKVsxXSBpZiAnLCcgaW4gcmF3IGVsc2UgcmF3CiAgICAgICAgICAgIGJ1ZiA9IGJhc2U2NC5iNjRkZWNvZGUoYjY0KQogICAgICAgICAgICBvcGVuKGZwLCAnd2InKS53cml0ZShidWYpCiAgICAgICAgICAgIHByaW50KCflt7LlrZjmnKzlnLA6JywgcmVsLCBsZW4oYnVmKSAvLyAxMDI0LCAnS0InLCBmbHVzaD1UcnVlKQogICAgICAgICAgICBlbmMgPSAnLycuam9pbih1cmxsaWIucGFyc2UucXVvdGUoeCkgZm9yIHggaW4gcmVsLnNwbGl0KCcvJykpCiAgICAgICAgICAgIGggPSBzLmhlYWRlcnMuZ2V0KCdIb3N0Jykgb3IgJzEyNy4wLjAuMTo4NzY1JwogICAgICAgICAgICBzLnNlbmRfcmVzcG9uc2UoMjAwKQogICAgICAgICAgICBzLl9jb3JzKCkKICAgICAgICAgICAgcy5zZW5kX2hlYWRlcignQ29udGVudC1UeXBlJywgJ2FwcGxpY2F0aW9uL2pzb247IGNoYXJzZXQ9dXRmLTgnKQogICAgICAgICAgICBzLmVuZF9oZWFkZXJzKCkKICAgICAgICAgICAgcy53ZmlsZS53cml0ZShqc29uLmR1bXBzKHsnb2snOiBUcnVlLCAndXJsJzogJ2h0dHA6Ly8nICsgaCArICcvJyArIGVuYywgJ3BhdGgnOiBmcCwgJ3Jvb3QnOiByb290fSkuZW5jb2RlKCd1dGYtOCcpKQogICAgICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZToKICAgICAgICAgICAgcy5zZW5kX3Jlc3BvbnNlKDUwMCkKICAgICAgICAgICAgcy5fY29ycygpCiAgICAgICAgICAgIHMuc2VuZF9oZWFkZXIoJ0NvbnRlbnQtVHlwZScsICdhcHBsaWNhdGlvbi9qc29uOyBjaGFyc2V0PXV0Zi04JykKICAgICAgICAgICAgcy5lbmRfaGVhZGVycygpCiAgICAgICAgICAgIHMud2ZpbGUud3JpdGUoanNvbi5kdW1wcyh7J29rJzogRmFsc2UsICdlcnJvcic6IHN0cihlKX0pLmVuY29kZSgndXRmLTgnKSkKCnByaW50KCc9PT0g566x5bqt54mp6K+t5pys5Zyw55u05a2Y5bey5ZCv5YqoID09PScsIGZsdXNoPVRydWUpCnByaW50KCfmnKzlnLDkv53lrZjot6/lvoQ6Jywgcm9vdCwgZmx1c2g9VHJ1ZSkKcHJpbnQoJ+ebkeWQrOWcsOWdgDogaHR0cDovLzEyNy4wLjAuMTo4NzY1JywgZmx1c2g9VHJ1ZSkKUygoJzAuMC4wLjAnLCA4NzY1KSwgSCkuc2VydmVfZm9yZXZlcigpCg== | base64 -d | python3 -u</textarea>
               <button type="button" class="moe-btn" onclick="copyTermuxLocalBridgeCmd()">复制</button>
             </div>
           </div>
-          <div id="local-bridge-status-box" style="font-size:12px;color:var(--text-secondary);padding:10px;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:8px;">在 Termux 运行上方命令后点右上角检测即可连接手机本地存储目录 HakoniwaData，连接后自动将全部图片转存到本地文件释放内存</div>
+          <div id="local-bridge-status-box" style="font-size:12px;color:var(--text-secondary);padding:10px;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:8px;">在 Termux 运行上方命令后点右上角检测或同步即可将全部图片与配音写入手机本地下载目录 HakoniwaData，彻底释放浏览器内存防卡顿</div>
         </div>
       </div>
     </section>
@@ -4719,6 +4706,58 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
     }
 
     // ==================== 安卓 Termux 与本地无损文件直存桥接 ====================
+    const _fastBlobUrlCache = new Map();
+    const _blobToOriginDataUrl = new Map();
+
+    function clearFastBlobUrlCache() {
+      _fastBlobUrlCache.forEach((blobUrl) => {
+        try { URL.revokeObjectURL(blobUrl); } catch (_) {}
+      });
+      _fastBlobUrlCache.clear();
+      _blobToOriginDataUrl.clear();
+    }
+
+    function toFastDisplayUrl(src) {
+      if (!src || typeof src !== 'string') return '';
+      if (!src.startsWith('data:') || src.startsWith('data:image/svg+xml') || src.length < 4096) {
+        return src;
+      }
+      if (_fastBlobUrlCache.has(src)) {
+        return _fastBlobUrlCache.get(src);
+      }
+      try {
+        const commaIdx = src.indexOf(',');
+        if (commaIdx === -1) return src;
+        const header = src.slice(0, commaIdx);
+        const b64 = src.slice(commaIdx + 1);
+        const mimeMatch = header.match(/data:([^;]+)/);
+        const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+        const binStr = atob(b64);
+        const len = binStr.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binStr.charCodeAt(i);
+        }
+        const blobUrl = URL.createObjectURL(new Blob([bytes], { type: mime }));
+        _fastBlobUrlCache.set(src, blobUrl);
+        _blobToOriginDataUrl.set(blobUrl, src);
+        return blobUrl;
+      } catch (_) {
+        return src;
+      }
+    }
+
+    window.addEventListener('error', (e) => {
+      const el = e.target;
+      if (el && el.tagName === 'IMG' && el.src && !el.dataset.localFallbackTried) {
+        const baseUrl = getLocalBridgeBaseUrl();
+        if (el.src.startsWith(baseUrl + '/')) {
+          el.dataset.localFallbackTried = '1';
+          el.src = '/local-assets/' + el.src.slice(baseUrl.length + 1);
+        }
+      }
+    }, true);
+
     function getLocalBridgeBaseUrl() {
       const el = document.getElementById('local-bridge-url-input');
       return (el?.value || localStorage.getItem('local-bridge-url') || 'http://127.0.0.1:8765').trim().replace(/\/+$/, '');
@@ -4730,44 +4769,118 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
       return localStorage.getItem('local-bridge-enabled') !== 'false';
     }
 
-    async function saveAssetToLocalBridge(relPath, dataUrl) {
-      if (!dataUrl || !isLocalBridgeEnabled()) return dataUrl;
-      if (!dataUrl.startsWith('data:')) return dataUrl;
-      if (dataUrl.startsWith('data:image/svg+xml')) return dataUrl;
-      const baseUrl = getLocalBridgeBaseUrl();
-      const cleanRel = String(relPath || 'file.bin').replace(/^\/+/, '');
-      const encodedRel = cleanRel.split('/').map((seg) => encodeURIComponent(seg)).join('/');
+    async function checkLocalBridgeEndpointAlive(urlBase) {
       try {
-        const res = await fetch(baseUrl + '/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: cleanRel, dataUrl })
-        });
-        if (res.ok) {
-          const info = await res.json();
-          if (info && (info.url || info.ok)) {
-            return `${baseUrl}/${encodedRel}`;
-          }
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 1800);
+        const res = await fetch(urlBase + '/ping', { cache: 'no-store', signal: ctrl.signal });
+        clearTimeout(tid);
+        if (!res.ok) return null;
+        const text = (await res.text()).trim();
+        if (text === 'ok') return { ok: true, service: 'hakoniwa-local-bridge', root: 'HakoniwaData' };
+        const info = JSON.parse(text);
+        if (info && info.ok && info.service === 'hakoniwa-local-bridge') {
+          return info;
         }
       } catch (_) {}
+      return null;
+    }
+
+    async function saveAssetToLocalBridge(relPath, dataUrl, preferTermuxOnly = false) {
+      if (!dataUrl || typeof dataUrl !== 'string') return dataUrl;
+      if (dataUrl.startsWith('data:image/svg+xml')) return dataUrl;
+      let resolvedDataUrl = dataUrl;
+      if (!resolvedDataUrl.startsWith('data:')) {
+        if (preferTermuxOnly && (resolvedDataUrl.startsWith('/local-assets/') || resolvedDataUrl.startsWith('blob:'))) {
+          resolvedDataUrl = await resolveImageToDataUrl(resolvedDataUrl);
+          if (!resolvedDataUrl || !resolvedDataUrl.startsWith('data:')) return dataUrl;
+        } else {
+          return dataUrl;
+        }
+      }
+      const baseUrl = getLocalBridgeBaseUrl();
+      const cleanRel = String(relPath || 'file.bin').replace(/^\/+/, '').replace(/\.\./g, '_');
+      const encodedRel = cleanRel.split('/').map((seg) => encodeURIComponent(seg)).join('/');
+
+      let savedTermuxUrl = '';
+      if (isLocalBridgeEnabled()) {
+        try {
+          const ctrl = new AbortController();
+          const tid = setTimeout(() => ctrl.abort(), 4500);
+          const res = await fetch(baseUrl + '/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: cleanRel, dataUrl: resolvedDataUrl }),
+            signal: ctrl.signal
+          });
+          clearTimeout(tid);
+          if (res.ok) {
+            const info = await res.json();
+            if (info && info.ok) {
+              savedTermuxUrl = `${baseUrl}/${encodedRel}`;
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (savedTermuxUrl) {
+        fetch('/api/local-assets/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: cleanRel, dataUrl: resolvedDataUrl })
+        }).catch(() => {});
+        return savedTermuxUrl;
+      }
+
+      if (!preferTermuxOnly) {
+        try {
+          const srvRes = await fetch('/api/local-assets/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: cleanRel, dataUrl: resolvedDataUrl })
+          });
+          if (srvRes.ok) {
+            const srvInfo = await srvRes.json();
+            if (srvInfo && srvInfo.ok) {
+              return `/local-assets/${encodedRel}`;
+            }
+          }
+        } catch (_) {}
+      }
+
       return dataUrl;
     }
 
     async function resolveImageToDataUrl(src) {
       if (!src || typeof src !== 'string') return '';
       if (src.startsWith('data:')) return src;
+      if (_blobToOriginDataUrl.has(src)) return _blobToOriginDataUrl.get(src);
+      const tryFetchAsDataUrl = async (targetUrl) => {
+        const res = await fetch(targetUrl);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const ct = res.headers.get('Content-Type') || '';
+        if (ct.includes('text/html')) throw new Error('Unexpected HTML');
+        const blob = await res.blob();
+        return await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result || '');
+          reader.onerror = () => resolve('');
+          reader.readAsDataURL(blob);
+        });
+      };
       try {
-        const res = await fetch(src);
-        if (res.ok) {
-          const blob = await res.blob();
-          return await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result || src);
-            reader.onerror = () => resolve(src);
-            reader.readAsDataURL(blob);
-          });
+        const out = await tryFetchAsDataUrl(src);
+        if (out && out.startsWith('data:')) return out;
+      } catch (_) {
+        const baseUrl = getLocalBridgeBaseUrl();
+        if (src.startsWith(baseUrl + '/')) {
+          try {
+            const fallbackUrl = '/local-assets/' + src.slice(baseUrl.length + 1);
+            const out2 = await tryFetchAsDataUrl(fallbackUrl);
+            if (out2 && out2.startsWith('data:')) return out2;
+          } catch (_e2) {}
         }
-      } catch (_) {}
+      }
       return src;
     }
 
@@ -4780,82 +4893,108 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
         document.execCommand('copy');
       });
       if (statusBox) {
-        statusBox.textContent = '已复制 Termux 启动命令！请打开手机 Termux 粘贴并回车运行，随后点击右上角检测。';
+        statusBox.textContent = '已复制新版 Termux 启动命令！请打开手机 Termux 粘贴并回车运行，看到本地直存已启动提示后点击右上角检测或同步。';
       }
     }
 
     async function testLocalBridgeConnectionUI() {
       const statusBox = document.getElementById('local-bridge-status-box');
       const baseUrl = getLocalBridgeBaseUrl();
-      if (statusBox) statusBox.textContent = '正在检测本地存储服务连接...';
-      try {
-        const res = await fetch(baseUrl + '/ping');
-        if (res.ok) {
-          if (statusBox) statusBox.textContent = '连接成功！正在自动将现有图片与语音转存到手机本地 HakoniwaData 文件夹并释放内存...';
-          await syncAllAssetsToLocalBridgeUI();
-        } else {
-          if (statusBox) statusBox.textContent = '未检测到响应，请确认已在 Termux 中运行上方命令。';
+      if (statusBox) statusBox.textContent = '正在检测手机 Termux 本地存储服务连接...';
+      const termuxInfo = await checkLocalBridgeEndpointAlive(baseUrl);
+      if (termuxInfo) {
+        if (statusBox) {
+          statusBox.textContent = `连接手机 Termux 成功！本地保存目录：${termuxInfo.root || 'HakoniwaData'}，正在自动将现有图片与语音同步写入手机本地并释放内存...`;
         }
-      } catch (_) {
-        if (statusBox) statusBox.textContent = '未能连接本地服务，请确认已在 Termux 运行命令并保持后台常驻。';
+        await syncAllAssetsToLocalBridgeUI();
+        return;
+      }
+      const serverInfo = await checkLocalBridgeEndpointAlive('/api/local-assets');
+      if (serverInfo) {
+        if (statusBox) {
+          statusBox.textContent = `未检测到 8765 端口 Termux 服务，但已启用内置本地磁盘缓存目录 ${serverInfo.root}。如需直接存到手机下载目录，请重新复制上方新版命令到 Termux 运行后再点同步。`;
+        }
+        await syncAllAssetsToLocalBridgeUI();
+        return;
+      }
+      if (statusBox) {
+        statusBox.textContent = '未能连接 Termux 本地服务，请点击上方复制按钮复制最新启动命令，在 Termux 粘贴回车运行后再点检测。';
       }
     }
 
-    async function syncAllAssetsToLocalBridgeUI() {
+    function isAssetNeedsLocalMigration(val, termuxOnline, baseUrl) {
+      if (!val || typeof val !== 'string') return false;
+      if (val.startsWith('data:image/svg+xml')) return false;
+      if (val.startsWith('data:image') || val.startsWith('data:audio')) return true;
+      if (termuxOnline && val.startsWith('/local-assets/')) return true;
+      return false;
+    }
+
+    async function syncAllAssetsToLocalBridgeUI(silentMode = false) {
       const statusBox = document.getElementById('local-bridge-status-box');
       const baseUrl = getLocalBridgeBaseUrl();
-      try {
-        const pingRes = await fetch(baseUrl + '/ping');
-        if (!pingRes.ok) {
-          if (statusBox) statusBox.textContent = '本地存储服务未启动，请先在 Termux 运行启动命令后再点击同步。';
-          return;
+      const termuxInfo = await checkLocalBridgeEndpointAlive(baseUrl);
+      const serverInfo = !termuxInfo ? await checkLocalBridgeEndpointAlive('/api/local-assets') : null;
+      if (!termuxInfo && !serverInfo) {
+        if (!silentMode && statusBox) {
+          statusBox.textContent = '本地存储服务未启动，请先复制上方命令在 Termux 运行后再点击同步。';
         }
-      } catch (_) {
-        if (statusBox) statusBox.textContent = '无法连接本地存储服务，请先在 Termux 运行启动命令后再点击同步。';
-        return;
+        return 0;
       }
 
-      if (statusBox) statusBox.textContent = '正在将全部角色立绘、小人、地图、章节CG与配音写入手机本地文件夹并释放浏览器内存...';
+      const termuxOnline = Boolean(termuxInfo);
+      const targetRootDesc = termuxInfo?.root || serverInfo?.root || 'HakoniwaData';
+      if (!silentMode && statusBox) {
+        statusBox.textContent = `正在将角色头像、立绘、小人、画风图、地图、章节场景、CG与配音批量转存至本地目录 ${targetRootDesc} 并释放浏览器内存...`;
+      }
       let count = 0;
 
       for (const c of (appState.characters || [])) {
         let charChanged = false;
         const safeName = (c.name || c.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
-        if (c.tachieBase && c.tachieBase.startsWith('data:image') && !c.tachieBase.startsWith('data:image/svg+xml')) {
-          const newUrl = await saveAssetToLocalBridge(`characters/${safeName}/base.png`, c.tachieBase);
+        if (isAssetNeedsLocalMigration(c.profileAvatar, termuxOnline, baseUrl)) {
+          const newUrl = await saveAssetToLocalBridge(`characters/${safeName}/profile_avatar.png`, c.profileAvatar, termuxOnline);
+          if (newUrl !== c.profileAvatar) { c.profileAvatar = newUrl; charChanged = true; count++; }
+        }
+        if (isAssetNeedsLocalMigration(c.stageBustAvatar, termuxOnline, baseUrl)) {
+          const newUrl = await saveAssetToLocalBridge(`characters/${safeName}/stage_bust.png`, c.stageBustAvatar, termuxOnline);
+          if (newUrl !== c.stageBustAvatar) { c.stageBustAvatar = newUrl; charChanged = true; count++; }
+        }
+        if (isAssetNeedsLocalMigration(c.tachieBase, termuxOnline, baseUrl)) {
+          const newUrl = await saveAssetToLocalBridge(`characters/${safeName}/base.png`, c.tachieBase, termuxOnline);
           if (newUrl !== c.tachieBase) { c.tachieBase = newUrl; charChanged = true; count++; }
         }
-        if (c.charLockImg && c.charLockImg.startsWith('data:image') && !c.charLockImg.startsWith('data:image/svg+xml')) {
-          const newUrl = await saveAssetToLocalBridge(`characters/${safeName}/lock.png`, c.charLockImg);
+        if (isAssetNeedsLocalMigration(c.charLockImg, termuxOnline, baseUrl)) {
+          const newUrl = await saveAssetToLocalBridge(`characters/${safeName}/lock.png`, c.charLockImg, termuxOnline);
           if (newUrl !== c.charLockImg) { c.charLockImg = newUrl; charChanged = true; count++; }
         }
         for (const [exp, url] of Object.entries(c.tachieExpressions || {})) {
-          if (url && url.startsWith('data:image') && !url.startsWith('data:image/svg+xml')) {
+          if (isAssetNeedsLocalMigration(url, termuxOnline, baseUrl)) {
             const safeExp = String(exp).replace(/[\\/:*?"<>|]/g, '_');
-            const newUrl = await saveAssetToLocalBridge(`characters/${safeName}/${safeExp}.png`, url);
+            const newUrl = await saveAssetToLocalBridge(`characters/${safeName}/${safeExp}.png`, url, termuxOnline);
             if (newUrl !== url) { c.tachieExpressions[exp] = newUrl; charChanged = true; count++; }
           }
         }
         for (const [exp, url] of Object.entries(c.tachieRawExpressions || {})) {
-          if (url && url.startsWith('data:image') && !url.startsWith('data:image/svg+xml')) {
+          if (isAssetNeedsLocalMigration(url, termuxOnline, baseUrl)) {
             const safeExp = String(exp).replace(/[\\/:*?"<>|]/g, '_');
-            const newUrl = await saveAssetToLocalBridge(`characters/${safeName}/raw_${safeExp}.png`, url);
+            const newUrl = await saveAssetToLocalBridge(`characters/${safeName}/raw_${safeExp}.png`, url, termuxOnline);
             if (newUrl !== url) { c.tachieRawExpressions[exp] = newUrl; charChanged = true; count++; }
           }
         }
         const chibiFields = ['chibiImg', 'chibiRawImg', 'chibiAlignedRawImg', 'chibiBackImg', 'chibiSideImg', 'chibiRightImg', 'chibiSeatedImg'];
         for (const fKey of chibiFields) {
           const val = c[fKey];
-          if (val && val.startsWith('data:image') && !val.startsWith('data:image/svg+xml')) {
-            const newUrl = await saveAssetToLocalBridge(`characters/${safeName}/${fKey}.png`, val);
+          if (isAssetNeedsLocalMigration(val, termuxOnline, baseUrl)) {
+            const newUrl = await saveAssetToLocalBridge(`characters/${safeName}/${fKey}.png`, val, termuxOnline);
             if (newUrl !== val) { c[fKey] = newUrl; charChanged = true; count++; }
           }
         }
         for (const storeKey of ['chibiPoseImgs', 'chibiPoseRawImgs', 'chibiPoseAlignedRawImgs']) {
           if (c[storeKey] && typeof c[storeKey] === 'object') {
             for (const [poseKey, val] of Object.entries(c[storeKey])) {
-              if (val && val.startsWith('data:image') && !val.startsWith('data:image/svg+xml')) {
-                const newUrl = await saveAssetToLocalBridge(`characters/${safeName}/${storeKey}_${poseKey}.png`, val);
+              if (isAssetNeedsLocalMigration(val, termuxOnline, baseUrl)) {
+                const newUrl = await saveAssetToLocalBridge(`characters/${safeName}/${storeKey}_${poseKey}.png`, val, termuxOnline);
                 if (newUrl !== val) { c[storeKey][poseKey] = newUrl; charChanged = true; count++; }
               }
             }
@@ -4872,25 +5011,25 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
         let projChanged = false;
         const safeProj = (proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
         for (const gsc of (proj.globalScenes || [])) {
-          if (gsc.imageUrl && gsc.imageUrl.startsWith('data:image')) {
-            const newUrl = await saveAssetToLocalBridge(`projects/${safeProj}/scenes/${gsc.id}.png`, gsc.imageUrl);
+          if (isAssetNeedsLocalMigration(gsc.imageUrl, termuxOnline, baseUrl)) {
+            const newUrl = await saveAssetToLocalBridge(`projects/${safeProj}/scenes/${gsc.id}.png`, gsc.imageUrl, termuxOnline);
             if (newUrl !== gsc.imageUrl) { gsc.imageUrl = newUrl; projChanged = true; count++; }
           }
         }
         for (const ch of (proj.chapters || [])) {
           for (const sc of (ch.scenes || [])) {
-            if (sc.imageUrl && sc.imageUrl.startsWith('data:image')) {
-              const newUrl = await saveAssetToLocalBridge(`projects/${safeProj}/scenes/${sc.id}.png`, sc.imageUrl);
+            if (isAssetNeedsLocalMigration(sc.imageUrl, termuxOnline, baseUrl)) {
+              const newUrl = await saveAssetToLocalBridge(`projects/${safeProj}/scenes/${sc.id}.png`, sc.imageUrl, termuxOnline);
               if (newUrl !== sc.imageUrl) { sc.imageUrl = newUrl; projChanged = true; count++; }
             }
           }
           for (const cg of (ch.cgNodes || [])) {
-            if (cg.imageUrl && cg.imageUrl.startsWith('data:image')) {
-              const newUrl = await saveAssetToLocalBridge(`projects/${safeProj}/cgs/${cg.id}.png`, cg.imageUrl);
+            if (isAssetNeedsLocalMigration(cg.imageUrl, termuxOnline, baseUrl)) {
+              const newUrl = await saveAssetToLocalBridge(`projects/${safeProj}/cgs/${cg.id}.png`, cg.imageUrl, termuxOnline);
               if (newUrl !== cg.imageUrl) { cg.imageUrl = newUrl; projChanged = true; count++; }
             }
-            if (cg.customPadImg && cg.customPadImg.startsWith('data:image')) {
-              const newUrl = await saveAssetToLocalBridge(`projects/${safeProj}/cgs/pad_${cg.id}.png`, cg.customPadImg);
+            if (isAssetNeedsLocalMigration(cg.customPadImg, termuxOnline, baseUrl)) {
+              const newUrl = await saveAssetToLocalBridge(`projects/${safeProj}/cgs/pad_${cg.id}.png`, cg.customPadImg, termuxOnline);
               if (newUrl !== cg.customPadImg) { cg.customPadImg = newUrl; projChanged = true; count++; }
             }
           }
@@ -4900,24 +5039,77 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
         }
       }
 
+      if (Array.isArray(appState.styleRefList)) {
+        let styleRefChanged = false;
+        for (let i = 0; i < appState.styleRefList.length; i++) {
+          const item = appState.styleRefList[i];
+          if (item && isAssetNeedsLocalMigration(item.base64, termuxOnline, baseUrl)) {
+            const newUrl = await saveAssetToLocalBridge(`styles/active_ref_${item.id || i}.png`, item.base64, termuxOnline);
+            if (newUrl !== item.base64) { item.base64 = newUrl; styleRefChanged = true; count++; }
+          }
+        }
+        if (styleRefChanged) persistActiveStyleRefList();
+      }
+
+      const stylePresetList = await db.styles.toArray();
+      for (const sp of stylePresetList) {
+        if (Array.isArray(sp.refs)) {
+          let spChanged = false;
+          const safeSp = String(sp.name || sp.id || 'style').replace(/[\\/:*?"<>|]/g, '_');
+          for (let i = 0; i < sp.refs.length; i++) {
+            const r = sp.refs[i];
+            if (r && isAssetNeedsLocalMigration(r.base64, termuxOnline, baseUrl)) {
+              const newUrl = await saveAssetToLocalBridge(`styles/${safeSp}_${i + 1}.png`, r.base64, termuxOnline);
+              if (newUrl !== r.base64) { r.base64 = newUrl; spChanged = true; count++; }
+            }
+          }
+          if (spChanged) await db.styles.put(sp);
+        }
+      }
+      appState.stylePresets = await db.styles.toArray();
+
       const mapList = await db.maps.toArray();
       for (const m of mapList) {
-        if (m.bgDataUrl && m.bgDataUrl.startsWith('data:image')) {
-          const safeMapId = String(m.id || 'map').replace(/[\\/:*?"<>|]/g, '_');
-          const newUrl = await saveAssetToLocalBridge(`maps/${safeMapId}.png`, m.bgDataUrl);
-          if (newUrl !== m.bgDataUrl) {
-            m.bgDataUrl = newUrl;
-            await db.maps.put(m);
-            count++;
-          }
+        let mapChanged = false;
+        const safeMapId = String(m.id || 'map').replace(/[\\/:*?"<>|]/g, '_');
+        if (isAssetNeedsLocalMigration(m.bgDataUrl, termuxOnline, baseUrl)) {
+          const newUrl = await saveAssetToLocalBridge(`maps/${safeMapId}.png`, m.bgDataUrl, termuxOnline);
+          if (newUrl !== m.bgDataUrl) { m.bgDataUrl = newUrl; mapChanged = true; count++; }
+        }
+        if (isAssetNeedsLocalMigration(m.tableSurfaceUrl, termuxOnline, baseUrl)) {
+          const newUrl = await saveAssetToLocalBridge(`maps/${safeMapId}_table.png`, m.tableSurfaceUrl, termuxOnline);
+          if (newUrl !== m.tableSurfaceUrl) { m.tableSurfaceUrl = newUrl; mapChanged = true; count++; }
+        }
+        if (mapChanged) await db.maps.put(m);
+      }
+
+      for (const f of (appState.furnitures || [])) {
+        let fChanged = false;
+        const safeFId = String(f.id || 'furn').replace(/[\\/:*?"<>|]/g, '_');
+        if (isAssetNeedsLocalMigration(f.img, termuxOnline, baseUrl)) {
+          const newUrl = await saveAssetToLocalBridge(`furnitures/${safeFId}.png`, f.img, termuxOnline);
+          if (newUrl !== f.img) { f.img = newUrl; fChanged = true; count++; }
+        }
+        if (isAssetNeedsLocalMigration(f.rawImg, termuxOnline, baseUrl)) {
+          const newUrl = await saveAssetToLocalBridge(`furnitures/${safeFId}_raw.png`, f.rawImg, termuxOnline);
+          if (newUrl !== f.rawImg) { f.rawImg = newUrl; fChanged = true; count++; }
+        }
+        if (fChanged) await db.furnitures.put(f);
+      }
+
+      for (const fd of (appState.foods || [])) {
+        if (isAssetNeedsLocalMigration(fd.img, termuxOnline, baseUrl)) {
+          const safeFdId = String(fd.id || 'food').replace(/[\\/:*?"<>|]/g, '_');
+          const newUrl = await saveAssetToLocalBridge(`foods/${safeFdId}.png`, fd.img, termuxOnline);
+          if (newUrl !== fd.img) { fd.img = newUrl; await db.foods.put(fd); count++; }
         }
       }
 
       const ttsList = await db.ttsCache.toArray();
       for (const item of ttsList) {
-        if (item.audioDataUrl && item.audioDataUrl.startsWith('data:audio')) {
+        if (isAssetNeedsLocalMigration(item.audioDataUrl, termuxOnline, baseUrl)) {
           const safeId = String(item.id || 'tts').replace(/[\\/:*?"<>|]/g, '_');
-          const newUrl = await saveAssetToLocalBridge(`audio/${safeId}.mp3`, item.audioDataUrl);
+          const newUrl = await saveAssetToLocalBridge(`audio/${safeId}.mp3`, item.audioDataUrl, termuxOnline);
           if (newUrl !== item.audioDataUrl) {
             item.audioDataUrl = newUrl;
             await db.ttsCache.put(item);
@@ -4926,10 +5118,34 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
         }
       }
 
+      _heightCroppedSpriteCache.forEach((u) => {
+        if (typeof u === 'string' && u.startsWith('blob:')) {
+          try { URL.revokeObjectURL(u); } catch (_) {}
+        }
+      });
       _heightCroppedSpriteCache.clear();
-      if (statusBox) {
-        statusBox.textContent = `同步完成！共将 ${count} 个图片与语音文件无损存入手机本地 HakoniwaData 目录，并已替换释放浏览器缓存防止卡顿。`;
+      clearFastBlobUrlCache();
+      if (appState.stageEditHistory?.tachie) {
+        appState.stageEditHistory.tachie.list = [];
+        appState.stageEditHistory.tachie.idx = -1;
       }
+      if (appState.stageEditHistory?.chibi) {
+        appState.stageEditHistory.chibi.list = [];
+        appState.stageEditHistory.chibi.idx = -1;
+      }
+
+      if (count > 0 || !silentMode) {
+        loadCharToTachiePanel();
+        loadCharToChibiPanel();
+        renderPersonaGrid();
+        renderReplayCgStudio();
+        renderHeightStage();
+      }
+
+      if (!silentMode && statusBox) {
+        statusBox.textContent = `同步完成！已将 ${count} 个图片与音频文件无损存入本地目录 ${targetRootDesc}，并已清空浏览器大图缓存释放内存。`;
+      }
+      return count;
     }
 
     async function normalizeImageForNovelAiRef(dataUrl) {
@@ -5666,7 +5882,7 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
       if (h.idx >= 0 && h.list[h.idx] === newDataUrl) return;
       h.list = h.list.slice(0, h.idx + 1);
       h.list.push(newDataUrl);
-      if (h.list.length > 20) {
+      if (h.list.length > 6) {
         h.list.shift();
       }
       h.idx = h.list.length - 1;
@@ -8939,10 +9155,12 @@ ZH: 修改后的纯客观中文服装配饰清单`
         const reader = new FileReader();
         reader.onload = async (e) => {
           const normBase64 = await normalizeUploadedImageForNai(e.target.result, 1024);
+          const itemId = 'vibe_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+          const savedUrl = await saveAssetToLocalBridge(`styles/${itemId}.png`, normBase64);
           appState.styleRefList.push({
-            id: 'vibe_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            id: itemId,
             name: (file.name || '画风图').slice(0, 14),
-            base64: normBase64,
+            base64: savedUrl,
             infoExtracted: 1.0,
             strength: 0.6
           });
@@ -8969,7 +9187,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
         row.innerHTML = `
           <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
             <div style="display:flex;align-items:center;gap:10px;">
-              <img src="${item.base64}" style="width:46px;height:46px;border-radius:8px;object-fit:cover;border:1px solid var(--border-color);flex-shrink:0;" />
+              <img src="${toFastDisplayUrl(item.base64)}" decoding="async" loading="lazy" style="width:46px;height:46px;border-radius:8px;object-fit:cover;border:1px solid var(--border-color);flex-shrink:0;" />
               <div style="font-size:13px;font-weight:700;color:var(--text-primary);">画风参考图 ${idx + 1}</div>
             </div>
             <button type="button" class="moe-btn danger" onclick="removeStyleRefItem(${idx})">删除</button>
@@ -8997,7 +9215,8 @@ ZH: 修改后的纯客观中文服装配饰清单`
 
     function persistActiveStyleRefList() {
       try {
-        localStorage.setItem('active-style-ref-list-v1', JSON.stringify(appState.styleRefList || []));
+        const lightList = (appState.styleRefList || []).filter((x) => x && typeof x.base64 === 'string' && !x.base64.startsWith('data:'));
+        localStorage.setItem('active-style-ref-list-v1', JSON.stringify(lightList));
       } catch (_) {}
     }
 
@@ -9114,12 +9333,14 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const reader = new FileReader();
       reader.onload = async (e) => {
         const normBase64 = await normalizeUploadedImageForNai(e.target.result, 1024);
-        appState.charLockBase64 = normBase64;
-        const thumbEl = document.getElementById('tachie-char-lock-thumb');
-        if (thumbEl) thumbEl.innerHTML = `<img src="${normBase64}" style="width:100%;height:100%;object-fit:cover;" />`;
         const charObj = appState.characters.find((c) => c.id === appState.selectedTachieCharId);
+        const safeCharName = (charObj?.name || charObj?.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
+        const savedLockUrl = await saveAssetToLocalBridge(`characters/${safeCharName}/lock.png`, normBase64);
+        appState.charLockBase64 = savedLockUrl;
+        const thumbEl = document.getElementById('tachie-char-lock-thumb');
+        if (thumbEl) thumbEl.innerHTML = `<img src="${toFastDisplayUrl(savedLockUrl)}" style="width:100%;height:100%;object-fit:cover;" />`;
         if (charObj) {
-          charObj.charLockImg = normBase64;
+          charObj.charLockImg = savedLockUrl;
           await db.characters.put(charObj);
         }
       };
@@ -9132,11 +9353,13 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const baseImg = appState.tachieWorkingDataUrl || charObj?.tachieBase;
       if (!baseImg) return;
       const normBase64 = await normalizeUploadedImageForNai(baseImg, 1024);
-      appState.charLockBase64 = normBase64;
+      const safeCharName = (charObj?.name || charObj?.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
+      const savedLockUrl = await saveAssetToLocalBridge(`characters/${safeCharName}/lock.png`, normBase64);
+      appState.charLockBase64 = savedLockUrl;
       const thumbEl = document.getElementById('tachie-char-lock-thumb');
-      if (thumbEl) thumbEl.innerHTML = `<img src="${normBase64}" style="width:100%;height:100%;object-fit:cover;" />`;
+      if (thumbEl) thumbEl.innerHTML = `<img src="${toFastDisplayUrl(savedLockUrl)}" style="width:100%;height:100%;object-fit:cover;" />`;
       if (charObj) {
-        charObj.charLockImg = normBase64;
+        charObj.charLockImg = savedLockUrl;
         await db.characters.put(charObj);
       }
     }
@@ -9211,21 +9434,24 @@ ZH: 修改后的纯客观中文服装配饰清单`
 
         if (charObj) {
           charObj.tachieSeed = seed;
-          charObj.tachieBase = cleaned;
+          const safeCharName = (charObj.name || charObj.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
           const normLock = await normalizeUploadedImageForNai(dataUrl);
-          charObj.charLockImg = normLock;
-          appState.charLockBase64 = normLock;
+          const savedLockUrl = await saveAssetToLocalBridge(`characters/${safeCharName}/lock.png`, normLock);
+          charObj.charLockImg = savedLockUrl;
+          appState.charLockBase64 = savedLockUrl;
           const thumbEl = document.getElementById('tachie-char-lock-thumb');
-          if (thumbEl) thumbEl.innerHTML = `<img src="${normLock}" style="width:100%;height:100%;object-fit:cover;" />`;
+          if (thumbEl) thumbEl.innerHTML = `<img src="${toFastDisplayUrl(savedLockUrl)}" style="width:100%;height:100%;object-fit:cover;" />`;
           if (!charObj.tachieExpressions) charObj.tachieExpressions = {};
           if (!charObj.tachieRawExpressions) charObj.tachieRawExpressions = {};
-          const safeCharName = (charObj.name || charObj.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
           const savedBaseUrl = await saveAssetToLocalBridge(`characters/${safeCharName}/base.png`, cleaned);
           const savedDefUrl = await saveAssetToLocalBridge(`characters/${safeCharName}/默认.png`, cleaned);
           const savedRawUrl = await saveAssetToLocalBridge(`characters/${safeCharName}/raw_默认.png`, appState.tachieAlignedRawDataUrl || dataUrl);
           charObj.tachieBase = savedBaseUrl;
           charObj.tachieExpressions['默认'] = savedDefUrl;
           charObj.tachieRawExpressions['默认'] = savedRawUrl;
+          appState.tachieWorkingDataUrl = savedDefUrl;
+          appState.tachieRawDataUrl = savedRawUrl;
+          appState.tachieAlignedRawDataUrl = savedRawUrl;
           await db.characters.put(charObj);
         }
 
@@ -9350,31 +9576,37 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const reader = new FileReader();
       reader.onload = async (e) => {
         const rawUrl = e.target.result;
-        appState.tachieRawDataUrl = rawUrl;
-        appState.tachieAlignedRawDataUrl = rawUrl;
         const tol = parseInt(document.getElementById('tachie-tolerance-slider')?.value || '18', 10);
         const feather = parseInt(document.getElementById('tachie-feather-slider')?.value || '1', 10);
         const bgRemoved = await floodFillRemoveWhiteBg(rawUrl, tol, false, feather);
         const cleaned = await normalizeTachieSpriteScale(bgRemoved, rawUrl);
-        appState.tachieWorkingDataUrl = cleaned;
         const targetExp = appState.selectedTachieExp || '默认';
         const charObj = appState.characters.find((c) => c.id === appState.selectedTachieCharId);
+        const safeCharName = (charObj?.name || charObj?.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
+        const safeExp = String(targetExp).replace(/[\\/:*?"<>|]/g, '_');
+        const savedExpUrl = await saveAssetToLocalBridge(`characters/${safeCharName}/${safeExp}.png`, cleaned);
+        const savedRawUrl = await saveAssetToLocalBridge(`characters/${safeCharName}/raw_${safeExp}.png`, rawUrl);
+        appState.tachieWorkingDataUrl = savedExpUrl;
+        appState.tachieRawDataUrl = savedRawUrl;
+        appState.tachieAlignedRawDataUrl = savedRawUrl;
         if (charObj) {
           if (!charObj.tachieExpressions) charObj.tachieExpressions = {};
           if (!charObj.tachieRawExpressions) charObj.tachieRawExpressions = {};
-          charObj.tachieExpressions[targetExp] = cleaned;
-          charObj.tachieRawExpressions[targetExp] = appState.tachieAlignedRawDataUrl || rawUrl;
+          charObj.tachieExpressions[targetExp] = savedExpUrl;
+          charObj.tachieRawExpressions[targetExp] = savedRawUrl;
           if (targetExp === '默认' || !charObj.tachieBase) {
-            charObj.tachieBase = cleaned;
+            const savedBaseUrl = await saveAssetToLocalBridge(`characters/${safeCharName}/base.png`, cleaned);
+            charObj.tachieBase = savedBaseUrl;
             if (!charObj.tachieExpressions['默认']) {
-              charObj.tachieExpressions['默认'] = cleaned;
-              charObj.tachieRawExpressions['默认'] = appState.tachieAlignedRawDataUrl || rawUrl;
+              charObj.tachieExpressions['默认'] = savedBaseUrl;
+              charObj.tachieRawExpressions['默认'] = savedRawUrl;
             }
             const normLock = await normalizeUploadedImageForNai(rawUrl, 1024);
-            charObj.charLockImg = normLock;
-            appState.charLockBase64 = normLock;
+            const savedLockUrl = await saveAssetToLocalBridge(`characters/${safeCharName}/lock.png`, normLock);
+            charObj.charLockImg = savedLockUrl;
+            appState.charLockBase64 = savedLockUrl;
             const thumbEl = document.getElementById('tachie-char-lock-thumb');
-            if (thumbEl) thumbEl.innerHTML = `<img src="${normLock}" style="width:100%;height:100%;object-fit:cover;" />`;
+            if (thumbEl) thumbEl.innerHTML = `<img src="${toFastDisplayUrl(savedLockUrl)}" style="width:100%;height:100%;object-fit:cover;" />`;
           }
           await db.characters.put(charObj);
         }
@@ -9482,8 +9714,14 @@ ZH: 修改后的纯客观中文服装配饰清单`
 
       if (workingImg) {
         if (!charObj.tachieExpressions) charObj.tachieExpressions = {};
-        charObj.tachieExpressions[curExp] = workingImg;
-        if (curExp === '默认') charObj.tachieBase = workingImg;
+        const safeCharName = (charObj.name || charObj.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
+        const safeExp = String(curExp).replace(/[\\/:*?"<>|]/g, '_');
+        const savedExpUrl = await saveAssetToLocalBridge(`characters/${safeCharName}/${safeExp}.png`, workingImg);
+        charObj.tachieExpressions[curExp] = savedExpUrl;
+        appState.tachieWorkingDataUrl = savedExpUrl;
+        if (curExp === '默认') {
+          charObj.tachieBase = await saveAssetToLocalBridge(`characters/${safeCharName}/base.png`, workingImg);
+        }
       }
 
       const customActVal = document.getElementById('tachie-custom-action-tags')?.value.trim();
@@ -9522,6 +9760,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
     const _heightCroppedSpriteCache = new Map();
     function getCroppedSpriteForHeightStage(srcUrl) {
       if (!srcUrl) return Promise.resolve('');
+      if (srcUrl.startsWith('data:image/svg+xml')) return Promise.resolve(srcUrl);
       if (_heightCroppedSpriteCache.has(srcUrl)) {
         return Promise.resolve(_heightCroppedSpriteCache.get(srcUrl));
       }
@@ -9539,8 +9778,9 @@ ZH: 修改后的纯客观中文服装配饰清单`
           const data = ctx.getImageData(0, 0, w, h).data;
           const bounds = findCharacterTightBounds(data, w, h);
           if (!bounds) {
-            _heightCroppedSpriteCache.set(srcUrl, srcUrl);
-            return resolve(srcUrl);
+            const fastFallback = toFastDisplayUrl(srcUrl);
+            _heightCroppedSpriteCache.set(srcUrl, fastFallback);
+            return resolve(fastFallback);
           }
           let { minX, minY, maxX, maxY } = bounds;
 
@@ -9610,12 +9850,26 @@ ZH: 修改后的纯客观中文服装配饰清单`
           out.width = cw;
           out.height = ch;
           out.getContext('2d').drawImage(img, minX, minY, cw, ch, 0, 0, cw, ch);
-          const croppedUrl = out.toDataURL('image/png');
-          _heightCroppedSpriteCache.set(srcUrl, croppedUrl);
-          resolve(croppedUrl);
+          if (typeof out.toBlob === 'function') {
+            out.toBlob((blob) => {
+              if (blob) {
+                const blobUrl = URL.createObjectURL(blob);
+                _heightCroppedSpriteCache.set(srcUrl, blobUrl);
+                resolve(blobUrl);
+              } else {
+                const fallback = toFastDisplayUrl(srcUrl);
+                _heightCroppedSpriteCache.set(srcUrl, fallback);
+                resolve(fallback);
+              }
+            }, 'image/png');
+          } else {
+            const croppedUrl = toFastDisplayUrl(out.toDataURL('image/png'));
+            _heightCroppedSpriteCache.set(srcUrl, croppedUrl);
+            resolve(croppedUrl);
+          }
         };
-        img.onerror = () => resolve(srcUrl);
-        img.src = srcUrl;
+        img.onerror = () => resolve(toFastDisplayUrl(srcUrl));
+        img.src = toFastDisplayUrl(srcUrl);
       });
     }
 
@@ -11346,7 +11600,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
           };
           item.innerHTML = `
             <div class="setting-item-left">
-              <img src="${c.profileAvatar || c.tachieBase || c.chibiImg}" alt="${c.name}" style="width:100%;height:100%;object-fit:cover;" />
+              <img src="${toFastDisplayUrl(c.profileAvatar || c.tachieBase || c.chibiImg)}" decoding="async" loading="lazy" alt="${c.name}" style="width:100%;height:100%;object-fit:cover;" />
             </div>
             <div class="setting-item-center">
               <div class="setting-item-title">${c.name} · ${tType}${c.age ? (' · ' + c.age) : ''} · ${cm}cm</div>
@@ -11688,9 +11942,11 @@ ZH: 修改后的纯客观中文服装配饰清单`
         const dataUrl = e.target.result;
         const c = appState.characters.find((x) => x.id === appState.selectedPersonaId);
         if (!c) return;
-        c.profileAvatar = dataUrl;
+        const safeName = (c.name || c.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
+        const savedUrl = await saveAssetToLocalBridge(`characters/${safeName}/profile_avatar.png`, dataUrl);
+        c.profileAvatar = savedUrl;
         const avatarPrev = document.getElementById('oc-profile-avatar-preview');
-        if (avatarPrev) avatarPrev.src = dataUrl;
+        if (avatarPrev) avatarPrev.src = toFastDisplayUrl(savedUrl);
         await db.characters.put(c);
         renderPersonaGrid();
       };
@@ -11706,7 +11962,9 @@ ZH: 修改后的纯客观中文服装配饰清单`
         const dataUrl = e.target.result;
         const c = appState.characters.find((x) => x.id === appState.selectedPersonaId);
         if (!c) return;
-        c.stageBustAvatar = dataUrl;
+        const safeName = (c.name || c.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
+        const savedUrl = await saveAssetToLocalBridge(`characters/${safeName}/stage_bust.png`, dataUrl);
+        c.stageBustAvatar = savedUrl;
         await db.characters.put(c);
       };
       reader.readAsDataURL(file);
@@ -15551,7 +15809,7 @@ SCENE_ITEM: 场景编号|2到5字简短场景名|NovelAI英文提示词|基底�
             <button type="button" class="moe-btn secondary" onclick="deleteGlobalModuleScene(${sIdx})">删除</button>
             <input type="file" id="global-scene-up-${sIdx}" accept="image/*" style="display:none;" onchange="handleGlobalModuleSceneUpload(event, ${sIdx})" />
           </div>
-          ${sc.imageUrl ? `<img src="${sc.imageUrl}" alt="${sc.name}" style="width:100%;height:125px;object-fit:cover;border-radius:8px;border:1px solid var(--border-color);" />` : ''}
+          ${sc.imageUrl ? `<img src="${toFastDisplayUrl(sc.imageUrl)}" decoding="async" loading="lazy" alt="${sc.name}" style="width:100%;height:125px;object-fit:cover;border-radius:8px;border:1px solid var(--border-color);" />` : ''}
         `;
         box.appendChild(item);
       });
@@ -15595,16 +15853,16 @@ SCENE_ITEM: 场景编号|2到5字简短场景名|NovelAI英文提示词|基底�
           charRefImage: null,
           caller: `模组全局场景生图·${sc.name}${baseImgDataUrl ? '·同地点差分' : ''}`
         });
-        sc.imageUrl = dataUrl;
+        const safeProj = (proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
+        const savedScUrl = await saveAssetToLocalBridge(`projects/${safeProj}/scenes/${sc.id}.png`, dataUrl);
+        sc.imageUrl = savedScUrl;
         (proj.chapters || []).forEach((ch) => {
           if (!Array.isArray(ch.scenes)) ch.scenes = [];
           const found = ch.scenes.find((x) => x.id === sc.id || x.name === sc.name);
-          if (found) found.imageUrl = dataUrl;
+          if (found) found.imageUrl = savedScUrl;
           else ch.scenes.push({ ...sc });
         });
         await saveReplayProjectToDB(proj);
-        const safeProj = (proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
-        await saveAssetToLocalBridge(`projects/${safeProj}/scenes/${sc.id}.png`, dataUrl);
         renderExtractedModuleScenesList();
         renderReplayCgStudio();
       } catch (err) {
@@ -15622,11 +15880,13 @@ SCENE_ITEM: 场景编号|2到5字简短场景名|NovelAI英文提示词|基底�
         const proj = getCurrentReplayProject();
         if (!proj || !Array.isArray(proj.globalScenes) || !proj.globalScenes[sIdx]) return;
         const sc = proj.globalScenes[sIdx];
-        sc.imageUrl = e.target.result;
+        const safeProj = (proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
+        const savedScUrl = await saveAssetToLocalBridge(`projects/${safeProj}/scenes/${sc.id}.png`, e.target.result);
+        sc.imageUrl = savedScUrl;
         (proj.chapters || []).forEach((ch) => {
           if (!Array.isArray(ch.scenes)) ch.scenes = [];
           const found = ch.scenes.find((x) => x.id === sc.id || x.name === sc.name);
-          if (found) found.imageUrl = e.target.result;
+          if (found) found.imageUrl = savedScUrl;
           else ch.scenes.push({ ...sc });
         });
         await saveReplayProjectToDB(proj);
@@ -17335,7 +17595,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
             item.innerHTML = `
               <div class="setting-item-left" style="width:38px;height:38px;flex-shrink:0;">
                 ${hasRealImg
-                  ? `<img src="${baseImg}" alt="${c.name}" style="width:38px;height:38px;object-fit:cover;border-radius:8px;border:1px solid var(--border-color);" />`
+                  ? `<img src="${toFastDisplayUrl(baseImg)}" decoding="async" loading="lazy" alt="${c.name}" style="width:38px;height:38px;object-fit:cover;border-radius:8px;border:1px solid var(--border-color);" />`
                   : `<div style="width:38px;height:38px;border-radius:8px;background:var(--secondary-bg);border:1px dashed var(--border-color);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-secondary);">无图</div>`}
               </div>
               <div class="setting-item-center" style="white-space:normal;">
@@ -17384,7 +17644,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
               <button type="button" class="moe-btn secondary" onclick="document.getElementById('scene-upload-input-${sIdx}').click()">传图</button>
               <input type="file" id="scene-upload-input-${sIdx}" accept="image/*" style="display:none;" onchange="handleReplaySceneBgUpload(event, ${sIdx})" />
             </div>
-            ${sc.imageUrl ? `<img src="${sc.imageUrl}" alt="${sc.name}" style="width:100%;height:130px;object-fit:cover;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;" title="连续点击三下下载背景图" onclick="handleStageImgTripleClick(event, '场景_${sc.name}')" />` : ''}
+            ${sc.imageUrl ? `<img src="${toFastDisplayUrl(sc.imageUrl)}" decoding="async" loading="lazy" alt="${sc.name}" style="width:100%;height:130px;object-fit:cover;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;" title="连续点击三下下载背景图" onclick="handleStageImgTripleClick(event, '场景_${sc.name}')" />` : ''}
           `;
           bgBox.appendChild(card);
         });
@@ -17469,11 +17729,32 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
               <input type="file" id="cg-upload-input-${cIdx}" accept="image/*" style="display:none;" onchange="handleReplayCgUpload(event, ${cIdx})" />
               <button type="button" class="moe-btn secondary" onclick="deleteReplayCgNode(${cIdx})">删除</button>
             </div>
-            ${cg.imageUrl ? `<img src="${cg.imageUrl}" alt="CG预览" style="width:100%;height:165px;object-fit:contain;background:var(--secondary-bg);border-radius:8px;border:1.5px solid var(--border-color);cursor:pointer;" title="连续点击三下下载CG" onclick="handleStageImgTripleClick(event, 'CG_${cIdx + 1}')" />` : `<div style="padding:8px 10px;text-align:center;font-size:11px;color:var(--text-secondary);background:var(--card-bg);border:1px dashed var(--border-color);border-radius:8px;">${cg.prompt ? '已就绪 · 可直接修改上方生图提示词后点生图或排队' : '点选登场角色后点顶部写词按钮，或直接在上方输入框手写提示词'}</div>`}
+            ${cg.imageUrl ? `<img src="${toFastDisplayUrl(cg.imageUrl)}" decoding="async" loading="lazy" alt="CG预览" style="width:100%;height:165px;object-fit:contain;background:var(--secondary-bg);border-radius:8px;border:1.5px solid var(--border-color);cursor:pointer;" title="连续点击三下下载CG" onclick="handleStageImgTripleClick(event, 'CG_${cIdx + 1}')" />` : `<div style="padding:8px 10px;text-align:center;font-size:11px;color:var(--text-secondary);background:var(--card-bg);border:1px dashed var(--border-color);border-radius:8px;">${cg.prompt ? '已就绪 · 可直接修改上方生图提示词后点生图或排队' : '点选登场角色后点顶部写词按钮，或直接在上方输入框手写提示词'}</div>`}
           `;
           cgBox.appendChild(card);
         });
       }
+    }
+
+    function handleReplayCharBaseUpload(event, charId) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const c = appState.characters.find((x) => x.id === charId);
+        if (!c) return;
+        const normBase64 = await normalizeUploadedImageForNai(e.target.result, 1024);
+        const safeName = (c.name || c.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
+        const savedUrl = await saveAssetToLocalBridge(`characters/${safeName}/lock.png`, normBase64);
+        c.charLockImg = savedUrl;
+        if (!c.tachieBase || c.tachieBase.startsWith('data:image/svg+xml')) {
+          c.tachieBase = savedUrl;
+        }
+        await db.characters.put(c);
+        renderReplayCgStudio();
+      };
+      reader.readAsDataURL(file);
+      event.target.value = '';
     }
 
     async function toggleCgPresentCharacter(cIdx, charName) {
@@ -17506,7 +17787,9 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         const proj = getCurrentReplayProject();
         const chap = getCurrentReplayChapter();
         if (!proj || !chap || !chap.cgNodes || !chap.cgNodes[cIdx]) return;
-        chap.cgNodes[cIdx].customPadImg = e.target.result;
+        const safeProj = (proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
+        const savedPadUrl = await saveAssetToLocalBridge(`projects/${safeProj}/cgs/pad_${chap.cgNodes[cIdx].id}.png`, e.target.result);
+        chap.cgNodes[cIdx].customPadImg = savedPadUrl;
         await saveReplayProjectToDB(proj);
         renderReplayCgStudio();
       };
@@ -19087,7 +19370,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
             || allScenes.find((s) => s && s.imageUrl)
             || allScenes[0];
           if (sceneObj && sceneObj.imageUrl) {
-            bgLayer.style.backgroundImage = `url("${sceneObj.imageUrl}")`;
+            bgLayer.style.backgroundImage = `url("${toFastDisplayUrl(sceneObj.imageUrl)}")`;
           } else {
             bgLayer.style.backgroundImage = 'linear-gradient(160deg, var(--secondary-bg) 0%, var(--background-color) 100%)';
           }
@@ -19103,8 +19386,9 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       }) || null;
       if (cgLayer && cgImg) {
         if (cgObj && cgObj.imageUrl) {
-          if (cgImg.getAttribute('src') !== cgObj.imageUrl) {
-            cgImg.src = cgObj.imageUrl;
+          const fastCgUrl = toFastDisplayUrl(cgObj.imageUrl);
+          if (cgImg.getAttribute('src') !== fastCgUrl) {
+            cgImg.src = fastCgUrl;
           }
           cgLayer.classList.add('active');
         } else {
@@ -19157,7 +19441,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
           actorDiv.className = 'vn-stage-actor ' + (isCurrentSpeaker ? 'speaking' : 'dimmed') + fxClass;
           actorDiv.style.height = heightPct + '%';
           actorDiv.innerHTML = `
-            <img src="${croppedSprite}" alt="${charObj.name}" style="height:100%;width:auto;max-width:none;" title="${charObj.name} · ${netCm}cm · ${expKey}" />
+            <img src="${croppedSprite}" decoding="async" alt="${charObj.name}" style="height:100%;width:auto;max-width:none;" title="${charObj.name} · ${netCm}cm · ${expKey}" />
           `;
           tachieLayer.appendChild(actorDiv);
         }
@@ -19173,7 +19457,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
           ? resolveCharacterMiniAvatarInfo(line.speaker, line.exp || '默认')
           : null;
         if (avatarInfo && avatarInfo.src) {
-          sideBustImg.src = avatarInfo.src;
+          sideBustImg.src = toFastDisplayUrl(avatarInfo.src);
           sideBustImg.classList.toggle('crop-tachie-head', Boolean(avatarInfo.isFullTachieCrop));
           sideBustBox.classList.remove('empty');
         } else {
@@ -20301,6 +20585,11 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       }
 
       restoreSessionNavAndDrafts();
+      setTimeout(() => {
+        if (isLocalBridgeEnabled()) {
+          syncAllAssetsToLocalBridgeUI(true).catch(() => {});
+        }
+      }, 1200);
     }
 
     const DRAFT_PERSIST_IDS = [
@@ -20443,7 +20732,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         if ('caches' in window) {
           caches.keys().then((keys) => {
             keys.forEach((k) => {
-              if (k !== 'ephone-tuk-cache-v25') caches.delete(k);
+              if (k !== 'ephone-tuk-cache-v27') caches.delete(k);
             });
           }).catch(() => {});
         }

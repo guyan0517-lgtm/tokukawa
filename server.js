@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import http from 'http';
 import express from 'express';
 import path from 'path';
@@ -13,8 +14,71 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '80mb' }));
+app.use(express.urlencoded({ extended: true, limit: '80mb' }));
+
+const LOCAL_ASSET_CANDIDATES = [
+  path.join(os.homedir(), 'storage', 'shared', 'Download', 'HakoniwaData'),
+  path.join(os.homedir(), 'storage', 'shared', 'HakoniwaData'),
+  '/sdcard/Download/HakoniwaData',
+  '/sdcard/HakoniwaData',
+  path.join(__dirname, 'HakoniwaData')
+];
+let LOCAL_ASSETS_ROOT = LOCAL_ASSET_CANDIDATES[LOCAL_ASSET_CANDIDATES.length - 1];
+for (const cand of LOCAL_ASSET_CANDIDATES) {
+  try {
+    fs.mkdirSync(cand, { recursive: true });
+    const testFile = path.join(cand, '.wt');
+    fs.writeFileSync(testFile, '1');
+    fs.unlinkSync(testFile);
+    LOCAL_ASSETS_ROOT = cand;
+    break;
+  } catch (_) {}
+}
+
+app.use('/local-assets', express.static(LOCAL_ASSETS_ROOT, {
+  maxAge: '365d',
+  setHeaders: (res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+  }
+}));
+
+app.get('/api/local-assets/ping', (_req, res) => {
+  res.json({
+    ok: true,
+    service: 'hakoniwa-local-bridge',
+    mode: 'server',
+    root: LOCAL_ASSETS_ROOT
+  });
+});
+
+app.post('/api/local-assets/save', async (req, res) => {
+  try {
+    const rawRel = String(req.body?.path || 'file.bin').replace(/^\/+/, '').replace(/\.\./g, '_');
+    const dataUrl = String(req.body?.dataUrl || '');
+    if (!dataUrl) {
+      return res.status(400).json({ ok: false, error: 'Missing dataUrl' });
+    }
+    const base64Part = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+    const fileBuf = Buffer.from(base64Part, 'base64');
+    const targetPath = path.resolve(LOCAL_ASSETS_ROOT, rawRel);
+    if (!targetPath.startsWith(path.resolve(LOCAL_ASSETS_ROOT))) {
+      return res.status(400).json({ ok: false, error: 'Invalid path' });
+    }
+    await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
+    await fs.promises.writeFile(targetPath, fileBuf);
+    const encodedRel = rawRel.split('/').map((seg) => encodeURIComponent(seg)).join('/');
+    res.json({
+      ok: true,
+      url: `/local-assets/${encodedRel}`,
+      path: targetPath,
+      root: LOCAL_ASSETS_ROOT
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
 
 app.post('/api/merge-pdf', async (req, res) => {
   try {
