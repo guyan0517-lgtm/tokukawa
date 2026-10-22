@@ -18,6 +18,13 @@ app.use(express.json({ limit: '80mb' }));
 app.use(express.urlencoded({ extended: true, limit: '80mb' }));
 
 const LOCAL_ASSET_CANDIDATES = [
+  path.join(os.homedir(), 'storage', 'shared', 'Download', '.HakoniwaVault'),
+  path.join(os.homedir(), 'storage', 'shared', '.HakoniwaVault'),
+  '/sdcard/Download/.HakoniwaVault',
+  '/sdcard/.HakoniwaVault',
+  path.join(__dirname, '.HakoniwaVault')
+];
+const LEGACY_PUBLIC_DIRS = [
   path.join(os.homedir(), 'storage', 'shared', 'Download', 'HakoniwaData'),
   path.join(os.homedir(), 'storage', 'shared', 'HakoniwaData'),
   '/sdcard/Download/HakoniwaData',
@@ -34,6 +41,39 @@ function ensureNoMediaInDirSync(dirPath) {
   } catch (_) {}
 }
 
+function migrateLegacyDirToVaultSync(legacyDir, vaultDir) {
+  let movedCount = 0;
+  try {
+    if (!fs.existsSync(legacyDir) || path.resolve(legacyDir) === path.resolve(vaultDir)) return 0;
+    ensureNoMediaInDirSync(vaultDir);
+    const walkMove = (srcDir, dstDir) => {
+      ensureNoMediaInDirSync(dstDir);
+      const entries = fs.readdirSync(srcDir, { withFileTypes: true });
+      for (const entry of entries) {
+        const sFull = path.join(srcDir, entry.name);
+        const dFull = path.join(dstDir, entry.name);
+        if (entry.isDirectory()) {
+          walkMove(sFull, dFull);
+          try { fs.rmdirSync(sFull); } catch (_) {}
+        } else if (entry.isFile()) {
+          if (entry.name !== '.wt' && entry.name !== '.nomedia') {
+            try {
+              fs.mkdirSync(path.dirname(dFull), { recursive: true });
+              ensureNoMediaInDirSync(path.dirname(dFull));
+              fs.copyFileSync(sFull, dFull);
+              movedCount += 1;
+            } catch (_) {}
+          }
+          try { fs.unlinkSync(sFull); } catch (_) {}
+        }
+      }
+    };
+    walkMove(legacyDir, vaultDir);
+    try { fs.rmSync(legacyDir, { recursive: true, force: true }); } catch (_) {}
+  } catch (_) {}
+  return movedCount;
+}
+
 let LOCAL_ASSETS_ROOT = LOCAL_ASSET_CANDIDATES[LOCAL_ASSET_CANDIDATES.length - 1];
 for (const cand of LOCAL_ASSET_CANDIDATES) {
   try {
@@ -45,6 +85,9 @@ for (const cand of LOCAL_ASSET_CANDIDATES) {
     LOCAL_ASSETS_ROOT = cand;
     break;
   } catch (_) {}
+}
+for (const legacyDir of LEGACY_PUBLIC_DIRS) {
+  migrateLegacyDirToVaultSync(legacyDir, LOCAL_ASSETS_ROOT);
 }
 
 app.use('/local-assets', express.static(LOCAL_ASSETS_ROOT, {
@@ -63,6 +106,28 @@ app.get('/api/local-assets/ping', (_req, res) => {
     ok: true,
     service: 'hakoniwa-local-bridge',
     mode: 'server',
+    root: LOCAL_ASSETS_ROOT
+  });
+});
+
+app.post('/api/local-assets/hide-gallery', (_req, res) => {
+  let migrated = 0;
+  ensureNoMediaInDirSync(LOCAL_ASSETS_ROOT);
+  for (const legacyDir of LEGACY_PUBLIC_DIRS) {
+    migrated += migrateLegacyDirToVaultSync(legacyDir, LOCAL_ASSETS_ROOT);
+  }
+  const walkEnsureNoMedia = (d) => {
+    ensureNoMediaInDirSync(d);
+    try {
+      for (const ent of fs.readdirSync(d, { withFileTypes: true })) {
+        if (ent.isDirectory()) walkEnsureNoMedia(path.join(d, ent.name));
+      }
+    } catch (_) {}
+  };
+  walkEnsureNoMedia(LOCAL_ASSETS_ROOT);
+  res.json({
+    ok: true,
+    migratedCount: migrated,
     root: LOCAL_ASSETS_ROOT
   });
 });

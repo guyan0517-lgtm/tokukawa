@@ -427,7 +427,7 @@
           <span id="app-icon-box-stage" style="width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;border-radius:6px;">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           </span>
-          <span id="app-label-stage">舞台</span>
+          <span id="app-label-stage">开始</span>
         </button>
       </div>
     </section>
@@ -563,12 +563,13 @@
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;" id="persona-category-filter-bar">
             <button type="button" class="moe-btn" data-cat="all" onclick="onSelectPersonaCategoryFilter('all')">全部</button>
-            <button type="button" class="moe-btn secondary" data-cat="调查员" onclick="onSelectPersonaCategoryFilter('调查员')">主角</button>
-            <button type="button" class="moe-btn secondary" data-cat="NPC" onclick="onSelectPersonaCategoryFilter('NPC')">配角</button>
+            <button type="button" class="moe-btn secondary" data-cat="调查员" onclick="onSelectPersonaCategoryFilter('调查员')">调查员</button>
+            <button type="button" class="moe-btn secondary" data-cat="主要NPC" onclick="onSelectPersonaCategoryFilter('主要NPC')">主要NPC</button>
+            <button type="button" class="moe-btn secondary" data-cat="次要NPC" onclick="onSelectPersonaCategoryFilter('次要NPC')">次要NPC</button>
             <button type="button" class="moe-btn secondary" data-cat="universal" onclick="onSelectPersonaCategoryFilter('universal')">通用</button>
           </div>
           <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;line-height:1.5;">
-            按键说明：点右上角导包可导入包含全身立绘与二十五种表情差分的完整单人角色包；每个角色卡片右侧点导出可把该角色全部档案资料与全部立绘图片打包导出分享。
+            按键说明：点右上角导包可导入包含全身立绘与表情差分的完整单人角色包；每个角色卡片右侧点导出可把该角色全部档案资料与全部立绘图片打包导出分享。
           </div>
         </div>
         <div id="persona-char-grid"></div>
@@ -612,7 +613,8 @@
               <label>定位</label>
               <select id="oc-trpg-type" class="moe-input">
                 <option value="调查员">调查员</option>
-                <option value="NPC">NPC</option>
+                <option value="主要NPC">主要NPC</option>
+                <option value="次要NPC">次要NPC</option>
               </select>
             </div>
           </div>
@@ -866,6 +868,18 @@
                 </div>
               </div>
 
+              <!-- 容差、柔化与笔刷滑块条（置于立绘区域下方、切换差分上方） -->
+              <div class="setting-item" style="margin-bottom:10px;">
+                <div class="setting-item-center">
+                  <div class="setting-item-title">容差 <span id="tachie-tol-val">18</span> · 柔化 <span id="tachie-feather-val">1</span> · 笔刷 <span id="tachie-brush-val">16</span></div>
+                  <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+                    <input type="range" id="tachie-tolerance-slider" min="2" max="85" value="18" style="flex:1;" oninput="saveStudioSliderValue('tachie-tolerance-slider', 'tachie-tol-val', this.value)" />
+                    <input type="range" id="tachie-feather-slider" min="0" max="4" value="1" style="width:60px;" oninput="saveStudioSliderValue('tachie-feather-slider', 'tachie-feather-val', this.value)" />
+                    <input type="range" id="tachie-brush-size" min="1" max="44" value="16" style="width:70px;" oninput="saveStudioSliderValue('tachie-brush-size', 'tachie-brush-val', this.value)" />
+                  </div>
+                </div>
+              </div>
+
               <!-- 情绪差分选择格 -->
               <div style="margin-bottom:10px;padding:10px;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:10px;">
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
@@ -873,18 +887,6 @@
                 </div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;" id="tachie-exp-btn-group"></div>
                 <textarea id="tachie-custom-action-tags" class="moe-input" style="min-height:68px;background:var(--card-bg);" placeholder="standing, neutral expression, looking at viewer" oninput="saveCurrentStateActionTags(this.value)"></textarea>
-              </div>
-
-              <!-- 容差、柔化与笔刷滑块条 -->
-              <div class="setting-item">
-                <div class="setting-item-center">
-                  <div class="setting-item-title">容差 <span id="tachie-tol-val">18</span> · 柔化 <span id="tachie-feather-val">1</span> · 笔刷 <span id="tachie-brush-val">16</span></div>
-                  <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
-                    <input type="range" id="tachie-tolerance-slider" min="2" max="85" value="18" style="flex:1;" oninput="saveStudioSliderValue('tachie-tolerance-slider', 'tachie-tol-val', this.value)" />
-                    <input type="range" id="tachie-feather-slider" min="0" max="4" value="1" style="width:60px;" oninput="saveStudioSliderValue('tachie-feather-slider', 'tachie-feather-val', this.value)" />
-                    <input type="range" id="tachie-brush-size" min="4" max="44" value="16" style="width:70px;" oninput="saveStudioSliderValue('tachie-brush-size', 'tachie-brush-val', this.value)" />
-                  </div>
-                </div>
               </div>
 
               <!-- 当前首图预览与是否参考首图勾选开关 -->
@@ -1546,6 +1548,26 @@
               </div>
             </div>
           </div>
+          <div class="setting-item">
+            <div class="setting-item-center">
+              <div class="setting-item-title">全局立绘高度 · <span id="settings-global-tachie-offset-val">0</span></div>
+              <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+                <input type="range" id="settings-global-tachie-offset-slider" min="-180" max="180" step="1" value="0" style="flex:1;" oninput="onGlobalStageTachieSettingChange()" />
+              </div>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-item-center">
+              <div class="setting-item-title">全局立绘大小 · <span id="settings-global-tachie-scale-val">100</span>%</div>
+              <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+                <input type="range" id="settings-global-tachie-scale-slider" min="50" max="180" step="1" value="100" style="flex:1;" oninput="onGlobalStageTachieSettingChange()" />
+              </div>
+            </div>
+            <div class="setting-item-right">
+              <button type="button" class="moe-btn secondary" onclick="resetGlobalStageTachieSettingsUI()">复位</button>
+              <button type="button" class="moe-btn" onclick="saveGlobalStageTachieSettingsUI()">保存</button>
+            </div>
+          </div>
         </div>
 
         <div class="moe-card">
@@ -1963,6 +1985,7 @@
             <span class="moe-card-title">本地无损文件直存 安卓Termux</span>
             <div style="display:flex;gap:6px;">
               <button type="button" class="moe-btn secondary" onclick="testLocalBridgeConnectionUI()">检测</button>
+              <button type="button" class="moe-btn secondary" onclick="hideLocalGalleryImagesUI()">隐图</button>
               <button type="button" class="moe-btn secondary" onclick="cleanupUnusedAssetsUI(false)">清理</button>
               <button type="button" class="moe-btn" onclick="syncAllAssetsToLocalBridgeUI()">同步</button>
             </div>
@@ -4198,7 +4221,56 @@
       document.getElementById('minimax-speech-model-select').value = localStorage.getItem('minimax-speech-model') || 'speech-01-turbo';
       document.getElementById('minimax-test-voice-id').value = localStorage.getItem('minimax-test-voice-id') || 'male-qn-qingse';
 
+      const savedGlobalOffset = parseInt(localStorage.getItem('global-stage-tachie-offset-y') || '0', 10) || 0;
+      const savedGlobalScale = parseInt(localStorage.getItem('global-stage-tachie-scale-pct') || '100', 10) || 100;
+      const offsetSlider = document.getElementById('settings-global-tachie-offset-slider');
+      const offsetValEl = document.getElementById('settings-global-tachie-offset-val');
+      const scaleSlider = document.getElementById('settings-global-tachie-scale-slider');
+      const scaleValEl = document.getElementById('settings-global-tachie-scale-val');
+      if (offsetSlider) offsetSlider.value = String(savedGlobalOffset);
+      if (offsetValEl) offsetValEl.textContent = String(savedGlobalOffset);
+      if (scaleSlider) scaleSlider.value = String(savedGlobalScale);
+      if (scaleValEl) scaleValEl.textContent = String(savedGlobalScale);
+      const termuxTa = document.getElementById('termux-local-bridge-cmd');
+      if (termuxTa && typeof buildTermuxLocalBridgeCommandString === 'function') {
+        termuxTa.value = buildTermuxLocalBridgeCommandString();
+      }
+
       renderApiConsoleLogs();
+    }
+
+    function onGlobalStageTachieSettingChange() {
+      const offsetSlider = document.getElementById('settings-global-tachie-offset-slider');
+      const offsetValEl = document.getElementById('settings-global-tachie-offset-val');
+      const scaleSlider = document.getElementById('settings-global-tachie-scale-slider');
+      const scaleValEl = document.getElementById('settings-global-tachie-scale-val');
+      const offsetY = parseInt(offsetSlider?.value || '0', 10) || 0;
+      const scalePct = parseInt(scaleSlider?.value || '100', 10) || 100;
+      if (offsetValEl) offsetValEl.textContent = String(offsetY);
+      if (scaleValEl) scaleValEl.textContent = String(scalePct);
+      localStorage.setItem('global-stage-tachie-offset-y', String(offsetY));
+      localStorage.setItem('global-stage-tachie-scale-pct', String(scalePct));
+      if (typeof renderTheaterCurrentLine === 'function') {
+        renderTheaterCurrentLine();
+      }
+    }
+
+    function saveGlobalStageTachieSettingsUI() {
+      onGlobalStageTachieSettingChange();
+      saveAllApiSettings();
+      if (typeof renderTheaterCurrentLine === 'function') {
+        renderTheaterCurrentLine();
+      }
+      const outMain = document.getElementById('llm-test-output');
+      if (outMain) outMain.textContent = '全局立绘高度与全局立绘大小已保存并实时同步至舞台';
+    }
+
+    function resetGlobalStageTachieSettingsUI() {
+      const offsetSlider = document.getElementById('settings-global-tachie-offset-slider');
+      const scaleSlider = document.getElementById('settings-global-tachie-scale-slider');
+      if (offsetSlider) offsetSlider.value = '0';
+      if (scaleSlider) scaleSlider.value = '100';
+      saveGlobalStageTachieSettingsUI();
     }
 
     function saveAllApiSettings() {
@@ -4425,6 +4497,10 @@
       }
     }
 
+    const _workingLlmEndpointCache = new Map();
+    let _serverProxyUnavailable = typeof location !== 'undefined' && /github\.io$/i.test(location.hostname || '');
+    let _stickyWorkingApiRoute = '';
+
     async function executeSingleLlmRequest(endpointConfig, messages, onStreamDelta) {
       const rawUrl = String(endpointConfig.url || '').trim().replace(/\/+$/, '');
       const apiKey = String(endpointConfig.key || '').trim();
@@ -4435,11 +4511,20 @@
         throw new Error(`请先在设置面板填写${endpointConfig.apiType}地址与 Key`);
       }
 
-      const reqUrl = rawUrl.endsWith('/v1')
+      const candidateUrls = [];
+      if (_workingLlmEndpointCache.has(rawUrl)) {
+        candidateUrls.push(_workingLlmEndpointCache.get(rawUrl));
+      }
+      const primaryUrl = rawUrl.endsWith('/v1')
         ? `${rawUrl}/chat/completions`
         : rawUrl.includes('/chat/completions')
           ? rawUrl
           : `${rawUrl}/v1/chat/completions`;
+      if (!candidateUrls.includes(primaryUrl)) candidateUrls.push(primaryUrl);
+      if (!rawUrl.endsWith('/v1') && !rawUrl.includes('/chat/completions')) {
+        const altUrl = `${rawUrl}/chat/completions`;
+        if (!candidateUrls.includes(altUrl)) candidateUrls.push(altUrl);
+      }
 
       const headers = {
         'Content-Type': 'application/json',
@@ -4452,30 +4537,69 @@
         stream: useStream
       };
 
-      let response;
-      try {
-        response = await fetch(reqUrl, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(bodyObj)
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      } catch (_) {
-        response = await fetch('/api/proxy', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            url: reqUrl,
+      let response = null;
+      let lastDirectResponse = null;
+      let lastFetchErr = null;
+
+      for (const reqUrl of candidateUrls) {
+        try {
+          const directRes = await fetch(reqUrl, {
             method: 'POST',
             headers,
-            body: bodyObj
-          })
-        });
+            body: JSON.stringify(bodyObj)
+          });
+          if (directRes.ok) {
+            _workingLlmEndpointCache.set(rawUrl, reqUrl);
+            response = directRes;
+            break;
+          }
+          lastDirectResponse = directRes;
+          if (directRes.status !== 404 && directRes.status !== 405) {
+            break;
+          }
+        } catch (err) {
+          lastFetchErr = err;
+        }
       }
 
-      if (!response.ok) {
-        const errTxt = await response.text().catch(() => '');
-        throw new Error(`请求失败 ${response.status}: ${errTxt.slice(0, 160)}`);
+      if (!response && !_serverProxyUnavailable) {
+        for (const reqUrl of candidateUrls) {
+          try {
+            const proxyRes = await fetch('/api/proxy', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                url: reqUrl,
+                method: 'POST',
+                headers,
+                body: bodyObj
+              })
+            });
+            if (proxyRes.ok) {
+              _workingLlmEndpointCache.set(rawUrl, reqUrl);
+              response = proxyRes;
+              break;
+            }
+            if (proxyRes.status === 404 || proxyRes.status === 405) {
+              _serverProxyUnavailable = true;
+              break;
+            }
+            if (!lastDirectResponse) {
+              lastDirectResponse = proxyRes;
+            }
+          } catch (_) {
+            _serverProxyUnavailable = true;
+            break;
+          }
+        }
+      }
+
+      if (!response) {
+        if (lastDirectResponse) {
+          const errTxt = await lastDirectResponse.text().catch(() => '');
+          throw new Error(`请求失败 ${lastDirectResponse.status}: ${errTxt.slice(0, 160)}`);
+        }
+        throw lastFetchErr || new Error('网络连接失败，请检查接口地址与跨域设置');
       }
 
       if (useStream && response.body) {
@@ -4531,32 +4655,15 @@
         model: document.getElementById('sub-llm-model-select').value,
         stream: document.getElementById('sub-llm-stream-switch').checked
       };
+      const hasValidMain = Boolean(mainConfig.url && mainConfig.key);
       const hasValidSub = Boolean(subEnabled && subConfig.url && subConfig.key);
-
-      if (options.forceSubApi || (options.preferSubApi && hasValidSub)) {
-        try {
-          const text = await executeSingleLlmRequest(subConfig, messages, onStreamDelta);
-          appendApiConsoleLog({
-            caller,
-            apiType: '副API',
-            target: subConfig.model,
-            ok: true,
-            detail: `返回 ${text.length} 字`
-          });
-          return text;
-        } catch (subErr) {
-          appendApiConsoleLog({
-            caller,
-            apiType: '副API',
-            target: subConfig.model,
-            ok: false,
-            detail: `报错：${subErr.message}`
-          });
-          if (options.forceSubApi) throw subErr;
-        }
+      const routeSig = `${mainConfig.url}|${mainConfig.model}||${subEnabled ? subConfig.url : ''}|${subConfig.model}`;
+      if (window._lastLlmRouteSig !== routeSig) {
+        window._lastLlmRouteSig = routeSig;
+        _stickyWorkingApiRoute = '';
       }
 
-      try {
+      if (options.forceMainApi) {
         const text = await executeSingleLlmRequest(mainConfig, messages, onStreamDelta);
         appendApiConsoleLog({
           caller,
@@ -4566,37 +4673,78 @@
           detail: `返回 ${text.length} 字`
         });
         return text;
-      } catch (mainErr) {
+      }
+
+      if (options.forceSubApi) {
+        const text = await executeSingleLlmRequest(subConfig, messages, onStreamDelta);
         appendApiConsoleLog({
           caller,
-          apiType: '主API',
-          target: mainConfig.model,
-          ok: false,
-          detail: `报错：${mainErr.message}`
+          apiType: '副API',
+          target: subConfig.model,
+          ok: true,
+          detail: `返回 ${text.length} 字`
         });
-        if (!options.forceMainApi && hasValidSub) {
+        return text;
+      }
+
+      const trySubFirst = hasValidSub && (
+        _stickyWorkingApiRoute === 'sub' ||
+        (_stickyWorkingApiRoute !== 'main' && (options.preferSubApi || !hasValidMain))
+      );
+
+      const firstCfg = trySubFirst ? subConfig : mainConfig;
+      const secondCfg = trySubFirst ? (hasValidMain ? mainConfig : null) : (hasValidSub ? subConfig : null);
+
+      try {
+        const text = await executeSingleLlmRequest(firstCfg, messages, onStreamDelta);
+        _stickyWorkingApiRoute = firstCfg.apiType === '副API' ? 'sub' : 'main';
+        appendApiConsoleLog({
+          caller,
+          apiType: firstCfg.apiType,
+          target: firstCfg.model,
+          ok: true,
+          detail: `返回 ${text.length} 字`
+        });
+        return text;
+      } catch (firstErr) {
+        if (secondCfg) {
           try {
-            const fallbackText = await executeSingleLlmRequest(subConfig, messages, onStreamDelta);
+            const fallbackText = await executeSingleLlmRequest(secondCfg, messages, onStreamDelta);
+            _stickyWorkingApiRoute = secondCfg.apiType === '副API' ? 'sub' : 'main';
             appendApiConsoleLog({
-              caller: `${caller}·副接口接管`,
-              apiType: '副API',
-              target: subConfig.model,
+              caller,
+              apiType: secondCfg.apiType,
+              target: secondCfg.model,
               ok: true,
-              detail: `主接口报错后自动接管，返回 ${fallbackText.length} 字`
+              detail: `返回 ${fallbackText.length} 字`
             });
             return fallbackText;
-          } catch (subFallbackErr) {
+          } catch (secondErr) {
             appendApiConsoleLog({
-              caller: `${caller}·副接口接管`,
-              apiType: '副API',
-              target: subConfig.model,
+              caller,
+              apiType: firstCfg.apiType,
+              target: firstCfg.model,
               ok: false,
-              detail: `报错：${subFallbackErr.message}`
+              detail: `报错：${firstErr.message}`
             });
-            throw subFallbackErr;
+            appendApiConsoleLog({
+              caller: `${caller}·备用接口`,
+              apiType: secondCfg.apiType,
+              target: secondCfg.model,
+              ok: false,
+              detail: `报错：${secondErr.message}`
+            });
+            throw secondErr;
           }
         }
-        throw mainErr;
+        appendApiConsoleLog({
+          caller,
+          apiType: firstCfg.apiType,
+          target: firstCfg.model,
+          ok: false,
+          detail: `报错：${firstErr.message}`
+        });
+        throw firstErr;
       }
     }
 
@@ -5170,8 +5318,15 @@
 
     function buildTermuxLocalBridgeCommandString() {
       const pyScript = [
-        "import os, json, base64, urllib.parse, mimetypes, http.server, socketserver",
+        "import os, shutil, subprocess, json, base64, urllib.parse, mimetypes, http.server, socketserver",
         "candidates = [",
+        "    os.path.expanduser('~/storage/shared/Download/.HakoniwaVault'),",
+        "    os.path.expanduser('~/storage/shared/.HakoniwaVault'),",
+        "    '/sdcard/Download/.HakoniwaVault',",
+        "    '/sdcard/.HakoniwaVault',",
+        "    os.path.expanduser('~/.HakoniwaVault')",
+        "]",
+        "legacy_dirs = [",
         "    os.path.expanduser('~/storage/shared/Download/HakoniwaData'),",
         "    os.path.expanduser('~/storage/shared/HakoniwaData'),",
         "    '/sdcard/Download/HakoniwaData',",
@@ -5199,9 +5354,53 @@
         "    except Exception:",
         "        pass",
         "",
-        "ensure_nomedia(root)",
-        "for dp, dn, fn in os.walk(root):",
-        "    ensure_nomedia(dp)",
+        "def migrate_and_hide_gallery():",
+        "    ensure_nomedia(root)",
+        "    moved = 0",
+        "    seen = set()",
+        "    for old_d in legacy_dirs:",
+        "        try:",
+        "            rp = os.path.realpath(old_d)",
+        "            if rp in seen or not os.path.isdir(old_d) or rp == os.path.realpath(root):",
+        "                continue",
+        "            seen.add(rp)",
+        "            for dp, dn, fn in os.walk(old_d, topdown=False):",
+        "                rel_dir = os.path.relpath(dp, old_d)",
+        "                dst_dir = root if rel_dir == '.' else os.path.join(root, rel_dir)",
+        "                ensure_nomedia(dst_dir)",
+        "                for f in fn:",
+        "                    src_f = os.path.join(dp, f)",
+        "                    dst_f = os.path.join(dst_dir, f)",
+        "                    if f in ('.wt', '.nomedia'):",
+        "                        try: os.remove(src_f)",
+        "                        except Exception: pass",
+        "                        continue",
+        "                    try:",
+        "                        if os.path.exists(dst_f):",
+        "                            os.remove(dst_f)",
+        "                        shutil.move(src_f, dst_f)",
+        "                        moved += 1",
+        "                    except Exception:",
+        "                        try:",
+        "                            shutil.copy2(src_f, dst_f)",
+        "                            os.remove(src_f)",
+        "                            moved += 1",
+        "                        except Exception: pass",
+        "            shutil.rmtree(old_d, ignore_errors=True)",
+        "            for cmd in (",
+        "                ['am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', 'file://' + old_d],",
+        "                ['am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', 'file://' + os.path.dirname(old_d)],",
+        "                ['termux-media-scan', '-r', os.path.dirname(old_d)]",
+        "            ):",
+        "                try: subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)",
+        "                except Exception: pass",
+        "        except Exception:",
+        "            pass",
+        "    for dp, dn, fn in os.walk(root):",
+        "        ensure_nomedia(dp)",
+        "    return moved",
+        "",
+        "migrate_and_hide_gallery()",
         "",
         "class S(socketserver.ThreadingMixIn, http.server.HTTPServer):",
         "    allow_reuse_address = True",
@@ -5250,7 +5449,17 @@
         "    def do_POST(s):",
         "        try:",
         "            n = int(s.headers.get('Content-Length', '0'))",
-        "            d = json.loads(s.rfile.read(n).decode('utf-8'))",
+        "            d = json.loads(s.rfile.read(n).decode('utf-8')) if n > 0 else {}",
+        "            if s.path.startswith('/hide-gallery'):",
+        "                m_cnt = migrate_old_dirs(root)",
+        "                ensure_nomedia(root)",
+        "                scan_media([root] + old_candidates)",
+        "                s.send_response(200)",
+        "                s._cors()",
+        "                s.send_header('Content-Type', 'application/json; charset=utf-8')",
+        "                s.end_headers()",
+        "                s.wfile.write(json.dumps({'ok': True, 'root': root, 'migratedCount': m_cnt}).encode('utf-8'))",
+        "                return",
         "            if s.path.startswith('/cleanup'):",
         "                act = set(str(x).split('?')[0].lstrip('/').replace('..', '_') for x in d.get('activePaths', []))",
         "                rm = 0",
@@ -5304,8 +5513,8 @@
         "            s.wfile.write(json.dumps({'ok': False, 'error': str(e)}).encode('utf-8'))",
         "",
         "print('=== 箱庭物语本地直存已启动 ===', flush=True)",
-        "print('本地根目录:', root, flush=True)",
-        "print('已自动写入 .nomedia 防相册扫描标记', flush=True)",
+        "print('本地隐藏根目录:', root, flush=True)",
+        "print('已自动迁移旧图片至隐藏目录并触发相册刷新，软件内显示完全不受影响', flush=True)",
         "print('服务地址: http://127.0.0.1:8765', flush=True)",
         "S(('0.0.0.0', 8765), H).serve_forever()",
         ""
@@ -5324,7 +5533,54 @@
         document.execCommand('copy');
       });
       if (statusBox) {
-        statusBox.textContent = '已复制新版 Termux 启动命令！已内置自动生成 .nomedia 隐藏标记，本地立绘与素材将不再显示在手机相册中。';
+        statusBox.textContent = '已复制新版 Termux 启动命令！运行后将自动把之前保存的旧图片迁入隐藏目录并从手机相册移除，软件内显示完全不受影响。';
+      }
+    }
+
+    async function hideLocalGalleryImagesUI() {
+      const ta = document.getElementById('termux-local-bridge-cmd');
+      if (ta) ta.value = buildTermuxLocalBridgeCommandString();
+      const statusBox = document.getElementById('local-bridge-status-box');
+      if (statusBox) statusBox.textContent = '正在将以前储存的图片迁入隐藏目录并通知手机相册刷新移除...';
+      await ensureLocalBridgeNoMediaForRelPath('characters/init.png').catch(() => {});
+      let done = false;
+      let migrated = 0;
+      let rootPath = '';
+      const baseUrl = getLocalBridgeBaseUrl();
+      if (await checkLocalBridgeEndpointAlive(baseUrl)) {
+        try {
+          const resp = await fetch(`${baseUrl}/hide-gallery`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+          });
+          const data = await resp.json().catch(() => ({}));
+          if (resp.ok && data && data.ok) {
+            done = true;
+            migrated = Number(data.migratedCount) || 0;
+            rootPath = data.root || '';
+          }
+        } catch (_) {}
+      }
+      try {
+        const resp2 = await fetch('/api/local-assets/hide-gallery', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        const data2 = await resp2.json().catch(() => ({}));
+        if (resp2.ok && data2 && data2.ok) {
+          done = true;
+          migrated += Number(data2.migratedCount) || 0;
+          if (!rootPath) rootPath = data2.root || '';
+        }
+      } catch (_) {}
+      if (statusBox) {
+        if (done) {
+          statusBox.textContent = `相册隐图完成！已将 ${migrated} 个历史图片文件迁入隐藏目录 ${rootPath || '.HakoniwaVault'} 并通知手机相册清除缩略图，软件内立绘与CG显示完全不变。`;
+        } else {
+          statusBox.textContent = '已发送防相册扫描标记。若手机相册仍有旧图片，请点上方复制按钮并在 Termux 重新运行一次最新启动命令，即可自动迁移旧文件夹并从相册彻底消失。';
+        }
       }
     }
 
@@ -6291,7 +6547,7 @@
           e.preventDefault();
           const curDist = Math.max(10, getTouchDist(e.touches[0], e.touches[1]));
           const curCenter = getTouchCenter(e.touches[0], e.touches[1]);
-          st.scale = Math.max(0.5, Math.min(4.0, pinchStartScale * (curDist / pinchStartDist)));
+          st.scale = Math.max(0.25, Math.min(16.0, pinchStartScale * (curDist / pinchStartDist)));
           st.x = pinchStartX + (curCenter.x - pinchCenterStart.x);
           st.y = pinchStartY + (curCenter.y - pinchCenterStart.y);
           applyStageZoomTransform(target);
@@ -6316,8 +6572,9 @@
       container.addEventListener('wheel', (e) => {
         e.preventDefault();
         const st = appState.stageZoomState[target];
-        const delta = e.deltaY < 0 ? 0.12 : -0.12;
-        st.scale = Math.max(0.5, Math.min(4.0, Number((st.scale + delta).toFixed(2))));
+        const step = Math.max(0.12, st.scale * 0.14);
+        const delta = e.deltaY < 0 ? step : -step;
+        st.scale = Math.max(0.25, Math.min(16.0, Number((st.scale + delta).toFixed(2))));
         applyStageZoomTransform(target);
       }, { passive: false });
     }
@@ -6461,12 +6718,21 @@
       }
     }
 
-    function setTachieBrushMode(mode) {
+    async function setTachieBrushMode(mode) {
+      const prevMode = appState.tachieBrushMode;
       appState.tachieBrushMode = mode;
       ['none', 'wand', 'lasso', 'erase', 'restore'].forEach((m) => {
         const btn = document.getElementById(`tachie-brush-${m}-btn`);
         if (btn) btn.className = m === mode ? 'moe-btn' : 'moe-btn secondary';
       });
+      if (mode === 'none' && prevMode && prevMode !== 'none' && appState.tachieWorkingDataUrl) {
+        const charObj = appState.characters.find((c) => c.id === appState.selectedTachieCharId);
+        const expKey = appState.selectedTachieExp || '默认';
+        const tightlyCropped = await normalizeTachieSpriteScale(appState.tachieWorkingDataUrl, appState.tachieAlignedRawDataUrl || appState.tachieRawDataUrl);
+        if (tightlyCropped) {
+          commitAndPersistTachieCutout(charObj, expKey, tightlyCropped);
+        }
+      }
       syncInteractiveBrushCanvas('tachie');
     }
 
@@ -6905,11 +7171,9 @@
       }
     }
 
-    // 仅过滤运动鞋词汇，绝不自动替换或篡改用户写的任何服装词
+    // 不强制篡改或替换任何服装与鞋类词，完全按角色设定自由设计衣服
     function sanitizeFantasyOutfitPrompt(rawTags) {
-      return String(rawTags || '')
-        .replace(/\b(sneakers|running shoes|athletic shoes|tennis shoes|canvas shoes|trainers|basketball shoes|sport shoes)\b/gi, 'leather boots')
-        .replace(/运动鞋|球鞋|帆布鞋|旅游鞋|跑鞋/g, '皮靴');
+      return String(rawTags || '');
     }
 
     // 获取角色人设中的随身武器或调查员道具，严禁凭空捏造魔法权杖或超能力器物，默认采用写实克苏鲁调查员小刀或手枪
@@ -6947,7 +7211,7 @@
     ];
 
     const MINOR_NPC_8_EXPRESSIONS = [
-      '默认','开心','愤怒','伤心','害羞','疯狂','拿起武器','冷漠'
+      '默认','开心','惊讶','愤怒','伤心','害羞','慌乱','疯狂','拿起武器','冷漠'
     ];
 
     const BUILTIN_STANDING_EXP_TAGS = {
@@ -6993,7 +7257,7 @@
     };
 
     function buildPersonaMatchedActions(charObj) {
-      const isMinorNpc = charObj && charObj.trpgType === '次要NPC';
+      const isMinorNpc = Boolean(charObj && (charObj.trpgType === '次要NPC' || charObj.trpgRoleType === '次要NPC'));
       const baseList = isMinorNpc ? MINOR_NPC_8_EXPRESSIONS : TACHIE_25_EXPRESSIONS;
       return baseList.map((name) => ({
         name,
@@ -7176,9 +7440,10 @@
       return out.join(', ');
     }
 
-    // 剥离基础提示词里的任何虎牙、尖牙、镜头角度、站姿、手势、视线、表情词与设定集小头像触发词，确保基础提示词100%只保留纯粹的角色外貌特征与全身服装配饰
+    // 剥离基础提示词里的任何虎牙、尖牙、成熟大叔马脸词、镜头角度、站姿、手势、视线、表情词与设定集小头像触发词，确保基础提示词100%只保留纯粹的角色外貌特征与全身服装配饰
     function stripBasePoseAndExpFromPrompt(basePrompt) {
       return stripMultiHeadAndSpriteSheetTags(basePrompt)
+        .replace(/\b(mature male|mature man|middle-aged|middle aged|old man|older man|aging|wrinkles|long face|horse face|masculine face|rough face|facial hair|beard|mustache|stubble|bara)\b\s*,?/gi, '')
         .replace(/\b(cute fang|single fang|twin fangs|little fang|small fang|sharp fang|sharp fangs|fangs|fang|snaggletooth|sharp teeth|bared teeth|clenched teeth|grin|smirk)\b\s*,?/gi, '')
         .replace(/虎牙|小虎牙|尖牙|獠牙/g, '')
         .replace(/,\s*(slight confident smile|gentle warm smile|gentle smile|slight smile|lazy smile|warm smile|playful smile|sweet smile|bright open laughing smile|tender affectionate smile|neutral expression|calm neutral expression|cold expression|calm expression|stern expression|serene emotionless face|serene gentle expression|serene expression|calm authoritative expression|shy expression|flustered expression|teasing expression|surprised expression|shocked expression|flustered panicked expression|thoughtful serious expression|cold indifferent expression|arrogant sneer|angry expression|furious expression|sad melancholic expression|fragile expression|despair expression|tipsy expression|playful smirk|knowing smirk|condescending gaze|intense glare|sharp glare|averted gaze|downcast eyes|hollow gaze|empty lifeless eyes|contracted pupils|wide staring eyes|wide eyes|softened eyes|soft eyes|cheerful eyes|half-closed eyes|red-rimmed eyes|furrowed brows|raised eyebrow|parted lips|parted trembling lips|trembling lips|biting lower lip|bared teeth|blush on cheeks|deep red blush|soft pink blush|sweatdrop on cheek|silent tears|single tear rolling down cheek|tears flowing down cheeks|streaming tears|crying|one hand on hip|one hand resting near hip|one hand lightly resting over chest|one hand lightly resting near chest|one hand lightly touching own neck or collar|one hand tugging collar|one hand gesturing near chin|one hand raised near chest level|one arm held out slightly in disbelief|waving both hands at different heights in front of chest|one hand touching chin|other arm folded across waist|arms folded across chest|crossed arms|one hand resting on hip or coat lapel|one hand clenched into fist near chest|one arm extended pointing or sweeping outward|one hand clutching chest fabric|one hand pressed against heart|one hand lightly holding sleeve|clutching chest clothes tightly with one hand|one hand loosening collar or resting on hip|other arm slightly raised|extending one hand slightly toward viewer|holding cute fluffy pet|glowing blue cocktail|holding teacup|cocktail shaker|gavel|tarot cards|quill pen|holding lantern|holding keys|looking at viewer|looking down at viewer|looking down slightly|looking back over shoulder|facing viewer|front view|side view|side profile view|from behind|back view|three-quarter back view|three-quarter view|three-quarter angle|three-quarter side stance|arms at sides|arms naturally at sides|arms relaxed at sides|standing straight|graceful contrapposto standing posture|dignified contrapposto posture|energetic contrapposto posture|calm composed standing posture|weight shifted to one leg|weight on one leg|weight on back foot|relaxed natural posture|slight head tilt|head tilted|head tilted back slightly|lowered head|chin slightly raised|asymmetrical standing pose|asymmetrical posture|asymmetrical stance|asymmetrical aggressive stance|dynamic contrapposto pose|dynamic angled body|dynamic angled posture|leaning slightly forward|leaning forward slightly|leaning back slightly|leaning to one side|cocked hip|turned slightly sideways|turned slightly away|stepping back half a step|stepping backward|off-balance asymmetrical pose|angled side posture|tilted shoulders|slumped asymmetrical posture|hunched angled posture|trembling shoulders|swaying asymmetrical posture|cheerful|gentle|calm)\b/gi, '')
@@ -7318,7 +7583,7 @@
       });
     }
 
-    // 将去白底后的正比大立绘自动顶格缩放到统一832x1216画布高度，彻底消除四周多余空白
+    // 将去白底后的正比大立绘自动紧贴外边缘裁切并顶格缩放到标准高度，彻底消除左右与上下多余空白，使外边缘完全顶格
     function normalizeTachieSpriteScale(transparentFullDataUrl, rawFullDataUrl) {
       return new Promise((resolve) => {
         if (!transparentFullDataUrl) return resolve(transparentFullDataUrl);
@@ -7337,15 +7602,13 @@
           const { minX, minY, maxX, maxY } = findCharacterTightBounds(data, w, h);
           const bboxW = Math.max(1, maxX - minX + 1);
           const bboxH = Math.max(1, maxY - minY + 1);
-          const canvasW = 832;
-          const canvasH = 1216;
-          const targetCharHeight = 1188;
+          const targetCharHeight = 1216;
           const scale = targetCharHeight / bboxH;
 
-          const drawW = Math.round(bboxW * scale);
-          const drawH = Math.round(bboxH * scale);
-          const dx = Math.round((canvasW - drawW) / 2);
-          const dy = Math.round((canvasH - 4) - drawH);
+          const drawW = Math.max(1, Math.round(bboxW * scale));
+          const drawH = Math.max(1, Math.round(bboxH * scale));
+          const canvasW = drawW;
+          const canvasH = drawH;
 
           const canvas = document.createElement('canvas');
           canvas.width = canvasW;
@@ -7353,20 +7616,28 @@
           const ctx = canvas.getContext('2d');
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(img, minX, minY, bboxW, bboxH, dx, dy, drawW, drawH);
+          ctx.drawImage(img, minX, minY, bboxW, bboxH, 0, 0, drawW, drawH);
           const normalizedSprite = canvas.toDataURL('image/png');
 
           if (rawFullDataUrl) {
             const rawImg = new Image();
             rawImg.crossOrigin = 'anonymous';
             rawImg.onload = () => {
+              const rw = rawImg.width || w;
+              const rh = rawImg.height || h;
+              const rxScale = rw / Math.max(1, w);
+              const ryScale = rh / Math.max(1, h);
+              const rMinX = Math.max(0, Math.round(minX * rxScale));
+              const rMinY = Math.max(0, Math.round(minY * ryScale));
+              const rBboxW = Math.max(1, Math.min(rw - rMinX, Math.round(bboxW * rxScale)));
+              const rBboxH = Math.max(1, Math.min(rh - rMinY, Math.round(bboxH * ryScale)));
               const rawCanvas = document.createElement('canvas');
               rawCanvas.width = canvasW;
               rawCanvas.height = canvasH;
               const rctx = rawCanvas.getContext('2d');
               rctx.fillStyle = '#ffffff';
               rctx.fillRect(0, 0, canvasW, canvasH);
-              rctx.drawImage(rawImg, minX, minY, bboxW, bboxH, dx, dy, drawW, drawH);
+              rctx.drawImage(rawImg, rMinX, rMinY, rBboxW, rBboxH, 0, 0, drawW, drawH);
               appState.tachieAlignedRawDataUrl = rawCanvas.toDataURL('image/png');
               resolve(normalizedSprite);
             };
@@ -7484,7 +7755,7 @@
         const cm = charObj.heightCm || DEFAULT_HEIGHT_MAP[charObj.id] || 175;
         const wt = getCharSignatureWeaponOrTool(charObj);
         const moduleContext = getSelectedTachieModuleVolumeContext(charObj.name);
-        const isMinorNpc = charObj.trpgRoleType === '次要NPC';
+        const isMinorNpc = Boolean(charObj.trpgRoleType === '次要NPC' || charObj.trpgType === '次要NPC');
         const baseTemplateActions = buildPersonaMatchedActions(charObj);
         const actPromptLines = baseTemplateActions
           .map((act, idx) => `ACT${idx + 1}: ${act.name}|${act.zhDesc}|${act.enTags}`)
@@ -7493,13 +7764,13 @@
         const sys = `你是顶级克苏鲁跑团调查员视觉小说角色立绘主美与 NovelAI V4.5 提示词专家。请仔细阅读用户输入的角色人设以及所选模组卷数中的剧情细节，一次性同步完成以下内容：
 第一部分：完全不含任何表情、不含任何动作、且绝对不含虎牙尖牙的正比全身立绘纯外貌加衣服底词 BASE_TAGS；
 第二部分：默认站姿与全部${baseTemplateActions.length}个必选状态差分的专属动作与表情提示词 ACT1 至 ACT${baseTemplateActions.length}；
-第三部分：根据角色在模组文章中的性格、习惯与随身携带道具，额外设计一至两个贴合模组表现的专属额外差分 EXTRA1 至 EXTRA2。
+${isMinorNpc ? '' : '第三部分：根据角色在模组文章中的性格、习惯与随身携带道具，额外设计一至两个贴合模组表现的专属额外差分 EXTRA1 至 EXTRA2。'}
 
 必须严格遵守以下八条铁律：
 第一条：如果用户上传了参考图，你只能提取参考图中的五官特征、发色发型、刘海分缝、服装版型与配饰细节；绝对禁止抄袭参考图原有的歪斜姿势、半身构图、镜头角度或原有表情。
-第二条：如果该角色是成年男性，正比立绘 BASE_TAGS 中必须明确写上成年男性与细长眼睛标签：1boy, mature male, adult man, narrow eyes, slender eyes, tsurime, long eyelashes，严禁写成圆眼幼态少年。
+第二条：所有调查员与男性角色全员都是好看漂亮的俊美青年美型画风，角色之间年龄差很小，可以是成年人但绝对不能写成熟！如果是男性角色，正比立绘 BASE_TAGS 中必须写上俊美青年美少年与精致脸型标签：1boy, bishounen, handsome young man, pretty face, delicate facial features, narrow eyes, slender eyes, tsurime, long eyelashes，绝对禁止写 mature male, mature man, middle-aged, old, long face, horse face 等任何让男性变得成熟苍老或马脸的词汇！
 第三条：BASE_TAGS 只能包含纯粹的人物外貌五官、发色发型、身材特征以及从头到脚的衣服鞋靴配饰！BASE_TAGS 中绝对禁止包含虎牙、小虎牙、尖牙即 fang, fangs, snaggletooth, sharp teeth，绝对禁止包含任何面部表情如 smile, grin, smirk, blush，绝对禁止包含任何动作姿态或手势！BASE_TAGS 必须以 solo, single character 开头确保画面只有唯一一个全身人物。
-第四条：OUTFIT_ZH 中文服装方案只允许写纯粹客观的衣物款式、版型、颜色、材质、花纹与配饰清单，禁止写主观吹捧修辞。服装必须贴合角色人设身份，绝对禁止写现代运动鞋 sneakers, running shoes, athletic shoes, canvas shoes, trainers。
+第四条：OUTFIT_ZH 中文服装方案只允许写纯粹客观的衣物款式、版型、颜色、材质、花纹与配饰清单，禁止写主观吹捧修辞。服装与鞋履根据角色自身人设、年龄与职业自由设计即可。
 第五条：ACT1 默认状态必须是平静无表情的自然默认站姿：three-quarter view, calm composed standing posture, neutral expressionless face, calm closed mouth, arms relaxed naturally at sides, looking at viewer，绝不在默认状态咧嘴露牙或做夸张动作。
 第六条：编写全部${baseTemplateActions.length}个必选差分与额外差分时，必须同步在写词阶段一次性全部写好。每个差分只允许写身体朝向角度、站立肢体动作、手势与面部五官表情，绝对禁止在 ACT 差分词里重复写 BASE_TAGS 外貌服装词，也绝对禁止在 ACT 差分词里写 1girl、1boy、solo 等人数性别词！每个差分可以换角度，可以换四十五度角 three-quarter view、正侧面 side profile view、斜侧面 angled side view、背面或背身回眸 from behind, looking back over shoulder，动作可以有重心不稳或动态倾斜 standing off-balance, dynamic standing pose，但无论如何人物都必须是站着的 standing, full body standing，绝对不能让他坐下，严禁出现坐姿、跪姿、蹲姿、睡姿、躺姿！
 第七条：这是一个克苏鲁调查员世界观，没有魔法超能力！拿起武器、备战、出招、决胜以及日常手持物必须严格依据角色人设中的「武器随身携带道具」即${wt.zh}来写，一般为写实小刀、匕首、左轮手枪、警棍、手电筒或笔记本，绝对禁止妄自揣测编写魔法权杖、发光神剑、悬浮塔罗、茶壶或超能力特效！
@@ -7516,14 +7787,14 @@ EXTRA2: 两个字额外差分名如探查|结合模组与随身道具的特色�
         }
         const personaDesc = editedPersonaBox || `名字：${charObj.name}\n身份定位：${isMinorNpc ? '次要NPC' : (charObj.trpgRoleType || '调查员或主要NPC')}\n年龄：${charObj.age || ''}\n真实身高：${cm}cm\n外貌：${charObj.body || ''}\n性格：${charObj.quirk || ''}\n背景：${charObj.surface || ''}\n武器随身携带道具：${charObj.weapon || wt.zh}`;
 
-        const usrText = `请根据以下角色人设${moduleContext ? '以及所选模组卷数中的人物表现' : ''}，先编写完全不含任何表情、动作与虎牙的纯外貌加衣服底词 BASE_TAGS，再同步写好全部 ${baseTemplateActions.length} 个必选差分动作词与额外模组差分动作词。注意武器必须使用写实调查员武器${wt.zh}，绝不编造魔法超能力道具：
+        const usrText = `请根据以下角色人设${moduleContext ? '以及所选模组卷数中的人物表现' : ''}，先编写完全不含任何表情、动作与虎牙的纯外貌加衣服底词 BASE_TAGS，再同步写好全部 ${baseTemplateActions.length} 个必选差分动作词与额外模组差分动作词。注意所有调查员与男性角色全员高颜值年轻美型、年龄差小，严禁写任何成熟或显老词汇，武器必须使用写实调查员武器${wt.zh}，绝不编造魔法超能力道具：
 角色人设要求：
 ${personaDesc}${moduleContext ? `\n\n模组文章参考内容：\n${moduleContext}` : ''}`;
 
         const hasRefImgs = Array.isArray(appState.designRefImages) && appState.designRefImages.length > 0;
         const userContent = hasRefImgs
           ? [
-              { type: 'text', text: usrText + '\n已附带参考图，请只提取图中的五官发型与服装配饰细节，严禁抄袭图中的原有姿势或表情，且严禁出现运动鞋等现代服饰！' },
+              { type: 'text', text: usrText + '\n已附带参考图，请只提取图中的五官发型与服装配饰细节，严禁抄袭图中的原有姿势或表情！' },
               ...appState.designRefImages.map((u) => ({ type: 'image_url', image_url: { url: u } }))
             ]
           : usrText;
@@ -7543,7 +7814,7 @@ ${personaDesc}${moduleContext ? `\n\n模组文章参考内容：\n${moduleContex
         const outfitZh = sanitizeFantasyOutfitPrompt(outfitMatch ? outfitMatch[1].trim() : '已生成纯客观从头到脚服装与随身配饰清单');
         const rawBaseTags = baseMatch
           ? baseMatch[1].trim()
-          : `solo, single character, masterpiece, best quality, very aesthetic, absurdres, full body, whole body, head to toe, boots in frame, simple background, pure white background, no shadow on floor, ${charObj.naiTags || '1boy, mature male, adult man, narrow eyes, slender eyes, leather boots'}`;
+          : `solo, single character, masterpiece, best quality, very aesthetic, absurdres, full body, whole body, head to toe, shoes in frame, simple background, pure white background, no shadow on floor, ${charObj.naiTags || '1boy, bishounen, handsome young man, pretty face, delicate facial features, narrow eyes, slender eyes, tsurime, long eyelashes'}`;
         const baseTags = deduplicateFullNaiPrompt(stripBasePoseAndExpFromPrompt(sanitizeFantasyOutfitPrompt(rawBaseTags)));
 
         const parsedActions = [];
@@ -7777,7 +8048,7 @@ ACT_TAGS: 修改后的完整英文动作角度与表情标签串`
           [
             {
               role: 'system',
-              content: `你是 NovelAI V4.5 角色提示词修改专家。请严格按照用户的中文要求修改该角色的全身立绘纯外貌服装英文标签串 BASE_TAGS，保持极高细节密度与纯客观描述。BASE_TAGS 只保留纯外貌与全身衣服鞋靴配饰，绝对不含任何表情、不含任何动作、且绝对不含虎牙尖牙 fang, fangs, snaggletooth。唯一禁忌是绝对禁止写现代工装服与运动鞋，严禁出现 sneakers, running shoes, athletic shoes, tennis shoes, canvas shoes, trainers！严禁使用任何括号，严格按以下两行返回：
+              content: `你是 NovelAI V4.5 角色提示词修改专家。请严格按照用户的中文要求修改该角色的全身立绘纯外貌服装英文标签串 BASE_TAGS，保持极高细节密度与纯客观描述。BASE_TAGS 只保留纯外貌与全身衣服鞋履配饰，完全根据角色设定与用户要求自由设计衣服，绝对不含任何表情、不含任何动作、且绝对不含虎牙尖牙 fang, fangs, snaggletooth。严禁使用任何括号，严格按以下两行返回：
 BASE_TAGS: 修改后的完整正比立绘纯外貌与服装英文标签串
 ZH: 修改后的纯客观中文服装配饰清单`
             },
@@ -9575,6 +9846,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
     function getCharActionList(charObj) {
       const personaDefaults = buildPersonaMatchedActions(charObj);
       if (!charObj) return personaDefaults;
+      const isMinorNpc = Boolean(charObj.trpgType === '次要NPC' || charObj.trpgRoleType === '次要NPC');
       if (Array.isArray(charObj.customActionList) && charObj.customActionList.length > 0) {
         const merged = personaDefaults.map((defAct) => {
           const existing = charObj.customActionList.find((a) => a.name === defAct.name || (defAct.name === '失落' && a.name === '难过'));
@@ -9582,13 +9854,16 @@ ZH: 修改后的纯客观中文服装配饰清单`
             return {
               name: defAct.name,
               zhDesc: existing.zhDesc || defAct.zhDesc,
-              enTags: existing.enTags ? stripMultiHeadAndSpriteSheetTags(existing.enTags) : ''
+              enTags: existing.enTags ? stripMultiHeadAndSpriteSheetTags(existing.enTags) : defAct.enTags
             };
           }
-          return { name: defAct.name, zhDesc: defAct.zhDesc, enTags: '' };
+          return { name: defAct.name, zhDesc: defAct.zhDesc, enTags: defAct.enTags };
         });
         charObj.customActionList.forEach((customAct) => {
+          if (!customAct || !customAct.name) return;
           if (customAct.name === '难过' || customAct.name === '流泪') return;
+          if (isMinorNpc && TACHIE_25_EXPRESSIONS.includes(customAct.name) && !MINOR_NPC_8_EXPRESSIONS.includes(customAct.name)) return;
+          if (isMinorNpc) return;
           if (!merged.some((m) => m.name === customAct.name)) {
             merged.push({
               name: customAct.name,
@@ -9657,12 +9932,14 @@ ZH: 修改后的纯客观中文服装配饰清单`
       if (!box) return;
       const charObj = appState.characters.find((c) => c.id === appState.selectedTachieCharId);
       const actions = getCharActionList(charObj);
+      const isMinorNpc = Boolean(charObj && (charObj.trpgType === '次要NPC' || charObj.trpgRoleType === '次要NPC'));
+      const basePoolLen = isMinorNpc ? MINOR_NPC_8_EXPRESSIONS.length : TACHIE_25_EXPRESSIONS.length;
       populateTachieModifyTargetSelect(charObj);
       box.innerHTML = '';
 
       actions.forEach((act, idx) => {
         const hasGenerated = Boolean(charObj?.tachieExpressions && charObj.tachieExpressions[act.name]);
-        const isExtra = idx >= TACHIE_25_EXPRESSIONS.length;
+        const isExtra = idx >= basePoolLen;
         const card = document.createElement('div');
         card.style.cssText = 'padding:10px;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:10px;display:flex;flex-direction:column;gap:6px;';
         card.innerHTML = `
@@ -9777,7 +10054,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
       });
     }
 
-    function selectTachieExpression(expName) {
+    async function selectTachieExpression(expName) {
       appState.selectedTachieExp = expName;
       initStageZoomPan('tachie');
       const charObj = appState.characters.find((c) => c.id === appState.selectedTachieCharId);
@@ -9798,7 +10075,12 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const rawUrl = isRealCharacterImage(rawDict[expName]) ? rawDict[expName] : imgUrl;
       const imgEl = document.getElementById('tachie-stage-img');
       const emptyEl = document.getElementById('tachie-stage-empty');
-      setTachieBrushMode('none');
+      appState.tachieBrushMode = 'none';
+      ['none', 'wand', 'lasso', 'erase', 'restore'].forEach((m) => {
+        const btn = document.getElementById(`tachie-brush-${m}-btn`);
+        if (btn) btn.className = m === 'none' ? 'moe-btn' : 'moe-btn secondary';
+      });
+      syncInteractiveBrushCanvas('tachie');
       if (imgUrl) {
         appState.tachieWorkingDataUrl = imgUrl;
         appState.tachieRawDataUrl = rawUrl;
@@ -9807,6 +10089,16 @@ ZH: 修改后的纯客观中文服装配饰清单`
         imgEl.src = imgUrl;
         imgEl.style.display = 'block';
         emptyEl.style.display = 'none';
+        const resolvedImg = imgUrl.startsWith('data:') ? imgUrl : await resolveImageToDataUrl(imgUrl);
+        const resolvedRaw = rawUrl.startsWith('data:') ? rawUrl : (await resolveImageToDataUrl(rawUrl) || resolvedImg);
+        if (resolvedImg && appState.selectedTachieExp === expName) {
+          const tightUrl = await normalizeTachieSpriteScale(resolvedImg, resolvedRaw);
+          if (tightUrl && appState.selectedTachieExp === expName) {
+            appState.tachieWorkingDataUrl = tightUrl;
+            resetStageHistory('tachie', tightUrl);
+            imgEl.src = tightUrl;
+          }
+        }
       } else {
         appState.tachieWorkingDataUrl = '';
         appState.tachieRawDataUrl = '';
@@ -10108,7 +10400,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const baseDefaultPrompt = deduplicateFullNaiPrompt(['solo, single character, full body, standing, head to toe, shoes in frame, filling frame, large subject, close-up full body, no margin, simple background, pure white background', pureAppearanceAndOutfit].filter(Boolean).join(', '));
       const useStyle = document.getElementById('tachie-enable-style-ref')?.checked;
       const charCustomNeg = (document.getElementById('tachie-char-neg-prompt')?.value || charObj?.customNegativePrompt || '').trim();
-      const antiModernNeg = 'fang, fangs, snaggletooth, sitting, seated, kneeling, crouching, squatting, lying, lying down, sleeping, food, dessert, parfait, cake, cup, glass, object only, no humans, ' + (getNovelAISettings().default_negative || '') + (charCustomNeg ? `, ${charCustomNeg}` : '') + ', wide margin, empty space, small subject, distant, multiple people, multipleboys, multiplegirls, 2boys, 2girls, duo, two people, clone, split figure, crowd, extra head, floating head, small heads, side portraits, face inset, portrait inset, headshot inset, inset, picture in picture, multiple expressions, expression chart, expression sheet, facial expressions, character sheet, reference sheet, concept art, artbook page, character profile, multiple views, multi-panel, split screen, comic panel, border, frame, text, sneakers, running shoes, tennis shoes, athletic shoes, canvas shoes, trainers';
+      const antiModernNeg = 'mature male, mature man, middle-aged, old man, aging, wrinkles, long face, horse face, overly long chin, masculine rough face, bara, facial hair, beard, mustache, stubble, fang, fangs, snaggletooth, sitting, seated, kneeling, crouching, squatting, lying, lying down, sleeping, food, dessert, parfait, cake, cup, glass, object only, no humans, ' + (getNovelAISettings().default_negative || '') + (charCustomNeg ? `, ${charCustomNeg}` : '') + ', wide margin, empty space, small subject, distant, multiple people, multipleboys, multiplegirls, 2boys, 2girls, duo, two people, clone, split figure, crowd, extra head, floating head, small heads, side portraits, face inset, portrait inset, headshot inset, inset, picture in picture, multiple expressions, expression chart, expression sheet, facial expressions, character sheet, reference sheet, concept art, artbook page, character profile, multiple views, multi-panel, split screen, comic panel, border, frame, text';
 
       if (btn) {
         btn.textContent = '生成中';
@@ -10211,7 +10503,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const rawLockStrength = parseFloat(document.getElementById('tachie-char-lock-strength')?.value || '0.52') || 0.52;
       const rawLockFidelity = parseFloat(document.getElementById('tachie-char-lock-fidelity')?.value || '0.76') || 0.76;
       const charCustomNeg = (document.getElementById('tachie-char-neg-prompt')?.value || charObj?.customNegativePrompt || '').trim();
-      const antiModernNeg = 'yellow tint, warm color cast, yellow lighting, orange tint, sepia, oversaturated, color burn, burnt colors, yellow skin, fang, fangs, snaggletooth, sitting, seated, kneeling, crouching, squatting, lying, lying down, sleeping, food, dessert, parfait, cake, cup, glass, object only, no humans, ' + (getNovelAISettings().default_negative || '') + (charCustomNeg ? `, ${charCustomNeg}` : '') + ', wide margin, empty space, small subject, distant, multiple people, multipleboys, multiplegirls, 2boys, 2girls, duo, two people, clone, split figure, crowd, extra head, floating head, small heads, side portraits, face inset, portrait inset, headshot inset, inset, picture in picture, multiple expressions, expression chart, expression sheet, facial expressions, character sheet, reference sheet, concept art, artbook page, character profile, multiple views, multi-panel, split screen, comic panel, border, frame, text, sneakers, running shoes, tennis shoes, athletic shoes, canvas shoes, trainers';
+      const antiModernNeg = 'yellow tint, warm color cast, yellow lighting, orange tint, sepia, oversaturated, color burn, burnt colors, yellow skin, mature male, mature man, middle-aged, old man, aging, wrinkles, long face, horse face, overly long chin, masculine rough face, bara, facial hair, beard, mustache, stubble, fang, fangs, snaggletooth, sitting, seated, kneeling, crouching, squatting, lying, lying down, sleeping, food, dessert, parfait, cake, cup, glass, object only, no humans, ' + (getNovelAISettings().default_negative || '') + (charCustomNeg ? `, ${charCustomNeg}` : '') + ', wide margin, empty space, small subject, distant, multiple people, multipleboys, multiplegirls, 2boys, 2girls, duo, two people, clone, split figure, crowd, extra head, floating head, small heads, side portraits, face inset, portrait inset, headshot inset, inset, picture in picture, multiple expressions, expression chart, expression sheet, facial expressions, character sheet, reference sheet, concept art, artbook page, character profile, multiple views, multi-panel, split screen, comic panel, border, frame, text';
 
       if (btn) {
         btn.textContent = '生成中';
@@ -10442,9 +10734,13 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const curExp = appState.selectedTachieExp || '默认';
       const stageImgEl = document.getElementById('tachie-stage-img');
       const stageSrc = (stageImgEl && stageImgEl.style.display !== 'none' && stageImgEl.src && stageImgEl.src.startsWith('data:')) ? stageImgEl.src : '';
-      const workingImg = appState.tachieWorkingDataUrl || stageSrc || (charObj.tachieExpressions && charObj.tachieExpressions[curExp]) || '';
+      let workingImg = appState.tachieWorkingDataUrl || stageSrc || (charObj.tachieExpressions && charObj.tachieExpressions[curExp]) || '';
 
       if (workingImg) {
+        if (workingImg.startsWith('data:')) {
+          workingImg = await normalizeTachieSpriteScale(workingImg, appState.tachieAlignedRawDataUrl || appState.tachieRawDataUrl);
+          if (stageImgEl) stageImgEl.src = workingImg;
+        }
         evictCharacterTachieCaches(charObj, curExp);
         if (!charObj.tachieExpressions) charObj.tachieExpressions = {};
         const safeCharName = (charObj.name || charObj.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
@@ -12355,13 +12651,15 @@ ZH: 修改后的纯客观中文服装配饰清单`
 
       const filtered = appState.characters.filter((c) => {
         if (c.id === 'narrator_kp' || c.name === '旁白' || c.trpgType === '旁白') return false;
-        const tType = c.trpgType || '调查员';
+        const rawType = c.trpgType || c.trpgRoleType || '调查员';
+        const tType = rawType === 'NPC' ? '主要NPC' : rawType;
         const isUniv = c.isUniversal !== false;
         if (modFilter === 'universal' && !isUniv) return false;
         if (modFilter !== 'all' && modFilter !== 'universal') {
           if (!isUniv && c.moduleId !== modFilter) return false;
         }
         if (catFilter === 'universal') return isUniv;
+        if (catFilter === 'NPC') return tType === '主要NPC' || tType === '次要NPC';
         if (catFilter !== 'all' && tType !== catFilter) return false;
         return true;
       });
@@ -12443,7 +12741,10 @@ ZH: 修改后的纯客观中文服装配饰清单`
 
         grp.chars.forEach((c) => {
           const cm = c.heightCm || DEFAULT_HEIGHT_MAP[c.id] || 175;
-          const tType = c.trpgType || (c.name === '旁白' ? '旁白' : '调查员');
+          const rawType = c.trpgType || c.trpgRoleType || (c.name === '旁白' ? '旁白' : '调查员');
+          const tType = rawType === 'NPC' ? '主要NPC' : rawType;
+          const isMinor = tType === '次要NPC';
+          const totalPoolCount = isMinor ? MINOR_NPC_8_EXPRESSIONS.length : TACHIE_25_EXPRESSIONS.length;
           const isUniv = c.isUniversal !== false;
           const vSpd = c.voiceSpeedDefault ?? 1.0;
           const vPtc = c.voicePitchDefault ?? 0;
@@ -12467,7 +12768,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
             </div>
             <div class="setting-item-center">
               <div class="setting-item-title">${c.name} · ${tType}${c.age ? (' · ' + c.age) : ''} · ${cm}cm</div>
-              <div class="setting-item-sub">差分 ${expCount}/34 · ${vBadge} · ${bodyNote}</div>
+              <div class="setting-item-sub">差分 ${expCount}/${totalPoolCount} · ${vBadge} · ${bodyNote}</div>
             </div>
             <div class="setting-item-right">
               <button type="button" class="moe-btn" onclick="event.stopPropagation();selectPersonaForEdit('${c.id}');switchSubPage('screen-persona', 'persona-basic')">编辑</button>
@@ -12774,7 +13075,8 @@ ZH: 修改后的纯客观中文服装配饰清单`
       if (document.getElementById('oc-name')) document.getElementById('oc-name').value = c.name || '';
       if (document.getElementById('oc-age')) document.getElementById('oc-age').value = c.age || '';
       if (document.getElementById('oc-trpg-type')) {
-        document.getElementById('oc-trpg-type').value = c.trpgType || (c.name === '旁白' ? '旁白' : '调查员');
+        const rawT = c.trpgType || c.trpgRoleType || (c.name === '旁白' ? '旁白' : '调查员');
+        document.getElementById('oc-trpg-type').value = rawT === 'NPC' ? '主要NPC' : rawT;
       }
       if (document.getElementById('oc-universal-mode')) {
         document.getElementById('oc-universal-mode').value = c.isUniversal === false ? 'module' : 'universal';
@@ -12843,7 +13145,21 @@ ZH: 修改后的纯客观中文服装配饰清单`
       if (document.getElementById('oc-name')) c.name = document.getElementById('oc-name').value.trim() || c.name;
       if (document.getElementById('oc-age')) c.age = document.getElementById('oc-age').value.trim();
       if (document.getElementById('oc-trpg-type')) {
-        c.trpgType = document.getElementById('oc-trpg-type').value;
+        const newRoleType = document.getElementById('oc-trpg-type').value || '调查员';
+        const roleChanged = c.trpgType !== newRoleType || c.trpgRoleType !== newRoleType;
+        c.trpgType = newRoleType;
+        c.trpgRoleType = newRoleType;
+        if (roleChanged) {
+          c.customActionList = buildPersonaMatchedActions(c);
+          const curProj = getCurrentReplayProject();
+          if (curProj && Array.isArray(curProj.extractedSpeakers)) {
+            const matchedSpk = curProj.extractedSpeakers.find((s) => (s.trueName || s.name) === c.name);
+            if (matchedSpk) {
+              matchedSpk.trpgType = newRoleType;
+              saveReplayProjectToDB(curProj);
+            }
+          }
+        }
       }
       if (document.getElementById('oc-universal-mode')) {
         const uMode = document.getElementById('oc-universal-mode').value;
@@ -13345,7 +13661,7 @@ body {
       { app: 'tachie', defaultName: '立绘' },
       { app: 'persona', defaultName: '角色' },
       { app: 'replay', defaultName: '模组' },
-      { app: 'stage', defaultName: '舞台' },
+      { app: 'stage', defaultName: '开始' },
       { app: 'music', defaultName: '音乐' },
       { app: 'worldbook', defaultName: '世界书' },
       { app: 'theme', defaultName: '美化' },
@@ -14135,6 +14451,9 @@ ${BUILTIN_CSS_TEMPLATE}`;
       const cfg = getCustomAppIconsConfig();
       DEFAULT_APP_ICONS_META.forEach((meta) => {
         const custom = cfg[meta.app] || {};
+        if (meta.app === 'stage' && custom.name === '舞台') {
+          custom.name = '开始';
+        }
         const labelEl = document.getElementById(`app-label-${meta.app}`);
         const iconBox = document.getElementById(`app-icon-box-${meta.app}`);
         if (labelEl) labelEl.textContent = custom.name || meta.defaultName;
@@ -15868,7 +16187,7 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
         const displayName = item.trueName || item.name;
         const rawNote = item.rawName && item.rawName !== displayName ? `原昵称 ${item.rawName} · ` : '';
         const matchedChar = appState.characters.find((c) => c.name === displayName);
-        const expCountLabel = item.trpgType === '次要NPC' ? '8基础差分' : (item.trpgType === '调查员' || item.trpgType === '主要NPC' ? '34基础差分' : '');
+        const expCountLabel = item.trpgType === '次要NPC' ? `${MINOR_NPC_8_EXPRESSIONS.length}基础差分` : (item.trpgType === '调查员' || item.trpgType === '主要NPC' ? '34基础差分' : '');
         const statusText = item.trpgType === '场外'
           ? `${rawNote}发言 ${item.count} 次 · 已设为场外吐槽弹幕`
           : (matchedChar
@@ -17130,7 +17449,7 @@ SCENE_ITEM: 场景编号|2到5字简短场景名|NovelAI英文提示词|基底�
 规则二：旁白 narration 必须全部采用第三人称视角并且顶格书写！对于KP原本以第二人称撰写的旁白，必须把其中所有的「你」「你们」「你的」准确替换为上下文中对应的调查员角色真名，并可适当添加自然过渡连接词，绝对不能在旁白中残留第二人称「你」！对于玩家PC的动作描写转为旁白 narration 时，只允许将第一人称「我」转换为该PC的角色真名并在需要时加简短连接词，绝对禁止删减或改写玩家原本风趣幽默的描写文笔！
 规则三：在整理章节这一步彻底剔除 logs 记录指令与无用废话：凡是遇到诸如点log、logs开启关闭、日志保存链接、已绑卡、已改名、进行了什么鉴定等骰娘指令或系统废话，一律将该行的类型标记为 delete 彻底剔除，绝对禁止保留在旁白或对话中！只有最终的鉴定成功或失败结果、以及生命值或理智值变化才属于右上角检定提示。
 规则四：以括号开头的场外发言已在发给你之前提取到了独立弹幕区域；如果在剩下的句子里发现没有带括号的漏网之鱼，只有百分之百明确脱离模组剧情的玩家场外闲聊吐槽才将其类型标记为 ooc 移入弹幕区；模棱两可的一律视为正常剧情内容。
-规则五：立绘差分切换必须严格从下方提供的该角色可用差分池中选择！调查员与主要NPC拥有34个基础差分加专属差分，次要NPC仅拥有默认、开心、愤怒、伤心、害羞、疯狂、拿起武器、冷漠8个基础差分加专属差分，绝对禁止原创池子之外的差分名字！切换差分的频率必须适中自然。
+规则五：立绘差分切换必须严格从下方提供的该角色可用差分池中选择！调查员与主要NPC拥有34个基础差分加专属差分，次要NPC仅拥有默认、开心、惊讶、愤怒、伤心、害羞、慌乱、疯狂、拿起武器、冷漠共10个差分，绝对禁止给次要NPC填写34差分池里才有的其他差分名字，也绝对禁止原创池子之外的差分名字！切换差分的频率必须适中自然。
 规则六：配乐是视觉小说的灵魂环节！每一章必须根据剧情起承转合规划3到6处 BGM_REC 音乐开始标记，并在紧张解除、压抑留白、突发惊吓或场景切换处标记 BGM_STOP 音乐停止！所选曲目必须全部是日系动漫、视觉小说或日系RPG游戏中的纯音乐与原声带伴奏，例如泽野弘之、梶浦由记、神前晓、折户伸治、高梨康治、川井宪次、牛尾宪辅、光田康典、下村阳子、横山克等作曲家的纯音乐作品或经典Galgame纯音乐，严禁推荐带有人声演唱的流行歌曲，使角色说话与日系背景纯音乐自然融合！
 规则七：如果发现某行台词或旁白里有明显错别字，不要擅自直接篡改原句，必须用 TYPO_MARK 单独标记出来供用户自己核对。
 规则八：一章跑团剧本请每隔一段剧情规划一处 CG_MARK 插图节点，整章共规划 5 到 10 处，不必非要等到激烈高潮才插图，有画面感的日常互动或具体场景动作同样可以插入CG，例如两人一起吃饭、给对方喂饭、递交物品、包扎伤口、查看线索或肢体接触；但位置必须选在有具体互动或动作画面的句子处，绝对禁止插在两个人只是普通站着纯聊天、毫无动作与画面变化的无意义干聊台词处！每一张插图都必须明确规划它的持续时间，即从哪一句开始持续显示到哪一句结束，写成 L起始行号-L结束行号 的格式，并填写简短画面说明和在场人物，此阶段不要编写英文生图提示词。同时结合下方提供的全部场景名字，使用 SCENE_RANGE 规划从第几句到第几句使用哪个场景背景、哪几句是纯CG填 CG、哪几句是黑幕转场填 blackout。
@@ -17501,13 +17820,13 @@ CG_MARK: L起始行号-L结束行号|插图简短剧情画面说明|在场角色
         const userPrompt = `本模组调查员名单供替换旁白中的你或你们：
 ${investigatorNames.join('、') || '调查员'}
 
-调查员与主要NPC默认34差分池：
+调查员与主要NPC可用34差分池：
 ${defaultPoolList.join('、')}
 
-次要NPC默认8差分池：
+次要NPC专用10差分池：
 ${minorPoolList.join('、')}
 
-本章登场角色完整人设、语气称呼与各自可用差分池：
+本章登场角色完整人设、定位身份与各自专属可用差分池：
 ${charContextLines || '调查员｜身份定位:调查员'}
 
 本模组可用场景列表：
@@ -18493,6 +18812,52 @@ ${scriptText}`;
       renderReplayScriptEditor();
     }
 
+    async function moveScriptLineOrder(lineIdx, delta) {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      if (!proj || !chap || !Array.isArray(chap.scriptLines)) return;
+      const targetIdx = lineIdx + delta;
+      if (lineIdx < 0 || lineIdx >= chap.scriptLines.length) return;
+      if (targetIdx < 0 || targetIdx >= chap.scriptLines.length) return;
+
+      const temp = chap.scriptLines[lineIdx];
+      chap.scriptLines[lineIdx] = chap.scriptLines[targetIdx];
+      chap.scriptLines[targetIdx] = temp;
+
+      if (Array.isArray(chap.danmakuList)) {
+        chap.danmakuList.forEach((dm) => {
+          if (dm.lineIdx === lineIdx) {
+            dm.lineIdx = targetIdx;
+          } else if (dm.lineIdx === targetIdx) {
+            dm.lineIdx = lineIdx;
+          }
+        });
+      }
+
+      if (Array.isArray(chap.cgNodes)) {
+        chap.cgNodes.forEach((cg) => {
+          const s = cg.startLineIdx ?? cg.lineIdx ?? 0;
+          const e = cg.endLineIdx ?? s;
+          if (s === e) {
+            if (s === lineIdx) {
+              cg.startLineIdx = targetIdx;
+              cg.lineIdx = targetIdx;
+              cg.endLineIdx = targetIdx;
+            } else if (s === targetIdx) {
+              cg.startLineIdx = lineIdx;
+              cg.lineIdx = lineIdx;
+              cg.endLineIdx = lineIdx;
+            }
+          }
+        });
+        syncChapterCgLineBindings(chap);
+      }
+
+      computeChapterStageSlots(chap.scriptLines);
+      await saveReplayProjectToDB(proj);
+      renderReplayScriptEditor();
+    }
+
     let _expandedConsoleLineIdx = -1;
 
     function toggleConsoleRowExpand(idx) {
@@ -18638,6 +19003,8 @@ ${scriptText}`;
               <div class="vn-console-badges">${badges.join('')}</div>
             </div>
             <div class="vn-script-row-actions">
+              <button type="button" class="moe-btn secondary vn-play-tri-btn" title="上移一句" ${idx === 0 ? 'disabled' : ''} onmousedown="event.stopPropagation()" onclick="moveScriptLineOrder(${idx}, -1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></button>
+              <button type="button" class="moe-btn secondary vn-play-tri-btn" title="下移一句" ${idx === chap.scriptLines.length - 1 ? 'disabled' : ''} onmousedown="event.stopPropagation()" onclick="moveScriptLineOrder(${idx}, 1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
               <button type="button" class="moe-btn ${hasCg ? '' : 'secondary'}" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" id="line-add-cg-btn-${idx}" onmousedown="event.stopPropagation()" onclick="addManualCgForScriptLine(${idx})">${hasCg ? '撤图' : '插图'}</button>
               ${hasCg && cgObj ? `<button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="jumpToCgNodeFromScriptLine('${cgObj.id}')">调图</button>` : ''}
               <button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="insertScriptLineAfter(${idx})">插行</button>
@@ -18779,12 +19146,16 @@ ${scriptText}`;
     const DEFAULT_REPLAY_CG_PROMPT = `你是专业视觉小说CG插画导演与NovelAI提示词专家。请通读整章剧情脉络、全体登场角色人设外貌以及每个CG插点的前后文剧情，一次性为本章全部CG编写贴合剧情氛围的中文画面说明与完整NovelAI英文生图提示词。
 特别注意：
 1. 如果在场只有1个人，请写 1girl 或 1boy 并融合该角色的外貌服装词、具体动作神态与场景光影。
-2. 如果在场有2个或更多角色，严禁把所有人都写成同一张脸！必须在英文提示词里明确写出人数如 2girls、1boy 1girl 或 multiple girls，并分别写清每个角色各自不同的发色、瞳色、发型、服装与具体互动动作，确保多人同框各自特征鲜明且有真实互动感。
-3. 从头到尾严禁使用任何圆括号或方括号，严格按以下行格式逐条输出：
+2. 如果在场有2个或更多角色，严禁把所有人都写成同一张脸！必须在英文提示词里明确写出人数如 2girls、1boy 1girl 或 multiple people，并分别写清每个角色各自不同的发色、瞳色、发型、服装与具体互动动作，确保多人同框各自特征鲜明且有真实互动感。
+3. 所有调查员与男性角色全员都是好看漂亮的俊美青年美型画风，角色之间年龄差不要写得太大，可以是年轻成年人但绝对不能写成熟！凡是有男性角色出场，必须使用 bishounen, handsome young man, pretty face, delicate facial features 等高颜值美型词，绝对禁止写 mature male, mature man, middle-aged, old, long face, horse face 等任何让男性变得成熟苍老或马脸的词汇！
+4. 从头到尾严禁使用任何圆括号或方括号，严格按以下行格式逐条输出：
 CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿号分隔|完整NovelAI英文提示词`;
 
     function getCustomOrDefaultCgSystemPrompt() {
       const saved = localStorage.getItem('replay-custom-cg-sys-prompt');
+      if (saved && !saved.includes('bishounen')) {
+        return DEFAULT_REPLAY_CG_PROMPT;
+      }
       return (saved && saved.trim()) ? saved.trim() : DEFAULT_REPLAY_CG_PROMPT;
     }
 
@@ -18846,7 +19217,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
             : (lines[centerIdx]?.speaker && lines[centerIdx].speaker !== '旁白' ? [lines[centerIdx].speaker] : []);
           const charAppearances = present.map((n) => {
             const c = appState.characters.find((x) => x.name === n);
-            return `${n} 外貌服装词:${c?.naiTags || 'solo, anime style'}`;
+            return `${n} 外貌服装词:${c?.naiTags ? stripBasePoseAndExpFromPrompt(c.naiTags) : 'solo, anime style'}`;
           }).join('；');
           return `CG序号:${cIdx}|原定说明:${cg.zhDesc || ''}|在场人数:${present.length}|在场角色与外貌:${charAppearances || '调查员'}|前后文剧情:${contextLines}`;
         }).join('\n\n');
@@ -18854,7 +19225,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         const fullChapterOverview = lines.slice(0, 260).map((l, idx) => `L${idx} ${l.speaker}:${l.text}`).join('\n');
         const allCharsInfo = (appState.characters || [])
           .filter((c) => c.id !== 'narrator_kp' && c.trpgType !== '旁白')
-          .map((c) => `角色:${c.name}｜定位:${c.trpgType || '调查员'}｜外貌:${c.body || ''}｜性格:${c.quirk || ''}｜NovelAI外貌服装词:${c.naiTags || 'solo, anime style'}`)
+          .map((c) => `角色:${c.name}｜定位:${c.trpgType || '调查员'}｜外貌:${c.body || ''}｜性格:${c.quirk || ''}｜NovelAI外貌服装词:${c.naiTags ? stripBasePoseAndExpFromPrompt(c.naiTags) : 'solo, anime style'}`)
           .join('\n');
 
         const sysPrompt = getCustomOrDefaultCgSystemPrompt();
@@ -18880,7 +19251,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
                   if (parts[1]) node.zhDesc = parts[1];
                   const parsedNames = parts[2].split(/[、,，\s]+/).filter(Boolean);
                   if (parsedNames.length > 0) node.presentNames = parsedNames;
-                  const rawEn = parts.slice(3).join(', ').trim();
+                  const rawEn = parts.slice(3).join(', ').replace(/\b(mature male|mature man|middle-aged|old man|long face|horse face)\b\s*,?/gi, '').trim();
                   node.prompt = `masterpiece, best quality, very aesthetic, absurdres, cinematic anime CG illustration, 16:9 wide angle, dramatic lighting, ${rawEn}`;
                   if (node.presentNames && node.presentNames.length === 1) {
                     const onlyChar = appState.characters.find((c) => c.name === node.presentNames[0]);
@@ -18940,13 +19311,13 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       try {
         const allCharsInfo = (appState.characters || [])
           .filter((c) => c.id !== 'narrator_kp' && c.trpgType !== '旁白')
-          .map((c) => `角色:${c.name}｜外貌服装词:${c.naiTags || ''}`)
+          .map((c) => `角色:${c.name}｜外貌服装词:${c.naiTags ? stripBasePoseAndExpFromPrompt(c.naiTags) : ''}`)
           .join('\n');
         const currentCgsSummary = chap.cgNodes.map((cg, idx) => {
           return `CG序号:${idx}|第${idx + 1}张CG|当前中文说明:${cg.zhDesc || ''}|在场角色:${(cg.presentNames || []).join('、')}|当前英文提示词:${cg.prompt || ''}`;
         }).join('\n');
 
-        const sysPrompt = `你是专业NovelAI视觉小说CG提示词修改专家。请根据用户的修改要求，对指定的或全部CG画面说明与NovelAI英文提示词进行精准修改。只输出需要修改的CG行，从头到尾严禁使用任何括号，严格按以下格式逐条输出：
+        const sysPrompt = `你是专业NovelAI视觉小说CG提示词修改专家。请根据用户的修改要求，对指定的或全部CG画面说明与NovelAI英文提示词进行精准修改。注意所有调查员与男性角色全员都是好看漂亮的俊美青年美型画风，角色之间年龄差很小，绝对禁止写 mature male, mature man, middle-aged, old, long face 等任何让男性变得成熟苍老或马脸的词汇！只输出需要修改的CG行，从头到尾严禁使用任何括号，严格按以下格式逐条输出：
 CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名用顿号分隔|修改后的完整NovelAI英文提示词`;
 
         const reply = await callLlmCompletion(
@@ -19447,8 +19818,9 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
             };
           }
         }
-        const neg = 'yellow tint, warm color cast, sepia, oversaturated, burnt colors, ' + (getNovelAISettings().default_negative || '') + ', character sheet, reference sheet, multiple views, split screen, comic panel, text, watermark, sneakers';
-        const { dataUrl } = await callNovelAiDirect(cg.prompt, {
+        const cleanCgPrompt = String(cg.prompt || '').replace(/\b(mature male|mature man|middle-aged|old man|long face|horse face)\b\s*,?/gi, 'bishounen, handsome young man, pretty face, ');
+        const neg = 'yellow tint, warm color cast, sepia, oversaturated, burnt colors, mature male, mature man, middle-aged, old man, aging, wrinkles, long face, horse face, overly long chin, masculine rough face, bara, facial hair, beard, mustache, stubble, ' + (getNovelAISettings().default_negative || '') + ', character sheet, reference sheet, multiple views, split screen, comic panel, text, watermark';
+        const { dataUrl } = await callNovelAiDirect(cleanCgPrompt, {
           resolution: '1216x832',
           seed: -1,
           cfgRescale: 0.25,
@@ -21061,6 +21433,8 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         }
 
         const maxScaleCm = 205;
+        const globalOffsetY = parseInt(localStorage.getItem('global-stage-tachie-offset-y') || '0', 10) || 0;
+        const globalScalePct = Math.max(30, Math.min(250, parseInt(localStorage.getItem('global-stage-tachie-scale-pct') || '100', 10) || 100));
         const actorNodes = [];
 
         for (const spkName of presentNames) {
@@ -21069,7 +21443,8 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
           const netCm = charObj.heightCm || DEFAULT_HEIGHT_MAP[charObj.id] || 175;
           const earCm = charObj.earHatCm || 0;
           const totalCm = Math.min(maxScaleCm, netCm + earCm);
-          const heightPct = Math.round((totalCm / maxScaleCm) * 100);
+          const baseHeightPct = (totalCm / maxScaleCm) * 100;
+          const heightPct = Math.max(15, Math.min(220, Math.round(baseHeightPct * (globalScalePct / 100))));
 
           const isCurrentSpeaker = line.speaker === spkName;
           const expKey = isCurrentSpeaker ? (line.exp || '默认') : (lastExpBySpeaker[spkName] || '默认');
@@ -21093,6 +21468,11 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
           const actorDiv = document.createElement('div');
           actorDiv.className = 'vn-stage-actor ' + (isCurrentSpeaker ? 'speaking' : 'dimmed') + fxClass;
           actorDiv.style.height = heightPct + '%';
+          if (globalOffsetY !== 0) {
+            actorDiv.style.bottom = (-globalOffsetY) + 'px';
+          } else {
+            actorDiv.style.bottom = '0px';
+          }
           actorDiv.innerHTML = `
             <img src="${croppedSprite}" decoding="async" alt="${charObj.name}" style="height:100%;width:auto;max-width:none;" title="${charObj.name} · ${netCm}cm · ${expKey}" />
           `;
