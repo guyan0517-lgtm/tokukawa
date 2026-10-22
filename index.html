@@ -9,7 +9,7 @@
   <meta property="og:description" content="虚拟手机模拟与角色聊天互动应用" />
   <link rel="manifest" href="manifest.json?v=2.1.0" />
   <link rel="icon" type="image/png" href="icon.png?v=2.1.0" />
-  <link rel="stylesheet" href="style.css?v=20261022" />
+  <link rel="stylesheet" href="style.css?v=20261023" />
   <style id="core-layout-compat-style">
     #screen-home {
       padding: 20px 18px 24px !important;
@@ -198,6 +198,14 @@
       height: 15px !important;
       display: block !important;
       flex-shrink: 0 !important;
+    }
+    #vn-theater-tachie-layer {
+      top: auto !important;
+      height: 155% !important;
+      bottom: -30% !important;
+    }
+    #vn-theater-cg-layer {
+      background: var(--text-primary) !important;
     }
     .persona-folder-group {
       background: var(--card-bg);
@@ -657,29 +665,29 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <div class="form-group" style="flex:1;min-width:92px;">
               <label>默认语速</label>
-              <input type="number" step="0.05" min="0.5" max="2.0" id="oc-voice-speed-default" class="moe-input" value="1.0" oninput="autoSavePersonaVoiceFields(true)" onchange="autoSavePersonaVoiceFields(false)" />
+              <input type="number" step="any" min="0.5" max="2.0" id="oc-voice-speed-default" class="moe-input" value="1.0" oninput="autoSavePersonaVoiceFields(true)" onchange="autoSavePersonaVoiceFields(false)" />
             </div>
             <div class="form-group" style="flex:1;min-width:92px;">
               <label>最低语速</label>
-              <input type="number" step="0.05" min="0.5" max="2.0" id="oc-voice-speed-min" class="moe-input" value="0.8" oninput="autoSavePersonaVoiceFields(true)" onchange="autoSavePersonaVoiceFields(false)" />
+              <input type="number" step="any" min="0.5" max="2.0" id="oc-voice-speed-min" class="moe-input" value="0.8" oninput="autoSavePersonaVoiceFields(true)" onchange="autoSavePersonaVoiceFields(false)" />
             </div>
             <div class="form-group" style="flex:1;min-width:92px;">
               <label>最高语速</label>
-              <input type="number" step="0.05" min="0.5" max="2.0" id="oc-voice-speed-max" class="moe-input" value="1.3" oninput="autoSavePersonaVoiceFields(true)" onchange="autoSavePersonaVoiceFields(false)" />
+              <input type="number" step="any" min="0.5" max="2.0" id="oc-voice-speed-max" class="moe-input" value="1.3" oninput="autoSavePersonaVoiceFields(true)" onchange="autoSavePersonaVoiceFields(false)" />
             </div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <div class="form-group" style="flex:1;min-width:92px;">
               <label>默认语调</label>
-              <input type="number" step="1" min="-12" max="12" id="oc-voice-pitch-default" class="moe-input" value="0" oninput="autoSavePersonaVoiceFields(true)" onchange="autoSavePersonaVoiceFields(false)" />
+              <input type="number" step="any" min="-12" max="12" id="oc-voice-pitch-default" class="moe-input" value="0" oninput="autoSavePersonaVoiceFields(true)" onchange="autoSavePersonaVoiceFields(false)" />
             </div>
             <div class="form-group" style="flex:1;min-width:92px;">
               <label>最低语调</label>
-              <input type="number" step="1" min="-12" max="12" id="oc-voice-pitch-min" class="moe-input" value="-4" oninput="autoSavePersonaVoiceFields(true)" onchange="autoSavePersonaVoiceFields(false)" />
+              <input type="number" step="any" min="-12" max="12" id="oc-voice-pitch-min" class="moe-input" value="-1" oninput="autoSavePersonaVoiceFields(true)" onchange="autoSavePersonaVoiceFields(false)" />
             </div>
             <div class="form-group" style="flex:1;min-width:92px;">
               <label>最高语调</label>
-              <input type="number" step="1" min="-12" max="12" id="oc-voice-pitch-max" class="moe-input" value="4" oninput="autoSavePersonaVoiceFields(true)" onchange="autoSavePersonaVoiceFields(false)" />
+              <input type="number" step="any" min="-12" max="12" id="oc-voice-pitch-max" class="moe-input" value="1.5" oninput="autoSavePersonaVoiceFields(true)" onchange="autoSavePersonaVoiceFields(false)" />
             </div>
           </div>
           <div class="form-group" style="margin-bottom:0;">
@@ -2570,9 +2578,20 @@ http.server.ThreadingHTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea
         <div class="moe-card">
           <div class="moe-card-header" style="justify-content:flex-end;">
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button type="button" class="moe-btn secondary" onclick="toggleVoiceSystemPromptEditor()">提示</button>
               <button type="button" class="moe-btn secondary" id="replay-voice-jp-btn" onclick="translateCurrentChapterToJapanese()">日译</button>
               <button type="button" class="moe-btn" id="replay-voice-ai-gen-btn" onclick="aiConfigureAndSynthesizeChapterVoice()">生成</button>
             </div>
+          </div>
+          <div id="replay-voice-sys-prompt-box" style="display:none;margin-bottom:8px;padding:10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <span style="font-size:12px;font-weight:800;color:var(--text-primary);">配音与日译默认提示词 可直接修改保存</span>
+              <div style="display:flex;gap:6px;">
+                <button type="button" class="moe-btn secondary" onclick="resetCustomVoiceSystemPrompt()">恢复</button>
+                <button type="button" class="moe-btn" onclick="saveCustomVoiceSystemPrompt()">保存</button>
+              </div>
+            </div>
+            <textarea id="replay-voice-sys-prompt-textarea" class="moe-input" style="min-height:130px;font-size:11px;line-height:1.5;"></textarea>
           </div>
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
             <button type="button" class="moe-btn" id="replay-voice-mode-normal-btn" style="flex:1;" onclick="setReplayVoiceStudioMode('normal')">普通</button>
@@ -9338,24 +9357,31 @@ ZH: 修改后的纯客观中文服装配饰清单`
         const bgRemoved = await floodFillRemoveWhiteBg(rawUrl, tol, false, feather);
         const cleaned = await normalizeTachieSpriteScale(bgRemoved, rawUrl);
         appState.tachieWorkingDataUrl = cleaned;
+        const targetExp = appState.selectedTachieExp || '默认';
         const charObj = appState.characters.find((c) => c.id === appState.selectedTachieCharId);
         if (charObj) {
           if (!charObj.tachieExpressions) charObj.tachieExpressions = {};
           if (!charObj.tachieRawExpressions) charObj.tachieRawExpressions = {};
-          charObj.tachieBase = cleaned;
-          charObj.tachieExpressions['默认'] = cleaned;
-          charObj.tachieRawExpressions['默认'] = appState.tachieAlignedRawDataUrl || rawUrl;
-          const normLock = await normalizeUploadedImageForNai(rawUrl, 1024);
-          charObj.charLockImg = normLock;
-          appState.charLockBase64 = normLock;
-          const thumbEl = document.getElementById('tachie-char-lock-thumb');
-          if (thumbEl) thumbEl.innerHTML = `<img src="${normLock}" style="width:100%;height:100%;object-fit:cover;" />`;
+          charObj.tachieExpressions[targetExp] = cleaned;
+          charObj.tachieRawExpressions[targetExp] = appState.tachieAlignedRawDataUrl || rawUrl;
+          if (targetExp === '默认' || !charObj.tachieBase) {
+            charObj.tachieBase = cleaned;
+            if (!charObj.tachieExpressions['默认']) {
+              charObj.tachieExpressions['默认'] = cleaned;
+              charObj.tachieRawExpressions['默认'] = appState.tachieAlignedRawDataUrl || rawUrl;
+            }
+            const normLock = await normalizeUploadedImageForNai(rawUrl, 1024);
+            charObj.charLockImg = normLock;
+            appState.charLockBase64 = normLock;
+            const thumbEl = document.getElementById('tachie-char-lock-thumb');
+            if (thumbEl) thumbEl.innerHTML = `<img src="${normLock}" style="width:100%;height:100%;object-fit:cover;" />`;
+          }
           await db.characters.put(charObj);
         }
-        appState.selectedTachieExp = '默认';
+        appState.selectedTachieExp = targetExp;
         setTachieBrushMode('none');
         renderTachieExpButtons();
-        selectTachieExpression('默认');
+        selectTachieExpression(targetExp);
         renderHeightStage();
       };
       reader.readAsDataURL(file);
@@ -11431,9 +11457,6 @@ ZH: 修改后的纯客观中文服装配饰清单`
                 line.ttsSpeed = defSpd;
                 line.ttsPitch = defPtc;
                 projChanged = true;
-                if (typeof invalidateSingleLineTtsCache === 'function') {
-                  await invalidateSingleLineTtsCache(chap.id, line.id);
-                }
               }
             }
           }
@@ -11458,8 +11481,8 @@ ZH: 修改后的纯客观中文服装配饰清单`
           voiceSpeedMin: c.voiceSpeedMin ?? 0.8,
           voiceSpeedMax: c.voiceSpeedMax ?? 1.3,
           voicePitchDefault: c.voicePitchDefault ?? 0,
-          voicePitchMin: c.voicePitchMin ?? -4,
-          voicePitchMax: c.voicePitchMax ?? 4
+          voicePitchMin: c.voicePitchMin ?? -1,
+          voicePitchMax: c.voicePitchMax ?? 1.5
         };
         map[c.id] = entry;
         if (c.name) map[`name_${c.name}`] = entry;
@@ -11471,18 +11494,31 @@ ZH: 修改后的纯客观中文服装配饰清单`
       if (!c) return;
       try {
         const raw = localStorage.getItem('persona-voice-backup-v1');
-        if (!raw) return;
-        const map = JSON.parse(raw);
-        const saved = map[c.id] || (c.name ? map[`name_${c.name}`] : null);
-        if (!saved) return;
-        if (saved.voiceId && !c.voiceId) c.voiceId = saved.voiceId;
-        if (typeof saved.voiceSpeedDefault === 'number') c.voiceSpeedDefault = saved.voiceSpeedDefault;
-        if (typeof saved.voiceSpeedMin === 'number') c.voiceSpeedMin = saved.voiceSpeedMin;
-        if (typeof saved.voiceSpeedMax === 'number') c.voiceSpeedMax = saved.voiceSpeedMax;
-        if (typeof saved.voicePitchDefault === 'number') c.voicePitchDefault = saved.voicePitchDefault;
-        if (typeof saved.voicePitchMin === 'number') c.voicePitchMin = saved.voicePitchMin;
-        if (typeof saved.voicePitchMax === 'number') c.voicePitchMax = saved.voicePitchMax;
+        if (raw) {
+          const map = JSON.parse(raw);
+          const saved = map[c.id] || (c.name ? map[`name_${c.name}`] : null);
+          if (saved) {
+            if (saved.voiceId && !c.voiceId) c.voiceId = saved.voiceId;
+            if (typeof saved.voiceSpeedDefault === 'number') c.voiceSpeedDefault = saved.voiceSpeedDefault;
+            if (typeof saved.voiceSpeedMin === 'number') c.voiceSpeedMin = saved.voiceSpeedMin;
+            if (typeof saved.voiceSpeedMax === 'number') c.voiceSpeedMax = saved.voiceSpeedMax;
+            if (typeof saved.voicePitchDefault === 'number') c.voicePitchDefault = saved.voicePitchDefault;
+            if (typeof saved.voicePitchMin === 'number') c.voicePitchMin = saved.voicePitchMin;
+            if (typeof saved.voicePitchMax === 'number') c.voicePitchMax = saved.voicePitchMax;
+          }
+        }
+        if (c.voicePitchMin === -4 && c.voicePitchMax === 4) {
+          c.voicePitchMin = -1;
+          c.voicePitchMax = 1.5;
+        }
       } catch (_) {}
+    }
+
+    function isIntermediateDecimalInput(rawStr) {
+      const s = String(rawStr ?? '').trim();
+      if (!s || s === '-' || s === '.' || s === '-.') return true;
+      if (s.endsWith('.')) return true;
+      return false;
     }
 
     function syncVoiceSpeedAndPitchToCharacter(c, isInputEvent = false) {
@@ -11492,7 +11528,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
         c.voiceId = voiceEl.value.trim();
       }
       const sdEl = document.getElementById('oc-voice-speed-default');
-      if (sdEl && sdEl.value !== '') {
+      if (sdEl && !(isInputEvent && isIntermediateDecimalInput(sdEl.value)) && sdEl.value !== '') {
         const sd = parseFloat(sdEl.value);
         if (!isNaN(sd)) {
           c.voiceSpeedDefault = Number(Math.max(0.5, Math.min(2.0, sd)).toFixed(2));
@@ -11500,7 +11536,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
         }
       }
       const sminEl = document.getElementById('oc-voice-speed-min');
-      if (sminEl && sminEl.value !== '') {
+      if (sminEl && !(isInputEvent && isIntermediateDecimalInput(sminEl.value)) && sminEl.value !== '') {
         const smin = parseFloat(sminEl.value);
         if (!isNaN(smin)) {
           c.voiceSpeedMin = Number(Math.max(0.5, Math.min(2.0, smin)).toFixed(2));
@@ -11508,7 +11544,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
         }
       }
       const smaxEl = document.getElementById('oc-voice-speed-max');
-      if (smaxEl && smaxEl.value !== '') {
+      if (smaxEl && !(isInputEvent && isIntermediateDecimalInput(smaxEl.value)) && smaxEl.value !== '') {
         const smax = parseFloat(smaxEl.value);
         if (!isNaN(smax)) {
           c.voiceSpeedMax = Number(Math.max(0.5, Math.min(2.0, smax)).toFixed(2));
@@ -11524,30 +11560,30 @@ ZH: 修改后的纯客观中文服装配饰清单`
       }
 
       const pdEl = document.getElementById('oc-voice-pitch-default');
-      if (pdEl && pdEl.value !== '' && pdEl.value !== '-') {
-        const pd = parseInt(pdEl.value, 10);
+      if (pdEl && !(isInputEvent && isIntermediateDecimalInput(pdEl.value)) && pdEl.value !== '' && pdEl.value !== '-') {
+        const pd = parseFloat(pdEl.value);
         if (!isNaN(pd)) {
-          c.voicePitchDefault = Math.max(-12, Math.min(12, pd));
+          c.voicePitchDefault = Number(Math.max(-12, Math.min(12, pd)).toFixed(2));
           if (!isInputEvent) pdEl.value = c.voicePitchDefault;
         }
       }
       const pminEl = document.getElementById('oc-voice-pitch-min');
-      if (pminEl && pminEl.value !== '' && pminEl.value !== '-') {
-        const pmin = parseInt(pminEl.value, 10);
+      if (pminEl && !(isInputEvent && isIntermediateDecimalInput(pminEl.value)) && pminEl.value !== '' && pminEl.value !== '-') {
+        const pmin = parseFloat(pminEl.value);
         if (!isNaN(pmin)) {
-          c.voicePitchMin = Math.max(-12, Math.min(12, pmin));
+          c.voicePitchMin = Number(Math.max(-12, Math.min(12, pmin)).toFixed(2));
           if (!isInputEvent) pminEl.value = c.voicePitchMin;
         }
       }
       const pmaxEl = document.getElementById('oc-voice-pitch-max');
-      if (pmaxEl && pmaxEl.value !== '' && pmaxEl.value !== '-') {
-        const pmax = parseInt(pmaxEl.value, 10);
+      if (pmaxEl && !(isInputEvent && isIntermediateDecimalInput(pmaxEl.value)) && pmaxEl.value !== '' && pmaxEl.value !== '-') {
+        const pmax = parseFloat(pmaxEl.value);
         if (!isNaN(pmax)) {
-          c.voicePitchMax = Math.max(-12, Math.min(12, pmax));
+          c.voicePitchMax = Number(Math.max(-12, Math.min(12, pmax)).toFixed(2));
           if (!isInputEvent) pmaxEl.value = c.voicePitchMax;
         }
       }
-      if (!isInputEvent && (c.voicePitchMin ?? -4) > (c.voicePitchMax ?? 4)) {
+      if (!isInputEvent && (c.voicePitchMin ?? -1) > (c.voicePitchMax ?? 1.5)) {
         const tmpP = c.voicePitchMin;
         c.voicePitchMin = c.voicePitchMax;
         c.voicePitchMax = tmpP;
@@ -11562,7 +11598,6 @@ ZH: 修改后的纯客观中文服装配饰清单`
       if (!c) return;
       syncVoiceSpeedAndPitchToCharacter(c, isInputEvent);
       await db.characters.put(c);
-      await syncCharacterDefaultVoiceToProjects(c, true);
       if (!isInputEvent) {
         renderPersonaGrid();
       }
@@ -11574,7 +11609,6 @@ ZH: 修改后的纯客观中文服装配饰清单`
       if (c) {
         syncVoiceSpeedAndPitchToCharacter(c, false);
         await db.characters.put(c);
-        await syncCharacterDefaultVoiceToProjects(c);
       }
       const voiceId = document.getElementById('oc-voice-id')?.value.trim() || c?.voiceId || '';
       if (!voiceId) {
@@ -11582,7 +11616,8 @@ ZH: 修改后的纯客观中文服装配饰清单`
         return;
       }
       const speedVal = c?.voiceSpeedDefault ?? (parseFloat(document.getElementById('oc-voice-speed-default')?.value) || 1.0);
-      const pitchVal = c?.voicePitchDefault ?? (parseInt(document.getElementById('oc-voice-pitch-default')?.value, 10) || 0);
+      const rawPitchInput = parseFloat(document.getElementById('oc-voice-pitch-default')?.value);
+      const pitchVal = c?.voicePitchDefault ?? (isNaN(rawPitchInput) ? 0 : rawPitchInput);
       const sampleText = '你好，这是当前角色绑定的语音试听效果。';
       if (btn) {
         btn.textContent = '合成中';
@@ -11637,8 +11672,8 @@ ZH: 修改后的纯客观中文服装配饰清单`
       if (document.getElementById('oc-voice-speed-min')) document.getElementById('oc-voice-speed-min').value = c.voiceSpeedMin ?? 0.8;
       if (document.getElementById('oc-voice-speed-max')) document.getElementById('oc-voice-speed-max').value = c.voiceSpeedMax ?? 1.3;
       if (document.getElementById('oc-voice-pitch-default')) document.getElementById('oc-voice-pitch-default').value = c.voicePitchDefault ?? 0;
-      if (document.getElementById('oc-voice-pitch-min')) document.getElementById('oc-voice-pitch-min').value = c.voicePitchMin ?? -4;
-      if (document.getElementById('oc-voice-pitch-max')) document.getElementById('oc-voice-pitch-max').value = c.voicePitchMax ?? 4;
+      if (document.getElementById('oc-voice-pitch-min')) document.getElementById('oc-voice-pitch-min').value = c.voicePitchMin ?? -1;
+      if (document.getElementById('oc-voice-pitch-max')) document.getElementById('oc-voice-pitch-max').value = c.voicePitchMax ?? 1.5;
       if (document.getElementById('oc-surface')) document.getElementById('oc-surface').value = c.surface || '';
       if (document.getElementById('oc-weapon')) document.getElementById('oc-weapon').value = c.weapon || '';
       if (document.getElementById('oc-nai-tags')) document.getElementById('oc-nai-tags').value = c.naiTags || '';
@@ -11712,7 +11747,6 @@ ZH: 修改后的纯客观中文服装配饰清单`
       delete c.customPersonaText;
 
       await db.characters.put(c);
-      await syncCharacterDefaultVoiceToProjects(c, true);
       updatePersonaPreviewBoxes(c);
       renderPersonaGrid();
       populateCharacterSelects();
@@ -14956,12 +14990,12 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       const maxSpeed = isNaN(maxSpdRaw) ? 1.3 : Math.max(minSpeed, Math.min(2.0, maxSpdRaw));
       const defaultSpeed = isNaN(defSpdRaw) ? 1.0 : Number(Math.max(0.5, Math.min(2.0, defSpdRaw)).toFixed(2));
 
-      const minPtcRaw = parseInt(found?.voicePitchMin, 10);
-      const maxPtcRaw = parseInt(found?.voicePitchMax, 10);
-      const defPtcRaw = parseInt(found?.voicePitchDefault, 10);
-      const minPitch = isNaN(minPtcRaw) ? -4 : Math.max(-12, Math.min(12, minPtcRaw));
-      const maxPitch = isNaN(maxPtcRaw) ? 4 : Math.max(minPitch, Math.min(12, maxPtcRaw));
-      const defaultPitch = isNaN(defPtcRaw) ? 0 : Math.max(-12, Math.min(12, defPtcRaw));
+      const minPtcRaw = parseFloat(found?.voicePitchMin);
+      const maxPtcRaw = parseFloat(found?.voicePitchMax);
+      const defPtcRaw = parseFloat(found?.voicePitchDefault);
+      const minPitch = isNaN(minPtcRaw) ? -1 : Number(Math.max(-12, Math.min(12, minPtcRaw)).toFixed(2));
+      const maxPitch = isNaN(maxPtcRaw) ? 1.5 : Number(Math.max(minPitch, Math.min(12, maxPtcRaw)).toFixed(2));
+      const defaultPitch = isNaN(defPtcRaw) ? 0 : Number(Math.max(-12, Math.min(12, defPtcRaw)).toFixed(2));
 
       return { defaultSpeed, minSpeed, maxSpeed, defaultPitch, minPitch, maxPitch };
     }
@@ -14981,10 +15015,10 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       const speed = isNaN(parsedSpd)
         ? bounds.defaultSpeed
         : Number(Math.max(minSpd, Math.min(maxSpd, parsedSpd)).toFixed(2));
-      const parsedPtc = parseInt(rawPitch, 10);
+      const parsedPtc = parseFloat(rawPitch);
       const pitch = isNaN(parsedPtc)
         ? bounds.defaultPitch
-        : Math.max(minPtc, Math.min(maxPtc, parsedPtc));
+        : Number(Math.max(minPtc, Math.min(maxPtc, parsedPtc)).toFixed(2));
       return { emotion: emo, speed, pitch };
     }
 
@@ -14999,6 +15033,10 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       const m = mode === 'advanced' ? 'advanced' : 'normal';
       appState.replayVoiceMode = m;
       localStorage.setItem('replay-voice-studio-mode', m);
+      const promptInput = document.getElementById('replay-voice-sys-prompt-textarea');
+      if (promptInput) {
+        promptInput.value = getCustomOrDefaultVoiceSystemPrompt(m === 'advanced');
+      }
       renderReplayVoiceStudio();
       const statusEl = document.getElementById('replay-voice-status-bar');
       if (statusEl) {
@@ -15006,6 +15044,69 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
           ? '当前为普通模式：点击日译仅翻译日语台词，统一使用角色默认语速与默认语调，不附带MiniMax情绪提示词'
           : '当前为高级模式：点击日译会生成日语台词并配置情绪、语速与语调，支持逐句修改';
       }
+    }
+
+    const DEFAULT_REPLAY_VOICE_PROMPT_ADV = `你是日本视觉小说声优台本总监与配音导演。你将一次性收到本章完整模组原文、全部剧本上下文、所有登场角色的详细性格人设与各自语速语调上下限、以及全部待润色的角色对话行。
+请通读整章全文，一次性完成两项工作：
+第一，结合上下文语境、角色关系、称呼习惯与每位角色的性格语气，对每一句角色对话的日语翻译进行全文润色或补全，使其地道自然且高度贴合角色口吻；绝对禁止在日语台词前加说话人名字或冒号，旁白绝不翻译。
+第二，根据每一句台词在剧情中的情绪变化，为该句填写配音情绪 emotion、语速 speed 与语调 pitch：
+1. emotion 只能从以下7个英文值中选一个：neutral、happy、sad、angry、fearful、disgusted、surprised。
+2. 如果该句是角色普通平常心情，emotion 填 neutral，此时语速和语调必须直接使用该角色的默认语速和默认语调！
+3. 如果角色有明显情绪波动，语速 speed 与语调 pitch 可在默认基础上微调，但绝对禁止超出该角色人设中规定的最低语速至最高语速范围、以及最低语调至最高语调范围！
+4. 从头到尾严禁使用任何括号，严格按以下单行格式一次性输出全部对话行，绝不漏行：
+JP_VOICE: L行号|emotion英文值|speed数字|pitch数字|润色后的纯日语配音台词`;
+
+    const DEFAULT_REPLAY_VOICE_PROMPT_NORMAL = `你是日本视觉小说声优台本总监。你将一次性收到本章完整模组原文、全部剧本上下文、所有登场角色的详细性格人设、以及全部待翻译润色的角色对话行。
+请通读整章全文，结合上下文语境、角色关系、称呼习惯与每位角色的性格语气，仅对每一句角色对话进行地道自然的纯日语翻译与润色；不需要写语速，不需要写情绪，不需要写语调，绝对禁止在日语台词前加说话人名字或冒号，旁白绝不翻译。
+从头到尾严禁使用任何括号，严格按以下单行格式一次性输出全部对话行，绝不漏行：
+JP_VOICE: L行号|润色后的纯日语配音台词`;
+
+    function getCustomOrDefaultVoiceSystemPrompt(isAdvancedMode = false) {
+      const storageKey = isAdvancedMode ? 'replay-custom-voice-sys-prompt-adv' : 'replay-custom-voice-sys-prompt-normal';
+      const saved = localStorage.getItem(storageKey);
+      if (saved && saved.trim()) return saved.trim();
+      return isAdvancedMode ? DEFAULT_REPLAY_VOICE_PROMPT_ADV : DEFAULT_REPLAY_VOICE_PROMPT_NORMAL;
+    }
+
+    function toggleVoiceSystemPromptEditor() {
+      const box = document.getElementById('replay-voice-sys-prompt-box');
+      const textarea = document.getElementById('replay-voice-sys-prompt-textarea');
+      if (!box || !textarea) return;
+      const isHidden = box.style.display === 'none' || !box.style.display;
+      if (isHidden) {
+        const isAdv = getReplayVoiceStudioMode() === 'advanced';
+        textarea.value = getCustomOrDefaultVoiceSystemPrompt(isAdv);
+        box.style.display = 'block';
+      } else {
+        box.style.display = 'none';
+      }
+    }
+
+    function saveCustomVoiceSystemPrompt() {
+      const textarea = document.getElementById('replay-voice-sys-prompt-textarea');
+      if (!textarea) return;
+      const isAdv = getReplayVoiceStudioMode() === 'advanced';
+      const storageKey = isAdv ? 'replay-custom-voice-sys-prompt-adv' : 'replay-custom-voice-sys-prompt-normal';
+      const val = textarea.value.trim();
+      if (val) {
+        localStorage.setItem(storageKey, val);
+      } else {
+        localStorage.removeItem(storageKey);
+      }
+      const statusEl = document.getElementById('replay-voice-status-bar');
+      if (statusEl) statusEl.textContent = '已保存配音与日译提示词';
+    }
+
+    function resetCustomVoiceSystemPrompt() {
+      const isAdv = getReplayVoiceStudioMode() === 'advanced';
+      const storageKey = isAdv ? 'replay-custom-voice-sys-prompt-adv' : 'replay-custom-voice-sys-prompt-normal';
+      localStorage.removeItem(storageKey);
+      const textarea = document.getElementById('replay-voice-sys-prompt-textarea');
+      if (textarea) {
+        textarea.value = isAdv ? DEFAULT_REPLAY_VOICE_PROMPT_ADV : DEFAULT_REPLAY_VOICE_PROMPT_NORMAL;
+      }
+      const statusEl = document.getElementById('replay-voice-status-bar');
+      if (statusEl) statusEl.textContent = '已恢复默认配音与日译提示词';
     }
 
     // 点击配音页「日译」按钮：普通模式仅翻译日语台词并使用默认语速与默认语调，不生成情绪；高级模式同时生成日语翻译、情绪、语速与语调
@@ -15068,20 +15169,7 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
 
         const rawChapterExcerpt = String(chap.rawText || '').slice(0, 14000);
 
-        const sysPromptContent = isAdvancedMode
-          ? `你是日本视觉小说声优台本总监与配音导演。你将一次性收到本章完整模组原文、全部剧本上下文、所有登场角色的详细性格人设与各自语速语调上下限、以及全部待润色的角色对话行。
-请通读整章全文，一次性完成两项工作：
-第一，结合上下文语境、角色关系、称呼习惯与每位角色的性格语气，对每一句角色对话的日语翻译进行全文润色或补全，使其地道自然且高度贴合角色口吻；绝对禁止在日语台词前加说话人名字或冒号，旁白绝不翻译。
-第二，根据每一句台词在剧情中的情绪变化，为该句填写配音情绪 emotion、语速 speed 与语调 pitch：
-1. emotion 只能从以下7个英文值中选一个：neutral、happy、sad、angry、fearful、disgusted、surprised。
-2. 如果该句是角色普通平常心情，emotion 填 neutral，此时语速和语调必须直接使用该角色的默认语速和默认语调！
-3. 如果角色有明显情绪波动，语速 speed 与语调 pitch 可在默认基础上微调，但绝对禁止超出该角色人设中规定的最低语速至最高语速范围、以及最低语调至最高语调范围！
-4. 从头到尾严禁使用任何括号，严格按以下单行格式一次性输出全部对话行，绝不漏行：
-JP_VOICE: L行号|emotion英文值|speed数字|pitch整数|润色后的纯日语配音台词`
-          : `你是日本视觉小说声优台本总监。你将一次性收到本章完整模组原文、全部剧本上下文、所有登场角色的详细性格人设、以及全部待翻译润色的角色对话行。
-请通读整章全文，结合上下文语境、角色关系、称呼习惯与每位角色的性格语气，仅对每一句角色对话进行地道自然的纯日语翻译与润色；不需要写语速，不需要写情绪，不需要写语调，绝对禁止在日语台词前加说话人名字或冒号，旁白绝不翻译。
-从头到尾严禁使用任何括号，严格按以下单行格式一次性输出全部对话行，绝不漏行：
-JP_VOICE: L行号|润色后的纯日语配音台词`;
+        const sysPromptContent = getCustomOrDefaultVoiceSystemPrompt(isAdvancedMode);
 
         const userPromptContent = isAdvancedMode
           ? `所属模组：${proj.title || '跑团模组'} · 章节：${chap.title || '当前章节'}\n\n登场角色完整人设与各自语音范围：\n${personaSummary || '调查员'}\n\n本章原始跑团记录参考：\n${rawChapterExcerpt}\n\n本章完整剧本上下文：\n${fullScriptContext}\n\n请一次性润色以下全部角色对话的日语台词并配置每句情绪、语速与语调，严格按 JP_VOICE: L行号|emotion|speed|pitch|纯日语台词 输出：\n${targetDialogueLines}`
@@ -17328,16 +17416,14 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
             : `<option value="0">第 1 句</option>`;
 
           const realChars = (appState.characters || []).filter((c) => c.id !== 'narrator_kp' && c.trpgType !== '旁白');
-          const charChipsHtml = realChars.map((c) => {
-            const isSelected = Array.isArray(cg.presentNames) && cg.presentNames.includes(c.name);
-            const avatarSrc = c.charLockImg || (c.tachieExpressions && c.tachieExpressions['默认']) || c.tachieBase || c.chibiImg || '';
-            return `
-              <button type="button" class="char-selector-chip${isSelected ? ' active' : ''}" onclick="toggleCgPresentCharacter(${cIdx}, '${c.name.replace(/'/g, "\\'")}')">
-                ${avatarSrc ? `<img src="${avatarSrc}" alt="${c.name}" />` : ''}
-                <span>${c.name}</span>
-              </button>
-            `;
+          const presentArr = Array.isArray(cg.presentNames) ? cg.presentNames : [];
+          const charDropdownOptionsHtml = `<option value="">点此下拉增减在场角色 · 已选 ${presentArr.length} 人</option>` + realChars.map((c) => {
+            const isSelected = presentArr.includes(c.name);
+            return `<option value="${c.name.replace(/"/g, '&quot;')}">${isSelected ? '✓ 已在场：' : '+ 添加出场：'}${c.name}</option>`;
           }).join('');
+          const selectedCharTagsHtml = presentArr.length > 0
+            ? presentArr.map((name) => `<button type="button" class="moe-btn secondary" style="height:26px;min-height:26px;padding:0 8px;font-size:11px;" title="点击移除该在场角色" onclick="toggleCgPresentCharacter(${cIdx}, '${name.replace(/'/g, "\\'")}')">${name} ×</button>`).join('')
+            : `<span style="font-size:11px;color:var(--text-secondary);">纯景无人物</span>`;
 
           const card = document.createElement('div');
           card.id = 'cg-card-' + cg.id;
@@ -17359,7 +17445,12 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
               </select>
             </div>
             <div style="font-size:11px;color:var(--text-secondary);line-height:1.45;white-space:normal;">起始原句：${cg.lineText || '章节互动画面'}</div>
-            <div class="char-selector-strip" style="margin-bottom:0;">${charChipsHtml}</div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <select class="moe-input" style="flex:1;min-width:160px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="if(this.value){toggleCgPresentCharacter(${cIdx}, this.value);this.value='';}">
+                ${charDropdownOptionsHtml}
+              </select>
+              <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${selectedCharTagsHtml}</div>
+            </div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
               <select class="moe-input" style="flex:1;min-width:150px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplayCgNodeField(${cIdx}, 'refCharId', this.value)">
                 ${charOptionsHtml}
@@ -17714,21 +17805,15 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         setBgmDuckingActive(false);
       }
 
-      const speedVal = Math.max(0.5, Math.min(2.0, Number(voiceParams?.speed ?? 1.0)));
-      const pitchRead = Number(voiceParams?.pitch);
-      const pitchVal = isNaN(pitchRead) ? 0 : Math.max(-12, Math.min(12, Math.round(pitchRead)));
+      const speedVal = Number(Math.max(0.5, Math.min(2.0, Number(voiceParams?.speed ?? 1.0))).toFixed(2));
+      const pitchRead = parseFloat(voiceParams?.pitch);
+      const pitchVal = isNaN(pitchRead) ? 0 : Number(Math.max(-12, Math.min(12, pitchRead)).toFixed(2));
       const validEmotions = ['happy', 'sad', 'angry', 'fearful', 'disgusted', 'surprised', 'neutral'];
       const emotionVal = validEmotions.includes(voiceParams?.emotion) ? voiceParams.emotion : '';
       const paramSig = `${voiceId || 'default'}_s${speedVal.toFixed(2)}_p${pitchVal}_e${emotionVal || 'none'}`;
 
       const key = cacheKey || `tts_${paramSig}_${cleanText.slice(0, 48)}`;
-      let cachedItem = !forceRegen ? await db.ttsCache.get(key) : null;
-      if (cachedItem && cachedItem.paramSig && cachedItem.paramSig !== paramSig) {
-        cachedItem = null;
-      }
-      if (cachedItem && !cachedItem.paramSig && voiceParams && (pitchVal !== 0 || speedVal !== 1.0 || emotionVal)) {
-        cachedItem = null;
-      }
+      const cachedItem = !forceRegen ? await db.ttsCache.get(key) : null;
       let audioDataUrl = cachedItem?.audioDataUrl || '';
 
       if (!audioDataUrl) {
@@ -17740,58 +17825,63 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
           throw new Error('请先在设置中填入 MiniMax GroupId 与 API Key');
         }
 
-        const voiceSettingObj = {
-          voice_id: voiceId || 'male-qn-qingse',
-          speed: speedVal,
-          vol: 1.0,
-          pitch: pitchVal
-        };
-        if (emotionVal) {
-          voiceSettingObj.emotion = emotionVal;
-        }
-
         const host = provider === 'io' ? 'https://api.minimax.io' : 'https://api.minimax.chat';
         const targetUrl = `${host}/v1/t2a_v2?GroupId=${encodeURIComponent(groupId)}`;
-        const bodyObj = {
-          model,
-          text: cleanText,
-          stream: false,
-          voice_setting: voiceSettingObj,
-          audio_setting: {
-            sample_rate: 32000,
-            bitrate: 128000,
-            format: 'mp3',
-            channel: 1
-          }
-        };
 
-        let res;
-        try {
-          res = await fetch(targetUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${apiKey}`
-            },
-            body: JSON.stringify(bodyObj)
-          });
-        } catch (_) {
-          res = await fetch('/api/proxy', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              targetUrl,
+        const sendMinimaxRequest = async (pitchParam) => {
+          const voiceSettingObj = {
+            voice_id: voiceId || 'male-qn-qingse',
+            speed: speedVal,
+            vol: 1.0,
+            pitch: pitchParam
+          };
+          if (emotionVal) {
+            voiceSettingObj.emotion = emotionVal;
+          }
+          const bodyObj = {
+            model,
+            text: cleanText,
+            stream: false,
+            voice_setting: voiceSettingObj,
+            audio_setting: {
+              sample_rate: 32000,
+              bitrate: 128000,
+              format: 'mp3',
+              channel: 1
+            }
+          };
+          let r;
+          try {
+            r = await fetch(targetUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${apiKey}`
               },
-              body: bodyObj
-            })
-          });
-        }
+              body: JSON.stringify(bodyObj)
+            });
+          } catch (_) {
+            r = await fetch('/api/proxy', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                targetUrl,
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${apiKey}`
+                },
+                body: bodyObj
+              })
+            });
+          }
+          return r.json();
+        };
 
-        const data = await res.json();
+        let data = await sendMinimaxRequest(pitchVal);
+        if (data?.base_resp?.status_code && data.base_resp.status_code !== 0 && !Number.isInteger(pitchVal)) {
+          data = await sendMinimaxRequest(Math.round(pitchVal));
+        }
         if (data?.base_resp?.status_code && data.base_resp.status_code !== 0) {
           throw new Error(data.base_resp.status_msg || 'MiniMax 语音合成报错');
         }
@@ -17861,12 +17951,12 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
     function resolveLineEffectiveVoiceParams(line) {
       const bounds = getSpeakerVoiceBounds(line?.speaker || '');
       const isAdvancedMode = getReplayVoiceStudioMode() === 'advanced';
-      const speedRaw = Number(line?.ttsSpeed);
-      const pitchRaw = Number(line?.ttsPitch);
+      const speedRaw = parseFloat(line?.ttsSpeed);
+      const pitchRaw = parseFloat(line?.ttsPitch);
       return {
         emotion: isAdvancedMode ? (line?.ttsEmotion || 'neutral') : '',
-        speed: !isNaN(speedRaw) && speedRaw >= 0.5 ? speedRaw : (bounds.defaultSpeed ?? 1.0),
-        pitch: !isNaN(pitchRaw) ? Math.max(-12, Math.min(12, Math.round(pitchRaw))) : (bounds.defaultPitch ?? 0)
+        speed: !isNaN(speedRaw) && speedRaw >= 0.5 ? Number(Math.max(0.5, Math.min(2.0, speedRaw)).toFixed(2)) : (bounds.defaultSpeed ?? 1.0),
+        pitch: !isNaN(pitchRaw) ? Number(Math.max(-12, Math.min(12, pitchRaw)).toFixed(2)) : (bounds.defaultPitch ?? 0)
       };
     }
 
@@ -17882,8 +17972,8 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         if (!isNaN(sv)) line.ttsSpeed = Number(Math.max(0.5, Math.min(2.0, sv)).toFixed(2));
       }
       if (ptcEl && ptcEl.value !== '' && ptcEl.value !== '-') {
-        const pv = parseInt(ptcEl.value, 10);
-        if (!isNaN(pv)) line.ttsPitch = Math.max(-12, Math.min(12, pv));
+        const pv = parseFloat(ptcEl.value);
+        if (!isNaN(pv)) line.ttsPitch = Number(Math.max(-12, Math.min(12, pv)).toFixed(2));
       }
       const useJp = appState.theaterTtsLang === 'jp' && line.jpText && line.jpText.trim();
       const ttsText = useJp ? line.jpText.trim() : line.text.trim();
@@ -17905,7 +17995,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       }
       try {
         const effParams = resolveLineEffectiveVoiceParams(line);
-        await synthesizeAndPlayReplayTts(ttsText, voiceId, cacheKey, forceRegen, effParams);
+        await synthesizeAndPlayReplayTts(ttsText, voiceId, cacheKey, true, effParams);
         if (btn) btn.classList.add('cached');
       } catch (err) {
         alert('语音合成失败：' + err.message);
@@ -17972,6 +18062,8 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         const curEmo = line.ttsEmotion || 'neutral';
         const curSpeed = (typeof line.ttsSpeed === 'number' && !isNaN(line.ttsSpeed)) ? line.ttsSpeed : bounds.defaultSpeed;
         const curPitch = (typeof line.ttsPitch === 'number' && !isNaN(line.ttsPitch)) ? line.ttsPitch : bounds.defaultPitch;
+        if (typeof line.ttsSpeed !== 'number' || isNaN(line.ttsSpeed)) line.ttsSpeed = curSpeed;
+        if (typeof line.ttsPitch !== 'number' || isNaN(line.ttsPitch)) line.ttsPitch = curPitch;
         const voiceId = getSpeakerVoiceId(line.speaker);
 
         const card = document.createElement('div');
@@ -17988,9 +18080,9 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
                 </select>
               ` : ''}
               <span style="font-size:11px;color:var(--text-secondary);">语速</span>
-              <input type="number" step="0.05" min="0.5" max="2.0" id="voice-speed-input-${idx}" class="moe-input" value="${curSpeed}" style="width:62px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" oninput="updateReplayVoiceParam(${idx}, 'ttsSpeed', this.value, true)" onchange="updateReplayVoiceParam(${idx}, 'ttsSpeed', this.value, false)" />
+              <input type="number" step="any" min="0.5" max="2.0" id="voice-speed-input-${idx}" class="moe-input" value="${curSpeed}" style="width:62px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" oninput="updateReplayVoiceParam(${idx}, 'ttsSpeed', this.value, true)" onchange="updateReplayVoiceParam(${idx}, 'ttsSpeed', this.value, false)" />
               <span style="font-size:11px;color:var(--text-secondary);">语调</span>
-              <input type="number" step="1" min="-12" max="12" id="voice-pitch-input-${idx}" class="moe-input" value="${curPitch}" style="width:58px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" oninput="updateReplayVoiceParam(${idx}, 'ttsPitch', this.value, true)" onchange="updateReplayVoiceParam(${idx}, 'ttsPitch', this.value, false)" />
+              <input type="number" step="any" min="-12" max="12" id="voice-pitch-input-${idx}" class="moe-input" value="${curPitch}" style="width:58px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" oninput="updateReplayVoiceParam(${idx}, 'ttsPitch', this.value, true)" onchange="updateReplayVoiceParam(${idx}, 'ttsPitch', this.value, false)" />
             </div>
             <div class="vn-script-row-actions">
               <button type="button" class="moe-btn secondary" id="voice-studio-play-btn-${idx}" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="playSingleScriptLineTts(${idx}, false)">试听</button>
@@ -18022,7 +18114,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         line.ttsEmotion = val;
         line.ttsManualModified = true;
       } else if (field === 'ttsSpeed') {
-        if (isInputEvent && (val === '' || val === '.')) return;
+        if (isInputEvent && isIntermediateDecimalInput(val)) return;
         const parsed = parseFloat(val);
         const s = isNaN(parsed) ? bounds.defaultSpeed : Math.max(0.5, Math.min(2.0, parsed));
         line.ttsSpeed = Number(s.toFixed(2));
@@ -18032,10 +18124,10 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
           if (spdInput) spdInput.value = line.ttsSpeed;
         }
       } else if (field === 'ttsPitch') {
-        if (isInputEvent && (val === '' || val === '-')) return;
-        const parsed = parseInt(val, 10);
+        if (isInputEvent && isIntermediateDecimalInput(val)) return;
+        const parsed = parseFloat(val);
         const p = isNaN(parsed) ? bounds.defaultPitch : Math.max(-12, Math.min(12, parsed));
-        line.ttsPitch = p;
+        line.ttsPitch = Number(p.toFixed(2));
         line.ttsManualModified = true;
         if (!isInputEvent) {
           const ptcInput = document.getElementById(`voice-pitch-input-${lineIdx}`);
@@ -18044,9 +18136,6 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       } else {
         line[field] = val;
       }
-      await invalidateSingleLineTtsCache(chap.id, line.id);
-      const lineBtn = document.getElementById(`line-tts-btn-${lineIdx}`);
-      if (lineBtn) lineBtn.classList.remove('cached');
       await saveReplayProjectToDB(proj);
     }
 
@@ -18086,8 +18175,8 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
             if (!isNaN(sv)) line.ttsSpeed = Number(Math.max(0.5, Math.min(2.0, sv)).toFixed(2));
           }
           if (ptcEl && ptcEl.value !== '' && ptcEl.value !== '-') {
-            const pv = parseInt(ptcEl.value, 10);
-            if (!isNaN(pv)) line.ttsPitch = Math.max(-12, Math.min(12, pv));
+            const pv = parseFloat(ptcEl.value);
+            if (!isNaN(pv)) line.ttsPitch = Number(Math.max(-12, Math.min(12, pv)).toFixed(2));
           }
           const useJp = appState.theaterTtsLang === 'jp' && line.jpText && line.jpText.trim();
           const ttsText = useJp ? line.jpText.trim() : line.text.trim();
@@ -18107,7 +18196,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
           if (statusEl) {
             statusEl.textContent = `正在逐句调用MiniMax合成语音 ${doneCount}/${validVoiceItems.length}：${line.speaker}`;
           }
-          await synthesizeAndPlayReplayTts(ttsText, voiceId, cacheKey, false, {
+          await synthesizeAndPlayReplayTts(ttsText, voiceId, cacheKey, true, {
             emotion: isAdvancedMode ? clamped.emotion : '',
             speed: clamped.speed,
             pitch: clamped.pitch
@@ -19119,15 +19208,29 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       });
 
       if (!appState.theaterSkipPlay && !appState.theaterEditMode && line.type === 'dialogue' && line.speaker !== '旁白') {
-        const useJp = appState.theaterTtsLang === 'jp' && line.jpText && line.jpText.trim();
-        const ttsText = useJp ? line.jpText.trim() : displayLineText.trim();
         const cacheKey = `line_${chap.id}_${line.id}_${appState.theaterTtsLang}`;
         const cached = await db.ttsCache.get(cacheKey);
         if (cached && cached.audioDataUrl) {
           voiceDone = false;
           try {
-            const effParams = resolveLineEffectiveVoiceParams(line);
-            await synthesizeAndPlayReplayTts(ttsText, getSpeakerVoiceId(line.speaker), cacheKey, false, effParams);
+            await new Promise((resolve) => {
+              const audio = new Audio(cached.audioDataUrl);
+              _activeReplayTtsAudio = audio;
+              audio.volume = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
+              setBgmDuckingActive(true);
+              audio.onended = () => {
+                setBgmDuckingActive(false);
+                resolve(true);
+              };
+              audio.onerror = () => {
+                setBgmDuckingActive(false);
+                resolve(false);
+              };
+              audio.play().catch(() => {
+                setBgmDuckingActive(false);
+                resolve(false);
+              });
+            });
           } catch (_) {}
           voiceDone = true;
           scheduleAutoAdvanceIfReady();
@@ -19183,7 +19286,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
     }
 
     function replayCurrentTheaterLineTts() {
-      playSingleScriptLineTts(appState.theaterLineIdx || 0, false);
+      playSingleScriptLineTts(appState.theaterLineIdx || 0, true);
     }
 
     function stopTheaterAutoAndSkip() {
@@ -19325,7 +19428,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
 
           const canPlayVoice = !isNarr && Boolean(getSpeakerVoiceId(l.speaker));
           const playBtnHtml = canPlayVoice
-            ? `<button type="button" class="vn-play-tri-btn" title="播放此句语音" onclick="event.stopPropagation(); playSingleScriptLineTts(${actualIdx}, false);"><svg viewBox="0 0 24 24"><polygon points="7 5 19 12 7 19 7 5"></polygon></svg></button>`
+            ? `<button type="button" class="vn-play-tri-btn" title="播放此句语音" onclick="event.stopPropagation(); playSingleScriptLineTts(${actualIdx}, true);"><svg viewBox="0 0 24 24"><polygon points="7 5 19 12 7 19 7 5"></polygon></svg></button>`
             : '';
 
           const speakerLabel = isNarr ? '旁白' : l.speaker;
