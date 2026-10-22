@@ -855,14 +855,13 @@
                   <button type="button" class="moe-btn secondary" id="tachie-black-bg-btn" onclick="toggleTachieBlackBgPreview()">黑底</button>
                   <button type="button" class="moe-btn secondary" onclick="exportTachieTransparentPng()">导出</button>
                   <button type="button" class="moe-btn" id="tachie-brush-none-btn" title="预览" onclick="setTachieBrushMode('none')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg></button>
-                  <button type="button" class="moe-btn secondary" title="去底" onclick="applyFloodFillToTachie()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg></button>
                   <button type="button" class="moe-btn secondary" id="tachie-brush-wand-btn" title="魔棒" onclick="setTachieBrushMode('wand')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M17.8 6.2L19 5M3 21l9-9M12.2 6.2L11 5"/></svg></button>
                   <button type="button" class="moe-btn secondary" id="tachie-brush-lasso-btn" title="套索" onclick="setTachieBrushMode('lasso')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22a5 5 0 0 1-2-4"/><path d="M3.3 14A6.8 6.8 0 0 1 2 10c0-4.4 4.5-8 10-8s10 3.6 10 8-4.5 8-10 8a12 12 0 0 1-5-1"/><path d="M5 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/></svg></button>
                   <button type="button" class="moe-btn secondary" id="tachie-brush-erase-btn" title="擦除" onclick="setTachieBrushMode('erase')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L20 20Z"/></svg></button>
                   <button type="button" class="moe-btn secondary" id="tachie-brush-restore-btn" title="恢复" onclick="setTachieBrushMode('restore')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg></button>
                   <button type="button" class="moe-btn secondary" title="撤回" onclick="undoStageEdit('tachie')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></button>
                   <button type="button" class="moe-btn secondary" title="重做" onclick="redoStageEdit('tachie')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg></button>
-                  <button type="button" class="moe-btn secondary" title="原图" onclick="restoreTachieRawImg()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></button>
+                  <button type="button" class="moe-btn secondary" title="去底" onclick="applyFloodFillToTachie()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg></button>
                   <button type="button" class="moe-btn secondary" title="复位" onclick="resetStageZoom('tachie')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></button>
                   <button type="button" class="moe-btn" id="tachie-save-btn" onclick="saveTachieToIndexedDB()">保存</button>
                 </div>
@@ -972,14 +971,13 @@
                   <button type="button" class="moe-btn secondary" id="chibi-step-toggle-btn" onclick="toggleChibiStepPlay()">迈步</button>
                   <button type="button" class="moe-btn secondary" id="chibi-cut-fix-btn" onclick="toggleChibiCutFixMode()">修复</button>
                   <button type="button" class="moe-btn" id="chibi-brush-none-btn" onclick="setChibiBrushMode('none')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg>预览</button>
-                  <button type="button" class="moe-btn secondary" onclick="applyFloodFillToChibi()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>去底</button>
                   <button type="button" class="moe-btn secondary" id="chibi-brush-wand-btn" onclick="setChibiBrushMode('wand')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M17.8 6.2L19 5M3 21l9-9M12.2 6.2L11 5"/></svg>魔棒</button>
                   <button type="button" class="moe-btn secondary" id="chibi-brush-lasso-btn" onclick="setChibiBrushMode('lasso')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22a5 5 0 0 1-2-4"/><path d="M3.3 14A6.8 6.8 0 0 1 2 10c0-4.4 4.5-8 10-8s10 3.6 10 8-4.5 8-10 8a12 12 0 0 1-5-1"/><path d="M5 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/></svg>套索</button>
                   <button type="button" class="moe-btn secondary" id="chibi-brush-erase-btn" onclick="setChibiBrushMode('erase')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L20 20Z"/></svg>擦除</button>
                   <button type="button" class="moe-btn secondary" id="chibi-brush-restore-btn" onclick="setChibiBrushMode('restore')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>恢复</button>
                   <button type="button" class="moe-btn secondary" onclick="undoStageEdit('chibi')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>撤回</button>
                   <button type="button" class="moe-btn secondary" onclick="redoStageEdit('chibi')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>重做</button>
-                  <button type="button" class="moe-btn secondary" onclick="restoreChibiRawImg()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>原图</button>
+                  <button type="button" class="moe-btn secondary" onclick="applyFloodFillToChibi()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>去底</button>
                   <button type="button" class="moe-btn secondary" onclick="resetStageZoom('chibi')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>复位</button>
                   <button type="button" class="moe-btn" id="chibi-save-btn" onclick="saveChibiToIndexedDB()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>保存</button>
                 </div>
@@ -7202,16 +7200,16 @@
       return { zh: '随身防身小刀', itemEn: 'realistic pocket knife' };
     }
 
-    // 系统标准34个立绘表情动作差分池：调查员与主要NPC使用34个，次要NPC使用8个基础差分
+    // 系统标准36个立绘表情动作差分池：调查员与主要NPC使用36个，次要NPC使用12个基础差分
     const TACHIE_25_EXPRESSIONS = [
       '默认','微笑','大笑','温柔','害羞','脸红','调侃','惊讶','震惊','慌乱',
       '沉思','冷漠','嘲讽','生气','暴怒','失落','哭泣','绝望','崩溃','微醺',
       '尴尬','得意','贼笑','感动','无奈','叹气','装可怜','欣喜','不满','鄙夷',
-      '深情','备战','出招','决胜'
+      '深情','备战','出招','决胜','轻伤','重伤'
     ];
 
     const MINOR_NPC_8_EXPRESSIONS = [
-      '默认','开心','惊讶','愤怒','伤心','害羞','慌乱','疯狂','拿起武器','冷漠'
+      '默认','开心','惊讶','愤怒','伤心','害羞','慌乱','疯狂','拿起武器','冷漠','轻伤','重伤'
     ];
 
     const BUILTIN_STANDING_EXP_TAGS = {
@@ -7253,11 +7251,31 @@
       '愤怒': 'standing, angry expression, furrowed brows, glaring',
       '伤心': 'standing, sad expression, downcast eyes, tears',
       '疯狂': 'standing, dynamic off-balance standing pose, unhinged wide eyes, manic expression',
-      '拿起武器': 'standing, alert standing stance, serious expression, holding weapon'
+      '拿起武器': 'standing, alert standing stance, serious expression, holding weapon',
+      '轻伤': 'standing, light injuries, minor bruises and scratches on face and clothes, bandages, slightly ragged breathing, determined expression, looking at viewer',
+      '重伤': 'standing, heavy injuries, battle damaged clothes, bloodstains, pale face, painful endurance expression, one hand clutching wound, off-balance standing pose, looking at viewer'
     };
 
+    function isMinorNpcCharacter(charObj) {
+      if (!charObj) return false;
+      if (charObj.trpgType === '次要NPC' || charObj.trpgRoleType === '次要NPC') return true;
+      const projects = Array.isArray(appState.replayProjects) ? appState.replayProjects : [];
+      for (let i = 0; i < projects.length; i++) {
+        const spks = projects[i]?.extractedSpeakers;
+        if (Array.isArray(spks)) {
+          const matched = spks.find((s) => (s.trueName || s.name) === charObj.name && s.trpgType === '次要NPC');
+          if (matched) {
+            charObj.trpgType = '次要NPC';
+            charObj.trpgRoleType = '次要NPC';
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
     function buildPersonaMatchedActions(charObj) {
-      const isMinorNpc = Boolean(charObj && (charObj.trpgType === '次要NPC' || charObj.trpgRoleType === '次要NPC'));
+      const isMinorNpc = isMinorNpcCharacter(charObj);
       const baseList = isMinorNpc ? MINOR_NPC_8_EXPRESSIONS : TACHIE_25_EXPRESSIONS;
       return baseList.map((name) => ({
         name,
@@ -7755,7 +7773,7 @@
         const cm = charObj.heightCm || DEFAULT_HEIGHT_MAP[charObj.id] || 175;
         const wt = getCharSignatureWeaponOrTool(charObj);
         const moduleContext = getSelectedTachieModuleVolumeContext(charObj.name);
-        const isMinorNpc = Boolean(charObj.trpgRoleType === '次要NPC' || charObj.trpgType === '次要NPC');
+        const isMinorNpc = isMinorNpcCharacter(charObj);
         const baseTemplateActions = buildPersonaMatchedActions(charObj);
         const actPromptLines = baseTemplateActions
           .map((act, idx) => `ACT${idx + 1}: ${act.name}|${act.zhDesc}|${act.enTags}`)
@@ -7772,14 +7790,12 @@ ${isMinorNpc ? '' : '第三部分：根据角色在模组文章中的性格、�
 第三条：BASE_TAGS 只能包含纯粹的人物外貌五官、发色发型、身材特征以及从头到脚的衣服鞋靴配饰！BASE_TAGS 中绝对禁止包含虎牙、小虎牙、尖牙即 fang, fangs, snaggletooth, sharp teeth，绝对禁止包含任何面部表情如 smile, grin, smirk, blush，绝对禁止包含任何动作姿态或手势！BASE_TAGS 必须以 solo, single character 开头确保画面只有唯一一个全身人物。
 第四条：OUTFIT_ZH 中文服装方案只允许写纯粹客观的衣物款式、版型、颜色、材质、花纹与配饰清单，禁止写主观吹捧修辞。服装与鞋履根据角色自身人设、年龄与职业自由设计即可。
 第五条：ACT1 默认状态必须是平静无表情的自然默认站姿：three-quarter view, calm composed standing posture, neutral expressionless face, calm closed mouth, arms relaxed naturally at sides, looking at viewer，绝不在默认状态咧嘴露牙或做夸张动作。
-第六条：编写全部${baseTemplateActions.length}个必选差分与额外差分时，必须同步在写词阶段一次性全部写好。每个差分只允许写身体朝向角度、站立肢体动作、手势与面部五官表情，绝对禁止在 ACT 差分词里重复写 BASE_TAGS 外貌服装词，也绝对禁止在 ACT 差分词里写 1girl、1boy、solo 等人数性别词！每个差分可以换角度，可以换四十五度角 three-quarter view、正侧面 side profile view、斜侧面 angled side view、背面或背身回眸 from behind, looking back over shoulder，动作可以有重心不稳或动态倾斜 standing off-balance, dynamic standing pose，但无论如何人物都必须是站着的 standing, full body standing，绝对不能让他坐下，严禁出现坐姿、跪姿、蹲姿、睡姿、躺姿！
+第六条：编写全部${baseTemplateActions.length}个必选差分${isMinorNpc ? '' : '与额外差分'}时，必须同步在写词阶段一次性全部写好。每个差分只允许写身体朝向角度、站立肢体动作、手势与面部五官表情，绝对禁止在 ACT 差分词里重复写 BASE_TAGS 外貌服装词，也绝对禁止在 ACT 差分词里写 1girl、1boy、solo 等人数性别词！每个差分可以换角度，可以换四十五度角 three-quarter view、正侧面 side profile view、斜侧面 angled side view、背面或背身回眸 from behind, looking back over shoulder，动作可以有重心不稳或动态倾斜 standing off-balance, dynamic standing pose，但无论如何人物都必须是站着的 standing, full body standing，绝对不能让他坐下，严禁出现坐姿、跪姿、蹲姿、睡姿、躺姿！
 第七条：这是一个克苏鲁调查员世界观，没有魔法超能力！拿起武器、备战、出招、决胜以及日常手持物必须严格依据角色人设中的「武器随身携带道具」即${wt.zh}来写，一般为写实小刀、匕首、左轮手枪、警棍、手电筒或笔记本，绝对禁止妄自揣测编写魔法权杖、发光神剑、悬浮塔罗、茶壶或超能力特效！
 第八条：绝对禁止在任何英文标签中写 visual novel sprite, official art, character sheet, reference sheet, multiple views, expression sheet, face inset, sitting, kneeling, lying, sleeping 等词汇。从头到尾严禁使用任何圆括号或方括号，严格按照以下格式逐行输出：
 OUTFIT_ZH: 纯客观的从头到脚服装款式材质颜色与随身配饰清单
 BASE_TAGS: 完全不含任何动作表情且不含虎牙的超详细正比纯外貌与全身衣服英文标签串
-${actPromptLines}
-EXTRA1: 两个字额外差分名如记录|结合模组与随身道具的自然动作简述|含自然身体角度、手持写实道具与神态的英文标签
-EXTRA2: 两个字额外差分名如探查|结合模组与随身道具的特色动作简述|含自然身体角度、手部动作与神态的英文标签`;
+${actPromptLines}${isMinorNpc ? '' : '\nEXTRA1: 两个字额外差分名如记录|结合模组与随身道具的自然动作简述|含自然身体角度、手持写实道具与神态的英文标签\nEXTRA2: 两个字额外差分名如探查|结合模组与随身道具的特色动作简述|含自然身体角度、手部动作与神态的英文标签'}`;
 
         const editedPersonaBox = document.getElementById(isChibi ? 'chibi-char-persona-preview' : 'tachie-char-persona-preview')?.value.trim() || '';
         if (editedPersonaBox) {
@@ -7787,7 +7803,7 @@ EXTRA2: 两个字额外差分名如探查|结合模组与随身道具的特色�
         }
         const personaDesc = editedPersonaBox || `名字：${charObj.name}\n身份定位：${isMinorNpc ? '次要NPC' : (charObj.trpgRoleType || '调查员或主要NPC')}\n年龄：${charObj.age || ''}\n真实身高：${cm}cm\n外貌：${charObj.body || ''}\n性格：${charObj.quirk || ''}\n背景：${charObj.surface || ''}\n武器随身携带道具：${charObj.weapon || wt.zh}`;
 
-        const usrText = `请根据以下角色人设${moduleContext ? '以及所选模组卷数中的人物表现' : ''}，先编写完全不含任何表情、动作与虎牙的纯外貌加衣服底词 BASE_TAGS，再同步写好全部 ${baseTemplateActions.length} 个必选差分动作词与额外模组差分动作词。注意所有调查员与男性角色全员高颜值年轻美型、年龄差小，严禁写任何成熟或显老词汇，武器必须使用写实调查员武器${wt.zh}，绝不编造魔法超能力道具：
+        const usrText = `请根据以下角色人设${moduleContext ? '以及所选模组卷数中的人物表现' : ''}，先编写完全不含任何表情、动作与虎牙的纯外貌加衣服底词 BASE_TAGS，再同步写好全部 ${baseTemplateActions.length} 个必选差分动作词${isMinorNpc ? '' : '与额外模组差分动作词'}。注意所有调查员与男性角色全员高颜值年轻美型、年龄差小，严禁写任何成熟或显老词汇，武器必须使用写实调查员武器${wt.zh}，绝不编造魔法超能力道具：
 角色人设要求：
 ${personaDesc}${moduleContext ? `\n\n模组文章参考内容：\n${moduleContext}` : ''}`;
 
@@ -7860,21 +7876,23 @@ ${personaDesc}${moduleContext ? `\n\n模组文章参考内容：\n${moduleContex
           }
           return found || JSON.parse(JSON.stringify(defAct));
         });
-        existingUserCustom.forEach((ua) => {
-          if (!finalActions.some((fa) => fa.name === ua.name)) {
-            finalActions.push(ua);
-          }
-        });
-        parsedActions.forEach((pa) => {
-          if (!finalActions.some((fa) => fa.name === pa.name)) {
-            finalActions.push(pa);
-          }
-        });
-        parsedExtras.forEach((ex) => {
-          if (!finalActions.some((fa) => fa.name === ex.name)) {
-            finalActions.push(ex);
-          }
-        });
+        if (!isMinorNpc) {
+          existingUserCustom.forEach((ua) => {
+            if (!finalActions.some((fa) => fa.name === ua.name)) {
+              finalActions.push(ua);
+            }
+          });
+          parsedActions.forEach((pa) => {
+            if (!finalActions.some((fa) => fa.name === pa.name)) {
+              finalActions.push(pa);
+            }
+          });
+          parsedExtras.forEach((ex) => {
+            if (!finalActions.some((fa) => fa.name === ex.name)) {
+              finalActions.push(ex);
+            }
+          });
+        }
 
         charObj.outfitDesignZh = outfitZh;
         charObj.naiTags = baseTags;
@@ -9846,7 +9864,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
     function getCharActionList(charObj) {
       const personaDefaults = buildPersonaMatchedActions(charObj);
       if (!charObj) return personaDefaults;
-      const isMinorNpc = Boolean(charObj.trpgType === '次要NPC' || charObj.trpgRoleType === '次要NPC');
+      const isMinorNpc = isMinorNpcCharacter(charObj);
       if (Array.isArray(charObj.customActionList) && charObj.customActionList.length > 0) {
         const merged = personaDefaults.map((defAct) => {
           const existing = charObj.customActionList.find((a) => a.name === defAct.name || (defAct.name === '失落' && a.name === '难过'));
@@ -9932,7 +9950,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
       if (!box) return;
       const charObj = appState.characters.find((c) => c.id === appState.selectedTachieCharId);
       const actions = getCharActionList(charObj);
-      const isMinorNpc = Boolean(charObj && (charObj.trpgType === '次要NPC' || charObj.trpgRoleType === '次要NPC'));
+      const isMinorNpc = isMinorNpcCharacter(charObj);
       const basePoolLen = isMinorNpc ? MINOR_NPC_8_EXPRESSIONS.length : TACHIE_25_EXPRESSIONS.length;
       populateTachieModifyTargetSelect(charObj);
       box.innerHTML = '';
@@ -12641,6 +12659,9 @@ ZH: 修改后的纯客观中文服装配饰清单`
     }
 
     function renderPersonaGrid() {
+      if (typeof ensureModuleSpeakersInCharactersSync === 'function') {
+        ensureModuleSpeakersInCharactersSync();
+      }
       populatePersonaModuleFilterSelect();
       const grid = document.getElementById('persona-char-grid');
       if (!grid) return;
@@ -12648,15 +12669,23 @@ ZH: 修改后的纯客观中文服装配饰清单`
 
       const modFilter = appState.personaFilterModule || 'all';
       const catFilter = appState.personaFilterCategory || 'all';
+      const targetProj = (appState.replayProjects || []).find((p) => p.id === modFilter);
 
       const filtered = appState.characters.filter((c) => {
         if (c.id === 'narrator_kp' || c.name === '旁白' || c.trpgType === '旁白') return false;
-        const rawType = c.trpgType || c.trpgRoleType || '调查员';
+        const isMinor = isMinorNpcCharacter(c);
+        const rawType = isMinor ? '次要NPC' : (c.trpgType || c.trpgRoleType || '调查员');
         const tType = rawType === 'NPC' ? '主要NPC' : rawType;
         const isUniv = c.isUniversal !== false;
         if (modFilter === 'universal' && !isUniv) return false;
         if (modFilter !== 'all' && modFilter !== 'universal') {
-          if (!isUniv && c.moduleId !== modFilter) return false;
+          const inProjSpeakers = Boolean(
+            targetProj &&
+            Array.isArray(targetProj.extractedSpeakers) &&
+            targetProj.extractedSpeakers.some((s) => (s.trueName || s.name) === c.name)
+          );
+          const matchMod = c.moduleId === modFilter || (targetProj && c.moduleTitle === targetProj.title) || inProjSpeakers;
+          if (!isUniv && !matchMod) return false;
         }
         if (catFilter === 'universal') return isUniv;
         if (catFilter === 'NPC') return tType === '主要NPC' || tType === '次要NPC';
@@ -12741,9 +12770,9 @@ ZH: 修改后的纯客观中文服装配饰清单`
 
         grp.chars.forEach((c) => {
           const cm = c.heightCm || DEFAULT_HEIGHT_MAP[c.id] || 175;
-          const rawType = c.trpgType || c.trpgRoleType || (c.name === '旁白' ? '旁白' : '调查员');
+          const isMinor = isMinorNpcCharacter(c);
+          const rawType = isMinor ? '次要NPC' : (c.trpgType || c.trpgRoleType || (c.name === '旁白' ? '旁白' : '调查员'));
           const tType = rawType === 'NPC' ? '主要NPC' : rawType;
-          const isMinor = tType === '次要NPC';
           const totalPoolCount = isMinor ? MINOR_NPC_8_EXPRESSIONS.length : TACHIE_25_EXPRESSIONS.length;
           const isUniv = c.isUniversal !== false;
           const vSpd = c.voiceSpeedDefault ?? 1.0;
@@ -13151,14 +13180,15 @@ ZH: 修改后的纯客观中文服装配饰清单`
         c.trpgRoleType = newRoleType;
         if (roleChanged) {
           c.customActionList = buildPersonaMatchedActions(c);
-          const curProj = getCurrentReplayProject();
-          if (curProj && Array.isArray(curProj.extractedSpeakers)) {
-            const matchedSpk = curProj.extractedSpeakers.find((s) => (s.trueName || s.name) === c.name);
-            if (matchedSpk) {
-              matchedSpk.trpgType = newRoleType;
-              saveReplayProjectToDB(curProj);
+          (appState.replayProjects || []).forEach((proj) => {
+            if (proj && Array.isArray(proj.extractedSpeakers)) {
+              const matchedSpk = proj.extractedSpeakers.find((s) => (s.trueName || s.name) === c.name);
+              if (matchedSpk) {
+                matchedSpk.trpgType = newRoleType;
+                saveReplayProjectToDB(proj);
+              }
             }
-          }
+          });
         }
       }
       if (document.getElementById('oc-universal-mode')) {
@@ -16110,6 +16140,78 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       }
     }
 
+    function ensureModuleSpeakersInCharactersSync() {
+      const projects = Array.isArray(appState.replayProjects) ? appState.replayProjects : [];
+      let anyAddedOrUpdated = false;
+      projects.forEach((proj) => {
+        if (!proj || !Array.isArray(proj.extractedSpeakers)) return;
+        proj.extractedSpeakers.forEach((spk, idx) => {
+          if (!spk) return;
+          if (spk.trpgType === 'NPC') spk.trpgType = '主要NPC';
+          if (spk.trpgType === '场外' || spk.trpgType === '骰子' || spk.trpgType === '旁白') return;
+          const targetName = spk.trueName || spk.name;
+          if (!targetName || targetName === '旁白' || isFakeOrDiceSpeakerName(targetName)) return;
+          let existing = appState.characters.find((c) => c.name === targetName);
+          if (!existing) {
+            const roleTypeVal = spk.trpgType || '调查员';
+            const newChar = {
+              id: 'trpg_char_' + Date.now() + '_' + idx + '_' + Math.floor(Math.random() * 1000),
+              name: targetName,
+              trpgType: roleTypeVal,
+              trpgRoleType: roleTypeVal,
+              isUniversal: roleTypeVal === '调查员',
+              moduleId: proj.id,
+              moduleTitle: proj.title || '跑团模组',
+              region: 'alta_kilig',
+              role: '',
+              heightCm: 172,
+              earHatCm: 0,
+              body: '',
+              quirk: '',
+              voiceId: '',
+              surface: '',
+              secret: '',
+              cot: '',
+              quotes: '',
+              chapters: proj.title || '',
+              naiTags: 'solo, single character, full body, standing, anime style, white background',
+              chibiImg: '',
+              tachieBase: '',
+              tachieExpressions: {},
+              isFriend: true
+            };
+            newChar.customActionList = buildPersonaMatchedActions(newChar);
+            appState.characters.push(newChar);
+            db.characters.put(newChar);
+            anyAddedOrUpdated = true;
+          } else {
+            let charChanged = false;
+            if (spk.trpgType && (existing.trpgType !== spk.trpgType || existing.trpgRoleType !== spk.trpgType)) {
+              existing.trpgType = spk.trpgType;
+              existing.trpgRoleType = spk.trpgType;
+              existing.customActionList = getCharActionList(existing);
+              charChanged = true;
+            }
+            if ((spk.trpgType === '次要NPC' || spk.trpgType === '主要NPC') && existing.isUniversal !== false && !existing.moduleId) {
+              existing.isUniversal = false;
+              existing.moduleId = proj.id;
+              existing.moduleTitle = proj.title || '跑团模组';
+              charChanged = true;
+            } else if (!existing.moduleId && proj.id) {
+              existing.moduleId = proj.id;
+              existing.moduleTitle = proj.title || '跑团模组';
+              charChanged = true;
+            }
+            if (charChanged) {
+              db.characters.put(existing);
+              anyAddedOrUpdated = true;
+            }
+          }
+        });
+      });
+      return anyAddedOrUpdated;
+    }
+
     async function updateExtractedSpeakerMapping(idx, field, val) {
       const proj = getCurrentReplayProject();
       if (!proj || !Array.isArray(proj.extractedSpeakers) || !proj.extractedSpeakers[idx]) return;
@@ -16137,10 +16239,17 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
           if (existingChar) {
             existingChar.trpgType = val;
             existingChar.trpgRoleType = val;
+            if (val === '次要NPC' || val === '主要NPC') {
+              existingChar.isUniversal = false;
+              existingChar.moduleId = existingChar.moduleId || proj.id;
+              existingChar.moduleTitle = existingChar.moduleTitle || proj.title || '跑团模组';
+            }
             const baseList = buildPersonaMatchedActions(existingChar);
-            const userAdded = Array.isArray(existingChar.customActionList)
-              ? existingChar.customActionList.filter((a) => a && a.name && !TACHIE_25_EXPRESSIONS.includes(a.name) && !MINOR_NPC_8_EXPRESSIONS.includes(a.name))
-              : [];
+            const userAdded = val === '次要NPC'
+              ? []
+              : (Array.isArray(existingChar.customActionList)
+                  ? existingChar.customActionList.filter((a) => a && a.name && !TACHIE_25_EXPRESSIONS.includes(a.name) && !MINOR_NPC_8_EXPRESSIONS.includes(a.name))
+                  : []);
             existingChar.customActionList = [...baseList, ...userAdded];
             await db.characters.put(existingChar);
           }
@@ -16171,6 +16280,7 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
     function renderExtractedSpeakersList() {
       const box = document.getElementById('replay-extracted-speakers-list');
       if (!box) return;
+      ensureModuleSpeakersInCharactersSync();
       const proj = getCurrentReplayProject();
       const list = (proj?.extractedSpeakers || []).filter((s) => !isFakeOrDiceSpeakerName(s.rawName || s.name) && !isFakeOrDiceSpeakerName(s.trueName || s.name));
       if (proj && proj.extractedSpeakers && list.length !== proj.extractedSpeakers.length) {
@@ -16187,7 +16297,7 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
         const displayName = item.trueName || item.name;
         const rawNote = item.rawName && item.rawName !== displayName ? `原昵称 ${item.rawName} · ` : '';
         const matchedChar = appState.characters.find((c) => c.name === displayName);
-        const expCountLabel = item.trpgType === '次要NPC' ? `${MINOR_NPC_8_EXPRESSIONS.length}基础差分` : (item.trpgType === '调查员' || item.trpgType === '主要NPC' ? '34基础差分' : '');
+        const expCountLabel = item.trpgType === '次要NPC' ? `${MINOR_NPC_8_EXPRESSIONS.length}基础差分` : (item.trpgType === '调查员' || item.trpgType === '主要NPC' ? `${TACHIE_25_EXPRESSIONS.length}基础差分` : '');
         const statusText = item.trpgType === '场外'
           ? `${rawNote}发言 ${item.count} 次 · 已设为场外吐槽弹幕`
           : (matchedChar
@@ -16233,7 +16343,6 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       }
       const speakers = (proj.extractedSpeakers || []).filter((s) => !isFakeOrDiceSpeakerName(s.rawName || s.name) && !isFakeOrDiceSpeakerName(s.trueName || s.name));
       proj.extractedSpeakers = speakers;
-      const palette = ['#4f6ef7', '#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#06b6d4'];
 
       for (let i = 0; i < speakers.length; i++) {
         const spk = speakers[i];
@@ -16278,12 +16387,18 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
             existing.trpgType = spk.trpgType;
             existing.trpgRoleType = spk.trpgType;
             const baseList = buildPersonaMatchedActions(existing);
-            const userAdded = Array.isArray(existing.customActionList)
-              ? existing.customActionList.filter((a) => a && a.name && !TACHIE_25_EXPRESSIONS.includes(a.name) && !MINOR_NPC_8_EXPRESSIONS.includes(a.name))
-              : [];
+            const userAdded = spk.trpgType === '次要NPC'
+              ? []
+              : (Array.isArray(existing.customActionList)
+                  ? existing.customActionList.filter((a) => a && a.name && !TACHIE_25_EXPRESSIONS.includes(a.name) && !MINOR_NPC_8_EXPRESSIONS.includes(a.name))
+                  : []);
             existing.customActionList = [...baseList, ...userAdded];
           }
-          if (!existing.moduleId && proj.id) {
+          if (spk.trpgType === '次要NPC' || spk.trpgType === '主要NPC') {
+            existing.isUniversal = false;
+            existing.moduleId = existing.moduleId || proj.id;
+            existing.moduleTitle = existing.moduleTitle || proj.title || '跑团模组';
+          } else if (!existing.moduleId && proj.id) {
             existing.moduleId = proj.id;
             existing.moduleTitle = proj.title || '';
           }
@@ -16294,6 +16409,10 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       populateCharacterSelects();
       renderPersonaGrid();
       renderExtractedSpeakersList();
+      if (appState.selectedTachieCharId) {
+        renderTachieActionPlanList();
+        renderTachieExpButtons();
+      }
     }
 
     function toggleEditChapterRawText(idx) {
@@ -16460,6 +16579,8 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
 
     function inferEmotionExpressionFromText(text) {
       const t = String(text || '');
+      if (/重伤|吐血|濒死|血流如注|倒在血泊|重创|奄奄一息/.test(t)) return '重伤';
+      if (/轻伤|擦伤|划伤|渗血|包扎|伤口|受伤|负伤/.test(t)) return '轻伤';
       if (/备战|拔刀|举枪|举起武器|架势|警戒/.test(t)) return '备战';
       if (/挥刀|出招|斩击|射击|开枪|刺出/.test(t)) return '出招';
       if (/决胜|收刀|击溃/.test(t)) return '决胜';
@@ -17449,7 +17570,7 @@ SCENE_ITEM: 场景编号|2到5字简短场景名|NovelAI英文提示词|基底�
 规则二：旁白 narration 必须全部采用第三人称视角并且顶格书写！对于KP原本以第二人称撰写的旁白，必须把其中所有的「你」「你们」「你的」准确替换为上下文中对应的调查员角色真名，并可适当添加自然过渡连接词，绝对不能在旁白中残留第二人称「你」！对于玩家PC的动作描写转为旁白 narration 时，只允许将第一人称「我」转换为该PC的角色真名并在需要时加简短连接词，绝对禁止删减或改写玩家原本风趣幽默的描写文笔！
 规则三：在整理章节这一步彻底剔除 logs 记录指令与无用废话：凡是遇到诸如点log、logs开启关闭、日志保存链接、已绑卡、已改名、进行了什么鉴定等骰娘指令或系统废话，一律将该行的类型标记为 delete 彻底剔除，绝对禁止保留在旁白或对话中！只有最终的鉴定成功或失败结果、以及生命值或理智值变化才属于右上角检定提示。
 规则四：以括号开头的场外发言已在发给你之前提取到了独立弹幕区域；如果在剩下的句子里发现没有带括号的漏网之鱼，只有百分之百明确脱离模组剧情的玩家场外闲聊吐槽才将其类型标记为 ooc 移入弹幕区；模棱两可的一律视为正常剧情内容。
-规则五：立绘差分切换必须严格从下方提供的该角色可用差分池中选择！调查员与主要NPC拥有34个基础差分加专属差分，次要NPC仅拥有默认、开心、惊讶、愤怒、伤心、害羞、慌乱、疯狂、拿起武器、冷漠共10个差分，绝对禁止给次要NPC填写34差分池里才有的其他差分名字，也绝对禁止原创池子之外的差分名字！切换差分的频率必须适中自然。
+规则五：立绘差分切换必须严格从下方提供的该角色可用差分池中选择！调查员与主要NPC拥有36个基础差分加专属差分，次要NPC仅拥有默认、开心、惊讶、愤怒、伤心、害羞、慌乱、疯狂、拿起武器、冷漠、轻伤、重伤共12个差分，绝对禁止给次要NPC填写36差分池里才有的其他差分名字，也绝对禁止原创池子之外的差分名字！切换差分的频率必须适中自然。
 规则六：配乐是视觉小说的灵魂环节！每一章必须根据剧情起承转合规划3到6处 BGM_REC 音乐开始标记，并在紧张解除、压抑留白、突发惊吓或场景切换处标记 BGM_STOP 音乐停止！所选曲目必须全部是日系动漫、视觉小说或日系RPG游戏中的纯音乐与原声带伴奏，例如泽野弘之、梶浦由记、神前晓、折户伸治、高梨康治、川井宪次、牛尾宪辅、光田康典、下村阳子、横山克等作曲家的纯音乐作品或经典Galgame纯音乐，严禁推荐带有人声演唱的流行歌曲，使角色说话与日系背景纯音乐自然融合！
 规则七：如果发现某行台词或旁白里有明显错别字，不要擅自直接篡改原句，必须用 TYPO_MARK 单独标记出来供用户自己核对。
 规则八：一章跑团剧本请每隔一段剧情规划一处 CG_MARK 插图节点，整章共规划 5 到 10 处，不必非要等到激烈高潮才插图，有画面感的日常互动或具体场景动作同样可以插入CG，例如两人一起吃饭、给对方喂饭、递交物品、包扎伤口、查看线索或肢体接触；但位置必须选在有具体互动或动作画面的句子处，绝对禁止插在两个人只是普通站着纯聊天、毫无动作与画面变化的无意义干聊台词处！每一张插图都必须明确规划它的持续时间，即从哪一句开始持续显示到哪一句结束，写成 L起始行号-L结束行号 的格式，并填写简短画面说明和在场人物，此阶段不要编写英文生图提示词。同时结合下方提供的全部场景名字，使用 SCENE_RANGE 规划从第几句到第几句使用哪个场景背景、哪几句是纯CG填 CG、哪几句是黑幕转场填 blackout。
@@ -17466,7 +17587,7 @@ CG_MARK: L起始行号-L结束行号|插图简短剧情画面说明|在场角色
 
     function getCustomOrDefaultScriptPrompt() {
       const saved = localStorage.getItem('replay-custom-script-prompt');
-      if (saved && (!saved.includes('delete') || !saved.includes('CG_MARK: L起始行号-L结束行号') || !saved.includes('日系动漫') || saved.includes('根据剧情高潮、关键调查与重要互动'))) {
+      if (saved && (!saved.includes('delete') || !saved.includes('CG_MARK: L起始行号-L结束行号') || !saved.includes('日系动漫') || saved.includes('根据剧情高潮、关键调查与重要互动') || saved.includes('34个基础差分') || saved.includes('共10个差分'))) {
         return DEFAULT_REPLAY_SCRIPT_PROMPT;
       }
       return saved || DEFAULT_REPLAY_SCRIPT_PROMPT;
@@ -17707,29 +17828,29 @@ CG_MARK: L起始行号-L结束行号|插图简短剧情画面说明|在场角色
       renderReplayScriptEditor();
     }
 
-    // 获取某个角色当前全部可用差分池：调查员与主要NPC默认34个差分，次要NPC默认8个差分，并自动合并用户为该角色新增的专属差分
+    // 获取某个角色当前全部可用差分池：调查员与主要NPC默认36个差分，次要NPC默认12个差分，并自动合并用户为该角色新增的专属差分
     function getCharacterAvailableExpressionPool(charObj) {
-      const isMinorNpc = charObj && (charObj.trpgRoleType === '次要NPC' || charObj.trpgType === '次要NPC');
+      const isMinorNpc = isMinorNpcCharacter(charObj);
       const baseDefaults = isMinorNpc
-        ? (typeof MINOR_NPC_8_EXPRESSIONS !== 'undefined' && Array.isArray(MINOR_NPC_8_EXPRESSIONS) ? MINOR_NPC_8_EXPRESSIONS : ['默认', '开心', '愤怒', '伤心', '害羞', '疯狂', '拿起武器', '冷漠'])
+        ? (typeof MINOR_NPC_8_EXPRESSIONS !== 'undefined' && Array.isArray(MINOR_NPC_8_EXPRESSIONS) ? MINOR_NPC_8_EXPRESSIONS : ['默认', '开心', '惊讶', '愤怒', '伤心', '害羞', '慌乱', '疯狂', '拿起武器', '冷漠', '轻伤', '重伤'])
         : (typeof TACHIE_25_EXPRESSIONS !== 'undefined' && Array.isArray(TACHIE_25_EXPRESSIONS) ? TACHIE_25_EXPRESSIONS : ['默认', '微笑']);
+      if (isMinorNpc) {
+        return [...baseDefaults];
+      }
       const pool = [...baseDefaults];
       if (charObj) {
         if (Array.isArray(charObj.customActionList)) {
           charObj.customActionList.forEach((a) => {
             if (!a || !a.name) return;
-            if (isMinorNpc && TACHIE_25_EXPRESSIONS.includes(a.name) && !MINOR_NPC_8_EXPRESSIONS.includes(a.name)) return;
             if (!pool.includes(a.name)) pool.push(a.name);
           });
         }
         Object.keys(charObj.tachieExpressionPrompts || {}).forEach((k) => {
           if (!k) return;
-          if (isMinorNpc && TACHIE_25_EXPRESSIONS.includes(k) && !MINOR_NPC_8_EXPRESSIONS.includes(k)) return;
           if (!pool.includes(k)) pool.push(k);
         });
         Object.keys(charObj.tachieExpressions || {}).forEach((k) => {
           if (!k) return;
-          if (isMinorNpc && TACHIE_25_EXPRESSIONS.includes(k) && !MINOR_NPC_8_EXPRESSIONS.includes(k)) return;
           if (!pool.includes(k)) pool.push(k);
         });
       }
@@ -17765,7 +17886,7 @@ CG_MARK: L起始行号-L结束行号|插图简短剧情画面说明|在场角色
           : ['默认', '微笑'];
         const minorPoolList = (typeof MINOR_NPC_8_EXPRESSIONS !== 'undefined' && Array.isArray(MINOR_NPC_8_EXPRESSIONS))
           ? MINOR_NPC_8_EXPRESSIONS
-          : ['默认', '开心', '愤怒', '伤心', '害羞', '疯狂', '拿起武器', '冷漠'];
+          : ['默认', '开心', '惊讶', '愤怒', '伤心', '害羞', '慌乱', '疯狂', '拿起武器', '冷漠', '轻伤', '重伤'];
 
         const speakerSet = new Set();
         baseLines.forEach((l) => {
@@ -17778,7 +17899,7 @@ CG_MARK: L起始行号-L结束行号|插图简短剧情画面说明|在场角色
         const investigatorNames = [];
         Array.from(speakerSet).forEach((name) => {
           const c = appState.characters.find((x) => x.name === name);
-          if (!c || c.trpgType === '调查员' || c.trpgRoleType === '调查员') {
+          if (!c || (!isMinorNpcCharacter(c) && (c.trpgType === '调查员' || c.trpgRoleType === '调查员'))) {
             investigatorNames.push(name);
           }
         });
@@ -17787,7 +17908,7 @@ CG_MARK: L起始行号-L结束行号|插图简短剧情画面说明|在场角色
         const charContextLines = Array.from(speakerSet).map((name) => {
           const c = appState.characters.find((x) => x.name === name);
           const p = c?.personaData || {};
-          const roleType = c?.trpgRoleType || c?.trpgType || '调查员';
+          const roleType = isMinorNpcCharacter(c) ? '次要NPC' : (c?.trpgRoleType || c?.trpgType || '调查员');
           const pool = getCharacterAvailableExpressionPool(c);
           const segments = [`名字:${name}`, `身份定位:${roleType}`];
           if (fieldCfg.age !== false) segments.push(`年龄:${p.age || c?.age || '未知'}`);
@@ -17820,10 +17941,10 @@ CG_MARK: L起始行号-L结束行号|插图简短剧情画面说明|在场角色
         const userPrompt = `本模组调查员名单供替换旁白中的你或你们：
 ${investigatorNames.join('、') || '调查员'}
 
-调查员与主要NPC可用34差分池：
+调查员与主要NPC可用36差分池：
 ${defaultPoolList.join('、')}
 
-次要NPC专用10差分池：
+次要NPC专用12差分池：
 ${minorPoolList.join('、')}
 
 本章登场角色完整人设、定位身份与各自专属可用差分池：
@@ -18509,7 +18630,7 @@ BGM_STOP: L行号`;
 
         const charPoolsDesc = Array.from(speakerNames).map((name) => {
           const c = (appState.characters || []).find((x) => x.name === name);
-          const roleType = c?.trpgRoleType || c?.trpgType || '调查员';
+          const roleType = isMinorNpcCharacter(c) ? '次要NPC' : (c?.trpgRoleType || c?.trpgType || '调查员');
           const pool = getCharacterAvailableExpressionPool(c);
           return `角色：${name}｜定位：${roleType}｜该角色可用完整差分池：${pool.join('、')}`;
         }).join('\n');
@@ -18520,7 +18641,7 @@ BGM_STOP: L行号`;
 
         const sysPrompt = `你是专业视觉小说演出导演。请通读整章剧本，并根据下方提供的「每个角色单独拥有的可用差分池」，为章节中的角色台词重新优化选择最贴合剧情情绪的立绘差分。
 严格遵守以下原则：
-1. 你只能从该角色对应的可用差分池中选择差分名字，调查员与主要NPC使用34基础差分加自定义差分，次要NPC仅使用默认、开心、愤怒、伤心、害羞、疯狂、拿起武器、冷漠8基础差分加自定义差分，绝对禁止自己原创池子之外的差分名！
+1. 你只能从该角色对应的可用差分池中选择差分名字，调查员与主要NPC使用36基础差分加自定义差分，次要NPC仅使用默认、开心、惊讶、愤怒、伤心、害羞、慌乱、疯狂、拿起武器、冷漠、轻伤、重伤共12基础差分，绝对禁止自己原创池子之外的差分名！
 2. 差分切换频率必须适中自然：不要每说一句话就换一个差分显得过于频繁，也不要半天一直死板不换；当角色情绪、态度、语气或动作出现自然变化时进行切换。
 3. 只需要输出需要更新差分的台词行，从头到尾严禁使用任何括号，严格按以下格式逐行输出：
 EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
@@ -22492,16 +22613,18 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
             }
           });
         }
+        const isMinor = isMinorNpcCharacter(c);
         const hasOldGenericActions =
           !Array.isArray(c.customActionList) ||
-          c.customActionList.length < 25 ||
-          !c.customActionList.some((a) => a.name === '尴尬') ||
-          !c.customActionList.some((a) => a.name === '备战') ||
+          (!isMinor && c.customActionList.length < 36) ||
+          (isMinor && c.customActionList.length !== MINOR_NPC_8_EXPRESSIONS.length) ||
+          !c.customActionList.some((a) => a.name === '轻伤') ||
+          !c.customActionList.some((a) => a.name === '重伤') ||
           c.customActionList.some(
             (a) => a.zhDesc === '侧身扭捏偏头闪避' || a.zhDesc === '重心不稳摆手解释' || a.zhDesc === '单手叉腰仰头畅笑'
           );
         if (hasOldGenericActions) {
-          c.customActionList = buildPersonaMatchedActions(c);
+          c.customActionList = getCharActionList(c);
           changed = true;
         } else {
           c.customActionList.forEach((a) => {
@@ -22561,6 +22684,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         appState.selectedPersonaId = appState.characters[0]?.id || '';
       }
       await initReplayAndMusicData();
+      ensureModuleSpeakersInCharactersSync();
       const rememberedModId = localStorage.getItem('last-tachie-module-id');
       if (rememberedModId) {
         appState.tachieFilterModule = rememberedModId;
