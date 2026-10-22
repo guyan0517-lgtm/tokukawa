@@ -1040,6 +1040,7 @@ input[type="radio"] {
   display: flex;
   flex-direction: row;
   align-items: flex-end;
+  justify-content: center;
   gap: 20px;
   min-width: max-content;
 }
@@ -1124,8 +1125,9 @@ input[type="radio"] {
 }
 
 .height-actor-img {
+  height: 100%;
   width: auto;
-  max-width: 136px;
+  max-width: none;
   object-fit: contain;
   object-position: bottom center;
   display: block;
@@ -1615,13 +1617,13 @@ button {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -38%;
+  bottom: -105%;
   top: 0;
   z-index: 5;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: 28px;
+  gap: 36px;
   padding: 0 36px;
   pointer-events: none;
 }
@@ -1632,6 +1634,7 @@ button {
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
+  flex-shrink: 0;
   transition: transform 0.36s cubic-bezier(0.16, 1, 0.3, 1), filter 0.32s ease, opacity 0.32s ease;
   transform-origin: bottom center;
 }
@@ -1677,7 +1680,9 @@ button {
 
 .vn-stage-actor img {
   display: block;
+  height: 100%;
   width: auto;
+  max-width: none;
   object-fit: contain;
   object-position: bottom center;
   pointer-events: auto;
@@ -2229,53 +2234,74 @@ button {
   border-left: 2px solid var(--accent-color) !important;
 }
 
+/* 视觉小说原生剧本回顾台账布局与双列存档卡片 */
+#theater-backlog-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--card-bg) 20%, transparent);
+  background: color-mix(in srgb, var(--card-bg) 5%, transparent);
+}
+
 .vn-backlog-row {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--card-bg) 8%, transparent);
-  border: 1px solid color-mix(in srgb, var(--card-bg) 16%, transparent);
+  gap: 16px;
+  padding: 14px 18px;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--card-bg) 14%, transparent);
+  transition: background 0.18s ease;
+}
+
+.vn-backlog-row:last-child {
+  border-bottom: none;
 }
 
 .vn-backlog-row.is-narration {
-  background: color-mix(in srgb, var(--card-bg) 4%, transparent);
-  border-color: color-mix(in srgb, var(--card-bg) 10%, transparent);
-  padding: 9px 14px;
+  background: color-mix(in srgb, var(--card-bg) 3%, transparent);
 }
 
 .vn-backlog-row.is-current {
-  border-color: color-mix(in srgb, var(--card-bg) 48%, transparent);
   background: color-mix(in srgb, var(--card-bg) 14%, transparent);
 }
 
-.vn-backlog-avatar {
-  width: 48px;
-  height: 54px;
-  border-radius: 8px;
-  overflow: hidden;
+.vn-backlog-speaker-col {
+  width: 96px;
   flex-shrink: 0;
-  background: color-mix(in srgb, var(--text-primary) 65%, transparent);
-  border: 1px solid color-mix(in srgb, var(--card-bg) 28%, transparent);
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
-  justify-content: center;
+  gap: 4px;
+  padding-right: 12px;
+  border-right: 2px solid var(--accent-color);
 }
 
-.vn-backlog-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-  display: block;
+.vn-backlog-row.is-narration .vn-backlog-speaker-col {
+  border-right-color: color-mix(in srgb, var(--card-bg) 32%, transparent);
 }
 
-.vn-backlog-avatar img.crop-tachie-head {
-  width: 145%;
-  height: 210%;
-  object-fit: cover;
-  object-position: top center;
+.vn-backlog-speaker {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--card-bg);
+  letter-spacing: 0.04em;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.vn-backlog-row.is-narration .vn-backlog-speaker {
+  color: color-mix(in srgb, var(--card-bg) 72%, transparent);
+  font-weight: 700;
+}
+
+.vn-backlog-seq {
+  font-size: 10px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--card-bg) 55%, transparent);
+  letter-spacing: 0.06em;
 }
 
 .vn-backlog-center {
@@ -2283,26 +2309,131 @@ button {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-}
-
-.vn-backlog-speaker {
-  font-size: 12px;
-  font-weight: 800;
-  color: var(--card-bg);
-  letter-spacing: 0.04em;
+  justify-content: center;
+  padding-top: 1px;
 }
 
 .vn-backlog-text {
-  font-size: 13px;
-  line-height: 1.65;
-  color: color-mix(in srgb, var(--card-bg) 92%, transparent);
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: color-mix(in srgb, var(--card-bg) 94%, transparent);
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .vn-backlog-row.is-narration .vn-backlog-text {
+  color: color-mix(in srgb, var(--card-bg) 80%, transparent);
+  font-style: italic;
+}
+
+/* 跨模组存读档：一行两个视觉小说档案槽位网格 */
+#theater-saveload-list {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px !important;
+  align-content: start;
+}
+
+.vn-save-slot-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--card-bg) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-bg) 22%, transparent);
+  min-height: 128px;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.vn-save-slot-card.is-empty {
+  background: color-mix(in srgb, var(--card-bg) 4%, transparent);
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--card-bg) 18%, transparent);
+}
+
+.vn-save-slot-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--card-bg) 14%, transparent);
+}
+
+.vn-save-slot-badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--accent-color);
+  color: var(--card-bg);
+  flex-shrink: 0;
+}
+
+.vn-save-slot-badge.is-empty-badge {
+  background: color-mix(in srgb, var(--card-bg) 18%, transparent);
+  color: color-mix(in srgb, var(--card-bg) 80%, transparent);
+}
+
+.vn-save-slot-time {
+  font-size: 10px;
+  color: color-mix(in srgb, var(--card-bg) 68%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vn-save-slot-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+.vn-save-slot-title {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--card-bg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vn-save-slot-preview {
+  font-size: 11.5px;
+  line-height: 1.45;
   color: color-mix(in srgb, var(--card-bg) 78%, transparent);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.vn-save-slot-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed color-mix(in srgb, var(--card-bg) 14%, transparent);
+}
+
+.vn-save-slot-btn {
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0 10px !important;
+  font-size: 11px !important;
+  border-radius: 8px !important;
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .vn-theater-wrapper > .modal .moe-input {

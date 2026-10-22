@@ -536,18 +536,13 @@
     <!-- ==================== 2. 角色分类档案柜 App ==================== -->
     <section id="screen-persona" class="screen">
       <div class="app-header">
-        <button type="button" class="app-back-btn" onclick="goHomeScreen()">返回</button>
+        <button type="button" class="app-back-btn" onclick="handlePersonaBackBtn()">返回</button>
         <span class="app-header-title">角色</span>
         <div class="app-header-actions">
           <button type="button" class="moe-btn secondary" onclick="document.getElementById('persona-import-pack-input').click()">导包</button>
           <input type="file" id="persona-import-pack-input" accept=".zip,.json" style="display:none;" onchange="importSingleCharacterPack(event)" />
           <button type="button" class="moe-btn" onclick="saveCurrentPersona()">保存</button>
         </div>
-      </div>
-
-      <div class="sub-tab-bar" id="persona-subtabs">
-        <button type="button" class="sub-tab-btn active" data-sub="persona-list" onclick="switchSubPage('screen-persona', 'persona-list')">档案</button>
-        <button type="button" class="sub-tab-btn" data-sub="persona-basic" onclick="switchSubPage('screen-persona', 'persona-basic')">编辑</button>
       </div>
 
       <!-- 子页1：角色分类档案柜 -->
@@ -583,7 +578,6 @@
             <span class="moe-card-title" id="persona-editing-title">角色档案</span>
             <div style="display:flex;gap:6px;">
               <button type="button" class="moe-btn secondary" onclick="exportSingleCharacterPack(appState.selectedPersonaId)">导出</button>
-              <button type="button" class="moe-btn secondary" onclick="jumpFromPersonaToTachie()">立绘</button>
               <button type="button" class="moe-btn secondary" onclick="deleteCurrentPersonaCharacter()">删除</button>
             </div>
           </div>
@@ -656,36 +650,36 @@
           <div class="form-group">
             <label>MiniMax 语音音色编号</label>
             <div style="display:flex;gap:6px;align-items:center;">
-              <input type="text" id="oc-voice-id" class="moe-input" style="flex:1;" placeholder="填入MiniMax音色编号 如 male-qn-qingse 或 female-shaonv，未填默认留空" />
+              <input type="text" id="oc-voice-id" class="moe-input" style="flex:1;" placeholder="填入MiniMax音色编号 如 male-qn-qingse 或 female-shaonv，未填默认留空" onchange="autoSavePersonaVoiceFields()" />
               <button type="button" class="moe-btn secondary" id="oc-voice-test-btn" onclick="previewPersonaVoiceTts()">试听</button>
             </div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <div class="form-group" style="flex:1;min-width:92px;">
               <label>默认语速</label>
-              <input type="number" step="0.05" min="0.5" max="2.0" id="oc-voice-speed-default" class="moe-input" value="1.0" />
+              <input type="number" step="0.05" min="0.5" max="2.0" id="oc-voice-speed-default" class="moe-input" value="1.0" onchange="autoSavePersonaVoiceFields()" />
             </div>
             <div class="form-group" style="flex:1;min-width:92px;">
               <label>最低语速</label>
-              <input type="number" step="0.05" min="0.5" max="2.0" id="oc-voice-speed-min" class="moe-input" value="0.8" />
+              <input type="number" step="0.05" min="0.5" max="2.0" id="oc-voice-speed-min" class="moe-input" value="0.8" onchange="autoSavePersonaVoiceFields()" />
             </div>
             <div class="form-group" style="flex:1;min-width:92px;">
               <label>最高语速</label>
-              <input type="number" step="0.05" min="0.5" max="2.0" id="oc-voice-speed-max" class="moe-input" value="1.3" />
+              <input type="number" step="0.05" min="0.5" max="2.0" id="oc-voice-speed-max" class="moe-input" value="1.3" onchange="autoSavePersonaVoiceFields()" />
             </div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <div class="form-group" style="flex:1;min-width:92px;">
               <label>默认语调</label>
-              <input type="number" step="1" min="-12" max="12" id="oc-voice-pitch-default" class="moe-input" value="0" />
+              <input type="number" step="1" min="-12" max="12" id="oc-voice-pitch-default" class="moe-input" value="0" onchange="autoSavePersonaVoiceFields()" />
             </div>
             <div class="form-group" style="flex:1;min-width:92px;">
               <label>最低语调</label>
-              <input type="number" step="1" min="-12" max="12" id="oc-voice-pitch-min" class="moe-input" value="-4" />
+              <input type="number" step="1" min="-12" max="12" id="oc-voice-pitch-min" class="moe-input" value="-4" onchange="autoSavePersonaVoiceFields()" />
             </div>
             <div class="form-group" style="flex:1;min-width:92px;">
               <label>最高语调</label>
-              <input type="number" step="1" min="-12" max="12" id="oc-voice-pitch-max" class="moe-input" value="4" />
+              <input type="number" step="1" min="-12" max="12" id="oc-voice-pitch-max" class="moe-input" value="4" onchange="autoSavePersonaVoiceFields()" />
             </div>
           </div>
           <div class="form-group" style="margin-bottom:0;">
@@ -4894,20 +4888,20 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
       if (options.charRefImage && options.charRefImage.base64 && (model.includes('nai-diffusion-4') || model.includes('nai-diffusion-5'))) {
         const normalizedCharUrl = await normalizeImageForNovelAiRef(options.charRefImage.base64);
         const cleanCharB64 = normalizedCharUrl.replace(/^data:image\/[^;]+;base64,/, '');
-        const cStrength = Number(options.charRefImage.strength ?? 0.65);
-        const cFidelity = Number(options.charRefImage.fidelity ?? 0.78);
-        const baseCap = options.charRefImage.characterOnly !== false ? 'character' : 'character&style';
+        const cStrength = Math.max(0.05, Math.min(1, Number(options.charRefImage.strength ?? 0.65)));
+        const cFidelity = Math.max(0.05, Math.min(1, Number(options.charRefImage.fidelity ?? 0.78)));
+        const baseCap = options.charRefImage.characterOnly === false ? 'character' : 'character&style';
         commonParams.director_reference_images = [cleanCharB64];
         commonParams.director_reference_descriptions = [{
           caption: { base_caption: baseCap, char_captions: [] },
           legacy_uc: false
         }];
         commonParams.director_reference_information_extracted = [1];
-        commonParams.director_reference_strength_values = [cStrength];
+        commonParams.director_reference_strength_values = [Number(cStrength.toFixed(2))];
         commonParams.director_reference_secondary_strength_values = [Math.max(0, Number((1 - cFidelity).toFixed(2)))];
       }
 
-      const effectiveCfgRescale = Number(options.cfgRescale ?? settings.cfg_rescale ?? (options.charRefImage ? 0.25 : 0));
+      const effectiveCfgRescale = Number(options.cfgRescale ?? settings.cfg_rescale ?? 0);
 
       let requestBody;
       if (model.includes('nai-diffusion-4') || model.includes('nai-diffusion-5')) {
@@ -5862,14 +5856,55 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
       '默认','开心','愤怒','伤心','害羞','疯狂','拿起武器','冷漠'
     ];
 
-    // 已彻底删除初始英文动作模板，所有差分动作提示词均在点击写词时由AI根据角色人设与模组剧情实时撰写
+    const BUILTIN_STANDING_EXP_TAGS = {
+      '默认': 'standing, calm neutral expression, closed mouth, looking at viewer',
+      '微笑': 'standing, three-quarter view, gentle warm smile, soft eyes, looking at viewer',
+      '大笑': 'standing, bright laughing expression, cheerful eyes, one hand on hip',
+      '温柔': 'standing, three-quarter view, tender affectionate smile, softened gaze, head tilted slightly',
+      '害羞': 'standing, angled side view, shy expression, soft blush on cheeks, averted gaze',
+      '脸红': 'standing, flustered expression, deep blush on cheeks, one hand touching cheek',
+      '调侃': 'standing, three-quarter view, playful teasing expression, raised eyebrow, arms crossed',
+      '惊讶': 'standing, wide eyes, parted lips, surprised expression, leaning back slightly',
+      '震惊': 'standing, dynamic off-balance standing pose, wide staring eyes, contracted pupils, shocked expression',
+      '慌乱': 'standing, dynamic off-balance standing pose, flustered panicked expression, sweatdrop, waving hands',
+      '沉思': 'standing, side profile view, thoughtful serious expression, one hand touching chin, downcast eyes',
+      '冷漠': 'standing, three-quarter view, cold indifferent expression, sharp calm gaze, arms crossed',
+      '嘲讽': 'standing, angled side view, condescending gaze, raised chin, cold sneer',
+      '生气': 'standing, three-quarter view, angry expression, furrowed brows, sharp glare, clenched fists',
+      '暴怒': 'standing, dynamic leaning forward standing pose, furious expression, intense glare, shouting',
+      '失落': 'standing, angled side view, sad downcast eyes, lowered head, melancholic expression',
+      '哭泣': 'standing, three-quarter view, crying, tears flowing down cheeks, sad fragile expression',
+      '绝望': 'standing, off-balance standing pose, hollow lifeless eyes, pale face, despair expression',
+      '崩溃': 'standing, dynamic swaying standing pose, breakdown expression, tears, one hand covering forehead',
+      '微醺': 'standing, swaying standing pose, tipsy expression, half-closed eyes, warm blush',
+      '尴尬': 'standing, three-quarter view, awkward expression, sweatdrop on cheek, looking away, rubbing back of neck',
+      '得意': 'standing, three-quarter view, proud confident expression, chin raised, hands on hips',
+      '贼笑': 'standing, angled side view, sly mischievous expression, narrowed eyes',
+      '感动': 'standing, three-quarter view, touched emotional expression, glistening eyes, hand over chest',
+      '无奈': 'standing, helpless expression, half-closed eyes, sighing, shrugging shoulders',
+      '叹气': 'standing, side profile view, sighing, closed eyes, relaxed shoulders',
+      '装可怜': 'standing, three-quarter view, pleading puppy eyes, pouting lips, head tilted',
+      '欣喜': 'standing, delighted joyful expression, sparkling eyes, hands clasped near chest',
+      '不满': 'standing, three-quarter view, displeased pouting expression, furrowed brows, arms folded',
+      '鄙夷': 'standing, from behind, looking back over shoulder, disdainful cold gaze, narrowed eyes',
+      '深情': 'standing, three-quarter view, deep affectionate gaze, gentle expression, reaching one hand out',
+      '备战': 'standing, dynamic combat ready standing stance, sharp focused eyes, holding weapon',
+      '出招': 'standing, dynamic attacking standing pose, intense determined gaze, swinging weapon',
+      '决胜': 'standing, three-quarter back view, looking back over shoulder, calm victorious expression',
+      '开心': 'standing, happy cheerful smile, bright eyes',
+      '愤怒': 'standing, angry expression, furrowed brows, glaring',
+      '伤心': 'standing, sad expression, downcast eyes, tears',
+      '疯狂': 'standing, dynamic off-balance standing pose, unhinged wide eyes, manic expression',
+      '拿起武器': 'standing, alert standing stance, serious expression, holding weapon'
+    };
+
     function buildPersonaMatchedActions(charObj) {
       const isMinorNpc = charObj && charObj.trpgType === '次要NPC';
       const baseList = isMinorNpc ? MINOR_NPC_8_EXPRESSIONS : TACHIE_25_EXPRESSIONS;
       return baseList.map((name) => ({
         name,
-        zhDesc: name === '默认' ? '平静无表情默认站姿' : '待点写词由AI根据人设整理',
-        enTags: ''
+        zhDesc: name === '默认' ? '平静无表情默认站姿' : `${name}站立全身差分`,
+        enTags: BUILTIN_STANDING_EXP_TAGS[name] || `standing, ${name} expression`
       }));
     }
 
@@ -6320,9 +6355,9 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
 第三条：BASE_TAGS 只能包含纯粹的人物外貌五官、发色发型、身材特征以及从头到脚的衣服鞋靴配饰！BASE_TAGS 中绝对禁止包含虎牙、小虎牙、尖牙即 fang, fangs, snaggletooth, sharp teeth，绝对禁止包含任何面部表情如 smile, grin, smirk, blush，绝对禁止包含任何动作姿态或手势！BASE_TAGS 必须以 solo, single character 开头确保画面只有唯一一个全身人物。
 第四条：OUTFIT_ZH 中文服装方案只允许写纯粹客观的衣物款式、版型、颜色、材质、花纹与配饰清单，禁止写主观吹捧修辞。服装必须贴合角色人设身份，绝对禁止写现代运动鞋 sneakers, running shoes, athletic shoes, canvas shoes, trainers。
 第五条：ACT1 默认状态必须是平静无表情的自然默认站姿：three-quarter view, calm composed standing posture, neutral expressionless face, calm closed mouth, arms relaxed naturally at sides, looking at viewer，绝不在默认状态咧嘴露牙或做夸张动作。
-第六条：编写全部${baseTemplateActions.length}个必选差分与额外差分时，必须同步在写词阶段一次性全部写好。每个差分的动作绝不能百分之百全是死板正脸站姿，必须根据情绪做出鲜明且大幅度的肢体动作与角度变化，灵活运用微侧身 three-quarter view、半侧颜 angled side posture、纯侧脸 side profile view、背身回眸 looking back over shoulder、大幅前倾 leaning forward、后撤失衡 stepping backward off-balance、抱头跪坐或弯腰脱力 hunched over or kneeling、单手扶额、双手抱胸等变化。
+第六条：编写全部${baseTemplateActions.length}个必选差分与额外差分时，必须同步在写词阶段一次性全部写好。每个差分可以换角度，可以换四十五度角 three-quarter view、正侧面 side profile view、斜侧面 angled side view、背面或背身回眸 from behind, looking back over shoulder，动作可以有重心不稳或动态倾斜 standing off-balance, dynamic standing pose，但无论如何人物都必须是站着的 standing, full body standing，绝对不能让他坐下，严禁出现坐姿、跪姿、蹲姿、睡姿、躺姿！
 第七条：这是一个克苏鲁调查员世界观，没有魔法超能力！拿起武器、备战、出招、决胜以及日常手持物必须严格依据角色人设中的「武器随身携带道具」即${wt.zh}来写，一般为写实小刀、匕首、左轮手枪、警棍、手电筒或笔记本，绝对禁止妄自揣测编写魔法权杖、发光神剑、悬浮塔罗、茶壶或超能力特效！
-第八条：绝对禁止在任何英文标签中写 visual novel sprite, official art, character sheet, reference sheet, multiple views, expression sheet, face inset 等词汇。从头到尾严禁使用任何圆括号或方括号，严格按照以下格式逐行输出：
+第八条：绝对禁止在任何英文标签中写 visual novel sprite, official art, character sheet, reference sheet, multiple views, expression sheet, face inset, sitting, kneeling, lying, sleeping 等词汇。从头到尾严禁使用任何圆括号或方括号，严格按照以下格式逐行输出：
 OUTFIT_ZH: 纯客观的从头到脚服装款式材质颜色与随身配饰清单
 BASE_TAGS: 完全不含任何动作表情且不含虎牙的超详细正比纯外貌与全身衣服英文标签串
 ${actPromptLines}
@@ -8894,17 +8929,17 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const pureAppearanceAndOutfit = stripBasePoseAndExpFromPrompt(rawBase);
       const actions = getCharActionList(charObj);
       const defaultAct = actions.find((a) => a.name === '默认') || actions[0];
-      const rawDefaultActTags = (appState.selectedTachieExp === '默认' && document.getElementById('tachie-custom-action-tags')?.value.trim()) || defaultAct?.enTags || '';
+      const rawDefaultActTags = (appState.selectedTachieExp === '默认' && document.getElementById('tachie-custom-action-tags')?.value.trim()) || defaultAct?.enTags || BUILTIN_STANDING_EXP_TAGS['默认'] || '';
       const defaultActTags = stripMultiHeadAndSpriteSheetTags(rawDefaultActTags)
-        .replace(/[{}\[\]"'“”‘’]/g, '')
+        .replace(/[{}\[\]\(\)"'“”‘’]/g, '')
         .replace(/\b(cute fang|single fang|twin fangs|little fang|small fang|sharp fang|sharp fangs|fangs|fang|snaggletooth|smile|grin|smirk)\b\s*,?/gi, '')
         .replace(/,\s*,+/g, ', ')
         .trim();
       const baseAndActTail = [pureAppearanceAndOutfit, defaultActTags].filter(Boolean).join(', ');
-      const prompt = ['solo, single character, full body, head to toe, shoes in frame, filling frame, large subject, close-up full body, no margin, simple background, pure white background', baseAndActTail].filter(Boolean).join(', ');
+      const prompt = ['solo, single character, full body, standing, head to toe, shoes in frame, filling frame, large subject, close-up full body, no margin, simple background, pure white background', baseAndActTail].filter(Boolean).join(', ');
       const useStyle = document.getElementById('tachie-enable-style-ref')?.checked;
       const charCustomNeg = (document.getElementById('tachie-char-neg-prompt')?.value || charObj?.customNegativePrompt || '').trim();
-      const antiModernNeg = 'fang, fangs, snaggletooth, open mouth, grin, smirk, ' + (getNovelAISettings().default_negative || '') + (charCustomNeg ? `, ${charCustomNeg}` : '') + ', wide margin, empty space, small subject, distant, multiple people, multipleboys, multiplegirls, 2boys, 2girls, crowd, extra head, floating head, small heads, side portraits, face inset, portrait inset, headshot inset, inset, picture in picture, multiple expressions, expression chart, expression sheet, facial expressions, character sheet, reference sheet, concept art, artbook page, character profile, multiple views, multi-panel, split screen, comic panel, border, frame, text, sneakers, running shoes, tennis shoes, athletic shoes, canvas shoes, trainers';
+      const antiModernNeg = 'fang, fangs, snaggletooth, sitting, seated, kneeling, crouching, squatting, lying, lying down, sleeping, ' + (getNovelAISettings().default_negative || '') + (charCustomNeg ? `, ${charCustomNeg}` : '') + ', wide margin, empty space, small subject, distant, multiple people, multipleboys, multiplegirls, 2boys, 2girls, crowd, extra head, floating head, small heads, side portraits, face inset, portrait inset, headshot inset, inset, picture in picture, multiple expressions, expression chart, expression sheet, facial expressions, character sheet, reference sheet, concept art, artbook page, character profile, multiple views, multi-panel, split screen, comic panel, border, frame, text, sneakers, running shoes, tennis shoes, athletic shoes, canvas shoes, trainers';
 
       if (btn) {
         btn.textContent = '生成中';
@@ -8970,7 +9005,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
       }
     }
 
-    // 生成后续表情或动作差分：直接将差分词拼接在基础提示词最末尾，不加任何花括号或符号
+    // 生成后续表情或动作差分：所有参数与首图完全一致，直接将当前表情差分提示词拼接到默认提示词最末尾，不加任何括号或额外包装词
     async function generateLockedExpressionViaNai() {
       const expName = appState.selectedTachieExp || '默认';
       if (expName === '默认') {
@@ -8981,16 +9016,13 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const charId = appState.selectedTachieCharId || document.getElementById('tachie-target-char')?.value;
       const charObj = appState.characters.find((c) => c.id === charId);
       const rawBasePrompt = sanitizeFantasyOutfitPrompt(document.getElementById('tachie-nai-prompt').value.trim() || charObj?.naiTags || '');
-      const pureAppearanceAndOutfitPrompt = stripBasePoseAndExpFromPrompt(rawBasePrompt)
-        .replace(/\b(standing|standing straight|contrapposto|arms at sides|calm posture)\b\s*,?/gi, '')
-        .replace(/,\s*,+/g, ', ')
-        .trim();
+      const pureAppearanceAndOutfitPrompt = stripBasePoseAndExpFromPrompt(rawBasePrompt);
       const actions = getCharActionList(charObj);
       const matchedAct = actions.find((a) => a.name === expName);
       const customBoxVal = document.getElementById('tachie-custom-action-tags')?.value.trim() || '';
-      const rawActionTags = customBoxVal || matchedAct?.enTags || '';
+      const rawActionTags = customBoxVal || matchedAct?.enTags || BUILTIN_STANDING_EXP_TAGS[expName] || `standing, ${expName} expression`;
       const expTag = stripMultiHeadAndSpriteSheetTags(rawActionTags)
-        .replace(/[{}\[\]"'“”‘’]/g, '')
+        .replace(/[{}\[\]\(\)"'“”‘’]/g, '')
         .replace(/,\s*,+/g, ', ')
         .trim();
 
@@ -8998,11 +9030,8 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const useFirstRef = document.getElementById('tachie-use-first-ref-chk') ? document.getElementById('tachie-use-first-ref-chk').checked : true;
       const rawLockStrength = parseFloat(document.getElementById('tachie-char-lock-strength')?.value || '0.62') || 0.62;
       const rawLockFidelity = parseFloat(document.getElementById('tachie-char-lock-fidelity')?.value || '0.78') || 0.78;
-      const isDramaticPose = ['绝望', '崩溃', '震惊', '暴怒', '慌乱', '备战', '出招', '决胜'].includes(expName);
-      const charLockStrength = isDramaticPose ? Math.min(rawLockStrength, 0.52) : Math.min(rawLockStrength, 0.75);
-      const charLockFidelity = isDramaticPose ? Math.min(rawLockFidelity, 0.72) : Math.min(rawLockFidelity, 0.88);
       const charCustomNeg = (document.getElementById('tachie-char-neg-prompt')?.value || charObj?.customNegativePrompt || '').trim();
-      const antiModernNeg = 'yellow tint, warm color cast, sepia, oversaturated, burnt colors, color shift, blue tint, pink tint, expressionless, neutral expression, static pose, stiff standing, standing straight, arms at sides, ' + (getNovelAISettings().default_negative || '') + (charCustomNeg ? `, ${charCustomNeg}` : '') + ', wide margin, empty space, small subject, distant, multiple people, multipleboys, multiplegirls, 2boys, 2girls, crowd, extra head, floating head, small heads, side portraits, face inset, portrait inset, headshot inset, inset, picture in picture, multiple expressions, expression chart, expression sheet, facial expressions, character sheet, reference sheet, concept art, artbook page, character profile, multiple views, multi-panel, split screen, comic panel, border, frame, text, sneakers, running shoes, tennis shoes, athletic shoes, canvas shoes, trainers';
+      const antiModernNeg = 'fang, fangs, snaggletooth, sitting, seated, kneeling, crouching, squatting, lying, lying down, sleeping, ' + (getNovelAISettings().default_negative || '') + (charCustomNeg ? `, ${charCustomNeg}` : '') + ', wide margin, empty space, small subject, distant, multiple people, multipleboys, multiplegirls, 2boys, 2girls, crowd, extra head, floating head, small heads, side portraits, face inset, portrait inset, headshot inset, inset, picture in picture, multiple expressions, expression chart, expression sheet, facial expressions, character sheet, reference sheet, concept art, artbook page, character profile, multiple views, multi-panel, split screen, comic panel, border, frame, text, sneakers, running shoes, tennis shoes, athletic shoes, canvas shoes, trainers';
 
       if (btn) {
         btn.textContent = '生成中';
@@ -9017,18 +9046,17 @@ ZH: 修改后的纯客观中文服装配饰清单`
           appState.charLockBase64
         ];
         const defaultBaseImg = candidateImgs.find((u) => typeof u === 'string' && u.length > 20 && !u.startsWith('data:image/svg+xml')) || null;
-        const tailJoinedPrompt = [pureAppearanceAndOutfitPrompt, expTag].filter(Boolean).join(', ');
-        const diffFullPrompt = ['solo, single character, full body, head to toe, shoes in frame, filling frame, large subject, close-up full body, no margin, simple background, pure white background', tailJoinedPrompt].filter(Boolean).join(', ');
+        const baseFullPrompt = ['solo, single character, full body, standing, head to toe, shoes in frame, filling frame, large subject, close-up full body, no margin, simple background, pure white background', pureAppearanceAndOutfitPrompt].filter(Boolean).join(', ');
+        const diffFullPrompt = [baseFullPrompt, expTag].filter(Boolean).join(', ');
         const { dataUrl, seed } = await callNovelAiDirect(diffFullPrompt, {
           resolution: '832x1216',
           seed: -1,
-          cfgRescale: 0.28,
           negativePrompt: antiModernNeg,
           vibeImages: useStyle ? appState.styleRefList : [],
           charRefImage: (useFirstRef && defaultBaseImg) ? {
             base64: defaultBaseImg,
-            strength: charLockStrength,
-            fidelity: charLockFidelity,
+            strength: rawLockStrength,
+            fidelity: rawLockFidelity,
             characterOnly: true
           } : null,
           caller: `立绘差分生图·${charObj?.name || ''}·${expName}`
@@ -9256,7 +9284,68 @@ ZH: 修改后的纯客观中文服装配饰清单`
             _heightCroppedSpriteCache.set(srcUrl, srcUrl);
             return resolve(srcUrl);
           }
-          const { minX, minY, maxX, maxY } = bounds;
+          let { minX, minY, maxX, maxY } = bounds;
+
+          // 若画面左右存在完全断开的悬浮小头像或废案杂块，自动保留纵向跨度最高的主体全身立绘区段
+          const colHasPixel = new Uint8Array(w);
+          const colMinY = new Int32Array(w).fill(h);
+          const colMaxY = new Int32Array(w).fill(0);
+          for (let x = minX; x <= maxX; x++) {
+            for (let y = minY; y <= maxY; y++) {
+              if (data[(y * w + x) * 4 + 3] > 28) {
+                colHasPixel[x] = 1;
+                if (y < colMinY[x]) colMinY[x] = y;
+                if (y > colMaxY[x]) colMaxY[x] = y;
+              }
+            }
+          }
+          const segments = [];
+          let segStart = -1;
+          let gapCount = 0;
+          for (let x = minX; x <= maxX; x++) {
+            if (colHasPixel[x]) {
+              if (segStart === -1) segStart = x;
+              gapCount = 0;
+            } else if (segStart !== -1) {
+              gapCount++;
+              if (gapCount >= Math.max(6, Math.round(w * 0.02))) {
+                segments.push({ start: segStart, end: x - gapCount });
+                segStart = -1;
+                gapCount = 0;
+              }
+            }
+          }
+          if (segStart !== -1) {
+            segments.push({ start: segStart, end: maxX - gapCount });
+          }
+          if (segments.length > 1) {
+            let bestSeg = segments[0];
+            let bestSpan = -1;
+            segments.forEach((seg) => {
+              let sMinY = h;
+              let sMaxY = 0;
+              for (let x = seg.start; x <= seg.end; x++) {
+                if (colHasPixel[x]) {
+                  if (colMinY[x] < sMinY) sMinY = colMinY[x];
+                  if (colMaxY[x] > sMaxY) sMaxY = colMaxY[x];
+                }
+              }
+              const vSpan = Math.max(0, sMaxY - sMinY);
+              const hSpan = Math.max(1, seg.end - seg.start + 1);
+              const score = vSpan * 2.5 + hSpan;
+              if (score > bestSpan) {
+                bestSpan = score;
+                bestSeg = { start: seg.start, end: seg.end, minY: sMinY, maxY: sMaxY };
+              }
+            });
+            minX = bestSeg.start;
+            maxX = bestSeg.end;
+            if (typeof bestSeg.minY === 'number' && bestSeg.maxY > bestSeg.minY) {
+              minY = bestSeg.minY;
+              maxY = bestSeg.maxY;
+            }
+          }
+
           const cw = Math.max(1, maxX - minX + 1);
           const ch = Math.max(1, maxY - minY + 1);
           const out = document.createElement('canvas');
@@ -9407,7 +9496,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
             <span>${c.name}·${netCm}cm${earLabel}·${expName}</span>
             <span onclick="event.stopPropagation();removeCharFromHeightStage('${c.id}')" style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:rgba(0,0,0,0.12);color:var(--text-secondary);font-size:10px;line-height:1;" title="移出舞台">×</span>
           </div>
-          <img class="height-actor-img" src="${croppedImgUrl}" alt="${c.name}" style="height:${heightPx}px !important;max-height:none !important;width:auto !important;object-fit:contain;cursor:pointer;" title="单击切表情，连续点三下下载图片" onclick="handleHeightActorClick(event, '${c.id}', '${c.name}_${expName}')" />
+          <img class="height-actor-img" src="${croppedImgUrl}" alt="${c.name}" style="height:${heightPx}px !important;max-height:none !important;max-width:none !important;width:auto !important;cursor:pointer;" title="单击切表情，连续点三下下载图片" onclick="handleHeightActorClick(event, '${c.id}', '${c.name}_${expName}')" />
         `;
         row.appendChild(col);
       }
@@ -11005,7 +11094,6 @@ ZH: 修改后的纯客观中文服装配饰清单`
             </div>
             <div class="setting-item-right">
               <button type="button" class="moe-btn" onclick="event.stopPropagation();selectPersonaForEdit('${c.id}');switchSubPage('screen-persona', 'persona-basic')">编辑</button>
-              <button type="button" class="moe-btn secondary" onclick="event.stopPropagation();openCharacterInTachieStudio('${c.id}')">立绘</button>
               <button type="button" class="moe-btn secondary" onclick="event.stopPropagation();exportSingleCharacterPack('${c.id}')">导出</button>
               <button type="button" class="moe-btn ${isUniv ? '' : 'secondary'}" onclick="event.stopPropagation();toggleCharacterUniversalStatus('${c.id}')">通用</button>
             </div>
@@ -11017,6 +11105,16 @@ ZH: 修改后的纯客观中文服装配饰清单`
         folderEl.appendChild(bodyEl);
         grid.appendChild(folderEl);
       });
+    }
+
+    async function handlePersonaBackBtn() {
+      const basicPage = document.getElementById('persona-basic');
+      if (basicPage && basicPage.classList.contains('active')) {
+        await saveCurrentPersona(true);
+        switchSubPage('screen-persona', 'persona-list');
+        return;
+      }
+      goHomeScreen();
     }
 
     function openCharacterInTachieStudio(charId) {
@@ -11069,20 +11167,95 @@ ZH: 修改后的纯客观中文服装配饰清单`
       switchSubPage('screen-persona', 'persona-basic');
     }
 
+    function syncVoiceSpeedAndPitchToCharacter(c) {
+      if (!c) return;
+      if (document.getElementById('oc-voice-id')) {
+        c.voiceId = document.getElementById('oc-voice-id').value.trim();
+      }
+      if (document.getElementById('oc-voice-speed-default')) {
+        const sd = parseFloat(document.getElementById('oc-voice-speed-default').value);
+        c.voiceSpeedDefault = isNaN(sd) ? 1.0 : Math.max(0.5, Math.min(2.0, sd));
+      }
+      if (document.getElementById('oc-voice-speed-min')) {
+        const smin = parseFloat(document.getElementById('oc-voice-speed-min').value);
+        c.voiceSpeedMin = isNaN(smin) ? 0.8 : Math.max(0.5, Math.min(2.0, smin));
+      }
+      if (document.getElementById('oc-voice-speed-max')) {
+        const smax = parseFloat(document.getElementById('oc-voice-speed-max').value);
+        c.voiceSpeedMax = isNaN(smax) ? 1.3 : Math.max(0.5, Math.min(2.0, smax));
+      }
+      if (c.voiceSpeedMin > c.voiceSpeedMax) {
+        const tmp = c.voiceSpeedMin;
+        c.voiceSpeedMin = c.voiceSpeedMax;
+        c.voiceSpeedMax = tmp;
+      }
+      if (c.voiceSpeedDefault < c.voiceSpeedMin) {
+        c.voiceSpeedMin = c.voiceSpeedDefault;
+        if (document.getElementById('oc-voice-speed-min')) document.getElementById('oc-voice-speed-min').value = c.voiceSpeedMin;
+      }
+      if (c.voiceSpeedDefault > c.voiceSpeedMax) {
+        c.voiceSpeedMax = c.voiceSpeedDefault;
+        if (document.getElementById('oc-voice-speed-max')) document.getElementById('oc-voice-speed-max').value = c.voiceSpeedMax;
+      }
+      if (document.getElementById('oc-voice-pitch-default')) {
+        const pd = parseInt(document.getElementById('oc-voice-pitch-default').value, 10);
+        c.voicePitchDefault = isNaN(pd) ? 0 : Math.max(-12, Math.min(12, pd));
+      }
+      if (document.getElementById('oc-voice-pitch-min')) {
+        const pmin = parseInt(document.getElementById('oc-voice-pitch-min').value, 10);
+        c.voicePitchMin = isNaN(pmin) ? -4 : Math.max(-12, Math.min(12, pmin));
+      }
+      if (document.getElementById('oc-voice-pitch-max')) {
+        const pmax = parseInt(document.getElementById('oc-voice-pitch-max').value, 10);
+        c.voicePitchMax = isNaN(pmax) ? 4 : Math.max(-12, Math.min(12, pmax));
+      }
+      if (c.voicePitchMin > c.voicePitchMax) {
+        const tmpP = c.voicePitchMin;
+        c.voicePitchMin = c.voicePitchMax;
+        c.voicePitchMax = tmpP;
+      }
+      if (c.voicePitchDefault < c.voicePitchMin) {
+        c.voicePitchMin = c.voicePitchDefault;
+        if (document.getElementById('oc-voice-pitch-min')) document.getElementById('oc-voice-pitch-min').value = c.voicePitchMin;
+      }
+      if (c.voicePitchDefault > c.voicePitchMax) {
+        c.voicePitchMax = c.voicePitchDefault;
+        if (document.getElementById('oc-voice-pitch-max')) document.getElementById('oc-voice-pitch-max').value = c.voicePitchMax;
+      }
+    }
+
+    async function autoSavePersonaVoiceFields() {
+      const c = appState.characters.find((x) => x.id === appState.selectedPersonaId);
+      if (!c) return;
+      syncVoiceSpeedAndPitchToCharacter(c);
+      await db.characters.put(c);
+      renderPersonaGrid();
+    }
+
     async function previewPersonaVoiceTts() {
       const btn = document.getElementById('oc-voice-test-btn');
-      const voiceId = document.getElementById('oc-voice-id')?.value.trim() || '';
+      const c = appState.characters.find((x) => x.id === appState.selectedPersonaId);
+      if (c) {
+        syncVoiceSpeedAndPitchToCharacter(c);
+        await db.characters.put(c);
+      }
+      const voiceId = document.getElementById('oc-voice-id')?.value.trim() || c?.voiceId || '';
       if (!voiceId) {
         alert('请先填写该角色的音色编号后再试听');
         return;
       }
+      const speedVal = c?.voiceSpeedDefault ?? (parseFloat(document.getElementById('oc-voice-speed-default')?.value) || 1.0);
+      const pitchVal = c?.voicePitchDefault ?? (parseInt(document.getElementById('oc-voice-pitch-default')?.value, 10) || 0);
       const sampleText = '你好，这是当前角色绑定的语音试听效果。';
       if (btn) {
         btn.textContent = '合成中';
         btn.disabled = true;
       }
       try {
-        await synthesizeAndPlayReplayTts(sampleText, voiceId, `preview_${voiceId}_${sampleText.slice(0, 24)}`, true);
+        await synthesizeAndPlayReplayTts(sampleText, voiceId, `preview_${voiceId}_${speedVal}_${pitchVal}_${sampleText.slice(0, 20)}`, true, {
+          speed: speedVal,
+          pitch: pitchVal
+        });
       } catch (err) {
         alert('语音试听失败：' + err.message);
       } finally {
@@ -11164,7 +11337,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
       event.target.value = '';
     }
 
-    async function saveCurrentPersona() {
+    async function saveCurrentPersona(stayOnPage = false) {
       const c = appState.characters.find((x) => x.id === appState.selectedPersonaId);
       if (!c) return;
       if (document.getElementById('oc-name')) c.name = document.getElementById('oc-name').value.trim() || c.name;
@@ -11191,43 +11364,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
       }
       if (document.getElementById('oc-body')) c.body = document.getElementById('oc-body').value.trim();
       if (document.getElementById('oc-quirk')) c.quirk = document.getElementById('oc-quirk').value.trim();
-      if (document.getElementById('oc-voice-id')) c.voiceId = document.getElementById('oc-voice-id').value.trim();
-      if (document.getElementById('oc-voice-speed-default')) {
-        const sd = parseFloat(document.getElementById('oc-voice-speed-default').value);
-        c.voiceSpeedDefault = isNaN(sd) ? 1.0 : Math.max(0.5, Math.min(2.0, sd));
-      }
-      if (document.getElementById('oc-voice-speed-min')) {
-        const smin = parseFloat(document.getElementById('oc-voice-speed-min').value);
-        c.voiceSpeedMin = isNaN(smin) ? 0.8 : Math.max(0.5, Math.min(2.0, smin));
-      }
-      if (document.getElementById('oc-voice-speed-max')) {
-        const smax = parseFloat(document.getElementById('oc-voice-speed-max').value);
-        c.voiceSpeedMax = isNaN(smax) ? 1.3 : Math.max(0.5, Math.min(2.0, smax));
-      }
-      if (c.voiceSpeedMin > c.voiceSpeedMax) {
-        const tmp = c.voiceSpeedMin;
-        c.voiceSpeedMin = c.voiceSpeedMax;
-        c.voiceSpeedMax = tmp;
-      }
-      c.voiceSpeedDefault = Math.max(c.voiceSpeedMin, Math.min(c.voiceSpeedMax, c.voiceSpeedDefault ?? 1.0));
-      if (document.getElementById('oc-voice-pitch-default')) {
-        const pd = parseInt(document.getElementById('oc-voice-pitch-default').value, 10);
-        c.voicePitchDefault = isNaN(pd) ? 0 : Math.max(-12, Math.min(12, pd));
-      }
-      if (document.getElementById('oc-voice-pitch-min')) {
-        const pmin = parseInt(document.getElementById('oc-voice-pitch-min').value, 10);
-        c.voicePitchMin = isNaN(pmin) ? -4 : Math.max(-12, Math.min(12, pmin));
-      }
-      if (document.getElementById('oc-voice-pitch-max')) {
-        const pmax = parseInt(document.getElementById('oc-voice-pitch-max').value, 10);
-        c.voicePitchMax = isNaN(pmax) ? 4 : Math.max(-12, Math.min(12, pmax));
-      }
-      if (c.voicePitchMin > c.voicePitchMax) {
-        const tmpP = c.voicePitchMin;
-        c.voicePitchMin = c.voicePitchMax;
-        c.voicePitchMax = tmpP;
-      }
-      c.voicePitchDefault = Math.max(c.voicePitchMin, Math.min(c.voicePitchMax, c.voicePitchDefault ?? 0));
+      syncVoiceSpeedAndPitchToCharacter(c);
       if (document.getElementById('oc-surface')) c.surface = document.getElementById('oc-surface').value.trim();
       if (document.getElementById('oc-weapon')) c.weapon = document.getElementById('oc-weapon').value.trim();
       if (document.getElementById('oc-nai-tags')) c.naiTags = document.getElementById('oc-nai-tags').value.trim();
@@ -11238,7 +11375,9 @@ ZH: 修改后的纯客观中文服装配饰清单`
       renderPersonaGrid();
       populateCharacterSelects();
       renderHeightStage();
-      switchSubPage('screen-persona', 'persona-list');
+      if (!stayOnPage) {
+        switchSubPage('screen-persona', 'persona-list');
+      }
     }
 
     async function createNewBlankCharacter() {
@@ -16976,10 +17115,11 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         voiceBtn.textContent = '播放';
       }
       try {
+        const bounds = getSpeakerVoiceBounds(line.speaker);
         await synthesizeAndPlayReplayTts(ttsText, voiceId, cacheKey, forceRegen, {
           emotion: line.ttsEmotion || 'neutral',
-          speed: line.ttsSpeed || 1.0,
-          pitch: line.ttsPitch || 0
+          speed: line.ttsSpeed ?? bounds.defaultSpeed ?? 1.0,
+          pitch: line.ttsPitch ?? bounds.defaultPitch ?? 0
         });
         if (btn) btn.classList.add('cached');
       } catch (err) {
@@ -17974,7 +18114,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         }
       }
 
-      // 5. 渲染在场角色立绘：整体下移并适度收束高度上限，让172cm+10cm及更高角色头顶留出充裕空间绝不顶出画面
+      // 5. 渲染在场角色立绘：采用纯百分比高度与2倍黄金半身/全身舞台比例，彻底解决读档瞬间横竖屏切换导致立绘暴涨的Bug
       if (tachieLayer) {
         tachieLayer.innerHTML = '';
         const rawPresent = Array.isArray(line.presentSpeakers) && line.presentSpeakers.length > 0
@@ -17990,17 +18130,15 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
           }
         }
 
-        const stageH = document.getElementById('vn-theater-stage-root')?.clientHeight || 420;
-        const maxStagePx = Math.round(stageH * 1.32);
-        const maxScaleCm = 225;
+        const maxScaleCm = 205;
 
         for (const spkName of presentNames) {
           const charObj = appState.characters.find((c) => c.name === spkName);
           if (!charObj || charObj.trpgType === '旁白') continue;
           const netCm = charObj.heightCm || DEFAULT_HEIGHT_MAP[charObj.id] || 175;
           const earCm = charObj.earHatCm || 0;
-          const totalCm = netCm + earCm;
-          const actorHeightPx = Math.round((totalCm / maxScaleCm) * maxStagePx);
+          const totalCm = Math.min(maxScaleCm, netCm + earCm);
+          const heightPct = Math.round((totalCm / maxScaleCm) * 100);
 
           const isCurrentSpeaker = line.speaker === spkName;
           const expKey = isCurrentSpeaker ? (line.exp || '默认') : '默认';
@@ -18019,8 +18157,9 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
 
           const actorDiv = document.createElement('div');
           actorDiv.className = 'vn-stage-actor ' + (isCurrentSpeaker ? 'speaking' : 'dimmed') + fxClass;
+          actorDiv.style.height = heightPct + '%';
           actorDiv.innerHTML = `
-            <img src="${croppedSprite}" alt="${charObj.name}" style="height:${actorHeightPx}px;" title="${charObj.name} · ${netCm}cm · ${expKey}" />
+            <img src="${croppedSprite}" alt="${charObj.name}" style="height:100%;width:auto;max-width:none;" title="${charObj.name} · ${netCm}cm · ${expKey}" />
           `;
           tachieLayer.appendChild(actorDiv);
         }
@@ -18262,7 +18401,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       const chap = getCurrentReplayChapter();
       const lines = chap?.scriptLines || [];
       if (lines.length === 0) {
-        box.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">暂无台词记录</div>';
+        box.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);padding:24px;text-align:center;">暂无台词记录</div>';
       } else {
         const maxIdx = Math.max(0, Math.min(lines.length - 1, appState.theaterLineIdx || 0));
         const startIdx = Math.max(0, maxIdx - 99);
@@ -18279,20 +18418,20 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
             ? `<button type="button" class="vn-play-tri-btn" title="播放此句语音" onclick="event.stopPropagation(); playSingleScriptLineTts(${actualIdx}, false);"><svg viewBox="0 0 24 24"><polygon points="7 5 19 12 7 19 7 5"></polygon></svg></button>`
             : '';
 
-          const avatarInfo = !isNarr ? resolveCharacterMiniAvatarInfo(l.speaker, l.exp || '默认') : null;
-          const avatarHtml = (!isNarr && avatarInfo && avatarInfo.src)
-            ? `<div class="vn-backlog-avatar"><img src="${avatarInfo.src}" alt="${l.speaker}" class="${avatarInfo.isFullTachieCrop ? 'crop-tachie-head' : ''}" /></div>`
-            : '';
+          const speakerLabel = isNarr ? '旁白' : l.speaker;
+          const seqCode = 'NO.' + String(actualIdx + 1).padStart(2, '0');
 
           item.innerHTML = `
-            ${avatarHtml}
+            <div class="vn-backlog-speaker-col">
+              <div class="vn-backlog-speaker">${speakerLabel}</div>
+              <div class="vn-backlog-seq">${seqCode}</div>
+            </div>
             <div class="vn-backlog-center">
-              ${!isNarr ? `<div class="vn-backlog-speaker">${l.speaker}</div>` : ''}
               <div class="vn-backlog-text">${l.text || ''}</div>
             </div>
             <div class="setting-item-right" style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
               ${playBtnHtml}
-              <button type="button" class="moe-btn secondary" style="height:28px;min-height:28px;padding:0 8px;font-size:11px;" onclick="event.stopPropagation(); rewindTheaterToLine(${actualIdx});">回退</button>
+              <button type="button" class="moe-btn secondary" style="height:28px;min-height:28px;padding:0 10px;font-size:11px;" onclick="event.stopPropagation(); rewindTheaterToLine(${actualIdx});">回退</button>
             </div>
           `;
           box.appendChild(item);
@@ -18349,40 +18488,47 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       const box = document.getElementById('theater-saveload-list');
       if (!box) return;
       const saves = getGlobalTheaterSaves();
-      const totalSlots = Math.max(6, saves.length + 1);
+      const rawCount = Math.max(6, saves.length + 1);
+      const totalSlots = rawCount % 2 === 0 ? rawCount : rawCount + 1;
       box.innerHTML = '';
 
       for (let i = 0; i < totalSlots; i++) {
         const sv = saves[i];
-        const row = document.createElement('div');
-        row.className = 'setting-item';
+        const slotCode = 'NO.' + String(i + 1).padStart(2, '0');
+        const card = document.createElement('div');
+        card.className = 'vn-save-slot-card' + (sv ? '' : ' is-empty');
         if (sv) {
-          row.innerHTML = `
-            <div class="setting-item-left" style="width:52px;font-size:11px;font-weight:800;color:var(--accent-color);">档位 ${i + 1}</div>
-            <div class="setting-item-center" style="white-space:normal;">
-              <div class="setting-item-title">${sv.projectTitle || '跑团模组'} · ${sv.chapterTitle || ('第' + ((sv.chapterIdx || 0) + 1) + '章')} · 第 ${(sv.lineIdx || 0) + 1} 句</div>
-              <div class="setting-item-sub" style="white-space:normal;">${sv.speaker || '旁白'}：${(sv.text || '').slice(0, 42)}</div>
-              <div style="font-size:10px;color:var(--text-secondary);margin-top:2px;">保存时间：${sv.timeStr || ''}</div>
+          card.innerHTML = `
+            <div class="vn-save-slot-header">
+              <span class="vn-save-slot-badge">${slotCode}</span>
+              <span class="vn-save-slot-time">${sv.timeStr || ''}</span>
             </div>
-            <div class="setting-item-right" style="display:flex;gap:6px;">
-              <button type="button" class="moe-btn" onclick="loadTheaterProgressSlot(${i})">读档</button>
-              <button type="button" class="moe-btn secondary" onclick="saveTheaterProgressSlot(${i})">存档</button>
-              <button type="button" class="moe-btn secondary" onclick="deleteTheaterProgressSlot(${i})">删除</button>
+            <div class="vn-save-slot-body">
+              <div class="vn-save-slot-title">${sv.projectTitle || '跑团模组'} · ${sv.chapterTitle || ('第' + ((sv.chapterIdx || 0) + 1) + '章')} · 第 ${(sv.lineIdx || 0) + 1} 句</div>
+              <div class="vn-save-slot-preview">${sv.speaker || '旁白'}：${(sv.text || '').slice(0, 56)}</div>
+            </div>
+            <div class="vn-save-slot-footer">
+              <button type="button" class="moe-btn vn-save-slot-btn" onclick="loadTheaterProgressSlot(${i})">读档</button>
+              <button type="button" class="moe-btn secondary vn-save-slot-btn" onclick="saveTheaterProgressSlot(${i})">存档</button>
+              <button type="button" class="moe-btn secondary vn-save-slot-btn" onclick="deleteTheaterProgressSlot(${i})">删除</button>
             </div>
           `;
         } else {
-          row.innerHTML = `
-            <div class="setting-item-left" style="width:52px;font-size:11px;font-weight:800;color:var(--text-secondary);">档位 ${i + 1}</div>
-            <div class="setting-item-center">
-              <div class="setting-item-title" style="color:var(--text-secondary);">空存档位</div>
-              <div class="setting-item-sub">点击右侧存档可将当前观看的模组与章节句号记录在此</div>
+          card.innerHTML = `
+            <div class="vn-save-slot-header">
+              <span class="vn-save-slot-badge is-empty-badge">${slotCode}</span>
+              <span class="vn-save-slot-time">空存档槽</span>
             </div>
-            <div class="setting-item-right">
-              <button type="button" class="moe-btn secondary" onclick="saveTheaterProgressSlot(${i})">存档</button>
+            <div class="vn-save-slot-body">
+              <div class="vn-save-slot-title" style="opacity:0.75;">尚未记录进度</div>
+              <div class="vn-save-slot-preview">点击下方存档按钮可将当前模组与台词进度写入此槽位</div>
+            </div>
+            <div class="vn-save-slot-footer">
+              <button type="button" class="moe-btn secondary vn-save-slot-btn" onclick="saveTheaterProgressSlot(${i})">存档</button>
             </div>
           `;
         }
-        box.appendChild(row);
+        box.appendChild(card);
       }
     }
 
