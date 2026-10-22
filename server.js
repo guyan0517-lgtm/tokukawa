@@ -24,6 +24,16 @@ const LOCAL_ASSET_CANDIDATES = [
   '/sdcard/HakoniwaData',
   path.join(__dirname, 'HakoniwaData')
 ];
+function ensureNoMediaInDirSync(dirPath) {
+  try {
+    fs.mkdirSync(dirPath, { recursive: true });
+    const nm = path.join(dirPath, '.nomedia');
+    if (!fs.existsSync(nm)) {
+      fs.writeFileSync(nm, '');
+    }
+  } catch (_) {}
+}
+
 let LOCAL_ASSETS_ROOT = LOCAL_ASSET_CANDIDATES[LOCAL_ASSET_CANDIDATES.length - 1];
 for (const cand of LOCAL_ASSET_CANDIDATES) {
   try {
@@ -31,6 +41,7 @@ for (const cand of LOCAL_ASSET_CANDIDATES) {
     const testFile = path.join(cand, '.wt');
     fs.writeFileSync(testFile, '1');
     fs.unlinkSync(testFile);
+    ensureNoMediaInDirSync(cand);
     LOCAL_ASSETS_ROOT = cand;
     break;
   } catch (_) {}
@@ -47,6 +58,7 @@ app.use('/local-assets', express.static(LOCAL_ASSETS_ROOT, {
 }));
 
 app.get('/api/local-assets/ping', (_req, res) => {
+  ensureNoMediaInDirSync(LOCAL_ASSETS_ROOT);
   res.json({
     ok: true,
     service: 'hakoniwa-local-bridge',
@@ -59,16 +71,19 @@ app.post('/api/local-assets/save', async (req, res) => {
   try {
     const rawRel = String(req.body?.path || 'file.bin').split('?')[0].replace(/^\/+/, '').replace(/\.\./g, '_');
     const dataUrl = String(req.body?.dataUrl || '');
-    if (!dataUrl) {
+    if (!dataUrl && !rawRel.endsWith('.nomedia')) {
       return res.status(400).json({ ok: false, error: 'Missing dataUrl' });
     }
     const base64Part = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
-    const fileBuf = Buffer.from(base64Part, 'base64');
+    const fileBuf = base64Part ? Buffer.from(base64Part, 'base64') : Buffer.alloc(0);
     const targetPath = path.resolve(LOCAL_ASSETS_ROOT, rawRel);
     if (!targetPath.startsWith(path.resolve(LOCAL_ASSETS_ROOT))) {
       return res.status(400).json({ ok: false, error: 'Invalid path' });
     }
-    await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
+    const targetDir = path.dirname(targetPath);
+    await fs.promises.mkdir(targetDir, { recursive: true });
+    ensureNoMediaInDirSync(LOCAL_ASSETS_ROOT);
+    ensureNoMediaInDirSync(targetDir);
     await fs.promises.writeFile(targetPath, fileBuf);
     const encodedRel = rawRel.split('/').map((seg) => encodeURIComponent(seg)).join('/');
     res.json({
@@ -99,13 +114,17 @@ app.post('/api/local-assets/cleanup', async (req, res) => {
         return;
       }
       for (const entry of entries) {
-        if (entry.name === '.wt') continue;
+        if (entry.name === '.wt' || entry.name === '.nomedia') continue;
         const fullPath = path.join(dirPath, entry.name);
         if (entry.isDirectory()) {
           await walkAndClean(fullPath);
           try {
-            const rem = await fs.promises.readdir(fullPath);
-            if (rem.length === 0) await fs.promises.rmdir(fullPath);
+            const rem = (await fs.promises.readdir(fullPath)).filter((n) => n !== '.nomedia');
+            if (rem.length === 0) {
+              const nmPath = path.join(fullPath, '.nomedia');
+              if (fs.existsSync(nmPath)) await fs.promises.unlink(nmPath).catch(() => {});
+              await fs.promises.rmdir(fullPath);
+            }
           } catch (_) {}
         } else if (entry.isFile()) {
           const rel = path.relative(rootAbs, fullPath).split(path.sep).join('/');
@@ -120,6 +139,7 @@ app.post('/api/local-assets/cleanup', async (req, res) => {
     };
 
     await walkAndClean(rootAbs);
+    ensureNoMediaInDirSync(rootAbs);
     res.json({ ok: true, removedCount, root: LOCAL_ASSETS_ROOT });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
@@ -332,6 +352,82 @@ function calcMusicMatchScore(candidateTitle, candidateArtist, targetSong, target
   return score;
 }
 
+async function checkNeteaseOuterPlayable(trackId) {
+  if (!trackId) return '';
+  const outerUrl = `https://music.163.com/song/media/outer/url?id=${trackId}.mp3`;
+  try {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 2400);
+    const r = await fetch(outerUrl, {
+      method: 'HEAD',
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        'Referer': 'https://music.163.com/'
+      },
+      signal: ctrl.signal
+    });
+    clearTimeout(tid);
+    const finalUrl = r.url || '';
+    const ct = (r.headers.get('content-type') || '').toLowerCase();
+    if (r.ok && !finalUrl.includes('/404') && !ct.includes('text/html')) {
+      return `/api/music/stream?url=${encodeURIComponent(finalUrl || outerUrl)}`;
+    }
+  } catch (_) {}
+  return '';
+}
+
+app.get('/api/music/stream', async (req, res) => {
+  try {
+    const rawUrl = String(req.query?.url || '').trim();
+    if (!rawUrl) {
+      return res.status(400).send('Missing url');
+    }
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    };
+    if (rawUrl.includes('163.com') || rawUrl.includes('126.net')) {
+      headers['Referer'] = 'https://music.163.com/';
+    } else if (rawUrl.includes('qq.com') || rawUrl.includes('gtimg.cn')) {
+      headers['Referer'] = 'https://y.qq.com/';
+    }
+    if (req.headers.range) {
+      headers['Range'] = req.headers.range;
+    }
+    const upstream = await fetch(rawUrl, { headers, redirect: 'follow' });
+    const finalUrl = upstream.url || '';
+    const ct = (upstream.headers.get('content-type') || '').toLowerCase();
+    if (!upstream.ok || finalUrl.includes('/404') || ct.includes('text/html')) {
+      return res.status(404).send('Audio stream unavailable');
+    }
+    res.status(upstream.status);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', upstream.headers.get('content-type') || 'audio/mpeg');
+    const cl = upstream.headers.get('content-length');
+    if (cl) res.setHeader('Content-Length', cl);
+    const cr = upstream.headers.get('content-range');
+    if (cr) res.setHeader('Content-Range', cr);
+    res.setHeader('Accept-Ranges', 'bytes');
+
+    if (upstream.body) {
+      const reader = upstream.body.getReader();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          res.write(value);
+        }
+      } catch (_) {}
+      res.end();
+    } else {
+      const buf = Buffer.from(await upstream.arrayBuffer());
+      res.send(buf);
+    }
+  } catch (err) {
+    res.status(500).send(err.message || 'Stream error');
+  }
+});
+
 app.post('/api/music/search', async (req, res) => {
   try {
     const rawSong = String(req.body?.song || req.body?.keyword || '').trim();
@@ -340,7 +436,8 @@ app.post('/api/music/search', async (req, res) => {
     if (!rawSong && !rawArtist) {
       return res.status(400).json({ error: 'Missing song or artist keyword' });
     }
-    const queryKeyword = [rawSong, rawArtist].filter(Boolean).join(' ').trim();
+    const cleanArtistForQuery = rawArtist.replace(/纯音乐|OST|原声带|伴奏/gi, '').trim();
+    const queryKeyword = [rawSong, cleanArtistForQuery || rawArtist].filter(Boolean).join(' ').trim();
     const candidates = [];
 
     // 1. JD/GD Music Station API (netease / tencent multi-source)
@@ -357,18 +454,14 @@ app.post('/api/music/search', async (req, res) => {
                 const title = String(item.name || '');
                 const artist = Array.isArray(item.artist) ? item.artist.join(' / ') : String(item.artist || '');
                 const trackId = item.url_id || item.id;
-                let playUrl = '';
-                if (src === 'netease' && trackId) {
-                  playUrl = `https://music.163.com/song/media/outer/url?id=${trackId}.mp3`;
-                }
                 candidates.push({
                   source: src === 'tencent' ? 'QQ音乐台' : 'JD音乐台·网易',
                   sourceCode: src,
                   trackId: String(trackId || ''),
                   title,
                   artist,
-                  url: playUrl,
-                  score: calcMusicMatchScore(title, artist, rawSong || queryKeyword, rawArtist, Boolean(playUrl))
+                  url: '',
+                  score: calcMusicMatchScore(title, artist, rawSong || queryKeyword, cleanArtistForQuery || rawArtist, false)
                 });
               }
             }
@@ -393,16 +486,15 @@ app.post('/api/music/search', async (req, res) => {
           for (const s of songs.slice(0, 6)) {
             const title = String(s.name || '');
             const artist = Array.isArray(s.artists) ? s.artists.map((a) => a.name).join(' / ') : '';
-            const playUrl = s.id ? `https://music.163.com/song/media/outer/url?id=${s.id}.mp3` : '';
-            if (playUrl) {
+            if (s.id) {
               candidates.push({
                 source: '网易云音乐',
-                sourceCode: 'netease',
+                sourceCode: 'netease_web',
                 trackId: String(s.id),
                 title,
                 artist,
-                url: playUrl,
-                score: calcMusicMatchScore(title, artist, rawSong || queryKeyword, rawArtist, true)
+                url: '',
+                score: calcMusicMatchScore(title, artist, rawSong || queryKeyword, cleanArtistForQuery || rawArtist, false)
               });
             }
           }
@@ -410,25 +502,33 @@ app.post('/api/music/search', async (req, res) => {
       } catch (_) {}
     }
 
-    // 3. iTunes High-Availability Audio Stream Fallback
-    if (sourcePref === 'all' || candidates.length === 0) {
+    // 3. iTunes High-Availability Anime/Game Soundtrack Stream Search
+    const searchItunesTerms = [queryKeyword];
+    if (rawSong && cleanArtistForQuery && queryKeyword !== rawSong) {
+      searchItunesTerms.push(`${rawSong} soundtrack`);
+      searchItunesTerms.push(`${cleanArtistForQuery} soundtrack`);
+    } else if (rawSong) {
+      searchItunesTerms.push(`${rawSong} anime ost`);
+    }
+    for (const term of searchItunesTerms.slice(0, 2)) {
       try {
-        const itUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(queryKeyword)}&media=music&limit=6`;
+        const itUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&limit=8`;
         const itRes = await fetch(itUrl);
         if (itRes.ok) {
           const itData = await itRes.json();
-          for (const item of (itData?.results || []).slice(0, 5)) {
+          for (const item of (itData?.results || []).slice(0, 6)) {
             if (!item.previewUrl) continue;
             const title = String(item.trackName || '');
             const artist = String(item.artistName || '');
             candidates.push({
-              source: '音乐台直链',
+              source: '动漫游戏原声台',
               sourceCode: 'itunes',
               trackId: String(item.trackId || ''),
               title,
               artist,
-              url: item.previewUrl,
-              score: calcMusicMatchScore(title, artist, rawSong || queryKeyword, rawArtist, true)
+              url: `/api/music/stream?url=${encodeURIComponent(item.previewUrl)}`,
+              rawStreamUrl: item.previewUrl,
+              score: calcMusicMatchScore(title, artist, rawSong || term, cleanArtistForQuery || rawArtist, true) + 8
             });
           }
         }
@@ -438,22 +538,31 @@ app.post('/api/music/search', async (req, res) => {
     // Sort by weight descending
     candidates.sort((a, b) => b.score - a.score);
 
-    // Resolve URL for top candidate if from GD studio without direct URL yet
-    for (let i = 0; i < Math.min(3, candidates.length); i++) {
+    // Resolve and verify URLs for top candidates
+    for (let i = 0; i < Math.min(6, candidates.length); i++) {
       const cand = candidates[i];
-      if (!cand.url && cand.trackId && cand.sourceCode) {
-        try {
-          const uRes = await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${cand.sourceCode}&id=${encodeURIComponent(cand.trackId)}&br=320`, {
-            headers: { 'User-Agent': 'Mozilla/5.0' }
-          });
-          if (uRes.ok) {
-            const uData = await uRes.json();
-            if (uData && uData.url) {
-              cand.url = uData.url;
-              cand.score += 10;
+      if (!cand.url && cand.trackId) {
+        if (cand.sourceCode === 'netease' || cand.sourceCode === 'tencent') {
+          try {
+            const uRes = await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${cand.sourceCode}&id=${encodeURIComponent(cand.trackId)}&br=320`, {
+              headers: { 'User-Agent': 'Mozilla/5.0' }
+            });
+            if (uRes.ok) {
+              const uData = await uRes.json();
+              if (uData && uData.url) {
+                cand.url = `/api/music/stream?url=${encodeURIComponent(uData.url)}`;
+                cand.score += 12;
+              }
             }
+          } catch (_) {}
+        }
+        if (!cand.url && (cand.sourceCode === 'netease' || cand.sourceCode === 'netease_web')) {
+          const verifiedUrl = await checkNeteaseOuterPlayable(cand.trackId);
+          if (verifiedUrl) {
+            cand.url = verifiedUrl;
+            cand.score += 10;
           }
-        } catch (_) {}
+        }
       }
     }
 

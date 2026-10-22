@@ -2484,7 +2484,11 @@
         <div class="moe-card" id="replay-chapters-card-anchor">
           <div class="moe-card-header">
             <span class="moe-card-title">第四步：已切分好的章节列表 一章一次完整整理剧本与演出标记</span>
-            <button type="button" class="moe-btn secondary" onclick="toggleChaptersScriptPromptEditor()">提示</button>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button type="button" class="moe-btn secondary" onclick="toggleSelectAllReplayChapters()">全选</button>
+              <button type="button" class="moe-btn" id="replay-batch-gen-chaps-btn" onclick="batchGenerateSelectedChaptersScript()">批整</button>
+              <button type="button" class="moe-btn secondary" onclick="toggleChaptersScriptPromptEditor()">提示</button>
+            </div>
           </div>
           <div id="replay-chapters-script-prompt-box" style="display:none;margin-bottom:8px;padding:10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
@@ -2493,6 +2497,14 @@
                 <button type="button" class="moe-btn secondary" onclick="resetCustomScriptPrompt()">恢复</button>
                 <button type="button" class="moe-btn" onclick="saveCustomScriptPrompt('replay-chapters-script-prompt-textarea')">保存</button>
               </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;font-size:11px;color:var(--text-secondary);">
+              <span style="font-weight:700;color:var(--text-primary);">发给AI的角色人设项：</span>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" data-char-prompt-field="age" checked style="width:15px;height:15px;flex-shrink:0;margin:0;padding:0;" onchange="onToggleCharPromptField('age', this.checked)" />年龄</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" data-char-prompt-field="appearance" checked style="width:15px;height:15px;flex-shrink:0;margin:0;padding:0;" onchange="onToggleCharPromptField('appearance', this.checked)" />外貌</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" data-char-prompt-field="personality" checked style="width:15px;height:15px;flex-shrink:0;margin:0;padding:0;" onchange="onToggleCharPromptField('personality', this.checked)" />性格</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" data-char-prompt-field="background" checked style="width:15px;height:15px;flex-shrink:0;margin:0;padding:0;" onchange="onToggleCharPromptField('background', this.checked)" />背景</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" data-char-prompt-field="weaponItems" checked style="width:15px;height:15px;flex-shrink:0;margin:0;padding:0;" onchange="onToggleCharPromptField('weaponItems', this.checked)" />武器</label>
             </div>
             <textarea id="replay-chapters-script-prompt-textarea" class="moe-input" style="min-height:150px;font-size:11px;line-height:1.5;"></textarea>
           </div>
@@ -2531,6 +2543,14 @@
                 <button type="button" class="moe-btn secondary" onclick="resetCustomScriptPrompt()">恢复</button>
                 <button type="button" class="moe-btn" onclick="saveCustomScriptPrompt('replay-script-prompt-textarea')">保存</button>
               </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;font-size:11px;color:var(--text-secondary);">
+              <span style="font-weight:700;color:var(--text-primary);">发给AI的角色人设项：</span>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" data-char-prompt-field="age" checked style="width:15px;height:15px;flex-shrink:0;margin:0;padding:0;" onchange="onToggleCharPromptField('age', this.checked)" />年龄</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" data-char-prompt-field="appearance" checked style="width:15px;height:15px;flex-shrink:0;margin:0;padding:0;" onchange="onToggleCharPromptField('appearance', this.checked)" />外貌</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" data-char-prompt-field="personality" checked style="width:15px;height:15px;flex-shrink:0;margin:0;padding:0;" onchange="onToggleCharPromptField('personality', this.checked)" />性格</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" data-char-prompt-field="background" checked style="width:15px;height:15px;flex-shrink:0;margin:0;padding:0;" onchange="onToggleCharPromptField('background', this.checked)" />背景</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" data-char-prompt-field="weaponItems" checked style="width:15px;height:15px;flex-shrink:0;margin:0;padding:0;" onchange="onToggleCharPromptField('weaponItems', this.checked)" />武器</label>
             </div>
             <textarea id="replay-script-prompt-textarea" class="moe-input" style="min-height:150px;font-size:11px;line-height:1.5;"></textarea>
           </div>
@@ -2788,7 +2808,7 @@
               <div style="display:flex;gap:6px;">
                 <button type="button" class="moe-btn secondary" onclick="openTheaterSaveLoadModal('load')">读档</button>
                 <button type="button" class="moe-btn secondary" onclick="openAppScreen('replay')">模组</button>
-                <button type="button" class="moe-btn secondary" onclick="closeTheaterSelectorLobby()">继续</button>
+                <button type="button" class="moe-btn secondary" onclick="closeTheaterSelectorLobby();renderTheaterCurrentLine();">继续</button>
               </div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
@@ -4855,6 +4875,31 @@
       }
     }
 
+    const _ensuredNoMediaDirs = new Set();
+    async function ensureLocalBridgeNoMediaForRelPath(cleanRel) {
+      if (!isLocalBridgeEnabled()) return;
+      const baseUrl = getLocalBridgeBaseUrl();
+      const parts = String(cleanRel || '').split('/').filter(Boolean);
+      const dirsToMark = [''];
+      if (parts.length > 1) {
+        let cur = '';
+        for (let i = 0; i < parts.length - 1; i++) {
+          cur = cur ? `${cur}/${parts[i]}` : parts[i];
+          dirsToMark.push(cur);
+        }
+      }
+      for (const dirRel of dirsToMark) {
+        const nmRel = dirRel ? `${dirRel}/.nomedia` : '.nomedia';
+        if (_ensuredNoMediaDirs.has(nmRel)) continue;
+        _ensuredNoMediaDirs.add(nmRel);
+        fetch(baseUrl + '/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: nmRel, dataUrl: 'data:text/plain;base64,IA==' })
+        }).catch(() => {});
+      }
+    }
+
     async function saveAssetToLocalBridge(relPath, dataUrl, preferTermuxOnly = false) {
       if (!dataUrl || typeof dataUrl !== 'string') return dataUrl;
       if (dataUrl.startsWith('data:image/svg+xml')) return dataUrl;
@@ -4873,6 +4918,7 @@
       const verSuffix = `?v=${Date.now()}`;
 
       evictAssetFromMemoryCaches(cleanRel);
+      ensureLocalBridgeNoMediaForRelPath(cleanRel).catch(() => {});
 
       let savedTermuxUrl = '';
       if (isLocalBridgeEnabled()) {
@@ -4975,14 +5021,21 @@
         }
       }
 
-      const activePaths = new Set();
+      const activePaths = new Set(['.nomedia', 'characters/.nomedia', 'styles/.nomedia', 'scenes/.nomedia', 'cgs/.nomedia']);
       const collectUrl = (u) => {
         const rel = extractRelativeAssetPath(u, baseUrl);
-        if (rel) activePaths.add(rel);
+        if (rel) {
+          activePaths.add(rel);
+          const dirParts = rel.split('/');
+          if (dirParts.length > 1) {
+            activePaths.add(dirParts.slice(0, -1).join('/') + '/.nomedia');
+          }
+        }
       };
 
       for (const c of (appState.characters || [])) {
         const safeName = (c.name || c.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
+        activePaths.add(`characters/${safeName}/.nomedia`);
         collectUrl(c.profileAvatar);
         collectUrl(c.stageBustAvatar);
         collectUrl(c.tachieBase);
@@ -5115,23 +5168,173 @@
       return src;
     }
 
+    function buildTermuxLocalBridgeCommandString() {
+      const pyScript = [
+        "import os, json, base64, urllib.parse, mimetypes, http.server, socketserver",
+        "candidates = [",
+        "    os.path.expanduser('~/storage/shared/Download/HakoniwaData'),",
+        "    os.path.expanduser('~/storage/shared/HakoniwaData'),",
+        "    '/sdcard/Download/HakoniwaData',",
+        "    '/sdcard/HakoniwaData',",
+        "    os.path.expanduser('~/HakoniwaData')",
+        "]",
+        "root = candidates[-1]",
+        "for c in candidates:",
+        "    try:",
+        "        os.makedirs(c, exist_ok=True)",
+        "        tf = os.path.join(c, '.wt')",
+        "        open(tf, 'wb').write(b'1')",
+        "        os.remove(tf)",
+        "        root = c",
+        "        break",
+        "    except Exception:",
+        "        pass",
+        "",
+        "def ensure_nomedia(d):",
+        "    try:",
+        "        os.makedirs(d, exist_ok=True)",
+        "        nm = os.path.join(d, '.nomedia')",
+        "        if not os.path.exists(nm):",
+        "            open(nm, 'wb').write(b'')",
+        "    except Exception:",
+        "        pass",
+        "",
+        "ensure_nomedia(root)",
+        "for dp, dn, fn in os.walk(root):",
+        "    ensure_nomedia(dp)",
+        "",
+        "class S(socketserver.ThreadingMixIn, http.server.HTTPServer):",
+        "    allow_reuse_address = True",
+        "    daemon_threads = True",
+        "",
+        "class H(http.server.BaseHTTPRequestHandler):",
+        "    def log_message(s, *a):",
+        "        pass",
+        "    def _cors(s):",
+        "        o = s.headers.get('Origin') or '*'",
+        "        s.send_header('Access-Control-Allow-Origin', o)",
+        "        s.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')",
+        "        s.send_header('Access-Control-Allow-Headers', '*')",
+        "        s.send_header('Access-Control-Allow-Private-Network', 'true')",
+        "        s.send_header('Access-Control-Max-Age', '86400')",
+        "    def do_OPTIONS(s):",
+        "        s.send_response(200)",
+        "        s._cors()",
+        "        s.end_headers()",
+        "    def do_GET(s):",
+        "        p = s.path.split('?')[0]",
+        "        if p.startswith('/ping'):",
+        "            ensure_nomedia(root)",
+        "            s.send_response(200)",
+        "            s._cors()",
+        "            s.send_header('Content-Type', 'application/json; charset=utf-8')",
+        "            s.end_headers()",
+        "            s.wfile.write(json.dumps({'ok': True, 'service': 'hakoniwa-local-bridge', 'root': root}).encode('utf-8'))",
+        "            return",
+        "        rel = urllib.parse.unquote(p).lstrip('/')",
+        "        fp = os.path.abspath(os.path.join(root, rel))",
+        "        if fp.startswith(os.path.abspath(root)) and os.path.isfile(fp):",
+        "            mt = mimetypes.guess_type(fp)[0] or 'application/octet-stream'",
+        "            data = open(fp, 'rb').read()",
+        "            s.send_response(200)",
+        "            s._cors()",
+        "            s.send_header('Content-Type', mt)",
+        "            s.send_header('Content-Length', str(len(data)))",
+        "            s.send_header('Cache-Control', 'no-cache')",
+        "            s.end_headers()",
+        "            s.wfile.write(data)",
+        "        else:",
+        "            s.send_response(404)",
+        "            s._cors()",
+        "            s.end_headers()",
+        "    def do_POST(s):",
+        "        try:",
+        "            n = int(s.headers.get('Content-Length', '0'))",
+        "            d = json.loads(s.rfile.read(n).decode('utf-8'))",
+        "            if s.path.startswith('/cleanup'):",
+        "                act = set(str(x).split('?')[0].lstrip('/').replace('..', '_') for x in d.get('activePaths', []))",
+        "                rm = 0",
+        "                for dpath, dnames, fnames in os.walk(root, topdown=False):",
+        "                    for fn in fnames:",
+        "                        if fn in ('.wt', '.nomedia'): continue",
+        "                        full = os.path.join(dpath, fn)",
+        "                        relp = os.path.relpath(full, root).replace('\\\\', '/')",
+        "                        if relp not in act:",
+        "                            try:",
+        "                                os.remove(full)",
+        "                                rm += 1",
+        "                            except Exception:",
+        "                                pass",
+        "                    try:",
+        "                        if dpath != root and not [x for x in os.listdir(dpath) if x != '.nomedia']:",
+        "                            nmp = os.path.join(dpath, '.nomedia')",
+        "                            if os.path.exists(nmp): os.remove(nmp)",
+        "                            os.rmdir(dpath)",
+        "                    except Exception:",
+        "                        pass",
+        "                ensure_nomedia(root)",
+        "                s.send_response(200)",
+        "                s._cors()",
+        "                s.send_header('Content-Type', 'application/json; charset=utf-8')",
+        "                s.end_headers()",
+        "                s.wfile.write(json.dumps({'ok': True, 'removedCount': rm}).encode('utf-8'))",
+        "                return",
+        "            rel = str(d.get('path', 'file.bin')).split('?')[0].lstrip('/').replace('..', '_')",
+        "            fp = os.path.abspath(os.path.join(root, rel))",
+        "            ensure_nomedia(root)",
+        "            ensure_nomedia(os.path.dirname(fp))",
+        "            raw = str(d.get('dataUrl', ''))",
+        "            b64 = raw.split(',', 1)[1] if ',' in raw else raw",
+        "            buf = base64.b64decode(b64) if b64 else b''",
+        "            open(fp, 'wb').write(buf)",
+        "            if not rel.endswith('.nomedia'):",
+        "                print('已存本地:', rel, len(buf) // 1024, 'KB', flush=True)",
+        "            enc = '/'.join(urllib.parse.quote(x) for x in rel.split('/'))",
+        "            h = s.headers.get('Host') or '127.0.0.1:8765'",
+        "            s.send_response(200)",
+        "            s._cors()",
+        "            s.send_header('Content-Type', 'application/json; charset=utf-8')",
+        "            s.end_headers()",
+        "            s.wfile.write(json.dumps({'ok': True, 'url': 'http://' + h + '/' + enc, 'path': fp, 'root': root}).encode('utf-8'))",
+        "        except Exception as e:",
+        "            s.send_response(500)",
+        "            s._cors()",
+        "            s.send_header('Content-Type', 'application/json; charset=utf-8')",
+        "            s.end_headers()",
+        "            s.wfile.write(json.dumps({'ok': False, 'error': str(e)}).encode('utf-8'))",
+        "",
+        "print('=== 箱庭物语本地直存已启动 ===', flush=True)",
+        "print('本地根目录:', root, flush=True)",
+        "print('已自动写入 .nomedia 防相册扫描标记', flush=True)",
+        "print('服务地址: http://127.0.0.1:8765', flush=True)",
+        "S(('0.0.0.0', 8765), H).serve_forever()",
+        ""
+      ].join('\n');
+      const b64 = btoa(unescape(encodeURIComponent(pyScript)));
+      return `pkg install -y python; test -d "$HOME/storage" || termux-setup-storage; pkill -9 -f python3 2>/dev/null; echo ${b64} | base64 -d | python3 -u`;
+    }
+
     function copyTermuxLocalBridgeCmd() {
       const ta = document.getElementById('termux-local-bridge-cmd');
       const statusBox = document.getElementById('local-bridge-status-box');
       if (!ta) return;
+      ta.value = buildTermuxLocalBridgeCommandString();
       ta.select();
       navigator.clipboard?.writeText(ta.value).catch(() => {
         document.execCommand('copy');
       });
       if (statusBox) {
-        statusBox.textContent = '已复制新版 Termux 启动命令！请打开手机 Termux 粘贴并回车运行，看到本地直存已启动提示后点击右上角检测或同步。';
+        statusBox.textContent = '已复制新版 Termux 启动命令！已内置自动生成 .nomedia 隐藏标记，本地立绘与素材将不再显示在手机相册中。';
       }
     }
 
     async function testLocalBridgeConnectionUI() {
+      const ta = document.getElementById('termux-local-bridge-cmd');
+      if (ta) ta.value = buildTermuxLocalBridgeCommandString();
       const statusBox = document.getElementById('local-bridge-status-box');
       const baseUrl = getLocalBridgeBaseUrl();
       if (statusBox) statusBox.textContent = '正在检测手机 Termux 本地存储服务连接...';
+      ensureLocalBridgeNoMediaForRelPath('characters/init.png').catch(() => {});
       const termuxInfo = await checkLocalBridgeEndpointAlive(baseUrl);
       if (termuxInfo) {
         if (statusBox) {
@@ -5922,16 +6125,36 @@
 
     // 魔棒点选联通区域擦除与交互式擦除/恢复画笔
     function magicWandEraseAtPoint(ctx, w, h, startX, startY, tolerance) {
-      const sx = Math.max(0, Math.min(w - 1, Math.round(startX)));
-      const sy = Math.max(0, Math.min(h - 1, Math.round(startY)));
+      let sx = Math.max(0, Math.min(w - 1, Math.round(startX)));
+      let sy = Math.max(0, Math.min(h - 1, Math.round(startY)));
       const imgData = ctx.getImageData(0, 0, w, h);
       const data = imgData.data;
-      const startIdx = (sy * w + sx) * 4;
+      let startIdx = (sy * w + sx) * 4;
+      if (data[startIdx + 3] <= 10) {
+        // 手指触屏点选细小残余白边时若刚好点在旁边透明像素上，自动在周围 6px 范围内寻找最近的非透明像素
+        let foundNear = false;
+        for (let rad = 1; rad <= 6 && !foundNear; rad++) {
+          for (let dy = -rad; dy <= rad && !foundNear; dy++) {
+            for (let dx = -rad; dx <= rad && !foundNear; dx++) {
+              const nx = sx + dx;
+              const ny = sy + dy;
+              if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+                const nIdx = (ny * w + nx) * 4;
+                if (data[nIdx + 3] > 10) {
+                  sx = nx;
+                  sy = ny;
+                  startIdx = nIdx;
+                  foundNear = true;
+                }
+              }
+            }
+          }
+        }
+        if (!foundNear) return false;
+      }
       const r0 = data[startIdx];
       const g0 = data[startIdx + 1];
       const b0 = data[startIdx + 2];
-      const a0 = data[startIdx + 3];
-      if (a0 <= 10) return false;
 
       const maxDiff = Math.max(6, (Number(tolerance) || 20) * 1.45);
       const visited = new Uint8Array(w * h);
@@ -6119,6 +6342,48 @@
       h.idx = h.list.length - 1;
     }
 
+    let _tachieCutoutSaveTimer = null;
+    function commitAndPersistTachieCutout(charObj, expKey, newDataUrl) {
+      if (!newDataUrl) return;
+      appState.tachieWorkingDataUrl = newDataUrl;
+      const imgEl = document.getElementById('tachie-stage-img');
+      if (imgEl) {
+        imgEl.src = newDataUrl;
+      }
+      if (!charObj) return;
+      const targetExp = expKey || '默认';
+      evictCharacterTachieCaches(charObj, targetExp);
+      if (!charObj.tachieExpressions) charObj.tachieExpressions = {};
+      charObj.tachieExpressions[targetExp] = newDataUrl;
+      if (targetExp === '默认') {
+        charObj.tachieBase = newDataUrl;
+      }
+      // 立即写入 IndexedDB 与本地直存文件，确保切换其他差分或点击任何按钮都不会退回旧图
+      if (_tachieCutoutSaveTimer) clearTimeout(_tachieCutoutSaveTimer);
+      const snapshotUrl = newDataUrl;
+      const snapshotChar = charObj;
+      const snapshotExp = targetExp;
+      _tachieCutoutSaveTimer = setTimeout(async () => {
+        try {
+          const safeCharName = (snapshotChar.name || snapshotChar.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
+          const safeExp = String(snapshotExp).replace(/[\\/:*?"<>|]/g, '_');
+          const savedExpUrl = await saveAssetToLocalBridge(`characters/${safeCharName}/${safeExp}.png`, snapshotUrl);
+          if (snapshotChar.tachieExpressions && snapshotChar.tachieExpressions[snapshotExp] === snapshotUrl) {
+            snapshotChar.tachieExpressions[snapshotExp] = savedExpUrl;
+          }
+          if (snapshotExp === '默认') {
+            const savedBaseUrl = await saveAssetToLocalBridge(`characters/${safeCharName}/base.png`, snapshotUrl);
+            if (snapshotChar.tachieBase === snapshotUrl) {
+              snapshotChar.tachieBase = savedBaseUrl;
+            }
+          }
+          await db.characters.put(snapshotChar);
+        } catch (err) {
+          console.error('立绘抠图实时保存失败:', err);
+        }
+      }, 180);
+    }
+
     function applyHistorySnapshotToStage(target, snapUrl) {
       if (!snapUrl) return;
       if (target === 'chibi') {
@@ -6132,24 +6397,19 @@
         if (charObj) {
           savePoseToCharChibiStore(charObj, appState.chibiPreviewDir || 'down', snapUrl, appState.chibiRawDataUrl, appState.chibiAlignedRawDataUrl);
           charObj.chibiWalkDirs = null;
+          scheduleCharSaveDebounced(charObj);
         }
         if (appState.chibiBrushMode && appState.chibiBrushMode !== 'none') {
           syncInteractiveBrushCanvas('chibi');
         }
       } else if (target === 'tachie') {
-        appState.tachieWorkingDataUrl = snapUrl;
         const imgEl = document.getElementById('tachie-stage-img');
-        if (imgEl) {
-          imgEl.src = snapUrl;
-          if (appState.tachieBrushMode === 'none') imgEl.style.display = 'block';
+        if (imgEl && appState.tachieBrushMode === 'none') {
+          imgEl.style.display = 'block';
         }
         const charObj = appState.characters.find((c) => c.id === appState.selectedTachieCharId);
-        if (charObj) {
-          if (!charObj.tachieExpressions) charObj.tachieExpressions = {};
-          const expKey = appState.selectedTachieExp || '默认';
-          charObj.tachieExpressions[expKey] = snapUrl;
-          if (expKey === '默认') charObj.tachieBase = snapUrl;
-        }
+        const expKey = appState.selectedTachieExp || '默认';
+        commitAndPersistTachieCutout(charObj, expKey, snapUrl);
         if (appState.tachieBrushMode && appState.tachieBrushMode !== 'none') {
           syncInteractiveBrushCanvas('tachie');
         }
@@ -6283,6 +6543,7 @@
       }
 
       const workImg = new Image();
+      workImg.crossOrigin = 'anonymous';
       workImg.onload = () => {
         canvas.width = workImg.width;
         canvas.height = workImg.height;
@@ -6332,7 +6593,16 @@
         syncBaseSnapshot();
 
         const rawImg = new Image();
-        rawImg.src = rawUrl;
+        rawImg.crossOrigin = 'anonymous';
+        if (rawUrl && !rawUrl.startsWith('data:')) {
+          resolveImageToDataUrl(rawUrl).then((dUrl) => {
+            rawImg.src = dUrl || rawUrl;
+          }).catch(() => {
+            rawImg.src = rawUrl;
+          });
+        } else {
+          rawImg.src = rawUrl;
+        }
 
         const commitCanvasUpdate = async () => {
           syncBaseSnapshot();
@@ -6345,18 +6615,13 @@
             if (charObj) {
               savePoseToCharChibiStore(charObj, appState.chibiPreviewDir || 'down', updated, appState.chibiRawDataUrl, appState.chibiAlignedRawDataUrl);
               charObj.chibiWalkDirs = null;
+              scheduleCharSaveDebounced(charObj);
             }
           } else if (target === 'tachie') {
-            appState.tachieWorkingDataUrl = updated;
-            imgEl.src = updated;
             pushStageHistory('tachie', updated);
             const charObj = appState.characters.find((c) => c.id === appState.selectedTachieCharId);
-            if (charObj) {
-              if (!charObj.tachieExpressions) charObj.tachieExpressions = {};
-              const expKey = appState.selectedTachieExp || '默认';
-              charObj.tachieExpressions[expKey] = updated;
-              if (expKey === '默认') charObj.tachieBase = updated;
-            }
+            const expKey = appState.selectedTachieExp || '默认';
+            commitAndPersistTachieCutout(charObj, expKey, updated);
           } else if (target === 'builder-table') {
             appState.builderTableWorkingUrl = updated;
             imgEl.src = updated;
@@ -6430,7 +6695,7 @@
 
           if (mode === 'lasso') {
             const prev = lassoPoints[lassoPoints.length - 1];
-            if (!prev || Math.hypot(cx - prev.x, cy - prev.y) >= 2) {
+            if (!prev || Math.hypot(cx - prev.x, cy - prev.y) >= 0.5) {
               lassoPoints.push({ x: cx, y: cy });
               renderLassoPreview();
             }
@@ -6523,7 +6788,7 @@
 
           if (mode === 'wand') {
             const moveDist = Math.hypot(ev.clientX - downClientX, ev.clientY - downClientY);
-            if (moveDist <= 10) {
+            if (moveDist <= 32) {
               const { cx, cy } = getCanvasPoint(ev);
               const tol = parseInt(document.getElementById(tolSliderId)?.value || '22', 10) || 22;
               const changed = magicWandEraseAtPoint(ctx, canvas.width, canvas.height, cx, cy, tol);
@@ -6565,7 +6830,15 @@
           cancelActiveGesture();
         };
       };
-      workImg.src = workUrl;
+      if (workUrl && !workUrl.startsWith('data:')) {
+        resolveImageToDataUrl(workUrl).then((dUrl) => {
+          workImg.src = dUrl || workUrl;
+        }).catch(() => {
+          workImg.src = workUrl;
+        });
+      } else {
+        workImg.src = workUrl;
+      }
     }
 
     // =========================================================================
@@ -6988,6 +7261,7 @@
       return new Promise((resolve) => {
         if (!transparentFullDataUrl) return resolve(transparentFullDataUrl);
         const img = new Image();
+        img.crossOrigin = 'anonymous';
         img.onload = () => {
           const w = img.width || 512;
           const h = img.height || 512;
@@ -7021,6 +7295,7 @@
 
           if (rawFullDataUrl) {
             const rawImg = new Image();
+            rawImg.crossOrigin = 'anonymous';
             rawImg.onload = () => {
               const rawCanvas = document.createElement('canvas');
               rawCanvas.width = canvasSize;
@@ -7048,6 +7323,7 @@
       return new Promise((resolve) => {
         if (!transparentFullDataUrl) return resolve(transparentFullDataUrl);
         const img = new Image();
+        img.crossOrigin = 'anonymous';
         img.onload = () => {
           const w = img.width || 832;
           const h = img.height || 1216;
@@ -7082,6 +7358,7 @@
 
           if (rawFullDataUrl) {
             const rawImg = new Image();
+            rawImg.crossOrigin = 'anonymous';
             rawImg.onload = () => {
               const rawCanvas = document.createElement('canvas');
               rawCanvas.width = canvasW;
@@ -7677,6 +7954,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
       return new Promise((resolve) => {
         if (!srcDataUrl) return resolve('');
         const img = new Image();
+        img.crossOrigin = 'anonymous';
         img.onload = () => {
           const c = document.createElement('canvas');
           c.width = img.width || 512;
@@ -8434,6 +8712,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
 
       const dir = appState.chibiPreviewDir || 'down';
       const workImg = new Image();
+      workImg.crossOrigin = 'anonymous';
       workImg.onload = () => {
         if (imgEl.clientWidth > 0 && imgEl.clientHeight > 0) {
           imgEl.dataset.lastW = String(imgEl.clientWidth);
@@ -8605,6 +8884,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
       return new Promise((resolve) => {
         if (!baseDataUrl) return resolve([]);
         const img = new Image();
+        img.crossOrigin = 'anonymous';
         img.onload = () => {
           const w = img.width || 512;
           const h = img.height || 512;
@@ -9543,6 +9823,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
     function normalizeUploadedImageForNai(rawDataUrl) {
       return new Promise((resolve) => {
         const img = new Image();
+        img.crossOrigin = 'anonymous';
         img.onload = () => {
           const w = img.width || 832;
           const h = img.height || 1216;
@@ -10107,12 +10388,12 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const expKey = appState.selectedTachieExp || '默认';
       const rawSrc = appState.tachieAlignedRawDataUrl || (charObj?.tachieRawExpressions && charObj.tachieRawExpressions[expKey]) || appState.tachieRawDataUrl;
       if (!rawSrc) return;
-      appState.tachieWorkingDataUrl = rawSrc;
-      appState.tachieAlignedRawDataUrl = rawSrc;
-      pushStageHistory('tachie', rawSrc);
+      const resolvedRaw = rawSrc.startsWith('data:') ? rawSrc : (await resolveImageToDataUrl(rawSrc) || rawSrc);
+      appState.tachieAlignedRawDataUrl = resolvedRaw;
+      pushStageHistory('tachie', resolvedRaw);
+      commitAndPersistTachieCutout(charObj, expKey, resolvedRaw);
       const stageImgEl = document.getElementById('tachie-stage-img');
-      if (stageImgEl) {
-        stageImgEl.src = rawSrc;
+      if (stageImgEl && appState.tachieBrushMode === 'none') {
         stageImgEl.style.display = 'block';
       }
       if (appState.tachieBrushMode !== 'none') syncInteractiveBrushCanvas('tachie');
@@ -10121,24 +10402,28 @@ ZH: 修改后的纯客观中文服装配饰清单`
     async function applyFloodFillToTachie() {
       const charObj = appState.characters.find((c) => c.id === appState.selectedTachieCharId);
       const expKey = appState.selectedTachieExp || '默认';
-      const src = (charObj?.tachieRawExpressions && charObj.tachieRawExpressions[expKey]) || appState.tachieRawDataUrl || appState.tachieWorkingDataUrl;
-      if (!src) return;
+      const rawCandidate = (charObj?.tachieRawExpressions && charObj.tachieRawExpressions[expKey]) || appState.tachieRawDataUrl || appState.tachieWorkingDataUrl;
+      if (!rawCandidate) return;
+      const src = rawCandidate.startsWith('data:') ? rawCandidate : (await resolveImageToDataUrl(rawCandidate) || rawCandidate);
       const tol = parseInt(document.getElementById('tachie-tolerance-slider')?.value || '18', 10);
       const feather = parseInt(document.getElementById('tachie-feather-slider')?.value || '1', 10);
       const bgRemoved = await floodFillRemoveWhiteBg(src, tol, false, feather);
       const cleaned = await normalizeTachieSpriteScale(bgRemoved, src);
-      appState.tachieWorkingDataUrl = cleaned;
       pushStageHistory('tachie', cleaned);
-      document.getElementById('tachie-stage-img').src = cleaned;
+      commitAndPersistTachieCutout(charObj, expKey, cleaned);
       if (appState.tachieBrushMode !== 'none') syncInteractiveBrushCanvas('tachie');
     }
 
     async function autoTrimTachieCanvas() {
       if (!appState.tachieWorkingDataUrl) return;
-      const trimmed = await trimTransparentBounds(appState.tachieWorkingDataUrl);
-      appState.tachieWorkingDataUrl = trimmed;
+      const charObj = appState.characters.find((c) => c.id === appState.selectedTachieCharId);
+      const expKey = appState.selectedTachieExp || '默认';
+      const src = appState.tachieWorkingDataUrl.startsWith('data:')
+        ? appState.tachieWorkingDataUrl
+        : (await resolveImageToDataUrl(appState.tachieWorkingDataUrl) || appState.tachieWorkingDataUrl);
+      const trimmed = await trimTransparentBounds(src);
       pushStageHistory('tachie', trimmed);
-      document.getElementById('tachie-stage-img').src = appState.tachieWorkingDataUrl;
+      commitAndPersistTachieCutout(charObj, expKey, trimmed);
       if (appState.tachieBrushMode !== 'none') syncInteractiveBrushCanvas('tachie');
     }
 
@@ -14109,104 +14394,121 @@ ${BUILTIN_CSS_TEMPLATE}`;
     appState.theaterSkipPlay = false;
     appState.theaterShowDanmaku = true;
     appState.theaterTtsLang = localStorage.getItem('replay-tts-lang-mode') || 'jp';
-    appState.theaterTtsVolume = Number(localStorage.getItem('theater-tts-volume') || 90);
-    appState.theaterBgmVolume = Number(localStorage.getItem('theater-bgm-volume') || 65);
+    const _initTtsVolRaw = localStorage.getItem('theater-tts-volume');
+    appState.theaterTtsVolume = (_initTtsVolRaw !== null && _initTtsVolRaw !== '' && !isNaN(Number(_initTtsVolRaw)))
+      ? Math.max(0, Math.min(100, Number(_initTtsVolRaw)))
+      : 90;
+    const _initBgmVolRaw = localStorage.getItem('theater-bgm-volume');
+    appState.theaterBgmVolume = (_initBgmVolRaw !== null && _initBgmVolRaw !== '' && !isNaN(Number(_initBgmVolRaw)))
+      ? Math.max(0, Math.min(100, Number(_initBgmVolRaw)))
+      : 65;
     let _activeReplayTtsAudio = null;
     let _theaterStepTimer = null;
     let _currentReplayBgmUrl = '';
     let _bgmFadeTimer = null;
     let _bgmIsDucking = false;
 
-    const DEFAULT_REPLAY_BGM_TRACKS = [
-      { id: 'bgm_daily_1', name: '微風と紅茶 · 舒缓钢琴日常纯音乐', tag: '日常', url: 'https://music.163.com/song/media/outer/url?id=139774.mp3' },
-      { id: 'bgm_daily_2', name: '静かな午後の窓辺 · 治愈吉他纯音乐', tag: '日常', url: 'https://music.163.com/song/media/outer/url?id=26113988.mp3' },
-      { id: 'bgm_mystery_1', name: '時計塔の影 · 轻悬疑氛围纯音乐', tag: '悬疑', url: 'https://music.163.com/song/media/outer/url?id=22707008.mp3' },
-      { id: 'bgm_mystery_2', name: '古書室の静寂 · 沉静推理纯音乐', tag: '悬疑', url: 'https://music.163.com/song/media/outer/url?id=139774.mp3' },
-      { id: 'bgm_eerie_1', name: '夜霧の回廊 · 幽静深夜纯音乐', tag: '诡异', url: 'https://music.163.com/song/media/outer/url?id=22707008.mp3' },
-      { id: 'bgm_battle_1', name: '疾風の刻 · 紧凑弦乐纯音乐', tag: '战斗', url: 'https://music.163.com/song/media/outer/url?id=26113988.mp3' },
-      { id: 'bgm_lyric_1', name: '星降る夜の祈り · 温柔钢琴纯音乐', tag: '抒情', url: 'https://music.163.com/song/media/outer/url?id=26113988.mp3' },
-      { id: 'bgm_happy_1', name: '木漏れ日のワルツ · 轻快漫步纯音乐', tag: '欢快', url: 'https://music.163.com/song/media/outer/url?id=139774.mp3' }
-    ];
+    const LEGACY_SYSTEM_BGM_IDS = new Set([
+      'bgm_daily_1', 'bgm_daily_2', 'bgm_mystery_1', 'bgm_mystery_2',
+      'bgm_eerie_1', 'bgm_battle_1', 'bgm_lyric_1', 'bgm_happy_1'
+    ]);
+    const DEFAULT_REPLAY_BGM_TRACKS = [];
 
     function getFallbackInstrumentalBgmUrl(tagOrName = '') {
       const s = String(tagOrName || '').trim();
-      const allTracks = (Array.isArray(appState.bgmTracks) && appState.bgmTracks.length > 0)
-        ? appState.bgmTracks
-        : DEFAULT_REPLAY_BGM_TRACKS;
-      let matched = allTracks.find((t) => t.url && (t.tag === s || t.name === s || s.includes(t.tag)));
-      if (!matched) {
-        if (/悬疑|调查|推理|神秘|迷雾|线索|古宅|安静|思考/.test(s)) {
-          matched = DEFAULT_REPLAY_BGM_TRACKS.find((t) => t.tag === '悬疑');
-        } else if (/诡异|恐怖|压抑|惊悚|SAN|理智|旧日|异变|暗黑|深渊/.test(s)) {
-          matched = DEFAULT_REPLAY_BGM_TRACKS.find((t) => t.tag === '诡异');
-        } else if (/战斗|危机|激烈|追逐|交锋|决战|紧张|燃/.test(s)) {
-          matched = DEFAULT_REPLAY_BGM_TRACKS.find((t) => t.tag === '战斗');
-        } else if (/抒情|悲伤|回忆|温柔|告别|钢琴|感人|治愈/.test(s)) {
-          matched = DEFAULT_REPLAY_BGM_TRACKS.find((t) => t.tag === '抒情');
-        } else if (/欢快|轻松|搞笑|热闹|愉快|早晨/.test(s)) {
-          matched = DEFAULT_REPLAY_BGM_TRACKS.find((t) => t.tag === '欢快');
-        } else {
-          matched = DEFAULT_REPLAY_BGM_TRACKS[0];
-        }
-      }
-      return normalizeMusicTrackUrl((matched && matched.url) || DEFAULT_REPLAY_BGM_TRACKS[0].url);
+      const userTracks = (appState.bgmTracks || []).filter((t) => t && t.url && !LEGACY_SYSTEM_BGM_IDS.has(t.id));
+      const matched = userTracks.find((t) => t.name === s || (s && t.name && t.name.includes(s)));
+      return matched ? normalizeMusicTrackUrl(matched.url) : '';
     }
 
     function normalizeMusicTrackUrl(rawUrl) {
       const str = String(rawUrl || '').trim();
       if (!str) return '';
-      const neteaseMatch = str.match(/music\.163\.com\/(?:#\/)?song\?id=(\d+)/i) || str.match(/id=(\d+)/);
-      if (str.includes('music.163.com') && neteaseMatch && !str.includes('/song/media/outer/url')) {
-        return `https://music.163.com/song/media/outer/url?id=${neteaseMatch[1]}.mp3`;
+      if (str.startsWith('data:') || str.startsWith('blob:') || str.startsWith('/api/music/stream') || str.startsWith('/local-assets/')) {
+        return str;
       }
-      return str;
+      let targetUrl = str;
+      const neteaseMatch = str.match(/music\.163\.com\/(?:#\/)?song\?id=(\d+)/i) || (str.includes('music.163.com') && str.match(/id=(\d+)/));
+      if (neteaseMatch && !str.includes('/song/media/outer/url')) {
+        targetUrl = `https://music.163.com/song/media/outer/url?id=${neteaseMatch[1]}.mp3`;
+      }
+      if (/^https?:\/\//i.test(targetUrl) && (targetUrl.includes('163.com') || targetUrl.includes('126.net') || targetUrl.includes('qq.com') || targetUrl.includes('apple.com'))) {
+        return `/api/music/stream?url=${encodeURIComponent(targetUrl)}`;
+      }
+      return targetUrl;
     }
 
     async function seedDefaultBgmTracks() {
-      for (const item of DEFAULT_REPLAY_BGM_TRACKS) {
-        const exists = appState.bgmTracks.some((t) => t.id === item.id || t.name === item.name);
-        if (!exists) {
-          await db.bgmTracks.put(item);
+      const all = await db.bgmTracks.toArray();
+      for (const item of all) {
+        if (LEGACY_SYSTEM_BGM_IDS.has(item.id) || (item.url && (item.url.includes('id=139774.mp3') || item.url.includes('id=26113988.mp3') || item.url.includes('id=22707008.mp3')))) {
+          await db.bgmTracks.delete(item.id);
         }
       }
       appState.bgmTracks = await db.bgmTracks.toArray();
       renderReplayBgmList();
     }
 
+    const MOOD_OST_QUERY_MAP = {
+      '日常': { song: 'Everyday Life', artist: 'Ost Instrumental' },
+      '悬疑': { song: 'Mystery Investigation', artist: 'Anime Soundtrack' },
+      '诡异': { song: 'Abyss Dark Ambient', artist: 'Yuki Kajiura' },
+      '战斗': { song: 'Battle OST', artist: 'Hiroyuki Sawano' },
+      '抒情': { song: 'Sad Piano', artist: 'Key Sounds Label' },
+      '欢快': { song: 'Peaceful Town', artist: 'Falcom Sound Team jdk' }
+    };
+
     async function searchAndResolveMusicByWeight(song, artist = '', tag = '日常') {
       const cleanSong = String(song || '').trim();
       const cleanArtist = String(artist || '').trim();
       if (!cleanSong && !cleanArtist) return null;
 
-      try {
+      const trySearchOnce = async (qSong, qArtist) => {
         const res = await fetch('/api/music/search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            song: cleanSong,
-            artist: cleanArtist,
+            song: qSong,
+            artist: qArtist,
             source: 'all'
           })
         });
         if (!res.ok) return null;
         const data = await res.json();
+        return (data && data.best && data.best.url) ? data : null;
+      };
+
+      try {
+        let data = await trySearchOnce(cleanSong, cleanArtist);
+        if (!data && cleanSong && cleanArtist) {
+          data = await trySearchOnce(cleanSong, '');
+        }
+        if (!data && cleanArtist) {
+          data = await trySearchOnce('', `${cleanArtist} soundtrack`);
+        }
+        if (!data) {
+          const moodFallback = MOOD_OST_QUERY_MAP[tag] || MOOD_OST_QUERY_MAP['日常'];
+          data = await trySearchOnce(moodFallback.song, moodFallback.artist);
+        }
         if (data && data.best && data.best.url) {
+          const playUrl = normalizeMusicTrackUrl(data.best.url);
           const trackName = data.best.artist
             ? `${data.best.title} - ${data.best.artist}`
             : data.best.title;
-          let existing = (appState.bgmTracks || []).find((t) => t.url === data.best.url || t.name === trackName);
+          let existing = (appState.bgmTracks || []).find((t) => t.url === playUrl || t.name === trackName);
           if (!existing) {
             existing = {
               id: 'bgm_auto_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
               name: trackName,
               tag: tag || '日常',
-              url: data.best.url,
+              url: playUrl,
               source: data.best.source || '音乐台'
             };
             await db.bgmTracks.put(existing);
             appState.bgmTracks = await db.bgmTracks.toArray();
             renderReplayBgmList();
           }
+          data.best.url = playUrl;
           return { best: data.best, candidates: data.candidates || [], savedTrack: existing };
         }
       } catch (err) {
@@ -14254,7 +14556,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
             const row = document.createElement('div');
             row.className = 'setting-item';
             const rankLabel = idx === 0 ? '权重第1·已选' : `权重第${idx + 1}`;
-            const safeUrl = String(c.url || '').replace(/'/g, "\\'");
+            const safeUrl = String(normalizeMusicTrackUrl(c.url || '')).replace(/'/g, "\\'");
             const safeTitle = String(c.title || '').replace(/'/g, "\\'");
             const safeArtist = String(c.artist || '').replace(/'/g, "\\'");
             row.innerHTML = `
@@ -14322,7 +14624,10 @@ ${BUILTIN_CSS_TEMPLATE}`;
     }
 
     function getTargetTheaterBgmVolume() {
-      const baseVol = Math.max(0, Math.min(1, (appState.theaterBgmVolume || 65) / 100));
+      const rawVol = (typeof appState.theaterBgmVolume === 'number' && !isNaN(appState.theaterBgmVolume))
+        ? appState.theaterBgmVolume
+        : 65;
+      const baseVol = Math.max(0, Math.min(1, rawVol / 100));
       const duckEnabled = localStorage.getItem('theater-bgm-ducking') !== 'false';
       return (_bgmIsDucking && duckEnabled) ? Number((baseVol * 0.32).toFixed(3)) : baseVol;
     }
@@ -14360,11 +14665,19 @@ ${BUILTIN_CSS_TEMPLATE}`;
     }
 
     function onBgmVolumeChange(val) {
-      const v = Math.max(0, Math.min(100, Number(val) || 65));
+      const parsed = Number(val);
+      const v = Math.max(0, Math.min(100, (val !== null && val !== '' && !isNaN(parsed)) ? parsed : 65));
       appState.theaterBgmVolume = v;
       localStorage.setItem('theater-bgm-volume', String(v));
+      localStorage.setItem('bgm-volume', String(v));
+      const tValEl = document.getElementById('theater-bgm-vol-val');
+      if (tValEl) tValEl.textContent = String(v);
+      const tSliderEl = document.getElementById('theater-bgm-vol-slider');
+      if (tSliderEl && Number(tSliderEl.value) !== v) tSliderEl.value = String(v);
+      const mSliderEl = document.getElementById('bgm-volume-slider');
+      if (mSliderEl && Number(mSliderEl.value) !== v) mSliderEl.value = String(v);
       const player = document.getElementById('bgm-audio-player');
-      if (player && !player.paused) {
+      if (player) {
         clearBgmFadeTimer();
         player.volume = getTargetTheaterBgmVolume();
       }
@@ -14373,7 +14686,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
     function previewReplayBgmTrack(url, fallbackTag = '日常') {
       const player = document.getElementById('bgm-audio-player');
       if (!player) return;
-      const finalUrl = normalizeMusicTrackUrl(url || getFallbackInstrumentalBgmUrl(fallbackTag));
+      const finalUrl = normalizeMusicTrackUrl(url);
       if (!finalUrl) return;
 
       if (!player.paused && _currentReplayBgmUrl === finalUrl && player.src) {
@@ -14381,38 +14694,24 @@ ${BUILTIN_CSS_TEMPLATE}`;
         return;
       }
 
-      const startNewTrackWithFadeIn = (playUrl, isFallbackRetry = false) => {
+      const startNewTrackWithFadeIn = (playUrl) => {
         clearBgmFadeTimer();
         _currentReplayBgmUrl = playUrl;
         player.volume = 0;
         player.src = playUrl;
-        player.onerror = () => {
-          if (!isFallbackRetry) {
-            const fbUrl = getFallbackInstrumentalBgmUrl(fallbackTag);
-            if (fbUrl && fbUrl !== playUrl) {
-              startNewTrackWithFadeIn(fbUrl, true);
-            }
-          }
-        };
+        player.onerror = null;
         player.play().then(() => {
           fadeBgmVolumeTo(player, getTargetTheaterBgmVolume(), 1000);
-        }).catch(() => {
-          if (!isFallbackRetry) {
-            const fbUrl = getFallbackInstrumentalBgmUrl(fallbackTag);
-            if (fbUrl && fbUrl !== playUrl) {
-              startNewTrackWithFadeIn(fbUrl, true);
-            }
-          }
-        });
+        }).catch(() => {});
       };
 
       if (!player.paused && _currentReplayBgmUrl && _currentReplayBgmUrl !== finalUrl && player.volume > 0.02) {
         fadeBgmVolumeTo(player, 0, 1000, () => {
           player.pause();
-          startNewTrackWithFadeIn(finalUrl, false);
+          startNewTrackWithFadeIn(finalUrl);
         });
       } else {
-        startNewTrackWithFadeIn(finalUrl, false);
+        startNewTrackWithFadeIn(finalUrl);
       }
     }
 
@@ -15721,6 +16020,52 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       renderReplayStudioUI();
     }
 
+    function toggleSelectReplayChapterItem(idx, checked) {
+      const proj = getCurrentReplayProject();
+      if (!proj || !Array.isArray(proj.chapters) || !proj.chapters[idx]) return;
+      proj.chapters[idx]._selectedForBatch = Boolean(checked);
+    }
+
+    function toggleSelectAllReplayChapters() {
+      const proj = getCurrentReplayProject();
+      if (!proj || !Array.isArray(proj.chapters) || proj.chapters.length === 0) return;
+      const allSelected = proj.chapters.every((ch) => Boolean(ch._selectedForBatch));
+      proj.chapters.forEach((ch) => {
+        ch._selectedForBatch = !allSelected;
+      });
+      renderReplayChaptersList();
+    }
+
+    async function batchGenerateSelectedChaptersScript() {
+      const proj = getCurrentReplayProject();
+      if (!proj || !Array.isArray(proj.chapters) || proj.chapters.length === 0) return;
+      const selectedIndices = [];
+      proj.chapters.forEach((ch, idx) => {
+        if (ch._selectedForBatch) selectedIndices.push(idx);
+      });
+      if (selectedIndices.length === 0) {
+        alert('请先在章节列表左侧勾选需要批量整理的章节，或点击全选按钮');
+        return;
+      }
+      const batchBtn = document.getElementById('replay-batch-gen-chaps-btn');
+      const splitStatusEl = document.getElementById('replay-split-status-bar');
+      if (batchBtn) { batchBtn.textContent = '整理中'; batchBtn.disabled = true; }
+      try {
+        for (let i = 0; i < selectedIndices.length; i++) {
+          const cIdx = selectedIndices[i];
+          if (splitStatusEl) {
+            splitStatusEl.textContent = `正在批量整理第 ${i + 1}/${selectedIndices.length} 个选中章节：${proj.chapters[cIdx]?.title || ''}`;
+          }
+          await generateChapterScriptByIndex(cIdx);
+        }
+        if (splitStatusEl) {
+          splitStatusEl.textContent = `已完成全部 ${selectedIndices.length} 个选中章节的剧本整理`;
+        }
+      } finally {
+        if (batchBtn) { batchBtn.textContent = '批整'; batchBtn.disabled = false; }
+      }
+    }
+
     function renderReplayChaptersList() {
       const box = document.getElementById('replay-chapters-list-container');
       if (!box) return;
@@ -15748,7 +16093,10 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
         const card = document.createElement('div');
         card.className = 'setting-item';
         card.innerHTML = `
-          <div class="setting-item-left" style="font-size:11px;font-weight:800;color:var(--accent-color);">第${idx + 1}章</div>
+          <div class="setting-item-left" style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:var(--accent-color);flex-shrink:0;">
+            <input type="checkbox" ${ch._selectedForBatch ? 'checked' : ''} style="width:16px;height:16px;flex-shrink:0;margin:0;padding:0;cursor:pointer;" onchange="toggleSelectReplayChapterItem(${idx}, this.checked)" />
+            <span>第${idx + 1}章</span>
+          </div>
           <div class="setting-item-center">
             <div class="setting-item-title">${ch.title}</div>
             <div class="setting-item-sub">${statusDesc}</div>
@@ -15953,10 +16301,29 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       return lines;
     }
 
-    // 视觉小说舞台 1人 / 2人 / 3人 动态自适应槽位锁定算法（0额度纯系统计算，同场说话绝不左右乱跳换位）
+    // 视觉小说舞台 1人 / 2人 / 3人 动态自适应槽位锁定算法
+    function hasRealStageSpriteForActor(name) {
+      if (!name || name === '旁白' || name === '检定' || name === '场外') return false;
+      const chars = (typeof appState !== 'undefined' && Array.isArray(appState.characters)) ? appState.characters : [];
+      const charObj = chars.find((c) => c && c.name === name);
+      if (!charObj || charObj.trpgType === '旁白') return false;
+      const checkValidImg = (val) => Boolean(val && typeof val === 'string' && !val.startsWith('data:image/svg+xml'));
+      if (charObj.tachieExpressions && typeof charObj.tachieExpressions === 'object') {
+        for (const k of Object.keys(charObj.tachieExpressions)) {
+          if (checkValidImg(charObj.tachieExpressions[k])) return true;
+        }
+      }
+      return checkValidImg(charObj.tachieBase) || checkValidImg(charObj.chibiImg);
+    }
+
     function computeChapterStageSlots(scriptLines) {
       if (!Array.isArray(scriptLines) || scriptLines.length === 0) return scriptLines;
-      const isValidActor = (name) => Boolean(name && name !== '旁白' && name !== '检定' && name !== '场外');
+      const hasAnyConfiguredSprite = Array.isArray(appState?.characters) && appState.characters.some((c) => hasRealStageSpriteForActor(c?.name));
+      const isValidActor = (name) => {
+        if (!name || name === '旁白' || name === '检定' || name === '场外') return false;
+        if (hasAnyConfiguredSprite) return hasRealStageSpriteForActor(name);
+        return true;
+      };
 
       let slots = [];
       let lastSpokeIdxMap = new Map();
@@ -15974,76 +16341,53 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
         }
         currentSceneKey = sceneKey;
 
-        // 计算当前小段对话窗口边界（不跨越场景切换或黑幕）
+        // 计算同场景内对话预读窗口边界，不跨越场景切换或黑幕
         let winEnd = i;
-        for (let k = i + 1; k <= Math.min(scriptLines.length - 1, i + 6); k++) {
+        for (let k = i + 1; k <= Math.min(scriptLines.length - 1, i + 24); k++) {
           const nextL = scriptLines[k];
           if (!nextL) break;
-          if (nextL.effect === 'blackout' || (nextL.sceneId && nextL.sceneId !== sceneKey)) break;
+          if (nextL.effect === 'blackout' || (nextL.sceneId && String(nextL.sceneId) !== sceneKey)) break;
           winEnd = k;
         }
 
-        // 统计从当前句往后短窗口内即将开口的角色顺序
+        // 统计从当前句往后同场景窗口内即将开口的有立绘角色顺序
         const upcomingSpeakers = [];
         for (let k = i; k <= winEnd; k++) {
           const sp = scriptLines[k]?.speaker;
-          if (isValidActor(sp) && !upcomingSpeakers.includes(sp)) {
+          if (scriptLines[k]?.type !== 'ooc' && isValidActor(sp) && !upcomingSpeakers.includes(sp)) {
             upcomingSpeakers.push(sp);
           }
         }
-
-        // 移除已经很久没说话（超过8句）且接下来也不会说话的退场角色，让舞台从3人或2人自然回落
-        slots = slots.filter((actor) => {
-          const lastIdx = lastSpokeIdxMap.has(actor) ? lastSpokeIdxMap.get(actor) : -999;
-          const speaksSoon = upcomingSpeakers.includes(actor);
-          return (i - lastIdx <= 8) || speaksSoon;
-        });
 
         const curSpk = (line.type !== 'ooc' && isValidActor(line.speaker)) ? line.speaker : '';
         if (curSpk) {
           lastSpokeIdxMap.set(curSpk, i);
         }
 
-        // 当舞台为空或刚开始一段新对话时，根据本段对话实际参与人数（1人、2人或3人）预读同场站位并锁定槽位
+        // 当新场景开始或舞台尚无角色时，按本场景对白实际同场人数一次性锁定固定槽位，同场景内绝不随意退场换位
         if (slots.length === 0 && upcomingSpeakers.length > 0) {
-          if (upcomingSpeakers.length === 1) {
-            slots = [upcomingSpeakers[0]];
-          } else if (upcomingSpeakers.length === 2) {
-            slots = [upcomingSpeakers[0], upcomingSpeakers[1]];
-          } else {
-            slots = [upcomingSpeakers[0], upcomingSpeakers[1], upcomingSpeakers[2]];
-          }
+          slots = upcomingSpeakers.slice(0, 3);
           slots.forEach((s) => {
             if (!lastSpokeIdxMap.has(s)) lastSpokeIdxMap.set(s, i);
           });
-        } else if (curSpk) {
-          // 如果当前说话人已经在舞台槽位中：保持原槽位顺序绝对不动！只靠说话高亮区分
-          if (!slots.includes(curSpk)) {
-            if (slots.length === 1 && upcomingSpeakers.length >= 2) {
-              // 从单人独白进入双人或三人对话，平滑加入右侧槽位
-              slots.push(curSpk);
-              if (upcomingSpeakers.length >= 3) {
-                const third = upcomingSpeakers.find((u) => !slots.includes(u));
-                if (third && slots.length < 3) slots.push(third);
+        } else if (curSpk && !slots.includes(curSpk)) {
+          if (slots.length < 3) {
+            slots.push(curSpk);
+          } else {
+            // 舞台已满3人且出现第4名有立绘角色时：仅原位替换掉最久未说话且近期不再开口的那1个槽位，其余2人位置锁死不动
+            let replaceSlotIdx = 0;
+            let oldestScore = Infinity;
+            for (let sIdx = 0; sIdx < slots.length; sIdx++) {
+              const occupant = slots[sIdx];
+              const lastLine = lastSpokeIdxMap.has(occupant) ? lastSpokeIdxMap.get(occupant) : -999;
+              const penalty = upcomingSpeakers.slice(0, 3).includes(occupant) ? 10000 : 0;
+              const score = lastLine + penalty;
+              if (score < oldestScore) {
+                oldestScore = score;
+                replaceSlotIdx = sIdx;
               }
-            } else if (slots.length < 3) {
-              slots.push(curSpk);
-            } else {
-              // 舞台已满3人时出现第4个人：只原位替换掉最久未说话且接下来不说话的那1个槽位，另外2人位置完全不动
-              let replaceSlotIdx = 0;
-              let oldestLine = Infinity;
-              for (let sIdx = 0; sIdx < slots.length; sIdx++) {
-                const occupant = slots[sIdx];
-                const lastLine = lastSpokeIdxMap.has(occupant) ? lastSpokeIdxMap.get(occupant) : -999;
-                const penalty = upcomingSpeakers.slice(0, 3).includes(occupant) ? 1000 : 0;
-                const score = lastLine + penalty;
-                if (score < oldestLine) {
-                  oldestLine = score;
-                  replaceSlotIdx = sIdx;
-                }
-              }
-              slots[replaceSlotIdx] = curSpk;
             }
+            slots[replaceSlotIdx] = curSpk;
           }
         }
 
@@ -16809,14 +17153,41 @@ CG_MARK: L起始行号-L结束行号|插图简短剧情画面说明|在场角色
       return saved || DEFAULT_REPLAY_SCRIPT_PROMPT;
     }
 
+    function getSelectedCharPromptFields() {
+      try {
+        const raw = localStorage.getItem('replay-char-prompt-fields');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') return parsed;
+        }
+      } catch (e) {}
+      return { age: true, appearance: true, personality: true, background: true, weaponItems: true };
+    }
+
+    function syncCharPromptFieldCheckboxes() {
+      const cfg = getSelectedCharPromptFields();
+      document.querySelectorAll('input[data-char-prompt-field]').forEach((chk) => {
+        const key = chk.getAttribute('data-char-prompt-field');
+        if (key) chk.checked = cfg[key] !== false;
+      });
+    }
+
+    function onToggleCharPromptField(field, checked) {
+      const cfg = getSelectedCharPromptFields();
+      cfg[field] = Boolean(checked);
+      localStorage.setItem('replay-char-prompt-fields', JSON.stringify(cfg));
+      syncCharPromptFieldCheckboxes();
+    }
+
     function toggleScriptPromptEditor() {
       const box = document.getElementById('replay-script-prompt-box');
       const ta = document.getElementById('replay-script-prompt-textarea');
       if (!box) return;
       const isHidden = box.style.display === 'none' || !box.style.display;
       box.style.display = isHidden ? 'block' : 'none';
-      if (isHidden && ta) {
-        ta.value = getCustomOrDefaultScriptPrompt();
+      if (isHidden) {
+        if (ta) ta.value = getCustomOrDefaultScriptPrompt();
+        syncCharPromptFieldCheckboxes();
       }
     }
 
@@ -16826,8 +17197,9 @@ CG_MARK: L起始行号-L结束行号|插图简短剧情画面说明|在场角色
       if (!box) return;
       const isHidden = box.style.display === 'none' || !box.style.display;
       box.style.display = isHidden ? 'block' : 'none';
-      if (isHidden && ta) {
-        ta.value = getCustomOrDefaultScriptPrompt();
+      if (isHidden) {
+        if (ta) ta.value = getCustomOrDefaultScriptPrompt();
+        syncCharPromptFieldCheckboxes();
       }
     }
 
@@ -17092,12 +17464,20 @@ CG_MARK: L起始行号-L结束行号|插图简短剧情画面说明|在场角色
           }
         });
 
+        const fieldCfg = getSelectedCharPromptFields();
         const charContextLines = Array.from(speakerSet).map((name) => {
           const c = appState.characters.find((x) => x.name === name);
           const p = c?.personaData || {};
           const roleType = c?.trpgRoleType || c?.trpgType || '调查员';
           const pool = getCharacterAvailableExpressionPool(c);
-          return `名字:${name}｜身份定位:${roleType}｜年龄:${p.age || c?.age || '未知'}｜外貌:${p.appearance || c?.body || c?.desc || ''}｜性格与称呼语气:${p.personality || c?.quirk || '自然'}｜背景:${p.background || c?.surface || ''}｜武器随身携带道具:${p.weaponItems || c?.weapon || ''}｜该角色全部可用差分池:${pool.join('、')}`;
+          const segments = [`名字:${name}`, `身份定位:${roleType}`];
+          if (fieldCfg.age !== false) segments.push(`年龄:${p.age || c?.age || '未知'}`);
+          if (fieldCfg.appearance !== false) segments.push(`外貌:${p.appearance || c?.body || c?.desc || ''}`);
+          if (fieldCfg.personality !== false) segments.push(`性格与称呼语气:${p.personality || c?.quirk || '自然'}`);
+          if (fieldCfg.background !== false) segments.push(`背景:${p.background || c?.surface || ''}`);
+          if (fieldCfg.weaponItems !== false) segments.push(`武器随身携带道具:${p.weaponItems || c?.weapon || ''}`);
+          segments.push(`该角色全部可用差分池:${pool.join('、')}`);
+          return segments.join('｜');
         }).join('\n');
 
         const existingScenes = Array.isArray(proj.globalScenes) && proj.globalScenes.length > 0
@@ -18662,6 +19042,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         bgBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">本章暂无场景背景节点，可点右上角新增</div>';
       } else {
         bgBox.innerHTML = '';
+        const totalScriptLinesForScene = Array.isArray(chap.scriptLines) ? chap.scriptLines.length : 0;
         scenes.forEach((sc, sIdx) => {
           const baseOptionsHtml = [
             `<option value="">独立新场景</option>`,
@@ -18669,6 +19050,19 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
               .filter((other) => other.id !== sc.id)
               .map((other) => `<option value="${other.id}" ${sc.baseSceneId === other.id ? 'selected' : ''}>同地点差分自 ${other.id} ${other.name}</option>`)
           ].join('');
+
+          const scStart = sc.startLineIdx !== undefined ? Math.max(0, Math.min(Math.max(0, totalScriptLinesForScene - 1), Number(sc.startLineIdx) || 0)) : -1;
+          const scEnd = sc.endLineIdx !== undefined ? Math.max(Math.max(0, scStart), Math.min(Math.max(0, totalScriptLinesForScene - 1), Number(sc.endLineIdx) || 0)) : -1;
+          const scStartOptions = `<option value="-1" ${scStart < 0 ? 'selected' : ''}>起始句：按剧本标记自动</option>` + (
+            totalScriptLinesForScene > 0
+              ? chap.scriptLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === scStart ? 'selected' : ''}>从第 ${lIdx + 1} 句：${(l.speaker || '旁白')}·${String(l.text || '').slice(0, 12)}</option>`).join('')
+              : ''
+          );
+          const scEndOptions = `<option value="-1" ${scEnd < 0 ? 'selected' : ''}>结束句：按剧本标记自动</option>` + (
+            totalScriptLinesForScene > 0
+              ? chap.scriptLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === scEnd ? 'selected' : ''}>到第 ${lIdx + 1} 句：${(l.speaker || '旁白')}·${String(l.text || '').slice(0, 12)}</option>`).join('')
+              : ''
+          );
 
           const card = document.createElement('div');
           card.className = 'setting-item';
@@ -18681,6 +19075,14 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
               <input type="text" class="moe-input" value="${(sc.name || '').replace(/"/g, '&quot;')}" style="height:32px;min-height:32px;font-size:12px;font-weight:700;flex:1;min-width:120px;" onchange="updateReplaySceneNodeField(${sIdx}, 'name', this.value)" />
               <select class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplaySceneNodeField(${sIdx}, 'baseSceneId', this.value)">
                 ${baseOptionsHtml}
+              </select>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <select class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplaySceneNodeField(${sIdx}, 'startLineIdx', this.value)">
+                ${scStartOptions}
+              </select>
+              <select class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplaySceneNodeField(${sIdx}, 'endLineIdx', this.value)">
+                ${scEndOptions}
               </select>
             </div>
             <textarea class="moe-input" style="min-height:52px;font-size:11px;" onchange="updateReplaySceneNodeField(${sIdx}, 'prompt', this.value)">${sc.prompt || ''}</textarea>
@@ -18846,7 +19248,32 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
       if (!proj || !chap || !chap.scenes || !chap.scenes[sIdx]) return;
-      chap.scenes[sIdx][field] = val;
+      const sc = chap.scenes[sIdx];
+      if (field === 'startLineIdx' || field === 'endLineIdx') {
+        const parsed = parseInt(val, 10);
+        if (isNaN(parsed) || parsed < 0) {
+          delete sc[field];
+        } else {
+          const maxIdx = Math.max(0, (chap.scriptLines?.length || 1) - 1);
+          const clamped = Math.max(0, Math.min(maxIdx, parsed));
+          sc[field] = clamped;
+          if (field === 'startLineIdx' && (sc.endLineIdx === undefined || sc.endLineIdx < clamped)) {
+            sc.endLineIdx = clamped;
+          } else if (field === 'endLineIdx' && (sc.startLineIdx === undefined || sc.startLineIdx > clamped)) {
+            sc.startLineIdx = clamped;
+          }
+          if (Array.isArray(chap.scriptLines)) {
+            for (let k = sc.startLineIdx; k <= sc.endLineIdx; k++) {
+              if (chap.scriptLines[k]) chap.scriptLines[k].sceneId = sc.id;
+            }
+          }
+        }
+        await saveReplayProjectToDB(proj);
+        renderReplayScriptEditor();
+        renderReplayCgStudio();
+        return;
+      }
+      sc[field] = val;
       await saveReplayProjectToDB(proj);
     }
 
@@ -20508,8 +20935,11 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
           } else {
             (async () => {
               try {
+                if (activeBgmLine.bgmUrl && (activeBgmLine.bgmUrl.includes('id=139774.mp3') || activeBgmLine.bgmUrl.includes('id=26113988.mp3') || activeBgmLine.bgmUrl.includes('id=22707008.mp3'))) {
+                  activeBgmLine.bgmUrl = '';
+                }
                 if (!activeBgmLine.bgmUrl) {
-                  const matchedTrack = (appState.bgmTracks || []).find((t) => t.tag === bgmTagStr || t.name === bgmTagStr || t.name.includes(bgmTagStr));
+                  const matchedTrack = (appState.bgmTracks || []).find((t) => t && t.url && !LEGACY_SYSTEM_BGM_IDS.has(t.id) && (t.name === bgmTagStr || t.name.includes(bgmTagStr)));
                   if (matchedTrack && matchedTrack.url) {
                     activeBgmLine.bgmUrl = normalizeMusicTrackUrl(matchedTrack.url);
                   } else {
@@ -20525,7 +20955,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
                       activeBgmLine.bgmUrl = normalizeMusicTrackUrl(resolved.best.url);
                       if (curProj) saveReplayProjectToDB(curProj);
                     } else {
-                      activeBgmLine.bgmUrl = getFallbackInstrumentalBgmUrl(activeBgmLine.bgmMood || bgmTagStr);
+                      activeBgmLine.bgmUrl = getFallbackInstrumentalBgmUrl(bgmTagStr);
                     }
                   }
                 }
@@ -20612,9 +21042,10 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
 
       // 6. 渲染在场角色立绘：若角色尚无真实立绘或仅为svg默认图标则留白不渲染
       if (tachieLayer) {
-        if (chap._slotsComputedLen !== chap.scriptLines.length) {
+        const spriteRosterSig = `${chap.scriptLines.length}_${(appState.characters || []).filter((c) => hasRealStageSpriteForActor(c?.name)).map((c) => c.name).join(',')}`;
+        if (chap._slotsComputedSig !== spriteRosterSig) {
           computeChapterStageSlots(chap.scriptLines);
-          chap._slotsComputedLen = chap.scriptLines.length;
+          chap._slotsComputedSig = spriteRosterSig;
         }
         const rawPresent = Array.isArray(line.presentSpeakers) && line.presentSpeakers.length > 0
           ? line.presentSpeakers
@@ -21152,22 +21583,22 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
     }
 
     function onTheaterTtsVolumeChange(val) {
-      const v = Math.max(0, Math.min(100, Number(val) || 90));
+      const parsed = Number(val);
+      const v = Math.max(0, Math.min(100, (val !== null && val !== '' && !isNaN(parsed)) ? parsed : 90));
       appState.theaterTtsVolume = v;
       localStorage.setItem('theater-tts-volume', String(v));
       const lbl = document.getElementById('theater-tts-vol-val');
-      if (lbl) lbl.textContent = v;
+      if (lbl) lbl.textContent = String(v);
+      const slider = document.getElementById('theater-tts-vol-slider');
+      if (slider && Number(slider.value) !== v) slider.value = String(v);
       if (_activeReplayTtsAudio) {
         _activeReplayTtsAudio.volume = v / 100;
       }
     }
 
     function onTheaterBgmVolumeChange(val) {
-      const v = Math.max(0, Math.min(100, Number(val) || 65));
-      appState.theaterBgmVolume = v;
-      localStorage.setItem('theater-bgm-volume', String(v));
-      const lbl = document.getElementById('theater-bgm-vol-val');
-      if (lbl) lbl.textContent = v;
+      const parsed = Number(val);
+      const v = Math.max(0, Math.min(100, (val !== null && val !== '' && !isNaN(parsed)) ? parsed : 65));
       onBgmVolumeChange(v);
     }
 
@@ -21587,12 +22018,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
 
     async function initReplayAndMusicData() {
       initCustomFontAndDanmakuSettings();
-      appState.bgmTracks = await db.bgmTracks.toArray();
-      if (appState.bgmTracks.length === 0) {
-        await seedDefaultBgmTracks();
-      } else {
-        renderReplayBgmList();
-      }
+      await seedDefaultBgmTracks();
       appState.replayProjects = await db.replayProjects.toArray();
       appState.replayProjects.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
       if (appState.replayProjects.length === 0) {
@@ -21805,19 +22231,27 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       applySavedDesktopAppCustomizations();
       renderThemeAppIconsList();
       applySavedCustomBackgrounds();
-      const savedVol = localStorage.getItem('bgm-volume') || '70';
-      const volSlider = document.getElementById('bgm-volume-slider');
-      if (volSlider) volSlider.value = savedVol;
-      onBgmVolumeChange(savedVol);
+      const savedBgmVolRaw = localStorage.getItem('theater-bgm-volume') ?? localStorage.getItem('bgm-volume') ?? '65';
+      onBgmVolumeChange(savedBgmVolRaw);
+      const savedTtsVolRaw = localStorage.getItem('theater-tts-volume') ?? '90';
+      onTheaterTtsVolumeChange(savedTtsVolRaw);
 
       const stripPreview = document.getElementById('scene-chat-strip-preview');
       if (stripPreview) {
         stripPreview.textContent = '对话 · 点击展开现场互动栏';
       }
 
+      const termuxCmdTa = document.getElementById('termux-local-bridge-cmd');
+      if (termuxCmdTa && typeof buildTermuxLocalBridgeCommandString === 'function') {
+        termuxCmdTa.value = buildTermuxLocalBridgeCommandString();
+      }
       restoreSessionNavAndDrafts();
       setTimeout(() => {
         if (isLocalBridgeEnabled()) {
+          ensureLocalBridgeNoMediaForRelPath('characters/init.png').catch(() => {});
+          ensureLocalBridgeNoMediaForRelPath('styles/init.png').catch(() => {});
+          ensureLocalBridgeNoMediaForRelPath('scenes/init.png').catch(() => {});
+          ensureLocalBridgeNoMediaForRelPath('cgs/init.png').catch(() => {});
           syncAllAssetsToLocalBridgeUI(true).catch(() => {});
         }
       }, 1200);
