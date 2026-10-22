@@ -656,8 +656,36 @@
           <div class="form-group">
             <label>MiniMax 语音音色编号</label>
             <div style="display:flex;gap:6px;align-items:center;">
-              <input type="text" id="oc-voice-id" class="moe-input" style="flex:1;" placeholder="填入MiniMax音色编号 如 male-qn-qingse 或 female-shaonv" />
+              <input type="text" id="oc-voice-id" class="moe-input" style="flex:1;" placeholder="填入MiniMax音色编号 如 male-qn-qingse 或 female-shaonv，未填默认留空" />
               <button type="button" class="moe-btn secondary" id="oc-voice-test-btn" onclick="previewPersonaVoiceTts()">试听</button>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <div class="form-group" style="flex:1;min-width:92px;">
+              <label>默认语速</label>
+              <input type="number" step="0.05" min="0.5" max="2.0" id="oc-voice-speed-default" class="moe-input" value="1.0" />
+            </div>
+            <div class="form-group" style="flex:1;min-width:92px;">
+              <label>最低语速</label>
+              <input type="number" step="0.05" min="0.5" max="2.0" id="oc-voice-speed-min" class="moe-input" value="0.8" />
+            </div>
+            <div class="form-group" style="flex:1;min-width:92px;">
+              <label>最高语速</label>
+              <input type="number" step="0.05" min="0.5" max="2.0" id="oc-voice-speed-max" class="moe-input" value="1.3" />
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <div class="form-group" style="flex:1;min-width:92px;">
+              <label>默认语调</label>
+              <input type="number" step="1" min="-12" max="12" id="oc-voice-pitch-default" class="moe-input" value="0" />
+            </div>
+            <div class="form-group" style="flex:1;min-width:92px;">
+              <label>最低语调</label>
+              <input type="number" step="1" min="-12" max="12" id="oc-voice-pitch-min" class="moe-input" value="-4" />
+            </div>
+            <div class="form-group" style="flex:1;min-width:92px;">
+              <label>最高语调</label>
+              <input type="number" step="1" min="-12" max="12" id="oc-voice-pitch-max" class="moe-input" value="4" />
             </div>
           </div>
           <div class="form-group" style="margin-bottom:0;">
@@ -1125,15 +1153,15 @@
               <div style="display:flex;gap:6px;margin-bottom:10px;align-items:flex-end;flex-wrap:wrap;">
                 <div class="form-group" style="flex:2;min-width:110px;margin-bottom:0;">
                   <label>选择角色</label>
-                  <select id="height-stage-add-char-select" class="moe-input" onchange="onHeightStageCharSelectChange()"></select>
+                  <select id="height-stage-add-char-select" class="moe-input" onchange="onHeightStageCharSelectChange(true)"></select>
                 </div>
                 <div class="form-group" style="flex:1;min-width:74px;margin-bottom:0;">
                   <label>身高 cm</label>
-                  <input type="number" id="height-stage-cm-input" class="moe-input" value="181" onchange="updateSelectedCharHeightCm()" />
+                  <input type="number" id="height-stage-cm-input" class="moe-input" value="181" oninput="updateSelectedCharHeightCm()" onchange="updateSelectedCharHeightCm()" />
                 </div>
                 <div class="form-group" style="flex:1;min-width:74px;margin-bottom:0;">
                   <label>耳帽 cm</label>
-                  <input type="number" id="height-stage-ear-input" class="moe-input" value="0" onchange="updateSelectedCharHeightCm()" />
+                  <input type="number" id="height-stage-ear-input" class="moe-input" value="0" oninput="updateSelectedCharHeightCm()" onchange="updateSelectedCharHeightCm()" />
                 </div>
                 <button type="button" class="moe-btn secondary" onclick="updateSelectedCharHeightCm()">更新</button>
               </div>
@@ -2658,9 +2686,6 @@ http.server.HTTPServer(('127.0.0.1',8765),H).serve_forever()"</textarea>
                 <div style="display:flex;align-items:center;gap:10px;min-width:0;">
                   <span class="vn-speaker-badge" id="vn-theater-speaker">旁白</span>
                   <span class="vn-dialogue-meta" id="vn-theater-exp-info" style="display:none;"></span>
-                </div>
-                <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;" onclick="event.stopPropagation()">
-                  <span class="vn-dialogue-meta" id="vn-theater-progress">0 / 0</span>
                 </div>
               </div>
               <div class="vn-dialogue-text" id="vn-theater-text">欢迎进入视觉小说剧本剧场，请先选择模组与章节开始观看。</div>
@@ -9247,7 +9272,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
       });
     }
 
-    function onHeightStageCharSelectChange() {
+    function onHeightStageCharSelectChange(userTriggered = false) {
       const sel = document.getElementById('height-stage-add-char-select');
       if (!sel) return;
       const c = appState.characters.find((x) => x.id === sel.value);
@@ -9258,24 +9283,34 @@ ZH: 修改后的纯客观中文服装配饰清单`
         if (document.getElementById('height-stage-ear-input')) {
           document.getElementById('height-stage-ear-input').value = c.earHatCm || 0;
         }
+        if (userTriggered) {
+          if (!appState.heightStageCharIds.includes(c.id)) {
+            appState.heightStageCharIds.push(c.id);
+          }
+          renderHeightStage();
+        }
       }
     }
 
     async function updateSelectedCharHeightCm() {
       const sel = document.getElementById('height-stage-add-char-select');
-      const cmVal = parseInt(document.getElementById('height-stage-cm-input')?.value, 10) || 175;
-      const earVal = parseInt(document.getElementById('height-stage-ear-input')?.value, 10) || 0;
+      const rawCm = parseInt(document.getElementById('height-stage-cm-input')?.value, 10);
+      const rawEar = parseInt(document.getElementById('height-stage-ear-input')?.value, 10);
+      if (isNaN(rawCm) || rawCm < 40) return;
+      const cmVal = Math.max(50, Math.min(250, rawCm));
+      const earVal = isNaN(rawEar) ? 0 : Math.max(0, Math.min(80, rawEar));
       const c = appState.characters.find((x) => x.id === sel?.value);
       if (!c) return;
-      c.heightCm = Math.max(50, Math.min(250, cmVal));
-      c.earHatCm = Math.max(0, Math.min(80, earVal));
-      _heightCroppedSpriteCache.clear();
+      c.heightCm = cmVal;
+      c.earHatCm = earVal;
       await db.characters.put(c);
       if (appState.selectedPersonaId === c.id) {
         if (document.getElementById('oc-height-cm')) document.getElementById('oc-height-cm').value = c.heightCm;
         if (document.getElementById('oc-ear-hat-cm')) document.getElementById('oc-ear-hat-cm').value = c.earHatCm;
       }
-      populateCharacterSelects();
+      if (sel && sel.selectedOptions && sel.selectedOptions[0]) {
+        sel.selectedOptions[0].textContent = `${c.name} · ${c.heightCm}cm · ${c.role || ''}`;
+      }
       renderPersonaGrid();
       if (!appState.heightStageCharIds.includes(c.id)) {
         appState.heightStageCharIds.push(c.id);
@@ -9324,14 +9359,15 @@ ZH: 修改后的纯客观中文服装配饰清单`
     async function renderHeightStage() {
       const row = document.getElementById('height-stage-actors-row');
       const viewport = document.getElementById('height-stage-viewport');
+      const rulerBox = document.getElementById('height-ruler-lines-box');
       if (!row || !viewport) return;
 
-      const maxScaleCm = 220;
-      const maxStagePx = 330; // 220cm 对应 330px (每 1cm = 1.5px)
-      const floorOffsetPx = 24;
+      const maxScaleCm = 225;
+      const maxStagePx = 315;
+      const floorOffsetPx = 32;
 
-      // 重绘精准标尺刻度线，0cm 严格对齐脚底地板线
       viewport.querySelectorAll('.height-ruler-line').forEach((el) => el.remove());
+      if (rulerBox) rulerBox.innerHTML = '';
       [0, 50, 100, 150, 160, 170, 180, 190, 200, 220].forEach((cmTick) => {
         const bottomPx = floorOffsetPx + Math.round((cmTick / maxScaleCm) * maxStagePx);
         const line = document.createElement('div');
@@ -9344,8 +9380,15 @@ ZH: 修改后的纯客观中文服装配饰清单`
         viewport.insertBefore(line, row);
       });
 
+      const validIds = (appState.heightStageCharIds || []).filter((id) => appState.characters.some((x) => x.id === id));
+      if (validIds.length === 0 && appState.characters.length > 0) {
+        const selId = document.getElementById('height-stage-add-char-select')?.value || appState.characters[0].id;
+        validIds.push(selId);
+        appState.heightStageCharIds = [...validIds];
+      }
+
       row.innerHTML = '';
-      for (const charId of appState.heightStageCharIds) {
+      for (const charId of validIds) {
         const c = appState.characters.find((x) => x.id === charId);
         if (!c) continue;
         const netCm = c.heightCm || DEFAULT_HEIGHT_MAP[c.id] || 175;
@@ -11004,7 +11047,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
           earHatCm: 0,
           body: '剧场守密人',
           quirk: '沉稳富有画面感',
-          voiceId: 'male-qn-jingying',
+          voiceId: '',
           surface: '负责跑团回放中的环境描写、气氛渲染与守密人叙述。',
           weapon: '',
           secret: '',
@@ -11028,7 +11071,11 @@ ZH: 修改后的纯客观中文服装配饰清单`
 
     async function previewPersonaVoiceTts() {
       const btn = document.getElementById('oc-voice-test-btn');
-      const voiceId = document.getElementById('oc-voice-id')?.value.trim() || 'male-qn-qingse';
+      const voiceId = document.getElementById('oc-voice-id')?.value.trim() || '';
+      if (!voiceId) {
+        alert('请先填写该角色的音色编号后再试听');
+        return;
+      }
       const sampleText = '你好，这是当前角色绑定的语音试听效果。';
       if (btn) {
         btn.textContent = '合成中';
@@ -11072,6 +11119,12 @@ ZH: 修改后的纯客观中文服装配饰清单`
       if (document.getElementById('oc-body')) document.getElementById('oc-body').value = c.body || '';
       if (document.getElementById('oc-quirk')) document.getElementById('oc-quirk').value = c.quirk || '';
       if (document.getElementById('oc-voice-id')) document.getElementById('oc-voice-id').value = c.voiceId || '';
+      if (document.getElementById('oc-voice-speed-default')) document.getElementById('oc-voice-speed-default').value = c.voiceSpeedDefault ?? 1.0;
+      if (document.getElementById('oc-voice-speed-min')) document.getElementById('oc-voice-speed-min').value = c.voiceSpeedMin ?? 0.8;
+      if (document.getElementById('oc-voice-speed-max')) document.getElementById('oc-voice-speed-max').value = c.voiceSpeedMax ?? 1.3;
+      if (document.getElementById('oc-voice-pitch-default')) document.getElementById('oc-voice-pitch-default').value = c.voicePitchDefault ?? 0;
+      if (document.getElementById('oc-voice-pitch-min')) document.getElementById('oc-voice-pitch-min').value = c.voicePitchMin ?? -4;
+      if (document.getElementById('oc-voice-pitch-max')) document.getElementById('oc-voice-pitch-max').value = c.voicePitchMax ?? 4;
       if (document.getElementById('oc-surface')) document.getElementById('oc-surface').value = c.surface || '';
       if (document.getElementById('oc-weapon')) document.getElementById('oc-weapon').value = c.weapon || '';
       if (document.getElementById('oc-nai-tags')) document.getElementById('oc-nai-tags').value = c.naiTags || '';
@@ -11139,6 +11192,42 @@ ZH: 修改后的纯客观中文服装配饰清单`
       if (document.getElementById('oc-body')) c.body = document.getElementById('oc-body').value.trim();
       if (document.getElementById('oc-quirk')) c.quirk = document.getElementById('oc-quirk').value.trim();
       if (document.getElementById('oc-voice-id')) c.voiceId = document.getElementById('oc-voice-id').value.trim();
+      if (document.getElementById('oc-voice-speed-default')) {
+        const sd = parseFloat(document.getElementById('oc-voice-speed-default').value);
+        c.voiceSpeedDefault = isNaN(sd) ? 1.0 : Math.max(0.5, Math.min(2.0, sd));
+      }
+      if (document.getElementById('oc-voice-speed-min')) {
+        const smin = parseFloat(document.getElementById('oc-voice-speed-min').value);
+        c.voiceSpeedMin = isNaN(smin) ? 0.8 : Math.max(0.5, Math.min(2.0, smin));
+      }
+      if (document.getElementById('oc-voice-speed-max')) {
+        const smax = parseFloat(document.getElementById('oc-voice-speed-max').value);
+        c.voiceSpeedMax = isNaN(smax) ? 1.3 : Math.max(0.5, Math.min(2.0, smax));
+      }
+      if (c.voiceSpeedMin > c.voiceSpeedMax) {
+        const tmp = c.voiceSpeedMin;
+        c.voiceSpeedMin = c.voiceSpeedMax;
+        c.voiceSpeedMax = tmp;
+      }
+      c.voiceSpeedDefault = Math.max(c.voiceSpeedMin, Math.min(c.voiceSpeedMax, c.voiceSpeedDefault ?? 1.0));
+      if (document.getElementById('oc-voice-pitch-default')) {
+        const pd = parseInt(document.getElementById('oc-voice-pitch-default').value, 10);
+        c.voicePitchDefault = isNaN(pd) ? 0 : Math.max(-12, Math.min(12, pd));
+      }
+      if (document.getElementById('oc-voice-pitch-min')) {
+        const pmin = parseInt(document.getElementById('oc-voice-pitch-min').value, 10);
+        c.voicePitchMin = isNaN(pmin) ? -4 : Math.max(-12, Math.min(12, pmin));
+      }
+      if (document.getElementById('oc-voice-pitch-max')) {
+        const pmax = parseInt(document.getElementById('oc-voice-pitch-max').value, 10);
+        c.voicePitchMax = isNaN(pmax) ? 4 : Math.max(-12, Math.min(12, pmax));
+      }
+      if (c.voicePitchMin > c.voicePitchMax) {
+        const tmpP = c.voicePitchMin;
+        c.voicePitchMin = c.voicePitchMax;
+        c.voicePitchMax = tmpP;
+      }
+      c.voicePitchDefault = Math.max(c.voicePitchMin, Math.min(c.voicePitchMax, c.voicePitchDefault ?? 0));
       if (document.getElementById('oc-surface')) c.surface = document.getElementById('oc-surface').value.trim();
       if (document.getElementById('oc-weapon')) c.weapon = document.getElementById('oc-weapon').value.trim();
       if (document.getElementById('oc-nai-tags')) c.naiTags = document.getElementById('oc-nai-tags').value.trim();
@@ -11170,7 +11259,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
         earHatCm: 0,
         body: '',
         quirk: '',
-        voiceId: 'male-qn-qingse',
+        voiceId: '',
         surface: '',
         weapon: '防身小刀、调查笔记本',
         secret: '',
@@ -13923,7 +14012,7 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
         const statusText = item.trpgType === '场外'
           ? `${rawNote}发言 ${item.count} 次 · 已设为场外吐槽弹幕`
           : (matchedChar
-              ? `${rawNote}发言 ${item.count} 次 · ${expCountLabel ? expCountLabel + ' · ' : ''}身高 ${matchedChar.heightCm || 175}cm · 音色 ${matchedChar.voiceId || '默认'}`
+              ? `${rawNote}发言 ${item.count} 次 · ${expCountLabel ? expCountLabel + ' · ' : ''}身高 ${matchedChar.heightCm || 175}cm · 音色 ${matchedChar.voiceId || '未设'}`
               : `${rawNote}发言 ${item.count} 次 · 待点入档存入角色档案柜`);
 
         const row = document.createElement('div');
@@ -13966,7 +14055,6 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       const speakers = (proj.extractedSpeakers || []).filter((s) => !isFakeOrDiceSpeakerName(s.rawName || s.name) && !isFakeOrDiceSpeakerName(s.trueName || s.name));
       proj.extractedSpeakers = speakers;
       const palette = ['#4f6ef7', '#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#06b6d4'];
-      const defaultVoices = ['male-qn-qingse', 'female-shaonv', 'male-qn-jingying', 'female-yujie', 'male-qn-badao', 'audiobook_male_1'];
 
       for (let i = 0; i < speakers.length; i++) {
         const spk = speakers[i];
@@ -13993,7 +14081,7 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
             earHatCm: 0,
             body: '',
             quirk: '',
-            voiceId: isNarrator ? 'male-qn-jingying' : defaultVoices[i % defaultVoices.length],
+            voiceId: '',
             surface: '',
             secret: '',
             cot: '',
@@ -14377,18 +14465,64 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       return s;
     }
 
-    // 整章一次性读取全部原文与所有角色人设，仅将角色亲口说出的对话翻译为贴合角色性格语气的地道日语配音词，绝不分批切割，旁白绝不翻译
+    function getSpeakerVoiceBounds(speakerName) {
+      const norm = normalizeSpeakerName(speakerName);
+      const found = appState.characters.find((c) => c.name === norm);
+      const minSpdRaw = parseFloat(found?.voiceSpeedMin);
+      const maxSpdRaw = parseFloat(found?.voiceSpeedMax);
+      const defSpdRaw = parseFloat(found?.voiceSpeedDefault);
+      const minSpeed = isNaN(minSpdRaw) ? 0.8 : Math.max(0.5, Math.min(2.0, minSpdRaw));
+      const maxSpeed = isNaN(maxSpdRaw) ? 1.3 : Math.max(minSpeed, Math.min(2.0, maxSpdRaw));
+      const defaultSpeed = isNaN(defSpdRaw) ? Math.max(minSpeed, Math.min(maxSpeed, 1.0)) : Math.max(minSpeed, Math.min(maxSpeed, defSpdRaw));
+
+      const minPtcRaw = parseInt(found?.voicePitchMin, 10);
+      const maxPtcRaw = parseInt(found?.voicePitchMax, 10);
+      const defPtcRaw = parseInt(found?.voicePitchDefault, 10);
+      const minPitch = isNaN(minPtcRaw) ? -4 : Math.max(-12, Math.min(12, minPtcRaw));
+      const maxPitch = isNaN(maxPtcRaw) ? 4 : Math.max(minPitch, Math.min(12, maxPtcRaw));
+      const defaultPitch = isNaN(defPtcRaw) ? Math.max(minPitch, Math.min(maxPitch, 0)) : Math.max(minPitch, Math.min(maxPitch, defPtcRaw));
+
+      return { defaultSpeed, minSpeed, maxSpeed, defaultPitch, minPitch, maxPitch };
+    }
+
+    function clampSpeakerVoiceParams(speakerName, rawEmotion, rawSpeed, rawPitch) {
+      const bounds = getSpeakerVoiceBounds(speakerName);
+      const validEmotions = ['neutral', 'happy', 'sad', 'angry', 'fearful', 'disgusted', 'surprised'];
+      const emo = validEmotions.includes(String(rawEmotion || '').trim().toLowerCase())
+        ? String(rawEmotion).trim().toLowerCase()
+        : 'neutral';
+      if (emo === 'neutral') {
+        return {
+          emotion: 'neutral',
+          speed: bounds.defaultSpeed,
+          pitch: bounds.defaultPitch
+        };
+      }
+      const parsedSpd = parseFloat(rawSpeed);
+      const speed = isNaN(parsedSpd)
+        ? bounds.defaultSpeed
+        : Number(Math.max(bounds.minSpeed, Math.min(bounds.maxSpeed, parsedSpd)).toFixed(2));
+      const parsedPtc = parseInt(rawPitch, 10);
+      const pitch = isNaN(parsedPtc)
+        ? bounds.defaultPitch
+        : Math.max(bounds.minPitch, Math.min(bounds.maxPitch, parsedPtc));
+      return { emotion: emo, speed, pitch };
+    }
+
+    // 点击配音页「日译」按钮：将整章原文、现有日语翻译、全员性格人设、模组背景与各角色语速语调范围打包为单次请求一次性发给AI，润色整章日语台词并同时填写每句情绪、语速与语调，绝不分段调用，也绝不调用MiniMax语音接口
     async function translateCurrentChapterToJapanese() {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
       if (!proj || !chap || !Array.isArray(chap.scriptLines) || chap.scriptLines.length === 0) return;
 
       const btn = document.getElementById('replay-jp-trans-btn');
+      const voiceJpBtn = document.getElementById('replay-voice-jp-btn');
       const statusEl = document.getElementById('replay-script-status-bar');
-      if (btn) { btn.textContent = '翻译中'; btn.disabled = true; }
+      const voiceStatusEl = document.getElementById('replay-voice-status-bar');
+      if (btn) { btn.textContent = '润色中'; btn.disabled = true; }
+      if (voiceJpBtn) { voiceJpBtn.textContent = '润色中'; voiceJpBtn.disabled = true; }
 
       try {
-        // 先清空所有旁白行的日语字段，确保旁白不翻译也不调用语音
         chap.scriptLines.forEach((l) => {
           if (l.type === 'narration' || l.speaker === '旁白') {
             l.jpText = '';
@@ -14402,19 +14536,22 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
         if (dialogueItems.length === 0) {
           await saveReplayProjectToDB(proj);
           renderReplayScriptEditor();
+          renderReplayVoiceStudio();
           if (statusEl) statusEl.textContent = '本章没有角色对话行，旁白无需翻译日语';
+          if (voiceStatusEl) voiceStatusEl.textContent = '本章没有角色对话行，旁白无需翻译日语';
           return;
         }
 
-        if (statusEl) {
-          statusEl.textContent = `正在将整章原文、全体角色人设与 ${dialogueItems.length} 句角色对话一次性发给AI翻译地道日语...`;
-        }
+        const msgText = `正在将本章全部原文、现有日译、全员人设与模组背景一次性发给AI通读润色日语并配置全章情绪语速语调...`;
+        if (statusEl) statusEl.textContent = msgText;
+        if (voiceStatusEl) voiceStatusEl.textContent = msgText;
 
         const personaSummary = (appState.characters || [])
           .filter((c) => c.id !== 'narrator_kp' && c.name !== '旁白')
           .map((c) => {
             const p = c.personaData || {};
-            return `名字:${c.name}｜年龄:${p.age || '未知'}｜外貌:${p.appearance || c.desc || ''}｜性格:${p.personality || c.quirk || '自然'}｜背景:${p.background || ''}｜武器随身携带道具:${p.weaponItems || ''}`;
+            const b = getSpeakerVoiceBounds(c.name);
+            return `名字:${c.name}｜身份:${c.trpgType || '调查员'}｜年龄:${p.age || c.age || '未知'}｜外貌:${p.appearance || c.body || c.desc || ''}｜性格与说话语气称呼:${p.personality || c.quirk || '自然'}｜背景:${p.background || c.surface || ''}｜武器道具:${p.weaponItems || c.weapon || ''}｜默认语速:${b.defaultSpeed}｜最低语速:${b.minSpeed}｜最高语速:${b.maxSpeed}｜默认语调:${b.defaultPitch}｜最低语调:${b.minPitch}｜最高语调:${b.maxPitch}`;
           }).join('\n');
 
         const fullScriptContext = chap.scriptLines
@@ -14422,28 +14559,57 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
           .join('\n');
 
         const targetDialogueLines = dialogueItems
-          .map((item) => `L${item.idx}|${item.l.speaker}|${item.l.text}`)
+          .map((item) => `L${item.idx}|${item.l.speaker}|当前差分:${item.l.exp || '默认'}|中文原词:${item.l.text}|初版日译:${item.l.jpText || '待译'}`)
           .join('\n');
+
+        const rawChapterExcerpt = String(chap.rawText || '').slice(0, 14000);
 
         const reply = await callLlmCompletion(
           [
             {
               role: 'system',
-              content: '你是日本视觉小说声优台本翻译总监。你将收到整章完整原文上下文、所有登场角色的详细人设性格与全部剧本行。请结合上下文语境与每个角色的年龄、性格、身份与说话语气，仅将指定的角色亲口对话翻译为自然、地道、贴合角色人设口吻的日语配音台词。旁白绝不翻译。绝对禁止在日语台词前面加上说话人名字或冒号，直接写后面的纯日语台词即可！从头到尾严禁使用任何括号，严格按 L行号|纯日语台词 格式一次性输出所有待翻译对话行，绝不漏行。'
+              content: `你是日本视觉小说声优台本总监与配音导演。你将一次性收到本章完整模组原文、全部剧本上下文、所有登场角色的详细性格人设与各自语速语调上下限、以及全部待润色的角色对话行。
+请通读整章全文，一次性完成两项工作：
+第一，结合上下文语境、角色关系、称呼习惯与每位角色的性格语气，对每一句角色对话的日语翻译进行全文润色或补全，使其地道自然且高度贴合角色口吻；绝对禁止在日语台词前加说话人名字或冒号，旁白绝不翻译。
+第二，根据每一句台词在剧情中的情绪变化，为该句填写配音情绪 emotion、语速 speed 与语调 pitch：
+1. emotion 只能从以下7个英文值中选一个：neutral、happy、sad、angry、fearful、disgusted、surprised。
+2. 如果该句是角色普通平常心情，emotion 填 neutral，此时语速和语调必须直接使用该角色的默认语速和默认语调！
+3. 如果角色有明显情绪波动，语速 speed 与语调 pitch 可在默认基础上微调，但绝对禁止超出该角色人设中规定的最低语速至最高语速范围、以及最低语调至最高语调范围！
+4. 从头到尾严禁使用任何括号，严格按以下单行格式一次性输出全部对话行，绝不漏行：
+JP_VOICE: L行号|emotion英文值|speed数字|pitch整数|润色后的纯日语配音台词`
             },
             {
               role: 'user',
-              content: `登场角色完整人设档案：\n${personaSummary || '调查员'}\n\n本章完整剧本上下文供参考语境：\n${fullScriptContext}\n\n请仅将以下角色对话行逐行翻译为贴合各自人设语气的日语配音台词，不要写人名，直接按 L行号|纯日语台词 输出：\n${targetDialogueLines}`
+              content: `所属模组：${proj.title || '跑团模组'} · 章节：${chap.title || '当前章节'}\n\n登场角色完整人设与各自语音范围：\n${personaSummary || '调查员'}\n\n本章原始跑团记录参考：\n${rawChapterExcerpt}\n\n本章完整剧本上下文：\n${fullScriptContext}\n\n请一次性润色以下全部角色对话的日语台词并配置每句情绪、语速与语调，严格按 JP_VOICE: L行号|emotion|speed|pitch|纯日语台词 输出：\n${targetDialogueLines}`
             }
           ],
           null,
-          { caller: `整章角色对话一次性日语翻译·${chap.title}`, preferSubApi: false }
+          { caller: `整章一次性日语润色与配音情绪配置·${chap.title}`, preferSubApi: false }
         );
 
+        let updatedCount = 0;
         if (reply) {
           reply.split('\n').forEach((rLine) => {
-            const parts = rLine.trim().split('|');
-            if (parts.length >= 2) {
+            const trimmed = rLine.trim();
+            if (!trimmed) return;
+            const cleanRow = trimmed.replace(/^JP_VOICE:\s*/i, '');
+            const parts = cleanRow.split('|').map((s) => s.trim());
+            if (parts.length >= 5) {
+              const m = parts[0].match(/L?(\d+)/i);
+              const lIdx = m ? parseInt(m[1], 10) : -1;
+              if (lIdx >= 0 && lIdx < chap.scriptLines.length) {
+                const targetLine = chap.scriptLines[lIdx];
+                if (targetLine.type === 'dialogue' && targetLine.speaker !== '旁白') {
+                  const clamped = clampSpeakerVoiceParams(targetLine.speaker, parts[1], parts[2], parts[3]);
+                  targetLine.ttsEmotion = clamped.emotion;
+                  targetLine.ttsSpeed = clamped.speed;
+                  targetLine.ttsPitch = clamped.pitch;
+                  const jp = cleanJapaneseLineText(parts.slice(4).join('|').trim(), targetLine.speaker);
+                  if (jp) targetLine.jpText = jp;
+                  updatedCount += 1;
+                }
+              }
+            } else if (parts.length >= 2) {
               const m = parts[0].match(/L?(\d+)/i);
               const lIdx = m ? parseInt(m[1], 10) : -1;
               if (lIdx >= 0 && lIdx < chap.scriptLines.length) {
@@ -14451,6 +14617,11 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
                 if (targetLine.type === 'dialogue' && targetLine.speaker !== '旁白') {
                   const jp = cleanJapaneseLineText(parts.slice(1).join('|').trim(), targetLine.speaker);
                   if (jp) targetLine.jpText = jp;
+                  const clamped = clampSpeakerVoiceParams(targetLine.speaker, targetLine.ttsEmotion || 'neutral', targetLine.ttsSpeed, targetLine.ttsPitch);
+                  targetLine.ttsEmotion = clamped.emotion;
+                  targetLine.ttsSpeed = clamped.speed;
+                  targetLine.ttsPitch = clamped.pitch;
+                  updatedCount += 1;
                 }
               }
             }
@@ -14459,13 +14630,15 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
 
         await saveReplayProjectToDB(proj);
         renderReplayScriptEditor();
-        if (statusEl) {
-          statusEl.textContent = `本章全部 ${dialogueItems.length} 句角色对话已结合完整上下文与角色人设一次性翻译完毕，已自动去除人名前缀并跳过旁白！`;
-        }
+        renderReplayVoiceStudio();
+        const doneText = `已一次性通读全章完成 ${updatedCount || dialogueItems.length} 句日语台词润色与情绪语速语调配置，未调用语音合成接口！`;
+        if (statusEl) statusEl.textContent = doneText;
+        if (voiceStatusEl) voiceStatusEl.textContent = doneText;
       } catch (err) {
-        alert('整章日语翻译失败：' + err.message);
+        alert('整章日语润色失败：' + err.message);
       } finally {
         if (btn) { btn.textContent = '日译'; btn.disabled = false; }
+        if (voiceJpBtn) { voiceJpBtn.textContent = '日译'; voiceJpBtn.disabled = false; }
       }
     }
 
@@ -14836,28 +15009,32 @@ SCENE_ITEM: 场景编号|2到5字简短场景名|NovelAI英文提示词|基底�
       event.target.value = '';
     }
 
-    const DEFAULT_REPLAY_SCRIPT_PROMPT = `你是专业跑团Replay视觉小说导演与台本编辑。请一次性通读本章全部跑团剧本行、角色人设、差分池与已整理的场景列表，严格遵守以下规则完成整理：
-规则一：PC调查员与NPC的对话框 dialogue 只能保留角色亲口说出的台词，且所有角色说出的对话台词绝对禁止修改哪怕一个字！必须百分之百原封不动保留玩家与NPC原本的对话字句，严禁润色、严禁删减、严禁缩写、严禁改写语气！
+    const DEFAULT_REPLAY_SCRIPT_PROMPT = `你是专业跑团Replay视觉小说导演与台本编辑。请一次性通读本章全部跑团剧本行、角色人设、差分池与已整理的场景列表，在整理章节这一步严格遵守以下规则：
+规则一：所有NPC与调查员的动作描写、神态描写、心理与环境互动一律归为旁白 narration，任何角色的对话行 dialogue 中只能保留角色亲口说出的纯台词！如果原句中同时包含角色动作描写与说话台词，必须拆成多条相同行号的 LINE_UPDATE 按先后顺序输出，把动作描写拆成 narration 旁白行，把纯台词拆成 dialogue 对话行，严禁在对话行里夹杂任何动作描写！角色亲口说出的台词字句本身保持原汁原味。
 规则二：旁白 narration 必须全部采用第三人称视角并且顶格书写！对于KP原本以第二人称撰写的旁白，必须把其中所有的「你」「你们」「你的」准确替换为上下文中对应的调查员角色真名，并可适当添加自然过渡连接词，绝对不能在旁白中残留第二人称「你」！对于玩家PC的动作描写转为旁白 narration 时，只允许将第一人称「我」转换为该PC的角色真名并在需要时加简短连接词，绝对禁止删减或改写玩家原本风趣幽默的描写文笔！
-规则三：严格区分骰子与系统消息：只有最终的鉴定成功或失败结果、以及生命值或理智值等数值扣除变化才属于右上角检定提示，其余诸如谁谁谁已绑卡、谁谁谁已改名、logs已保存、谁谁谁进行了什么鉴定等发起提示或系统通知必须彻底删除，绝对禁止出现在正文旁白或对话中！
+规则三：在整理章节这一步彻底剔除 logs 记录指令与无用废话：凡是遇到诸如点log、logs开启关闭、日志保存链接、已绑卡、已改名、进行了什么鉴定等骰娘指令或系统废话，一律将该行的类型标记为 delete 彻底剔除，绝对禁止保留在旁白或对话中！只有最终的鉴定成功或失败结果、以及生命值或理智值变化才属于右上角检定提示。
 规则四：以括号开头的场外发言已在发给你之前提取到了独立弹幕区域；如果在剩下的句子里发现没有带括号的漏网之鱼，只有百分之百明确脱离模组剧情的玩家场外闲聊吐槽才将其类型标记为 ooc 移入弹幕区；模棱两可的一律视为正常剧情内容。
 规则五：立绘差分切换必须严格从下方提供的该角色可用差分池中选择！调查员与主要NPC拥有34个基础差分加专属差分，次要NPC仅拥有默认、开心、愤怒、伤心、害羞、疯狂、拿起武器、冷漠8个基础差分加专属差分，绝对禁止原创池子之外的差分名字！切换差分的频率必须适中自然。
 规则六：在氛围起承处标记推荐音乐开始 BGM_REC，在紧张解除、场景转换或音乐应当结束的那一行标记 BGM_STOP；没有音乐变化的普通台词行绝对不要乱标音乐。
 规则七：如果发现某行台词或旁白里有明显错别字，不要擅自直接篡改原句，必须用 TYPO_MARK 单独标记出来供用户自己核对。
 规则八：一章两万字左右的跑团剧本，请根据剧情高潮、关键调查与重要互动，在整章均匀规划 5 到 10 处 CG_MARK 插图节点，只标记行号、简短画面说明和在场人物，此阶段不要编写英文生图提示词。同时结合下方提供的全部场景名字，使用 SCENE_RANGE 规划从第几句到第几句使用哪个场景背景、哪几句是纯CG填 CG、哪几句是黑幕转场填 blackout。
-规则九：只有角色亲口说出的对话台词 dialogue 才需要在 LINE_UPDATE 的最后一个字段结合整章上下文与该角色人设性格语气翻译为地道、自然的日语配音台词，且日语台词前绝对不要写角色人名！旁白 narration 绝对不要翻译日语，最后一个字段直接填无。同时以视觉小说对话框舒适度为切割基准，一个对话框最多只放四行字即约90字以内，如果KP一次发了五到十句话的超长段落，请在保持完整不删减的前提下在合适句号处自然分段。
+规则九：在整理章节这一步，所有角色亲口说出的对话台词 dialogue 必须在 LINE_UPDATE 的最后一个字段结合整章上下文、该角色的性格语气以及对他人和自己的称呼习惯，写出贴合人设口吻的地道日语配音翻译，且日语台词前绝对不要写角色人名！旁白 narration 绝对不要翻译日语，最后一个字段直接填无。同时以视觉小说对话框视觉舒适度为切割基准，一个对话框最多只放四行字即约90字以内，如果KP或角色一次发了五到十句话的超长段落，请在保持完整不删减的前提下在合适句号处拆成多条同为 L行号 的 LINE_UPDATE 切到下一句对话框里。
 
 从头到尾严禁使用任何圆括号或方括号，严格按以下行格式输出：
 SCENE_BG: 场景编号如scene_1|场所中文名称|纯景物2D视觉小说背景NovelAI英文提示词
 SCENE_RANGE: L起始行号-L结束行号|场景编号如scene_1或CG或blackout
-LINE_UPDATE: L行号|类型dialogue或narration或ooc|说话人姓名或旁白|该角色可用差分池内的准确表情名称|音效名称或无|演出特效none或blackout或shake_char或zoom_char或jump_char或shake_screen|将旁白中所有你替换为对应调查员角色名且不改对话不删PC文笔的顶格中文文本|仅对话必填的不带人名纯日语配音台词或旁白填无
+LINE_UPDATE: L行号|类型dialogue或narration或ooc或delete|说话人姓名或旁白|该角色可用差分池内的准确表情名称|音效名称或无|演出特效none或blackout或shake_char或zoom_char或jump_char或shake_screen|顶格纯中文台词或第三人称旁白文本|仅对话必填的贴合角色语气与称呼的不带人名纯日语翻译或旁白填无
 BGM_REC: L行号|歌曲名称|歌手或作曲家名称|氛围分类如悬疑或日常或战斗
 BGM_STOP: L行号
 TYPO_MARK: L行号|疑似错字原词|建议修改词|简短原因
 CG_MARK: L行号|插图简短剧情画面说明|在场角色姓名用顿号分隔`;
 
     function getCustomOrDefaultScriptPrompt() {
-      return localStorage.getItem('replay-custom-script-prompt') || DEFAULT_REPLAY_SCRIPT_PROMPT;
+      const saved = localStorage.getItem('replay-custom-script-prompt');
+      if (saved && !saved.includes('delete')) {
+        return DEFAULT_REPLAY_SCRIPT_PROMPT;
+      }
+      return saved || DEFAULT_REPLAY_SCRIPT_PROMPT;
     }
 
     function toggleScriptPromptEditor() {
@@ -15089,10 +15266,14 @@ CG_MARK: L行号|插图简短剧情画面说明|在场角色姓名用顿号分�
       const splitStatusEl = document.getElementById('replay-split-status-bar');
       if (chapBtn) { chapBtn.textContent = '整理中'; chapBtn.disabled = true; }
       if (topBtn) { topBtn.textContent = '整理中'; topBtn.disabled = true; }
-      if (statusEl) statusEl.textContent = `正在整章一次性整理 ${chap.title}：正在转换旁白第二人称视角、按四行视觉上限分段并匹配角色差分池...`;
+      if (statusEl) statusEl.textContent = `正在整章一次性整理 ${chap.title}：剔除跑团废话指令、分离全员动作为旁白、转换人称并生成角色日语台词...`;
       if (splitStatusEl) splitStatusEl.textContent = `正在整章整理 ${chap.title}，请稍候...`;
 
       try {
+        if (chap.rawText) {
+          chap.rawText = cleanTrpgLogText(chap.rawText);
+          chap.blocks = parseTrpgLogBlocks(chap.rawText);
+        }
         const baseLines = buildStructuredBaseScriptFromChapter(chap);
 
         const defaultPoolList = (typeof TACHIE_25_EXPRESSIONS !== 'undefined' && Array.isArray(TACHIE_25_EXPRESSIONS))
@@ -15123,7 +15304,7 @@ CG_MARK: L行号|插图简短剧情画面说明|在场角色姓名用顿号分�
           const p = c?.personaData || {};
           const roleType = c?.trpgRoleType || c?.trpgType || '调查员';
           const pool = getCharacterAvailableExpressionPool(c);
-          return `名字:${name}｜身份定位:${roleType}｜年龄:${p.age || c?.age || '未知'}｜外貌:${p.appearance || c?.body || c?.desc || ''}｜性格:${p.personality || c?.quirk || '自然'}｜武器随身携带道具:${p.weaponItems || c?.weapon || ''}｜该角色全部可用差分池:${pool.join('、')}`;
+          return `名字:${name}｜身份定位:${roleType}｜年龄:${p.age || c?.age || '未知'}｜外貌:${p.appearance || c?.body || c?.desc || ''}｜性格与称呼语气:${p.personality || c?.quirk || '自然'}｜背景:${p.background || c?.surface || ''}｜武器随身携带道具:${p.weaponItems || c?.weapon || ''}｜该角色全部可用差分池:${pool.join('、')}`;
         }).join('\n');
 
         const existingScenes = Array.isArray(proj.globalScenes) && proj.globalScenes.length > 0
@@ -15153,7 +15334,7 @@ ${defaultPoolList.join('、')}
 次要NPC默认8差分池：
 ${minorPoolList.join('、')}
 
-本章登场角色完整人设与各自可用差分池：
+本章登场角色完整人设、语气称呼与各自可用差分池：
 ${charContextLines || '调查员｜身份定位:调查员'}
 
 本模组可用场景列表：
@@ -15172,6 +15353,8 @@ ${numberedChapterPreview}`;
         );
 
         const aiDetectedOocIndices = new Set();
+        const aiDeletedIndices = new Set();
+        const aiLineReplacements = new Map();
 
         if (aiReply) {
           aiReply.split('\n').forEach((rawLine) => {
@@ -15206,11 +15389,15 @@ ${numberedChapterPreview}`;
               }
             } else if (line.startsWith('LINE_UPDATE:')) {
               const parts = line.replace(/^LINE_UPDATE:\s*/i, '').split('|').map((s) => s.trim());
-              if (parts.length >= 5) {
+              if (parts.length >= 2) {
                 const idxMatch = parts[0].match(/L?(\d+)/i);
                 const idx = idxMatch ? parseInt(idxMatch[1], 10) : -1;
                 if (idx >= 0 && idx < baseLines.length) {
                   const rawType = String(parts[1] || '').trim().toLowerCase();
+                  if (rawType === 'delete' || rawType === 'del' || rawType === 'remove' || rawType === 'skip') {
+                    aiDeletedIndices.add(idx);
+                    return;
+                  }
                   if (rawType === 'ooc') {
                     aiDetectedOocIndices.add(idx);
                     if (parts[6]) {
@@ -15218,45 +15405,65 @@ ${numberedChapterPreview}`;
                     }
                     return;
                   }
-                  const newType = rawType === 'narration' ? 'narration' : (rawType === 'dialogue' ? 'dialogue' : baseLines[idx].type);
-                  baseLines[idx].type = newType;
-                  baseLines[idx].speaker = newType === 'narration' ? '旁白' : (parts[2] || baseLines[idx].speaker);
-                  if (parts[3]) {
-                    const spkObj = appState.characters.find((x) => x.name === baseLines[idx].speaker);
-                    const validPool = getCharacterAvailableExpressionPool(spkObj);
-                    if (validPool.includes(parts[3])) {
-                      baseLines[idx].exp = parts[3];
+                  if (parts.length >= 5) {
+                    const origObj = baseLines[idx];
+                    const newType = rawType === 'narration' ? 'narration' : (rawType === 'dialogue' ? 'dialogue' : origObj.type);
+                    const newSpeaker = newType === 'narration' ? '旁白' : (parts[2] || origObj.speaker);
+                    let newExp = origObj.exp || '默认';
+                    if (parts[3]) {
+                      const spkObj = appState.characters.find((x) => x.name === newSpeaker);
+                      const validPool = getCharacterAvailableExpressionPool(spkObj);
+                      if (validPool.includes(parts[3])) {
+                        newExp = parts[3];
+                      }
                     }
-                  }
-                  if (parts[4]) {
-                    const sfxVal = parts[4] === '无' || parts[4] === 'none' ? '' : parts[4];
-                    baseLines[idx].sfxTag = sfxVal;
-                  }
-                  if (parts[5]) {
-                    const fx = parts[5].trim().toLowerCase();
-                    if (['none', 'blackout', 'shake_char', 'zoom_char', 'jump_char', 'shake_screen'].includes(fx)) {
-                      baseLines[idx].effect = fx;
+                    const newSfx = (parts[4] && parts[4] !== '无' && parts[4] !== 'none') ? parts[4] : (origObj.sfxTag || '');
+                    let newEffect = origObj.effect || 'none';
+                    if (parts[5]) {
+                      const fx = parts[5].trim().toLowerCase();
+                      if (['none', 'blackout', 'shake_char', 'zoom_char', 'jump_char', 'shake_screen'].includes(fx)) {
+                        newEffect = fx;
+                      }
                     }
-                  }
-                  if (parts[6] && baseLines[idx].type !== 'dialogue') {
-                    const cleanedAiText = parts[6]
-                      .replace(/^[\s\u3000]+/gm, '')
-                      .replace(/已完成鉴定[。！!，,\s]*/g, '')
-                      .replace(/已完成检定[。！!，,\s]*/g, '')
-                      .replace(/进行了[^，,。！!]*?(?:鉴定|检定)[。！!，,\s]*/g, '')
-                      .trim();
-                    const origText = String(baseLines[idx].text || '').trim();
-                    if (cleanedAiText && (!baseLines[idx].isPcRpNarration || cleanedAiText.length >= Math.floor(origText.length * 0.72))) {
-                      baseLines[idx].text = cleanedAiText;
+                    let newText = origObj.text;
+                    if (parts[6]) {
+                      const cleanedAiText = parts[6]
+                        .replace(/^[\s\u3000]+/gm, '')
+                        .replace(/^[“"「『](.*)[”"」』]$/, '$1')
+                        .replace(/已完成鉴定[。！!，,\s]*/g, '')
+                        .replace(/已完成检定[。！!，,\s]*/g, '')
+                        .replace(/进行了[^，,。！!]*?(?:鉴定|检定)[。！!，,\s]*/g, '')
+                        .trim();
+                      if (cleanedAiText) {
+                        newText = cleanedAiText;
+                      }
                     }
-                  }
-                  if (newType === 'narration' || baseLines[idx].speaker === '旁白') {
-                    baseLines[idx].jpText = '';
-                  } else if (parts[7]) {
-                    const jpCandidate = cleanJapaneseLineText(parts.slice(7).join('|').trim(), baseLines[idx].speaker);
-                    if (jpCandidate && jpCandidate !== '无' && jpCandidate !== 'none') {
-                      baseLines[idx].jpText = jpCandidate;
+                    let newJp = '';
+                    if (newType !== 'narration' && newSpeaker !== '旁白' && parts[7]) {
+                      const jpCandidate = cleanJapaneseLineText(parts.slice(7).join('|').trim(), newSpeaker);
+                      if (jpCandidate && jpCandidate !== '无' && jpCandidate !== 'none') {
+                        newJp = jpCandidate;
+                      }
                     }
+                    if (!aiLineReplacements.has(idx)) {
+                      aiLineReplacements.set(idx, []);
+                    }
+                    const repList = aiLineReplacements.get(idx);
+                    const isFirstSub = repList.length === 0;
+                    repList.push({
+                      ...origObj,
+                      id: isFirstSub ? origObj.id : `${origObj.id}_ai_${repList.length}`,
+                      type: newType,
+                      speaker: newSpeaker,
+                      exp: newExp,
+                      sfxTag: newSfx,
+                      effect: newEffect,
+                      text: newText,
+                      jpText: newJp,
+                      cgId: isFirstSub ? (origObj.cgId || '') : '',
+                      bgmTag: isFirstSub ? (origObj.bgmTag || '') : '',
+                      hudEvents: isFirstSub ? (origObj.hudEvents || []) : []
+                    });
                   }
                 }
               }
@@ -15340,7 +15547,7 @@ ${numberedChapterPreview}`;
           }
         });
 
-        // 兜底确保所有旁白去除首行缩进并替换残余的第二人称「你」「你们」，同时将超过4行（约96字）的长段落按句号切分到下一句对话框
+        // 兜底确保所有旁白去除首行缩进并替换残余的第二人称「你」「你们」，同时将超过4行即约96字的长段落按句号切分到下一句对话框
         if (!Array.isArray(chap.danmakuList)) chap.danmakuList = [];
         const filteredStoryLines = [];
         const groupPcLabel = investigatorNames.length > 1
@@ -15348,55 +15555,81 @@ ${numberedChapterPreview}`;
           : (investigatorNames[0] ? `${investigatorNames[0]}等人` : '调查员们');
         let lastRecentPcName = investigatorNames[0] || '';
 
-        baseLines.forEach((l, origIdx) => {
-          if (l.speaker && l.speaker !== '旁白' && investigatorNames.includes(l.speaker)) {
-            lastRecentPcName = l.speaker;
+        baseLines.forEach((origLine, origIdx) => {
+          if (aiDeletedIndices.has(origIdx)) {
+            if (Array.isArray(origLine.hudEvents) && origLine.hudEvents.length > 0 && filteredStoryLines.length > 0) {
+              const prev = filteredStoryLines[filteredStoryLines.length - 1];
+              if (!Array.isArray(prev.hudEvents)) prev.hudEvents = [];
+              prev.hudEvents.push(...origLine.hudEvents);
+            }
+            return;
           }
           if (aiDetectedOocIndices.has(origIdx)) {
             chap.danmakuList.push({
               id: `danmaku_ai_${Date.now()}_${origIdx}`,
               lineIdx: Math.max(0, filteredStoryLines.length - 1),
-              speaker: l.speaker || '场外',
-              text: l.text
+              speaker: origLine.speaker || '场外',
+              text: origLine.text
             });
-            if (Array.isArray(l.hudEvents) && l.hudEvents.length > 0 && filteredStoryLines.length > 0) {
+            if (Array.isArray(origLine.hudEvents) && origLine.hudEvents.length > 0 && filteredStoryLines.length > 0) {
               const prev = filteredStoryLines[filteredStoryLines.length - 1];
               if (!Array.isArray(prev.hudEvents)) prev.hudEvents = [];
-              prev.hudEvents.push(...l.hudEvents);
+              prev.hudEvents.push(...origLine.hudEvents);
             }
             return;
           }
-          l.text = String(l.text || '').replace(/^[\s\u3000]+/gm, '').trim();
-          if (l.type === 'narration' || l.speaker === '旁白') {
-            l.jpText = '';
-            if (l.text.includes('你')) {
-              const targetPc = lastRecentPcName || investigatorNames[0] || '';
-              l.text = l.text
-                .replace(/你们的/g, `${groupPcLabel}的`)
-                .replace(/你们/g, groupPcLabel);
-              if (targetPc) {
+
+          const expandedCandidates = aiLineReplacements.has(origIdx)
+            ? aiLineReplacements.get(origIdx).map((item, subIdx) => ({
+                ...item,
+                sceneId: origLine.sceneId || item.sceneId || 'scene_1',
+                effect: item.effect && item.effect !== 'none' ? item.effect : (origLine.effect || 'none'),
+                cgId: subIdx === 0 ? (origLine.cgId || item.cgId || '') : '',
+                bgmTag: subIdx === 0 ? (origLine.bgmTag || item.bgmTag || '') : '',
+                typoInfo: subIdx === 0 ? origLine.typoInfo : undefined
+              }))
+            : [origLine];
+
+          expandedCandidates.forEach((l) => {
+            if (l.speaker && l.speaker !== '旁白' && investigatorNames.includes(l.speaker)) {
+              lastRecentPcName = l.speaker;
+            }
+            if (isUselessSystemNoticeText(l.speaker, l.text)) {
+              return;
+            }
+            l.text = String(l.text || '').replace(/^[\s\u3000]+/gm, '').trim();
+            if (!l.text) return;
+            if (l.type === 'narration' || l.speaker === '旁白') {
+              l.jpText = '';
+              if (l.text.includes('你')) {
+                const targetPc = lastRecentPcName || investigatorNames[0] || '';
                 l.text = l.text
-                  .replace(/你的/g, `${targetPc}的`)
-                  .replace(/你/g, targetPc);
+                  .replace(/你们的/g, `${groupPcLabel}的`)
+                  .replace(/你们/g, groupPcLabel);
+                if (targetPc) {
+                  l.text = l.text
+                    .replace(/你的/g, `${targetPc}的`)
+                    .replace(/你/g, targetPc);
+                }
               }
             }
-          }
-          const subChunks = splitOverlongSegmentIntoChunks(l.type, l.speaker, l.text, 96);
-          if (subChunks.length <= 1) {
-            filteredStoryLines.push(l);
-          } else {
-            subChunks.forEach((sc, sIdx) => {
-              filteredStoryLines.push({
-                ...l,
-                id: sIdx === 0 ? l.id : `${l.id}_part_${sIdx}`,
-                text: sc.text.replace(/^[\s\u3000]+/gm, '').trim(),
-                jpText: sIdx === 0 ? (l.jpText || '') : '',
-                cgId: sIdx === 0 ? (l.cgId || '') : '',
-                bgmTag: sIdx === 0 ? (l.bgmTag || '') : '',
-                hudEvents: sIdx === 0 ? (l.hudEvents || []) : []
+            const subChunks = splitOverlongSegmentIntoChunks(l.type, l.speaker, l.text, 96);
+            if (subChunks.length <= 1) {
+              filteredStoryLines.push(l);
+            } else {
+              subChunks.forEach((sc, sIdx) => {
+                filteredStoryLines.push({
+                  ...l,
+                  id: sIdx === 0 ? l.id : `${l.id}_part_${sIdx}`,
+                  text: sc.text.replace(/^[\s\u3000]+/gm, '').trim(),
+                  jpText: sIdx === 0 ? (l.jpText || '') : '',
+                  cgId: sIdx === 0 ? (l.cgId || '') : '',
+                  bgmTag: sIdx === 0 ? (l.bgmTag || '') : '',
+                  hudEvents: sIdx === 0 ? (l.hudEvents || []) : []
+                });
               });
-            });
-          }
+            }
+          });
         });
 
         // 自动检查是否还有未生成日语配音台词的角色对话行，若有则一次性结合全文上下文与全体角色人设补全
@@ -16713,12 +16946,10 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
     function getSpeakerVoiceId(speakerName) {
       const norm = normalizeSpeakerName(speakerName);
       const found = appState.characters.find((c) => c.name === norm);
-      if (found && found.voiceId) return found.voiceId;
-      if (norm === '旁白') {
-        const narr = appState.characters.find((c) => c.id === 'narrator_kp' || c.trpgType === '旁白');
-        return narr?.voiceId || 'male-qn-jingying';
+      if (found && found.voiceId && String(found.voiceId).trim()) {
+        return String(found.voiceId).trim();
       }
-      return 'male-qn-qingse';
+      return '';
     }
 
     async function playSingleScriptLineTts(lineIdx, forceRegen = false) {
@@ -16729,6 +16960,10 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       const useJp = appState.theaterTtsLang === 'jp' && line.jpText && line.jpText.trim();
       const ttsText = useJp ? line.jpText.trim() : line.text.trim();
       const voiceId = getSpeakerVoiceId(line.speaker);
+      if (!voiceId) {
+        alert(`角色 ${line.speaker} 尚未填写语音音色编号，请先前往角色档案填写`);
+        return;
+      }
       const cacheKey = `line_${chap.id}_${line.id}_${appState.theaterTtsLang}`;
       const btn = document.getElementById(`line-tts-btn-${lineIdx}`);
       const voiceBtn = document.getElementById(`voice-studio-play-btn-${lineIdx}`);
@@ -16796,11 +17031,12 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       ];
 
       box.innerHTML = '';
-      dialogueEntries.forEach(({ line, idx }, dOrder) => {
+      dialogueEntries.forEach(({ line, idx }) => {
         const cleanJp = cleanJapaneseLineText(line.jpText || '', line.speaker);
+        const bounds = getSpeakerVoiceBounds(line.speaker);
         const curEmo = line.ttsEmotion || 'neutral';
-        const curSpeed = line.ttsSpeed ?? 1.0;
-        const curPitch = line.ttsPitch ?? 0;
+        const curSpeed = line.ttsSpeed ?? bounds.defaultSpeed;
+        const curPitch = line.ttsPitch ?? bounds.defaultPitch;
         const voiceId = getSpeakerVoiceId(line.speaker);
 
         const card = document.createElement('div');
@@ -16810,14 +17046,14 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
             <div class="vn-script-row-left">
               <span class="vn-console-idx">#${idx + 1}</span>
               <span style="font-size:12px;font-weight:800;color:var(--text-primary);">${line.speaker}</span>
-              <span class="vn-console-badge">${voiceId}</span>
+              <span class="vn-console-badge">${voiceId || '未设音色'}</span>
               <select class="moe-input" style="width:auto;min-width:78px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="MiniMax语音情绪" onchange="updateReplayVoiceParam(${idx}, 'ttsEmotion', this.value)">
                 ${emotionOptions.map((o) => `<option value="${o.val}" ${curEmo === o.val ? 'selected' : ''}>${o.label}</option>`).join('')}
               </select>
               <span style="font-size:11px;color:var(--text-secondary);">语速</span>
-              <input type="number" step="0.1" min="0.5" max="2.0" class="moe-input" value="${curSpeed}" style="width:58px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" onchange="updateReplayVoiceParam(${idx}, 'ttsSpeed', parseFloat(this.value) || 1.0)" />
+              <input type="number" step="0.05" min="${bounds.minSpeed}" max="${bounds.maxSpeed}" class="moe-input" value="${curSpeed}" style="width:58px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" onchange="updateReplayVoiceParam(${idx}, 'ttsSpeed', parseFloat(this.value))" />
               <span style="font-size:11px;color:var(--text-secondary);">语调</span>
-              <input type="number" step="1" min="-12" max="12" class="moe-input" value="${curPitch}" style="width:54px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" onchange="updateReplayVoiceParam(${idx}, 'ttsPitch', parseInt(this.value, 10) || 0)" />
+              <input type="number" step="1" min="${bounds.minPitch}" max="${bounds.maxPitch}" class="moe-input" value="${curPitch}" style="width:54px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" onchange="updateReplayVoiceParam(${idx}, 'ttsPitch', parseInt(this.value, 10))" />
             </div>
             <div class="vn-script-row-actions">
               <button type="button" class="moe-btn secondary" id="voice-studio-play-btn-${idx}" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="playSingleScriptLineTts(${idx}, false)">试听</button>
@@ -16835,11 +17071,28 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
       if (!proj || !chap || !chap.scriptLines || !chap.scriptLines[lineIdx]) return;
-      chap.scriptLines[lineIdx][field] = val;
+      const line = chap.scriptLines[lineIdx];
+      const bounds = getSpeakerVoiceBounds(line.speaker);
+      if (field === 'ttsEmotion') {
+        line.ttsEmotion = val;
+        if (val === 'neutral') {
+          line.ttsSpeed = bounds.defaultSpeed;
+          line.ttsPitch = bounds.defaultPitch;
+        }
+      } else if (field === 'ttsSpeed') {
+        const s = isNaN(val) ? bounds.defaultSpeed : Math.max(bounds.minSpeed, Math.min(bounds.maxSpeed, val));
+        line.ttsSpeed = Number(s.toFixed(2));
+      } else if (field === 'ttsPitch') {
+        const p = isNaN(val) ? bounds.defaultPitch : Math.max(bounds.minPitch, Math.min(bounds.maxPitch, val));
+        line.ttsPitch = p;
+      } else {
+        line[field] = val;
+      }
       await saveReplayProjectToDB(proj);
+      renderReplayVoiceStudio();
     }
 
-    // 点击配音页顶部「生成」按钮：AI通读整章原文与全体角色人设，自动为每句角色对话配置MiniMax情绪、语速、语调参数，并批量合成整章对话语音
+    // 点击配音页顶部「生成」按钮：仅按顺序一条一条调用MiniMax接口合成已填写音色角色的对话语音，绝不在此处重复调用AI改写或消耗额外对话费用
     async function aiConfigureAndSynthesizeChapterVoice() {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
@@ -16859,83 +17112,39 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
           return;
         }
 
-        if (statusEl) {
-          statusEl.textContent = `正在调用AI通读整章剧情与角色人设，为 ${dialogueItems.length} 句角色台词定制情绪、语速与语调...`;
+        const validVoiceItems = dialogueItems.filter((item) => Boolean(getSpeakerVoiceId(item.l.speaker)));
+        if (validVoiceItems.length === 0) {
+          if (statusEl) statusEl.textContent = '本章登场角色均未填写MiniMax音色编号，请先前往角色档案填写需要配音的角色音色';
+          return;
         }
 
-        const personaSummary = (appState.characters || [])
-          .filter((c) => c.id !== 'narrator_kp' && c.name !== '旁白')
-          .map((c) => `名字:${c.name}｜年龄:${c.age || '未知'}｜性格:${c.quirk || '自然'}｜背景:${c.surface || ''}`)
-          .join('\n');
-
-        const fullContext = chap.scriptLines
-          .map((l, idx) => `L${idx}|${l.speaker}|${l.text}`)
-          .join('\n');
-
-        const targetLines = dialogueItems
-          .map((item) => `L${item.idx}|${item.l.speaker}|当前差分:${item.l.exp || '默认'}|${item.l.text}`)
-          .join('\n');
-
-        const sysPrompt = `你是专业视觉小说配音导演。请通读整章剧情上下文与每位角色的人设性格，为每一句角色对话配置最贴合当下情境的MiniMax语音参数：
-1. 情绪 emotion 只能从以下7个英文值中选择一个：neutral、happy、sad、angry、fearful、disgusted、surprised
-2. 语速 speed 取值范围 0.8 到 1.3，平时正常说话填 1.0，激动或慌乱可填 1.1 到 1.25，低沉或犹豫可填 0.85 到 0.95
-3. 语调 pitch 取值范围 -4 到 4 的整数，正常填 0
-4. 从头到尾严禁使用任何括号，严格按以下格式逐行输出：
-VOICE_CFG: L行号|emotion英文值|speed数字|pitch整数`;
-
-        try {
-          const aiReply = await callLlmCompletion(
-            [
-              { role: 'system', content: sysPrompt },
-              { role: 'user', content: `角色人设：\n${personaSummary}\n\n整章上下文：\n${fullContext}\n\n待配置配音参数的角色对话行：\n${targetLines}` }
-            ],
-            null,
-            { caller: `AI整章配音情绪语速参数配置·${chap.title}`, preferSubApi: false }
-          );
-          if (aiReply) {
-            aiReply.split('\n').forEach((rLine) => {
-              const l = rLine.trim();
-              if (l.startsWith('VOICE_CFG:')) {
-                const parts = l.replace(/^VOICE_CFG:\s*/i, '').split('|').map((s) => s.trim());
-                if (parts.length >= 4) {
-                  const m = parts[0].match(/L?(\d+)/i);
-                  const lIdx = m ? parseInt(m[1], 10) : -1;
-                  if (lIdx >= 0 && lIdx < chap.scriptLines.length) {
-                    const line = chap.scriptLines[lIdx];
-                    const validEmotions = ['happy', 'sad', 'angry', 'fearful', 'disgusted', 'surprised', 'neutral'];
-                    if (validEmotions.includes(parts[1])) line.ttsEmotion = parts[1];
-                    const spd = parseFloat(parts[2]);
-                    if (!isNaN(spd)) line.ttsSpeed = Math.max(0.5, Math.min(2.0, spd));
-                    const ptc = parseInt(parts[3], 10);
-                    if (!isNaN(ptc)) line.ttsPitch = Math.max(-12, Math.min(12, ptc));
-                  }
-                }
-              }
-            });
-            await saveReplayProjectToDB(proj);
-            renderReplayVoiceStudio();
-          }
-        } catch (_) {}
-
         let doneCount = 0;
-        for (const { l: line, idx } of dialogueItems) {
+        for (const { l: line } of validVoiceItems) {
           const useJp = appState.theaterTtsLang === 'jp' && line.jpText && line.jpText.trim();
           const ttsText = useJp ? line.jpText.trim() : line.text.trim();
           if (!ttsText) continue;
-          doneCount += 1;
           const voiceId = getSpeakerVoiceId(line.speaker);
+          if (!voiceId) continue;
+          doneCount += 1;
+          const bounds = getSpeakerVoiceBounds(line.speaker);
+          const clamped = clampSpeakerVoiceParams(
+            line.speaker,
+            line.ttsEmotion || 'neutral',
+            line.ttsSpeed ?? bounds.defaultSpeed,
+            line.ttsPitch ?? bounds.defaultPitch
+          );
           const cacheKey = `line_${chap.id}_${line.id}_${appState.theaterTtsLang}`;
           if (statusEl) {
-            statusEl.textContent = `正在按AI配置的情绪与语速合成对话语音 ${doneCount}/${dialogueItems.length}：${line.speaker}`;
+            statusEl.textContent = `正在逐句调用MiniMax合成语音 ${doneCount}/${validVoiceItems.length}：${line.speaker}`;
           }
           await synthesizeAndPlayReplayTts(ttsText, voiceId, cacheKey, false, {
-            emotion: line.ttsEmotion || 'neutral',
-            speed: line.ttsSpeed || 1.0,
-            pitch: line.ttsPitch || 0
+            emotion: clamped.emotion,
+            speed: clamped.speed,
+            pitch: clamped.pitch
           });
         }
         if (statusEl) {
-          statusEl.textContent = `本章全部 ${dialogueItems.length} 句角色对话已按AI情绪语速配置并合成完毕！`;
+          statusEl.textContent = `本章已设置音色的 ${doneCount} 句角色台词已逐条合成完毕！`;
         }
       } catch (err) {
         alert('生成章节配音失败：' + err.message);
@@ -17546,7 +17755,6 @@ VOICE_CFG: L行号|emotion英文值|speed数字|pitch整数`;
       const stageRoot = document.getElementById('vn-theater-stage-root');
       const speakerEl = document.getElementById('vn-theater-speaker');
       const expEl = document.getElementById('vn-theater-exp-info');
-      const progEl = document.getElementById('vn-theater-progress');
       const textEl = document.getElementById('vn-theater-text');
       const jpEl = document.getElementById('vn-theater-jp-text');
       const bgLayer = document.getElementById('vn-theater-bg-layer');
@@ -17577,7 +17785,6 @@ VOICE_CFG: L行号|emotion英文值|speed数字|pitch整数`;
       if (!chap || !Array.isArray(chap.scriptLines) || chap.scriptLines.length === 0) {
         if (speakerEl) speakerEl.textContent = '提示';
         if (expEl) expEl.textContent = '未生成剧本';
-        if (progEl) progEl.textContent = '0 / 0';
         if (textEl) textEl.textContent = '当前章节尚未生成剧本，请点左上角列表图标选择其他已整理章节，或前往模组软件点击整理生成剧本。';
         if (jpEl) jpEl.textContent = '';
         if (sideBustBox) sideBustBox.classList.add('empty');
@@ -17610,7 +17817,6 @@ VOICE_CFG: L行号|emotion英文值|speed数字|pitch整数`;
 
       if (speakerEl) speakerEl.textContent = line.speaker || '旁白';
       if (expEl) expEl.textContent = '';
-      if (progEl) progEl.textContent = `${idx + 1} / ${chap.scriptLines.length}`;
       if (jpEl) jpEl.textContent = '';
       saveCurrentSessionNavState();
 
@@ -17820,28 +18026,19 @@ VOICE_CFG: L行号|emotion英文值|speed数字|pitch整数`;
         }
       }
 
-      // 5.5 更新对话框左侧说话人小头像相框
+      // 5.5 更新对话框左侧说话人小头像相框：旁白不显示头像，角色优先显示小头像，若无小头像则自动截取角色立绘头部
       if (sideBustBox && sideBustImg) {
         const showSideBust = localStorage.getItem('theater-show-side-bust') !== 'false';
         const sideChk = document.getElementById('theater-show-side-bust-chk');
         if (sideChk) sideChk.checked = showSideBust;
-        const spkCharObj = (showSideBust && line.speaker && line.speaker !== '旁白' && line.speaker !== '检定')
-          ? (appState.characters || []).find((c) => c.name === line.speaker && c.trpgType !== '旁白')
+        const isDialogueLine = line.type !== 'narration' && line.speaker && line.speaker !== '旁白' && line.speaker !== '检定';
+        const avatarInfo = (showSideBust && isDialogueLine)
+          ? resolveCharacterMiniAvatarInfo(line.speaker, line.exp || '默认')
           : null;
-        if (spkCharObj) {
-          const expKey = line.exp || '默认';
-          const bustSrc = spkCharObj.stageBustAvatar
-            || (spkCharObj.tachieExpressions && spkCharObj.tachieExpressions[expKey])
-            || (spkCharObj.tachieExpressions && spkCharObj.tachieExpressions['默认'])
-            || spkCharObj.tachieBase
-            || spkCharObj.profileAvatar
-            || spkCharObj.chibiImg;
-          if (bustSrc) {
-            sideBustImg.src = bustSrc;
-            sideBustBox.classList.remove('empty');
-          } else {
-            sideBustBox.classList.add('empty');
-          }
+        if (avatarInfo && avatarInfo.src) {
+          sideBustImg.src = avatarInfo.src;
+          sideBustImg.classList.toggle('crop-tachie-head', Boolean(avatarInfo.isFullTachieCrop));
+          sideBustBox.classList.remove('empty');
         } else {
           sideBustBox.classList.add('empty');
         }
@@ -18038,6 +18235,26 @@ VOICE_CFG: L行号|emotion英文值|speed数字|pitch整数`;
       document.getElementById('theater-album-modal').classList.add('active');
     }
 
+    function resolveCharacterMiniAvatarInfo(speakerName, expKey = '默认') {
+      if (!speakerName || speakerName === '旁白' || speakerName === '检定') return null;
+      const spkCharObj = (appState.characters || []).find((c) => c.name === speakerName && c.trpgType !== '旁白');
+      if (!spkCharObj) return null;
+      if (spkCharObj.stageBustAvatar) {
+        return { src: spkCharObj.stageBustAvatar, isFullTachieCrop: false };
+      }
+      if (spkCharObj.profileAvatar) {
+        return { src: spkCharObj.profileAvatar, isFullTachieCrop: false };
+      }
+      const tachieSrc = (spkCharObj.tachieExpressions && spkCharObj.tachieExpressions[expKey])
+        || (spkCharObj.tachieExpressions && spkCharObj.tachieExpressions['默认'])
+        || spkCharObj.tachieBase
+        || spkCharObj.chibiImg;
+      if (tachieSrc) {
+        return { src: tachieSrc, isFullTachieCrop: true };
+      }
+      return null;
+    }
+
     function openTheaterBacklogModal() {
       const box = document.getElementById('theater-backlog-list');
       if (!box) return;
@@ -18048,29 +18265,44 @@ VOICE_CFG: L行号|emotion英文值|speed数字|pitch整数`;
         box.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">暂无台词记录</div>';
       } else {
         const maxIdx = Math.max(0, Math.min(lines.length - 1, appState.theaterLineIdx || 0));
-        const visibleLines = lines.slice(0, maxIdx + 1);
-        visibleLines.forEach((l, idx) => {
+        const startIdx = Math.max(0, maxIdx - 99);
+        const visibleLines = lines.slice(startIdx, maxIdx + 1);
+        visibleLines.forEach((l, offset) => {
+          const actualIdx = startIdx + offset;
+          const isNarr = l.type === 'narration' || !l.speaker || l.speaker === '旁白';
+          const isCurrent = actualIdx === maxIdx;
           const item = document.createElement('div');
-          item.className = 'setting-item';
-          const canPlayVoice = l.type === 'dialogue' && l.speaker && l.speaker !== '旁白';
+          item.className = 'vn-backlog-row' + (isNarr ? ' is-narration' : '') + (isCurrent ? ' is-current' : '');
+
+          const canPlayVoice = !isNarr && Boolean(getSpeakerVoiceId(l.speaker));
           const playBtnHtml = canPlayVoice
-            ? `<button type="button" class="vn-play-tri-btn" title="播放此句语音" onclick="event.stopPropagation(); playSingleScriptLineTts(${idx}, false);"><svg viewBox="0 0 24 24"><polygon points="7 5 19 12 7 19 7 5"></polygon></svg></button>`
+            ? `<button type="button" class="vn-play-tri-btn" title="播放此句语音" onclick="event.stopPropagation(); playSingleScriptLineTts(${actualIdx}, false);"><svg viewBox="0 0 24 24"><polygon points="7 5 19 12 7 19 7 5"></polygon></svg></button>`
             : '';
+
+          const avatarInfo = !isNarr ? resolveCharacterMiniAvatarInfo(l.speaker, l.exp || '默认') : null;
+          const avatarHtml = (!isNarr && avatarInfo && avatarInfo.src)
+            ? `<div class="vn-backlog-avatar"><img src="${avatarInfo.src}" alt="${l.speaker}" class="${avatarInfo.isFullTachieCrop ? 'crop-tachie-head' : ''}" /></div>`
+            : '';
+
           item.innerHTML = `
-            <div class="setting-item-left" style="font-size:11px;font-weight:800;color:var(--accent-color);">#${idx + 1}</div>
-            <div class="setting-item-center" style="white-space:normal;">
-              <div class="setting-item-title">${l.speaker || '旁白'}</div>
-              <div class="setting-item-sub" style="white-space:normal;">${l.text || ''}</div>
+            ${avatarHtml}
+            <div class="vn-backlog-center">
+              ${!isNarr ? `<div class="vn-backlog-speaker">${l.speaker}</div>` : ''}
+              <div class="vn-backlog-text">${l.text || ''}</div>
             </div>
-            <div class="setting-item-right" style="display:flex;gap:6px;align-items:center;">
+            <div class="setting-item-right" style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
               ${playBtnHtml}
-              <button type="button" class="moe-btn secondary" style="height:28px;min-height:28px;padding:0 8px;font-size:11px;" onclick="event.stopPropagation(); rewindTheaterToLine(${idx});">回退</button>
+              <button type="button" class="moe-btn secondary" style="height:28px;min-height:28px;padding:0 8px;font-size:11px;" onclick="event.stopPropagation(); rewindTheaterToLine(${actualIdx});">回退</button>
             </div>
           `;
           box.appendChild(item);
         });
       }
       document.getElementById('theater-backlog-modal').classList.add('active');
+      box.scrollTop = box.scrollHeight;
+      requestAnimationFrame(() => {
+        box.scrollTop = box.scrollHeight;
+      });
     }
 
     function rewindTheaterToLine(idx) {
