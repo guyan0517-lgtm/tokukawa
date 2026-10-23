@@ -1210,17 +1210,22 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
       title,
       author,
       desc,
+      avatarUrl,
       uiTheme,
       globalScenes,
       extractedSpeakers,
       characters,
       bgmTracks,
+      mode,
+      chapters,
+      ttsByChapter,
       chapterIndex,
       chapterData,
-      chapterTtsList
+      chapterTtsList,
+      payloadSizeBytes
     } = req.body || {};
 
-    if (!projectId || !chapterData) {
+    if (!projectId || (!chapterData && (!Array.isArray(chapters) || chapters.length === 0))) {
       return res.status(400).json({ error: '缺少剧本ID或章节数据' });
     }
 
@@ -1232,6 +1237,7 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
         title: title || '未命名跑团剧本',
         author: author || '匿名KP',
         desc: desc || '',
+        avatarUrl: avatarUrl || '',
         uiTheme: uiTheme || 'default',
         globalScenes: Array.isArray(globalScenes) ? globalScenes : [],
         extractedSpeakers: Array.isArray(extractedSpeakers) ? extractedSpeakers : [],
@@ -1247,6 +1253,7 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
     storedProj.title = title || storedProj.title || '未命名跑团剧本';
     storedProj.author = author || storedProj.author || '匿名KP';
     if (typeof desc === 'string') storedProj.desc = desc;
+    if (typeof avatarUrl === 'string' && avatarUrl) storedProj.avatarUrl = avatarUrl;
     if (uiTheme) storedProj.uiTheme = uiTheme;
     if (Array.isArray(globalScenes) && globalScenes.length > 0) {
       storedProj.globalScenes = globalScenes;
@@ -1276,34 +1283,63 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
     }
 
     if (!Array.isArray(storedProj.chapters)) storedProj.chapters = [];
-    const targetChapOrder = Number(chapterIndex ?? chapterData.order ?? 0);
-    const chapRecord = {
-      ...chapterData,
-      order: targetChapOrder,
-      version: ((storedProj.chapters.find((c) => Number(c.order) === targetChapOrder || c.id === chapterData.id)?.version) || 0) + 1,
-      updatedAt: now
-    };
-
-    const existingIdx = storedProj.chapters.findIndex(
-      (c) => (chapterData.id && c.id === chapterData.id) || Number(c.order) === targetChapOrder
-    );
-    const isOverwrite = existingIdx >= 0;
-    if (existingIdx >= 0) {
-      storedProj.chapters[existingIdx] = chapRecord;
-    } else {
-      storedProj.chapters.push(chapRecord);
-      storedProj.chapters.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
-    }
-
     if (!storedProj.ttsByChapter || typeof storedProj.ttsByChapter !== 'object') {
       storedProj.ttsByChapter = {};
     }
-    const ttsKey = String(chapRecord.id || `chap_${targetChapOrder}`);
-    if (Array.isArray(chapterTtsList)) {
-      storedProj.ttsByChapter[ttsKey] = chapterTtsList;
+
+    let isOverwrite = false;
+    let latestVersion = 1;
+
+    if (mode === 'full' && Array.isArray(chapters) && chapters.length > 0) {
+      isOverwrite = storedProj.chapters.length > 0;
+      storedProj.chapters = chapters.map((ch, idx) => {
+        const orderNum = Number(ch.order ?? idx);
+        const prev = (storedProj.chapters || []).find((oldC) => (ch.id && oldC.id === ch.id) || Number(oldC.order ?? -1) === orderNum);
+        const ver = (Number(prev?.version) || 0) + 1;
+        latestVersion = Math.max(latestVersion, ver);
+        return {
+          ...ch,
+          order: orderNum,
+          version: ver,
+          updatedAt: now
+        };
+      });
+      storedProj.chapters.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
+      if (ttsByChapter && typeof ttsByChapter === 'object') {
+        Object.entries(ttsByChapter).forEach(([k, v]) => {
+          if (Array.isArray(v)) storedProj.ttsByChapter[k] = v;
+        });
+      }
+    } else if (chapterData) {
+      const targetChapOrder = Number(chapterIndex ?? chapterData.order ?? 0);
+      const prevChap = storedProj.chapters.find((c) => Number(c.order) === targetChapOrder || c.id === chapterData.id);
+      latestVersion = ((Number(prevChap?.version)) || 0) + 1;
+      const chapRecord = {
+        ...chapterData,
+        order: targetChapOrder,
+        version: latestVersion,
+        updatedAt: now
+      };
+
+      const existingIdx = storedProj.chapters.findIndex(
+        (c) => (chapterData.id && c.id === chapterData.id) || Number(c.order) === targetChapOrder
+      );
+      isOverwrite = existingIdx >= 0;
+      if (existingIdx >= 0) {
+        storedProj.chapters[existingIdx] = chapRecord;
+      } else {
+        storedProj.chapters.push(chapRecord);
+        storedProj.chapters.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
+      }
+
+      const ttsKey = String(chapRecord.id || `chap_${targetChapOrder}`);
+      if (Array.isArray(chapterTtsList)) {
+        storedProj.ttsByChapter[ttsKey] = chapterTtsList;
+      }
     }
 
     storedProj.updatedAt = now;
+    if (payloadSizeBytes) storedProj.sizeBytes = Number(payloadSizeBytes) || 0;
     writeWorkshopProjectData(projectId, storedProj);
 
     const indexList = readWorkshopIndex();
@@ -1312,13 +1348,18 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
       title: storedProj.title,
       author: storedProj.author,
       desc: storedProj.desc || '',
+      avatarUrl: storedProj.avatarUrl || '',
       uiTheme: storedProj.uiTheme || 'default',
+      sizeBytes: storedProj.sizeBytes || 0,
+      charCount: Array.isArray(storedProj.characters) ? storedProj.characters.length : 0,
       chapterCount: storedProj.chapters.length,
       chaptersMeta: storedProj.chapters.map((c, idx) => ({
         id: c.id || `chap_${idx}`,
         order: Number(c.order ?? idx),
         title: c.title || `第${idx + 1}章`,
         lineCount: Array.isArray(c.scriptLines) ? c.scriptLines.length : 0,
+        cgCount: Array.isArray(c.cgNodes) ? c.cgNodes.filter((g) => g && g.imageUrl).length : 0,
+        clueCount: Array.isArray(c.clueNodes) ? c.clueNodes.length : 0,
         version: c.version || 1,
         updatedAt: c.updatedAt || now
       })),
@@ -1334,8 +1375,9 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
 
     res.json({
       ok: true,
+      mode: mode || 'single',
       isOverwrite,
-      chapterVersion: chapRecord.version,
+      chapterVersion: latestVersion,
       chapterCount: storedProj.chapters.length,
       summary: summaryItem
     });
