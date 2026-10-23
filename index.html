@@ -903,8 +903,19 @@
 
               <!-- 情绪差分选择格 -->
               <div style="margin-bottom:10px;padding:10px;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:10px;">
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
                   <span style="font-size:12px;font-weight:700;color:var(--text-primary);">点击情绪或动作切换状态 浅蓝圆点代表已生成</span>
+                  <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                    <button type="button" class="moe-btn secondary" style="height:28px;min-height:28px;padding:0 8px;font-size:11px;display:inline-flex;align-items:center;gap:3px;" title="切换到上一个差分" onclick="stepTachieExpression(-1)">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                      <span>上个</span>
+                    </button>
+                    <button type="button" class="moe-btn secondary" style="height:28px;min-height:28px;padding:0 8px;font-size:11px;display:inline-flex;align-items:center;gap:3px;" title="切换到下一个差分" onclick="stepTachieExpression(1)">
+                      <span>下个</span>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                    <button type="button" class="moe-btn secondary" style="height:28px;min-height:28px;padding:0 8px;font-size:11px;" title="进入单差分高度细致微调页面" onclick="openCurrentCharExpHeightPage()">调高</button>
+                  </div>
                 </div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;" id="tachie-exp-btn-group"></div>
                 <textarea id="tachie-custom-action-tags" class="moe-input" style="min-height:68px;background:var(--card-bg);" placeholder="standing, neutral expression, looking at viewer" oninput="saveCurrentStateActionTags(this.value)"></textarea>
@@ -1186,6 +1197,30 @@
                   <input type="number" id="height-stage-ear-input" class="moe-input" value="0" oninput="updateSelectedCharHeightCm()" onchange="updateSelectedCharHeightCm()" />
                 </div>
                 <button type="button" class="moe-btn secondary" onclick="updateSelectedCharHeightCm()">更新</button>
+              </div>
+
+              <div style="display:flex;gap:6px;margin-bottom:10px;align-items:flex-end;flex-wrap:wrap;padding:8px 10px;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:10px;">
+                <div class="form-group" style="flex:2;min-width:108px;margin-bottom:0;">
+                  <label>选择差分</label>
+                  <select id="height-stage-exp-select" class="moe-input" onchange="onHeightStageExpSelectChange(this.value)"></select>
+                </div>
+                <div style="display:flex;gap:4px;align-items:center;">
+                  <button type="button" class="moe-btn secondary" style="height:36px;min-height:36px;padding:0 8px;display:inline-flex;align-items:center;justify-content:center;" title="上一个差分" onclick="stepHeightStageExp(-1)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                  </button>
+                  <button type="button" class="moe-btn secondary" style="height:36px;min-height:36px;padding:0 8px;display:inline-flex;align-items:center;justify-content:center;" title="下一个差分" onclick="stepHeightStageExp(1)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                  </button>
+                </div>
+                <div class="form-group" style="flex:1;min-width:74px;margin-bottom:0;">
+                  <label>高低 px</label>
+                  <input type="number" id="height-stage-exp-offset-input" class="moe-input" value="0" oninput="previewHeightStageExpOffset(this.value)" onchange="previewHeightStageExpOffset(this.value)" />
+                </div>
+                <div style="display:flex;gap:4px;align-items:center;">
+                  <button type="button" class="moe-btn secondary" style="height:36px;min-height:36px;padding:0 10px;" onclick="nudgeHeightStageExpOffset(4)">调高</button>
+                  <button type="button" class="moe-btn secondary" style="height:36px;min-height:36px;padding:0 10px;" onclick="nudgeHeightStageExpOffset(-4)">调低</button>
+                  <button type="button" class="moe-btn" id="height-stage-exp-save-btn" style="height:36px;min-height:36px;padding:0 12px;" onclick="saveCurrentCharExpOffset()">保存</button>
+                </div>
               </div>
 
               <div class="height-stage-viewport" id="height-stage-viewport">
@@ -7431,8 +7466,8 @@
       '伤心': 'standing, sad expression, downcast eyes, tears',
       '疯狂': 'standing, dynamic off-balance standing pose, unhinged wide eyes, manic expression',
       '拿起武器': 'standing, alert standing stance, serious expression, holding weapon',
-      '轻伤': 'standing, light injuries, minor bruises and scratches on face and clothes, bandages, slightly ragged breathing, determined expression, looking at viewer',
-      '重伤': 'standing, heavy injuries, battle damaged clothes, bloodstains, pale face, painful endurance expression, one hand clutching wound, off-balance standing pose, looking at viewer'
+      '轻伤': '',
+      '重伤': ''
     };
 
     function isMinorNpcCharacter(charObj) {
@@ -7459,7 +7494,7 @@
       return baseList.map((name) => ({
         name,
         zhDesc: name === '默认' ? '平静无表情默认站姿' : `${name}站立全身差分`,
-        enTags: BUILTIN_STANDING_EXP_TAGS[name] || `standing, ${name} expression`
+        enTags: (name === '轻伤' || name === '重伤') ? '' : (BUILTIN_STANDING_EXP_TAGS[name] || `standing, ${name} expression`)
       }));
     }
 
@@ -7955,7 +7990,7 @@
         const isMinorNpc = isMinorNpcCharacter(charObj);
         const baseTemplateActions = buildPersonaMatchedActions(charObj);
         const actPromptLines = baseTemplateActions
-          .map((act, idx) => `ACT${idx + 1}: ${act.name}|${act.zhDesc}|${act.enTags}`)
+          .map((act, idx) => `ACT${idx + 1}: ${act.name}|${act.zhDesc}|${act.enTags || '请AI根据本条状态规则自主编写站立动作与神态英文标签'}`)
           .join('\n');
 
         const sys = `你是顶级克苏鲁跑团调查员视觉小说角色立绘主美与 NovelAI V4.5 提示词专家。请仔细阅读用户输入的角色人设以及所选模组卷数中的剧情细节，一次性同步完成以下内容：
@@ -7963,15 +7998,16 @@
 第二部分：默认站姿与全部${baseTemplateActions.length}个必选状态差分的专属动作与表情提示词 ACT1 至 ACT${baseTemplateActions.length}；
 ${isMinorNpc ? '' : '第三部分：根据角色在模组文章中的性格、习惯与随身携带道具，额外设计一至两个贴合模组表现的专属额外差分 EXTRA1 至 EXTRA2。'}
 
-必须严格遵守以下八条铁律：
+必须严格遵守以下九条铁律：
 第一条：如果用户上传了参考图，你只能提取参考图中的五官特征、发色发型、刘海分缝、服装版型与配饰细节；绝对禁止抄袭参考图原有的歪斜姿势、半身构图、镜头角度或原有表情。
 第二条：所有调查员与男性角色全员都是好看漂亮的俊美青年美型画风，角色之间年龄差很小，可以是成年人但绝对不能写成熟！如果是男性角色，正比立绘 BASE_TAGS 中必须写上俊美青年美少年与精致脸型标签：1boy, bishounen, handsome young man, pretty face, delicate facial features, narrow eyes, slender eyes, tsurime, long eyelashes，绝对禁止写 mature male, mature man, middle-aged, old, long face, horse face 等任何让男性变得成熟苍老或马脸的词汇！
 第三条：BASE_TAGS 只能包含纯粹的人物外貌五官、发色发型、身材特征以及从头到脚的衣服鞋靴配饰！BASE_TAGS 中绝对禁止包含虎牙、小虎牙、尖牙即 fang, fangs, snaggletooth, sharp teeth，绝对禁止包含任何面部表情如 smile, grin, smirk, blush，绝对禁止包含任何动作姿态或手势！BASE_TAGS 必须以 solo, single character 开头确保画面只有唯一一个全身人物。
 第四条：OUTFIT_ZH 中文服装方案只允许写纯粹客观的衣物款式、版型、颜色、材质、花纹与配饰清单，禁止写主观吹捧修辞。服装与鞋履根据角色自身人设、年龄与职业自由设计即可。
 第五条：ACT1 默认状态必须是平静无表情的自然默认站姿：three-quarter view, calm composed standing posture, neutral expressionless face, calm closed mouth, arms relaxed naturally at sides, looking at viewer，绝不在默认状态咧嘴露牙或做夸张动作。
 第六条：编写全部${baseTemplateActions.length}个必选差分${isMinorNpc ? '' : '与额外差分'}时，必须同步在写词阶段一次性全部写好。每个差分只允许写身体朝向角度、站立肢体动作、手势与面部五官表情，绝对禁止在 ACT 差分词里重复写 BASE_TAGS 外貌服装词，也绝对禁止在 ACT 差分词里写 1girl、1boy、solo 等人数性别词！每个差分可以换角度，可以换四十五度角 three-quarter view、正侧面 side profile view、斜侧面 angled side view、背面或背身回眸 from behind, looking back over shoulder，动作可以有重心不稳或动态倾斜 standing off-balance, dynamic standing pose，但无论如何人物都必须是站着的 standing, full body standing，绝对不能让他坐下，严禁出现坐姿、跪姿、蹲姿、睡姿、躺姿！
-第七条：这是一个克苏鲁调查员世界观，没有魔法超能力！拿起武器、备战、出招、决胜以及日常手持物必须严格依据角色人设中的「武器随身携带道具」即${wt.zh}来写，一般为写实小刀、匕首、左轮手枪、警棍、手电筒或笔记本，绝对禁止妄自揣测编写魔法权杖、发光神剑、悬浮塔罗、茶壶或超能力特效！
-第八条：绝对禁止在任何英文标签中写 visual novel sprite, official art, character sheet, reference sheet, multiple views, expression sheet, face inset, sitting, kneeling, lying, sleeping 等词汇。从头到尾严禁使用任何圆括号或方括号，严格按照以下格式逐行输出：
+第七条：轻伤和重伤两个差分完全由你自主编写英文提示词，严禁写得敷衍或千篇一律！其中轻伤必须写成身上有多处细小的伤口、脸颊与衣服手臂各处都沾了一点血迹，例如 standing, multiple small cuts and fine scratches on face and arms, light blood splatters and bloodstains scattered on clothes and skin，不要只写成受一点看不见的小伤；重伤必须写成浑身上下到处都是血迹、全身多处都是明显的流血伤口与破损，例如 standing, covered in blood, heavy bloodstains all over body and clothes, multiple bleeding wounds and gashes all over body, battle damaged torn clothes，绝对不要写成单纯捂着肚子或腹部被扎的死板动作！并且无论轻伤还是重伤，人物都必须保持双脚站立姿势 standing，绝对不要是跪着的 kneeling，绝对不要是躺着的 lying！
+第八条：这是一个克苏鲁调查员世界观，没有魔法超能力！拿起武器、备战、出招、决胜以及日常手持物必须严格依据角色人设中的「武器随身携带道具」即${wt.zh}来写，一般为写实小刀、匕首、左轮手枪、警棍、手电筒或笔记本，绝对禁止妄自揣测编写魔法权杖、发光神剑、悬浮塔罗、茶壶或超能力特效！
+第九条：绝对禁止在任何英文标签中写 visual novel sprite, official art, character sheet, reference sheet, multiple views, expression sheet, face inset, sitting, kneeling, lying, sleeping 等词汇。从头到尾严禁使用任何圆括号或方括号，严格按照以下格式逐行输出：
 OUTFIT_ZH: 纯客观的从头到脚服装款式材质颜色与随身配饰清单
 BASE_TAGS: 完全不含任何动作表情且不含虎牙的超详细正比纯外貌与全身衣服英文标签串
 ${actPromptLines}${isMinorNpc ? '' : '\nEXTRA1: 两个字额外差分名如记录|结合模组与随身道具的自然动作简述|含自然身体角度、手持写实道具与神态的英文标签\nEXTRA2: 两个字额外差分名如探查|结合模组与随身道具的特色动作简述|含自然身体角度、手部动作与神态的英文标签'}`;
@@ -10308,6 +10344,39 @@ ZH: 修改后的纯客观中文服装配饰清单`
       }
     }
 
+    function stepTachieExpression(delta) {
+      const charObj = appState.characters.find((c) => c.id === appState.selectedTachieCharId);
+      const actions = getCharActionList(charObj);
+      if (!actions || actions.length === 0) return;
+      const curName = appState.selectedTachieExp || '默认';
+      let curIdx = actions.findIndex((a) => a.name === curName);
+      if (curIdx < 0) curIdx = 0;
+      const nextIdx = (curIdx + delta + actions.length) % actions.length;
+      const nextAct = actions[nextIdx];
+      if (!nextAct) return;
+      const tagsEl = document.getElementById('tachie-custom-action-tags');
+      if (tagsEl) tagsEl.value = nextAct.enTags || '';
+      selectTachieExpression(nextAct.name);
+    }
+
+    function openCurrentCharExpHeightPage() {
+      const charId = appState.selectedTachieCharId || document.getElementById('tachie-target-char')?.value;
+      const expName = appState.selectedTachieExp || '默认';
+      const sel = document.getElementById('height-stage-add-char-select');
+      if (charId && sel) {
+        sel.value = charId;
+        if (!Array.isArray(appState.heightStageCharIds)) appState.heightStageCharIds = [];
+        if (!appState.heightStageCharIds.includes(charId)) {
+          appState.heightStageCharIds.push(charId);
+        }
+        if (!appState.heightStageExps) appState.heightStageExps = {};
+        appState.heightStageExps[charId] = expName;
+      }
+      switchSubPage('screen-tachie', 'tachie-sub-height');
+      onHeightStageCharSelectChange(false);
+      renderHeightStage();
+    }
+
     // 规范化上传的参考图片为无损原始分辨率 PNG Base64，不做任何缩小或有损压缩
     function normalizeUploadedImageForNai(rawDataUrl) {
       return new Promise((resolve) => {
@@ -11102,6 +11171,103 @@ ZH: 修改后的纯客观中文服装配饰清单`
       });
     }
 
+    function populateHeightStageExpSelect(charObj, preferredExpName = '') {
+      const expSel = document.getElementById('height-stage-exp-select');
+      const offsetInp = document.getElementById('height-stage-exp-offset-input');
+      if (!expSel || !charObj) return;
+      const actions = getCharActionList(charObj);
+      const curExp = preferredExpName || (appState.heightStageExps && appState.heightStageExps[charObj.id]) || appState.selectedTachieExp || '默认';
+      expSel.innerHTML = actions.map((a) => {
+        const off = Number((charObj.tachieExpOffsets && charObj.tachieExpOffsets[a.name]) || 0);
+        const offText = off !== 0 ? ` · ${off > 0 ? '+' + off : off}px` : '';
+        return `<option value="${a.name.replace(/"/g, '&quot;')}" ${a.name === curExp ? 'selected' : ''}>${a.name}${offText}</option>`;
+      }).join('');
+      if (!appState.heightStageExps) appState.heightStageExps = {};
+      appState.heightStageExps[charObj.id] = expSel.value || '默认';
+      if (offsetInp) {
+        const curOff = Number((charObj.tachieExpOffsets && charObj.tachieExpOffsets[expSel.value]) || 0);
+        offsetInp.value = String(curOff);
+      }
+    }
+
+    function onHeightStageExpSelectChange(expName) {
+      const sel = document.getElementById('height-stage-add-char-select');
+      const c = appState.characters.find((x) => x.id === sel?.value);
+      if (!c) return;
+      if (!appState.heightStageExps) appState.heightStageExps = {};
+      appState.heightStageExps[c.id] = expName || '默认';
+      const offsetInp = document.getElementById('height-stage-exp-offset-input');
+      if (offsetInp) {
+        const curOff = Number((c.tachieExpOffsets && c.tachieExpOffsets[expName]) || 0);
+        offsetInp.value = String(curOff);
+      }
+      renderHeightStage();
+    }
+
+    function stepHeightStageExp(delta) {
+      const sel = document.getElementById('height-stage-add-char-select');
+      const c = appState.characters.find((x) => x.id === sel?.value);
+      if (!c) return;
+      const actions = getCharActionList(c);
+      if (!actions || actions.length === 0) return;
+      const curExp = document.getElementById('height-stage-exp-select')?.value || (appState.heightStageExps && appState.heightStageExps[c.id]) || '默认';
+      let idx = actions.findIndex((a) => a.name === curExp);
+      if (idx < 0) idx = 0;
+      const nextAct = actions[(idx + delta + actions.length) % actions.length];
+      if (!nextAct) return;
+      populateHeightStageExpSelect(c, nextAct.name);
+      renderHeightStage();
+    }
+
+    function previewHeightStageExpOffset(rawVal) {
+      const sel = document.getElementById('height-stage-add-char-select');
+      const c = appState.characters.find((x) => x.id === sel?.value);
+      if (!c) return;
+      const expName = document.getElementById('height-stage-exp-select')?.value || (appState.heightStageExps && appState.heightStageExps[c.id]) || '默认';
+      const parsed = parseInt(rawVal, 10);
+      const val = isNaN(parsed) ? 0 : Math.max(-160, Math.min(160, parsed));
+      if (!c.tachieExpOffsets || typeof c.tachieExpOffsets !== 'object') {
+        c.tachieExpOffsets = {};
+      }
+      c.tachieExpOffsets[expName] = val;
+      renderHeightStage();
+    }
+
+    async function nudgeHeightStageExpOffset(deltaPx) {
+      const inp = document.getElementById('height-stage-exp-offset-input');
+      const cur = parseInt(inp?.value || '0', 10) || 0;
+      const nextVal = Math.max(-160, Math.min(160, cur + deltaPx));
+      if (inp) inp.value = String(nextVal);
+      previewHeightStageExpOffset(nextVal);
+      await saveCurrentCharExpOffset(true);
+    }
+
+    async function saveCurrentCharExpOffset(silent = false) {
+      const sel = document.getElementById('height-stage-add-char-select');
+      const c = appState.characters.find((x) => x.id === sel?.value);
+      if (!c) return;
+      const expName = document.getElementById('height-stage-exp-select')?.value || (appState.heightStageExps && appState.heightStageExps[c.id]) || '默认';
+      const inp = document.getElementById('height-stage-exp-offset-input');
+      const parsed = parseInt(inp?.value || '0', 10);
+      const val = isNaN(parsed) ? 0 : Math.max(-160, Math.min(160, parsed));
+      if (inp) inp.value = String(val);
+      if (!c.tachieExpOffsets || typeof c.tachieExpOffsets !== 'object') {
+        c.tachieExpOffsets = {};
+      }
+      c.tachieExpOffsets[expName] = val;
+      await db.characters.put(c);
+      populateHeightStageExpSelect(c, expName);
+      await renderHeightStage();
+      if (!silent) {
+        const btn = document.getElementById('height-stage-exp-save-btn');
+        if (btn) {
+          const orig = btn.textContent;
+          btn.textContent = '已存';
+          setTimeout(() => { btn.textContent = orig; }, 900);
+        }
+      }
+    }
+
     function onHeightStageCharSelectChange(userTriggered = false) {
       const sel = document.getElementById('height-stage-add-char-select');
       if (!sel) return;
@@ -11113,6 +11279,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
         if (document.getElementById('height-stage-ear-input')) {
           document.getElementById('height-stage-ear-input').value = c.earHatCm || 0;
         }
+        populateHeightStageExpSelect(c, (appState.heightStageExps && appState.heightStageExps[c.id]) || appState.selectedTachieExp || '默认');
         if (userTriggered) {
           if (!appState.heightStageCharIds.includes(c.id)) {
             appState.heightStageCharIds.push(c.id);
@@ -11172,6 +11339,9 @@ ZH: 修改后的纯客观中文服装配饰清单`
       appState.heightStageCharIds.forEach((id) => {
         appState.heightStageExps[id] = expName;
       });
+      const sel = document.getElementById('height-stage-add-char-select');
+      const c = appState.characters.find((x) => x.id === sel?.value);
+      if (c) populateHeightStageExpSelect(c, expName);
       renderHeightStage();
     }
 
@@ -11182,7 +11352,12 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const cur = appState.heightStageExps[charId] || '默认';
       const idx = actions.findIndex((a) => a.name === cur);
       const nextAct = actions[(idx + 1) % actions.length];
-      appState.heightStageExps[charId] = nextAct ? nextAct.name : '默认';
+      const nextName = nextAct ? nextAct.name : '默认';
+      appState.heightStageExps[charId] = nextName;
+      const sel = document.getElementById('height-stage-add-char-select');
+      if (sel && sel.value === charId) {
+        populateHeightStageExpSelect(c, nextName);
+      }
       renderHeightStage();
     }
 
@@ -11191,6 +11366,22 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const viewport = document.getElementById('height-stage-viewport');
       const rulerBox = document.getElementById('height-ruler-lines-box');
       if (!row || !viewport) return;
+
+      const selCharEl = document.getElementById('height-stage-add-char-select');
+      const activeCharObj = appState.characters.find((x) => x.id === selCharEl?.value) || appState.characters[0];
+      const expSelEl = document.getElementById('height-stage-exp-select');
+      if (activeCharObj && expSelEl && expSelEl.options.length === 0) {
+        populateHeightStageExpSelect(activeCharObj, (appState.heightStageExps && appState.heightStageExps[activeCharObj.id]) || '默认');
+      }
+      const expBtnsBox = document.getElementById('height-stage-exp-btns');
+      if (expBtnsBox && activeCharObj) {
+        const actions = getCharActionList(activeCharObj);
+        const curActiveExp = (appState.heightStageExps && appState.heightStageExps[activeCharObj.id]) || '默认';
+        expBtnsBox.innerHTML = actions.map((a) => {
+          const isCur = a.name === curActiveExp;
+          return `<button type="button" class="${isCur ? 'moe-btn' : 'moe-btn secondary'}" onclick="switchHeightStageAllExp('${a.name.replace(/'/g, "\\'")}')">${a.name}</button>`;
+        }).join('');
+      }
 
       const maxScaleCm = 225;
       const maxStagePx = 315;
@@ -11226,18 +11417,20 @@ ZH: 修改后的纯客观中文服装配饰清单`
         const totalVisualCm = netCm + earCm;
         const heightPx = Math.round((totalVisualCm / maxScaleCm) * maxStagePx);
         const expName = appState.heightStageExps[c.id] || '默认';
+        const expOffsetPx = Number((c.tachieExpOffsets && c.tachieExpOffsets[expName]) || 0);
         const rawImgUrl = (c.tachieExpressions && c.tachieExpressions[expName]) || c.tachieBase || c.chibiImg;
         const croppedImgUrl = await getCroppedSpriteForHeightStage(rawImgUrl);
 
         const col = document.createElement('div');
         col.className = 'height-actor-col';
         const earLabel = earCm > 0 ? `+耳帽${earCm}` : '';
+        const offLabel = expOffsetPx !== 0 ? `·高低${expOffsetPx > 0 ? '+' + expOffsetPx : expOffsetPx}` : '';
         col.innerHTML = `
           <div class="height-actor-badge" style="cursor:pointer;display:flex;align-items:center;gap:4px;" onclick="cycleActorHeightStageExp('${c.id}')" title="点击切换该角色表情差分">
-            <span>${c.name}·${netCm}cm${earLabel}·${expName}</span>
+            <span>${c.name}·${netCm}cm${earLabel}·${expName}${offLabel}</span>
             <span onclick="event.stopPropagation();removeCharFromHeightStage('${c.id}')" style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:rgba(0,0,0,0.12);color:var(--text-secondary);font-size:10px;line-height:1;" title="移出舞台">×</span>
           </div>
-          <img class="height-actor-img" src="${croppedImgUrl}" alt="${c.name}" style="height:${heightPx}px !important;max-height:none !important;max-width:none !important;width:auto !important;cursor:pointer;" title="单击切表情，连续点三下下载图片" onclick="handleHeightActorClick(event, '${c.id}', '${c.name}_${expName}')" />
+          <img class="height-actor-img" src="${croppedImgUrl}" alt="${c.name}" style="height:${heightPx}px !important;max-height:none !important;max-width:none !important;width:auto !important;transform:translateY(${-expOffsetPx}px);cursor:pointer;" title="单击切表情，连续点三下下载图片" onclick="handleHeightActorClick(event, '${c.id}', '${c.name}_${expName}')" />
         `;
         row.appendChild(col);
       }
@@ -15215,11 +15408,14 @@ ${BUILTIN_CSS_TEMPLATE}`;
       }
     }
 
-    function previewReplayBgmTrack(url, fallbackTag = '日常') {
+    function previewReplayBgmTrack(url, fallbackTag = '日常', onErrorFallback = null) {
       const player = document.getElementById('bgm-audio-player');
       if (!player) return;
       const finalUrl = normalizeMusicTrackUrl(url);
-      if (!finalUrl) return;
+      if (!finalUrl) {
+        if (typeof onErrorFallback === 'function') onErrorFallback();
+        return;
+      }
 
       if (!player.paused && _currentReplayBgmUrl === finalUrl && player.src) {
         fadeBgmVolumeTo(player, getTargetTheaterBgmVolume(), 1000);
@@ -15231,10 +15427,26 @@ ${BUILTIN_CSS_TEMPLATE}`;
         _currentReplayBgmUrl = playUrl;
         player.volume = 0;
         player.src = playUrl;
-        player.onerror = null;
+        let fallbackTriggered = false;
+        const triggerFallbackOnce = () => {
+          if (fallbackTriggered) return;
+          fallbackTriggered = true;
+          if (_currentReplayBgmUrl === playUrl) {
+            _currentReplayBgmUrl = '';
+          }
+          if (typeof onErrorFallback === 'function') {
+            onErrorFallback();
+          }
+        };
+        player.onerror = () => {
+          triggerFallbackOnce();
+        };
         player.play().then(() => {
           fadeBgmVolumeTo(player, getTargetTheaterBgmVolume(), 1000);
-        }).catch(() => {});
+        }).catch((err) => {
+          if (err && err.name === 'NotAllowedError') return;
+          triggerFallbackOnce();
+        });
       };
 
       if (!player.paused && _currentReplayBgmUrl && _currentReplayBgmUrl !== finalUrl && player.volume > 0.02) {
@@ -15798,20 +16010,25 @@ ${BUILTIN_CSS_TEMPLATE}`;
 
     const DEFAULT_REPLAY_SPLIT_PROMPT = `你是专业跑团Replay档案管理员与分卷分章编辑。请仔细阅读本卷的发言账号及代表发言样本、本卷文本片段与章节切分点，完成以下两件事：
 
-第一件事：准确识别本卷所有出场人物 CHAR_MAP。
+第一件事：准确识别本卷所有出场人物 CHAR_MAP 并判断每个人的身高。
 1. 请根据发言样本和正文内容，判断每个账号的真实身份，并将群昵称映射为跑团角色真名。如果正文里出现了有台词的模组NPC，也请提取出来。
 2. 身份分类只能填写以下六种之一：调查员、主要NPC、次要NPC、旁白、场外、骰子。其中主要NPC是指与调查员HO位深度绑定、有核心情感关联的猫或核心剧情搭档角色；普通配角、路人或次要线索角色归为次要NPC。
-3. 铁律：像 logs、逻各斯、dice、bot 以及任何专门播报掷骰点数、检定结果、上传记录的机器人账号，必须标记为 骰子！任何时间数字、检定结果词如大成功、半截话、行动顺序等绝不是人物，必须标记为 骰子 或直接忽略，严禁当成调查员或场外人！
-4. 只输出名字和分类，禁止编造外貌，禁止总结性格。
+3. 请根据正文中对每个NPC与调查员的体型外貌描写、性别、年龄与身份特征，自行判断并写上每个人的具体身高厘米整数，例如165、172、178、185；如果正文未直接写明数字，也必须由你根据角色形象特征合理判断并填上具体身高厘米整数。
+4. 铁律：像 logs、逻各斯、dice、bot 以及任何专门播报掷骰点数、检定结果、上传记录的机器人账号，必须标记为 骰子！任何时间数字、检定结果词如大成功、半截话、行动顺序等绝不是人物，必须标记为 骰子 或直接忽略，严禁当成调查员或场外人！
+5. 只输出名字、分类和身高厘米整数，禁止编造外貌，禁止总结性格。
 
 第二件事：为本卷各个章节拟定贴合跑团剧情的简短章节标题 CHAP_TITLE。
 
 从头到尾严禁使用任何括号，严格按以下行格式输出：
-CHAR_MAP: 原账号名或NPC名|跑团角色真名|调查员或主要NPC或次要NPC或旁白或场外或骰子
+CHAR_MAP: 原账号名或NPC名|跑团角色真名|调查员或主要NPC或次要NPC或旁白或场外或骰子|身高厘米整数如175
 CHAP_TITLE: 本卷内章节序号数字如1|章节标题`;
 
     function getCustomOrDefaultSplitPrompt() {
-      return localStorage.getItem('replay-custom-split-prompt') || DEFAULT_REPLAY_SPLIT_PROMPT;
+      const saved = localStorage.getItem('replay-custom-split-prompt');
+      if (saved && !saved.includes('身高厘米整数')) {
+        return DEFAULT_REPLAY_SPLIT_PROMPT;
+      }
+      return saved || DEFAULT_REPLAY_SPLIT_PROMPT;
     }
 
     function toggleSplitPromptEditor() {
@@ -15955,11 +16172,13 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
               aiReply.split('\n').forEach((rawLine) => {
                 const l = rawLine.trim();
                 if (l.startsWith('CHAR_MAP:')) {
-                  const parts = l.replace(/^CHAR_MAP:\s*/i, '').split('|').map((s) => s.trim());
+                  const parts = l.replace(/^CHAR_MAP:\s*/i, '').split(/[|｜]/).map((s) => s.trim());
                   if (parts.length >= 3) {
                     const rawKey = normalizeSpeakerName(parts[0]);
                     const trueName = normalizeSpeakerName(parts[1] || parts[0]);
                     let roleType = parts[2];
+                    const rawHeight = parts[3] ? parseInt(String(parts[3]).replace(/\D/g, ''), 10) : NaN;
+                    const parsedHeightCm = (!isNaN(rawHeight) && rawHeight >= 120 && rawHeight <= 230) ? rawHeight : 0;
                     if (roleType === 'NPC') roleType = '主要NPC';
                     if (roleType === '骰子' || roleType === '忽略' || isFakeOrDiceSpeakerName(rawKey) || isFakeOrDiceSpeakerName(trueName)) {
                       globalHeaderStats.delete(rawKey);
@@ -15974,13 +16193,15 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
                           name: trueName,
                           trueName: trueName,
                           count: statCount,
-                          trpgType: roleType
+                          trpgType: roleType,
+                          heightCm: parsedHeightCm || undefined
                         });
                       } else {
                         const ex = aiVerifiedSpeakersMap.get(mapKey);
                         ex.trueName = trueName;
                         ex.name = trueName;
                         ex.trpgType = roleType;
+                        if (parsedHeightCm) ex.heightCm = parsedHeightCm;
                       }
                     }
                   }
@@ -16264,7 +16485,7 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
             [
               {
                 role: 'system',
-                content: `你是跑团人物提取助手。请根据发言账号样本与日志片段，识别所有真正的跑团角色，将群昵称映射为角色真名，并分类为 调查员、主要NPC、次要NPC、旁白、场外、骰子 六种之一。其中主要NPC为与调查员HO位深度绑定的关联角色猫或核心搭档，次要NPC为普通配角。像 logs、逻各斯 等骰子或检定播报必须标为 骰子。严禁使用任何括号，每行格式：CHAR_MAP: 原名|角色真名|分类`
+                content: `你是跑团人物提取助手。请根据发言账号样本与日志片段，识别所有真正的跑团角色与NPC，将群昵称映射为角色真名，分类为 调查员、主要NPC、次要NPC、旁白、场外、骰子 六种之一，并根据正文描写或角色特征自己判断并写上每个人的身高厘米整数。其中主要NPC为与调查员HO位深度绑定的关联角色猫或核心搭档，次要NPC为普通配角。像 logs、逻各斯 等骰子或检定播报必须标为 骰子。严禁使用任何括号，每行格式：CHAR_MAP: 原名|角色真名|分类|身高厘米整数如175`
               },
               {
                 role: 'user',
@@ -16278,11 +16499,13 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
             aiReply.split('\n').forEach((line) => {
               const l = line.trim();
               if (!l.startsWith('CHAR_MAP:')) return;
-              const parts = l.replace(/^CHAR_MAP:\s*/i, '').split('|').map((x) => x.trim());
+              const parts = l.replace(/^CHAR_MAP:\s*/i, '').split(/[|｜]/).map((x) => x.trim());
               if (parts.length < 3) return;
               const rawKey = normalizeSpeakerName(parts[0]);
               const trueName = normalizeSpeakerName(parts[1] || parts[0]);
               let roleType = parts[2];
+              const rawHeight = parts[3] ? parseInt(String(parts[3]).replace(/\D/g, ''), 10) : NaN;
+              const parsedHeightCm = (!isNaN(rawHeight) && rawHeight >= 120 && rawHeight <= 230) ? rawHeight : 0;
               if (roleType === 'NPC') roleType = '主要NPC';
               if (roleType === '骰子' || isFakeOrDiceSpeakerName(rawKey) || isFakeOrDiceSpeakerName(trueName)) {
                 resultMap.delete(rawKey);
@@ -16294,13 +16517,15 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
                   ex.trueName = trueName;
                   ex.name = trueName;
                   ex.trpgType = roleType;
+                  if (parsedHeightCm) ex.heightCm = parsedHeightCm;
                 } else {
                   resultMap.set(trueName, {
                     rawName: rawKey || trueName,
                     name: trueName,
                     trueName: trueName,
                     count: 1,
-                    trpgType: roleType
+                    trpgType: roleType,
+                    heightCm: parsedHeightCm || undefined
                   });
                 }
               }
@@ -16886,8 +17111,8 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
         const statusText = item.trpgType === '场外'
           ? `${rawNote}发言 ${item.count} 次 · 已设为场外吐槽弹幕`
           : (matchedChar
-              ? `${rawNote}发言 ${item.count} 次 · ${expCountLabel ? expCountLabel + ' · ' : ''}身高 ${matchedChar.heightCm || 175}cm · 音色 ${matchedChar.voiceId || '未设'}`
-              : `${rawNote}发言 ${item.count} 次 · 待点入档存入角色档案柜`);
+              ? `${rawNote}发言 ${item.count} 次 · ${expCountLabel ? expCountLabel + ' · ' : ''}身高 ${matchedChar.heightCm || item.heightCm || 175}cm · 音色 ${matchedChar.voiceId || '未设'}`
+              : `${rawNote}发言 ${item.count} 次 · 身高 ${item.heightCm || 172}cm · 待点入档存入角色档案柜`);
 
         const row = document.createElement('div');
         row.className = 'setting-item';
@@ -16936,6 +17161,7 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
         if (spk.trpgType === '场外' || spk.trpgType === '骰子' || spk.trpgType === '旁白') continue;
         const targetName = spk.trueName || spk.name;
         if (!targetName || targetName === '旁白' || isFakeOrDiceSpeakerName(targetName)) continue;
+        const judgedHeight = (spk.heightCm && spk.heightCm >= 120 && spk.heightCm <= 230) ? spk.heightCm : 0;
         let existing = spk.charId
           ? appState.characters.find((c) => c.id === spk.charId)
           : (appState.characters.find((c) => c.moduleId === proj.id && c.name === targetName) || appState.characters.find((c) => c.name === targetName));
@@ -16951,7 +17177,7 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
             moduleTitle: proj.title || '跑团模组',
             region: 'alta_kilig',
             role: '',
-            heightCm: 172,
+            heightCm: judgedHeight || 172,
             earHatCm: 0,
             body: '',
             quirk: '',
@@ -16973,6 +17199,9 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
           await db.characters.put(newChar);
         } else {
           if (!spk.charId) spk.charId = existing.id;
+          if (judgedHeight && (!existing.heightCm || existing.heightCm === 172)) {
+            existing.heightCm = judgedHeight;
+          }
           if (spk.trpgType && (existing.trpgType !== spk.trpgType || existing.trpgRoleType !== spk.trpgType)) {
             existing.trpgType = spk.trpgType;
             existing.trpgRoleType = spk.trpgType;
@@ -18684,8 +18913,8 @@ ${numberedChapterPreview}`;
                   }
                 }
               }
-            } else if (line.startsWith('BGM_REC:')) {
-              const parts = line.replace(/^BGM_REC:\s*/i, '').split('|').map((s) => s.trim());
+            } else if (line.startsWith('BGM_REC:') || line.startsWith('BGM_MARK:') || line.startsWith('BGM:')) {
+              const parts = line.replace(/^BGM(?:_REC|_MARK)?:\s*/i, '').split(/[|｜]/).map((s) => s.trim());
               if (parts.length >= 2) {
                 const idxMatch = parts[0].match(/L?(\d+)/i);
                 const lineIdx = idxMatch ? Math.max(0, Math.min(baseLines.length - 1, parseInt(idxMatch[1], 10))) : 0;
@@ -18785,8 +19014,15 @@ ${numberedChapterPreview}`;
           : (investigatorNames[0] ? `${investigatorNames[0]}等人` : '调查员们');
         let lastRecentPcName = investigatorNames[0] || '';
 
+        let pendingCarryBgmRec = null;
+        let pendingCarryBgmTag = '';
+        let pendingCarryBgmMood = '';
+
         baseLines.forEach((origLine, origIdx) => {
           if (aiDeletedIndices.has(origIdx)) {
+            if (origLine.bgmRec) pendingCarryBgmRec = origLine.bgmRec;
+            if (origLine.bgmTag) pendingCarryBgmTag = origLine.bgmTag;
+            if (origLine.bgmMood) pendingCarryBgmMood = origLine.bgmMood;
             if (Array.isArray(origLine.hudEvents) && origLine.hudEvents.length > 0 && filteredStoryLines.length > 0) {
               const prev = filteredStoryLines[filteredStoryLines.length - 1];
               if (!Array.isArray(prev.hudEvents)) prev.hudEvents = [];
@@ -18795,6 +19031,9 @@ ${numberedChapterPreview}`;
             return;
           }
           if (aiDetectedOocIndices.has(origIdx)) {
+            if (origLine.bgmRec) pendingCarryBgmRec = origLine.bgmRec;
+            if (origLine.bgmTag) pendingCarryBgmTag = origLine.bgmTag;
+            if (origLine.bgmMood) pendingCarryBgmMood = origLine.bgmMood;
             chap.danmakuList.push({
               id: `danmaku_ai_${Date.now()}_${origIdx}`,
               lineIdx: Math.max(0, filteredStoryLines.length - 1),
@@ -18807,6 +19046,19 @@ ${numberedChapterPreview}`;
               prev.hudEvents.push(...origLine.hudEvents);
             }
             return;
+          }
+
+          if (pendingCarryBgmRec && !origLine.bgmRec) {
+            origLine.bgmRec = pendingCarryBgmRec;
+            pendingCarryBgmRec = null;
+          }
+          if (pendingCarryBgmTag && !origLine.bgmTag) {
+            origLine.bgmTag = pendingCarryBgmTag;
+            pendingCarryBgmTag = '';
+          }
+          if (pendingCarryBgmMood && !origLine.bgmMood) {
+            origLine.bgmMood = pendingCarryBgmMood;
+            pendingCarryBgmMood = '';
           }
 
           const expandedCandidates = aiLineReplacements.has(origIdx)
@@ -18827,10 +19079,24 @@ ${numberedChapterPreview}`;
               lastRecentPcName = l.speaker;
             }
             if (isUselessSystemNoticeText(l.speaker, l.text)) {
+              if (l.bgmRec) pendingCarryBgmRec = l.bgmRec;
+              if (l.bgmTag) pendingCarryBgmTag = l.bgmTag;
               return;
             }
             l.text = String(l.text || '').replace(/^[\s\u3000]+/gm, '').trim();
-            if (!l.text) return;
+            if (!l.text) {
+              if (l.bgmRec) pendingCarryBgmRec = l.bgmRec;
+              if (l.bgmTag) pendingCarryBgmTag = l.bgmTag;
+              return;
+            }
+            if (pendingCarryBgmRec && !l.bgmRec) {
+              l.bgmRec = pendingCarryBgmRec;
+              pendingCarryBgmRec = null;
+            }
+            if (pendingCarryBgmTag && !l.bgmTag) {
+              l.bgmTag = pendingCarryBgmTag;
+              pendingCarryBgmTag = '';
+            }
             if (l.type === 'narration' || l.speaker === '旁白') {
               l.jpText = '';
               if (l.text.includes('你')) {
@@ -19031,7 +19297,7 @@ ${numberedChapterPreview}`;
           filteredStoryLines[0].bgmMood = autoMood;
         }
 
-        // 自动调用音乐台按权重搜索AI推荐的日系纯音乐起点并直接绑定可播放音频流地址，播放剧本到了标记行即自动响起
+        // 自动调用音乐台按AI写的歌名和歌手搜索并绑定可播放音频流地址，播放剧本到了标记行即自动响起
         let resolvedBgmCount = 0;
         for (let fIdx = 0; fIdx < filteredStoryLines.length; fIdx++) {
           const lineObj = filteredStoryLines[fIdx];
@@ -19039,20 +19305,18 @@ ${numberedChapterPreview}`;
           const rec = lineObj.bgmRec;
           delete lineObj.bgmRec;
           if (!rec.song) continue;
-          const searchArtist = rec.artist ? `${rec.artist} 纯音乐` : '纯音乐 OST';
+          const searchArtist = rec.artist || '';
           const label = rec.artist ? `${rec.song} - ${rec.artist}` : rec.song;
           lineObj.bgmTag = label;
+          lineObj.bgmSong = rec.song;
           lineObj.bgmArtist = rec.artist || '';
           lineObj.bgmMood = rec.tag || '日常';
           if (statusEl) {
-            statusEl.textContent = `正在自动解析并绑定日系纯音乐音源：${label}...`;
+            statusEl.textContent = `正在按歌名与歌手解析音乐音源：${label}...`;
           }
           const resolved = await searchAndResolveMusicByWeight(rec.song, searchArtist, rec.tag || '日常');
           if (resolved && resolved.best && resolved.best.url) {
             lineObj.bgmUrl = normalizeMusicTrackUrl(resolved.best.url);
-            lineObj.bgmTag = resolved.best.artist
-              ? `${resolved.best.title} - ${resolved.best.artist}`
-              : resolved.best.title;
           } else {
             lineObj.bgmUrl = getFallbackInstrumentalBgmUrl(rec.tag || rec.song);
           }
@@ -19139,8 +19403,8 @@ BGM_STOP: L行号`;
         if (reply) {
           reply.split('\n').forEach((rawLine) => {
             const line = rawLine.trim();
-            if (line.startsWith('BGM_REC:')) {
-              const parts = line.replace(/^BGM_REC:\s*/i, '').split('|').map((s) => s.trim());
+            if (line.startsWith('BGM_REC:') || line.startsWith('BGM_MARK:') || line.startsWith('BGM:')) {
+              const parts = line.replace(/^BGM(?:_REC|_MARK)?:\s*/i, '').split(/[|｜]/).map((s) => s.trim());
               if (parts.length >= 2) {
                 const m = parts[0].match(/L?(\d+)/i);
                 const lIdx = m ? Math.max(0, Math.min(chap.scriptLines.length - 1, parseInt(m[1], 10))) : 0;
@@ -19161,10 +19425,11 @@ BGM_STOP: L行号`;
           });
         }
 
-        // 先清空旧的音乐标记再写入新规划的日系纯音乐节点
+        // 先清空旧的音乐标记再写入新规划的音乐节点
         chap.scriptLines.forEach((l) => {
           l.bgmTag = '';
           l.bgmUrl = '';
+          l.bgmSong = '';
           l.bgmArtist = '';
           l.bgmMood = '';
         });
@@ -19182,18 +19447,16 @@ BGM_STOP: L行号`;
           if (!targetLine || !rec.song) continue;
           const label = rec.artist ? `${rec.song} - ${rec.artist}` : rec.song;
           targetLine.bgmTag = label;
+          targetLine.bgmSong = rec.song;
           targetLine.bgmArtist = rec.artist || '';
           targetLine.bgmMood = rec.tag || '日常';
           if (statusEl) {
-            statusEl.textContent = `正在从音乐台自动检索并绑定日系纯音乐：${label}...`;
+            statusEl.textContent = `正在从音乐台按歌名与歌手检索绑定：${label}...`;
           }
-          const searchArtist = rec.artist ? `${rec.artist} 纯音乐` : '纯音乐 OST';
+          const searchArtist = rec.artist || '';
           const resolved = await searchAndResolveMusicByWeight(rec.song, searchArtist, rec.tag || '日常');
           if (resolved && resolved.best && resolved.best.url) {
             targetLine.bgmUrl = normalizeMusicTrackUrl(resolved.best.url);
-            targetLine.bgmTag = resolved.best.artist
-              ? `${resolved.best.title} - ${resolved.best.artist}`
-              : resolved.best.title;
           } else {
             targetLine.bgmUrl = getFallbackInstrumentalBgmUrl(rec.tag || rec.song);
           }
@@ -19872,13 +20135,13 @@ ${scriptText}`;
 特别注意：
 1. 如果在场只有1个人，请写 1girl 或 1boy 并融合该角色的外貌服装词、具体动作神态与场景光影。
 2. 如果在场有2个或更多角色，严禁把所有人都写成同一张脸！必须在英文提示词里明确写出人数如 2girls、1boy 1girl 或 multiple people，并分别写清每个角色各自不同的发色、瞳色、发型、服装与具体互动动作，确保多人同框各自特征鲜明且有真实互动感。
-3. 所有调查员与男性角色全员都是好看漂亮的俊美青年美型画风，角色之间年龄差不要写得太大，可以是年轻成年人但绝对不能写成熟！凡是有男性角色出场，必须使用 bishounen, handsome young man, pretty face, delicate facial features 等高颜值美型词，绝对禁止写 mature male, mature man, middle-aged, old, long face, horse face 等任何让男性变得成熟苍老或马脸的词汇！
+3. 编写CG时绝对不要特地写任何年龄差！必须确保PC几个人年龄是一样的、同龄同辈、外貌年龄感完全一致，没有任何谁年龄高、谁年龄低的情况！所有调查员与男性角色全员都是好看漂亮的俊美青年美型画风，凡是有男性角色出场，必须使用 bishounen, handsome young man, pretty face, delicate facial features 等高颜值美型词，绝对禁止写 age difference, older man, younger girl, mature male, mature man, middle-aged, old, long face, horse face 等任何拉开年龄差距或让男性变得成熟苍老的词汇！
 4. 从头到尾严禁使用任何圆括号或方括号，严格按以下行格式逐条输出：
 CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿号分隔|完整NovelAI英文提示词`;
 
     function getCustomOrDefaultCgSystemPrompt() {
       const saved = localStorage.getItem('replay-custom-cg-sys-prompt');
-      if (saved && !saved.includes('bishounen')) {
+      if (saved && (!saved.includes('bishounen') || !saved.includes('不要特地写任何年龄差'))) {
         return DEFAULT_REPLAY_CG_PROMPT;
       }
       return (saved && saved.trim()) ? saved.trim() : DEFAULT_REPLAY_CG_PROMPT;
@@ -19976,8 +20239,8 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
                   if (parts[1]) node.zhDesc = parts[1];
                   const parsedNames = parts[2].split(/[、,，\s]+/).filter(Boolean);
                   if (parsedNames.length > 0) node.presentNames = parsedNames;
-                  const rawEn = parts.slice(3).join(', ').replace(/\b(mature male|mature man|middle-aged|old man|long face|horse face)\b\s*,?/gi, '').trim();
-                  node.prompt = `masterpiece, best quality, very aesthetic, absurdres, cinematic anime CG illustration, 16:9 wide angle, dramatic lighting, ${rawEn}`;
+                  const rawEn = parts.slice(3).join(', ').replace(/\b(age difference|age gap|older man|older male|older woman|younger girl|younger boy|mature male|mature man|middle-aged|old man|long face|horse face)\b\s*,?/gi, '').trim();
+                  node.prompt = `masterpiece, best quality, very aesthetic, absurdres, cinematic anime CG illustration, 16:9 wide angle, dramatic lighting, same age peers, ${rawEn}`;
                   if (node.presentNames && node.presentNames.length === 1) {
                     const onlyChar = appState.characters.find((c) => c.name === node.presentNames[0]);
                     node.refCharId = onlyChar ? onlyChar.id : '';
@@ -20042,7 +20305,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
           return `CG序号:${idx}|第${idx + 1}张CG|当前中文说明:${cg.zhDesc || ''}|在场角色:${(cg.presentNames || []).join('、')}|当前英文提示词:${cg.prompt || ''}`;
         }).join('\n');
 
-        const sysPrompt = `你是专业NovelAI视觉小说CG提示词修改专家。请根据用户的修改要求，对指定的或全部CG画面说明与NovelAI英文提示词进行精准修改。注意所有调查员与男性角色全员都是好看漂亮的俊美青年美型画风，角色之间年龄差很小，绝对禁止写 mature male, mature man, middle-aged, old, long face 等任何让男性变得成熟苍老或马脸的词汇！只输出需要修改的CG行，从头到尾严禁使用任何括号，严格按以下格式逐条输出：
+        const sysPrompt = `你是专业NovelAI视觉小说CG提示词修改专家。请根据用户的修改要求，对指定的或全部CG画面说明与NovelAI英文提示词进行精准修改。注意编写CG时绝对不要特地写任何年龄差，必须确保PC几个人年龄是一样的、同龄同辈，没有任何谁年龄高、谁年龄低的情况！所有调查员与男性角色全员都是好看漂亮的俊美青年美型画风，绝对禁止写 age difference, older man, mature male, mature man, middle-aged, old, long face 等任何拉开年龄差距或让男性变得成熟苍老的词汇！只输出需要修改的CG行，从头到尾严禁使用任何括号，严格按以下格式逐条输出：
 CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名用顿号分隔|修改后的完整NovelAI英文提示词`;
 
         const reply = await callLlmCompletion(
@@ -21041,8 +21304,8 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         card.className = 'vn-script-card';
         card.style.position = 'relative';
         card.innerHTML = `
-          <span id="voice-dot-${idx}" style="display:none;position:absolute;top:6px;left:6px;width:7px;height:7px;border-radius:50%;background:#4ade80;box-shadow:0 0 6px rgba(74,222,128,0.7);pointer-events:none;z-index:2;"></span>
-          <div class="vn-script-row-top" style="padding-left:4px;">
+          <span id="voice-dot-${idx}" style="display:none;position:absolute;top:8px;right:8px;width:8px;height:8px;border-radius:50%;background:#94b49f;box-shadow:0 0 4px rgba(148,180,159,0.45);pointer-events:none;z-index:2;"></span>
+          <div class="vn-script-row-top" style="padding-left:4px;padding-right:14px;">
             <div class="vn-script-row-left">
               <span class="vn-console-idx">#${idx + 1}</span>
               <span style="font-size:12px;font-weight:800;color:var(--text-primary);">${line.speaker}</span>
@@ -22099,7 +22362,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         }
       }
 
-      // 2. 自动检测当前行及之前最近的音乐标记 bgmTag 并仅在已进入舞台时播放
+      // 2. 自动检测当前行及之前最近的音乐标记 bgmTag 并仅在已进入舞台时按歌名和歌手播放
       if (canPlayStageAudio) {
         let activeBgmLine = null;
         for (let k = idx; k >= 0; k--) {
@@ -22116,39 +22379,75 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
           } else {
             (async () => {
               try {
-                if (activeBgmLine.bgmUrl && (activeBgmLine.bgmUrl.includes('id=139774.mp3') || activeBgmLine.bgmUrl.includes('id=26113988.mp3') || activeBgmLine.bgmUrl.includes('id=22707008.mp3'))) {
-                  activeBgmLine.bgmUrl = '';
-                }
-                if (!activeBgmLine.bgmUrl) {
-                  const matchedTrack = (appState.bgmTracks || []).find((t) => t && t.url && !LEGACY_SYSTEM_BGM_IDS.has(t.id) && (t.name === bgmTagStr || t.name.includes(bgmTagStr)));
-                  if (matchedTrack && matchedTrack.url) {
-                    activeBgmLine.bgmUrl = normalizeMusicTrackUrl(matchedTrack.url);
-                  } else {
-                    let sName = bgmTagStr;
-                    let aName = activeBgmLine.bgmArtist || '';
-                    if (bgmTagStr.includes('-')) {
-                      const [sp, ...ap] = bgmTagStr.split('-');
-                      sName = sp.trim();
-                      aName = ap.join('-').trim();
-                    }
-                    const resolved = await searchAndResolveMusicByWeight(sName, aName || '纯音乐', activeBgmLine.bgmMood || '日常');
-                    if (resolved && resolved.best && resolved.best.url) {
-                      activeBgmLine.bgmUrl = normalizeMusicTrackUrl(resolved.best.url);
-                      if (curProj) saveReplayProjectToDB(curProj);
+                const parseSongAndArtist = (lineObj) => {
+                  const rawTag = String(lineObj.bgmTag || '').trim();
+                  let sName = String(lineObj.bgmSong || '').trim();
+                  let aName = String(lineObj.bgmArtist || '').trim();
+                  if (!sName) {
+                    const splitMatch = rawTag.split(/\s*(?:-|—|–|\||｜|\/)\s*/);
+                    if (splitMatch.length >= 2) {
+                      sName = splitMatch[0].trim();
+                      if (!aName) aName = splitMatch.slice(1).join(' ').trim();
                     } else {
-                      activeBgmLine.bgmUrl = getFallbackInstrumentalBgmUrl(bgmTagStr);
+                      sName = rawTag;
                     }
                   }
-                }
-                if (myRenderSeq !== _theaterRenderSeq) return;
+                  return { sName, aName };
+                };
+
+                const resolveFreshBgmUrl = async (forceSearch = false) => {
+                  if (!forceSearch && activeBgmLine.bgmUrl && !activeBgmLine.bgmUrl.includes('id=139774.mp3') && !activeBgmLine.bgmUrl.includes('id=26113988.mp3') && !activeBgmLine.bgmUrl.includes('id=22707008.mp3')) {
+                    return normalizeMusicTrackUrl(activeBgmLine.bgmUrl);
+                  }
+                  const { sName, aName } = parseSongAndArtist(activeBgmLine);
+                  if (!forceSearch) {
+                    const matchedTrack = (appState.bgmTracks || []).find((t) => t && t.url && !LEGACY_SYSTEM_BGM_IDS.has(t.id) && (t.name === bgmTagStr || (sName && t.name && t.name.includes(sName))));
+                    if (matchedTrack && matchedTrack.url) {
+                      activeBgmLine.bgmUrl = normalizeMusicTrackUrl(matchedTrack.url);
+                      return activeBgmLine.bgmUrl;
+                    }
+                  }
+                  const resolved = await searchAndResolveMusicByWeight(sName || bgmTagStr, aName, activeBgmLine.bgmMood || '日常');
+                  if (resolved && resolved.best && resolved.best.url) {
+                    activeBgmLine.bgmUrl = normalizeMusicTrackUrl(resolved.best.url);
+                    if (curProj) saveReplayProjectToDB(curProj);
+                    return activeBgmLine.bgmUrl;
+                  }
+                  const fbUrl = getFallbackInstrumentalBgmUrl(sName || bgmTagStr);
+                  activeBgmLine.bgmUrl = fbUrl;
+                  return fbUrl;
+                };
+
+                const targetUrl = await resolveFreshBgmUrl(false);
                 const curLobby = document.getElementById('vn-theater-selector-lobby');
                 const curScreen = document.getElementById('screen-theater');
                 if (!curScreen?.classList.contains('active') || curLobby?.classList.contains('active')) return;
-                if (activeBgmLine.bgmUrl) {
+
+                // 确认当前舞台所处行对应的最近音乐节点仍然是同一首标记，避免用户连续点击下一句时打断音乐启动
+                const curChap = getCurrentReplayChapter();
+                const curIdx = Math.max(0, Math.min((curChap?.scriptLines?.length || 1) - 1, appState.theaterLineIdx || 0));
+                let latestActiveLine = null;
+                if (curChap && Array.isArray(curChap.scriptLines)) {
+                  for (let k = curIdx; k >= 0; k--) {
+                    const cand = curChap.scriptLines[k];
+                    if (cand && cand.bgmTag && String(cand.bgmTag).trim()) {
+                      latestActiveLine = cand;
+                      break;
+                    }
+                  }
+                }
+                if (latestActiveLine && String(latestActiveLine.bgmTag).trim() !== bgmTagStr) return;
+
+                if (targetUrl) {
                   const player = document.getElementById('bgm-audio-player');
-                  const targetUrl = normalizeMusicTrackUrl(activeBgmLine.bgmUrl);
                   if (player && (player.paused || _currentReplayBgmUrl !== targetUrl || !player.src)) {
-                    previewReplayBgmTrack(targetUrl, activeBgmLine.bgmMood || bgmTagStr);
+                    previewReplayBgmTrack(targetUrl, activeBgmLine.bgmMood || bgmTagStr, async () => {
+                      activeBgmLine.bgmUrl = '';
+                      const retryUrl = await resolveFreshBgmUrl(true);
+                      if (retryUrl) {
+                        previewReplayBgmTrack(retryUrl, activeBgmLine.bgmMood || bgmTagStr, null);
+                      }
+                    });
                   }
                 }
               } catch (bgmErr) {
@@ -22277,11 +22576,9 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
           const actorDiv = document.createElement('div');
           actorDiv.className = 'vn-stage-actor ' + (isCurrentSpeaker ? 'speaking' : 'dimmed') + fxClass;
           actorDiv.style.height = heightPct + '%';
-          if (globalOffsetY !== 0) {
-            actorDiv.style.bottom = (-globalOffsetY) + 'px';
-          } else {
-            actorDiv.style.bottom = '0px';
-          }
+          const expOffsetPx = Number((charObj.tachieExpOffsets && charObj.tachieExpOffsets[expKey]) || 0);
+          const finalBottomPx = (-globalOffsetY) + expOffsetPx;
+          actorDiv.style.bottom = finalBottomPx + 'px';
           actorDiv.innerHTML = `
             <img src="${croppedSprite}" decoding="async" alt="${charObj.name}" style="height:100%;width:auto;max-width:none;" title="${charObj.name} · ${netCm}cm · ${expKey}" />
           `;
