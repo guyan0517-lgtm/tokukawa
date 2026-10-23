@@ -493,18 +493,23 @@ function calcMusicMatchScore(candidateTitle, candidateArtist, targetSong, target
     else if (cTitle.includes(tSong) || tSong.includes(cTitle)) score += 34;
   }
   if (tArtist) {
-    if (cArtist === tArtist) score += 35;
-    else if (cArtist.includes(tArtist) || tArtist.includes(cArtist)) score += 25;
+    if (cArtist === tArtist) score += 38;
+    else if (cArtist.includes(tArtist) || tArtist.includes(cArtist)) score += 26;
   }
   const combinedMeta = `${candidateTitle || ''} ${candidateArtist || ''}`;
-  if (/纯音乐|instrumental|inst\b|ost|soundtrack|bgm|piano|orchestra|配乐|原声/i.test(combinedMeta)) {
-    score += 14;
+  if (/纯音乐|伴奏|无人声|instrumental|inst\b|ost|original soundtrack|soundtrack|bgm|piano|orchestra|string|violin|cello|flute|music box|オルゴール|サウンドトラック|アンサンブル|配乐|原声|日乙|乙女|otome|drama|抓马|galgame|visual novel|文字游戏/i.test(combinedMeta)) {
+    score += 38;
   }
-  if (!/cover|翻唱|live|remix|dj|夜店|慢摇/i.test(String(candidateTitle || ''))) {
-    score += 6;
+  if (/泽野弘之|梶浦由记|神前晓|折户伸治|高梨康治|川井宪次|牛尾宪辅|光田康典|下村阳子|横山克|林友树|吉森信|天门|麻枝准|key sounds|falcom|type-moon|nitro|chiral|otomate|rejet|arisu|onoken|sakuzyo|久石让|坂本龙一/i.test(combinedMeta)) {
+    score += 28;
+  }
+  if (/cover|翻唱|live|演唱会|现场版|remix|dj|夜店|慢摇|feat\.|合唱|人声|vocal|歌ってみた|karaoke|卡拉ok|抖音|热歌/i.test(combinedMeta)) {
+    score -= 48;
+  } else {
+    score += 8;
   }
   if (hasDirectUrl) {
-    score += 10;
+    score += 12;
   }
   return score;
 }
@@ -514,7 +519,7 @@ async function checkNeteaseOuterPlayable(trackId) {
   const outerUrl = `https://music.163.com/song/media/outer/url?id=${trackId}.mp3`;
   try {
     const ctrl = new AbortController();
-    const tid = setTimeout(() => ctrl.abort(), 2400);
+    const tid = setTimeout(() => ctrl.abort(), 1600);
     const r = await fetch(outerUrl, {
       method: 'HEAD',
       redirect: 'follow',
@@ -594,116 +599,144 @@ app.post('/api/music/search', async (req, res) => {
       return res.status(400).json({ error: 'Missing song or artist keyword' });
     }
     const cleanArtistForQuery = rawArtist.replace(/纯音乐|OST|原声带|伴奏/gi, '').trim();
-    const queryKeyword = [rawSong, cleanArtistForQuery || rawArtist].filter(Boolean).join(' ').trim();
+    const baseKeyword = [rawSong, cleanArtistForQuery || rawArtist].filter(Boolean).join(' ').trim();
+    const hasInstHint = /纯音乐|ost|soundtrack|instrumental|bgm|原声/i.test(baseKeyword);
+    const queryKeyword = hasInstHint ? baseKeyword : `${baseKeyword} OST`;
     const candidates = [];
+
+    const tasks = [];
 
     // 1. JD/GD Music Station API (netease / tencent multi-source)
     if (sourcePref === 'all' || sourcePref === 'gd' || sourcePref === 'jd' || sourcePref === 'netease' || sourcePref === 'qq') {
       const gdSources = sourcePref === 'qq' ? ['tencent', 'netease'] : ['netease', 'tencent'];
       for (const src of gdSources) {
+        tasks.push((async () => {
+          try {
+            const ctrl = new AbortController();
+            const tid = setTimeout(() => ctrl.abort(), 2600);
+            const gdSearchUrl = `https://music-api.gdstudio.xyz/api.php?types=search&source=${src}&name=${encodeURIComponent(baseKeyword)}&count=8&pages=1`;
+            const gdRes = await fetch(gdSearchUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: ctrl.signal });
+            clearTimeout(tid);
+            if (gdRes.ok) {
+              const gdList = await gdRes.json();
+              if (Array.isArray(gdList)) {
+                for (const item of gdList.slice(0, 6)) {
+                  const title = String(item.name || '');
+                  const artist = Array.isArray(item.artist) ? item.artist.join(' / ') : String(item.artist || '');
+                  const trackId = item.url_id || item.id;
+                  candidates.push({
+                    source: src === 'tencent' ? 'QQ音乐台' : 'JD音乐台·网易',
+                    sourceCode: src,
+                    trackId: String(trackId || ''),
+                    title,
+                    artist,
+                    url: '',
+                    score: calcMusicMatchScore(title, artist, rawSong || baseKeyword, cleanArtistForQuery || rawArtist, false)
+                  });
+                }
+              }
+            }
+          } catch (_) {}
+        })());
+      }
+    }
+
+    // 2. NetEase Cloud Music Official Search API
+    if (sourcePref === 'all' || sourcePref === 'netease') {
+      tasks.push((async () => {
         try {
-          const gdSearchUrl = `https://music-api.gdstudio.xyz/api.php?types=search&source=${src}&name=${encodeURIComponent(queryKeyword)}&count=8&pages=1`;
-          const gdRes = await fetch(gdSearchUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-          if (gdRes.ok) {
-            const gdList = await gdRes.json();
-            if (Array.isArray(gdList)) {
-              for (const item of gdList.slice(0, 6)) {
-                const title = String(item.name || '');
-                const artist = Array.isArray(item.artist) ? item.artist.join(' / ') : String(item.artist || '');
-                const trackId = item.url_id || item.id;
+          const ctrl = new AbortController();
+          const tid = setTimeout(() => ctrl.abort(), 2600);
+          const neUrl = `https://music.163.com/api/search/get/web?csrf_token=&hlpretag=&hlposttag=&s=${encodeURIComponent(baseKeyword)}&type=1&offset=0&total=true&limit=8`;
+          const neRes = await fetch(neUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+              'Referer': 'https://music.163.com/'
+            },
+            signal: ctrl.signal
+          });
+          clearTimeout(tid);
+          if (neRes.ok) {
+            const neData = await neRes.json();
+            const songs = neData?.result?.songs || [];
+            for (const s of songs.slice(0, 6)) {
+              const title = String(s.name || '');
+              const artist = Array.isArray(s.artists) ? s.artists.map((a) => a.name).join(' / ') : '';
+              const albumName = String(s.album?.name || '');
+              if (s.id) {
                 candidates.push({
-                  source: src === 'tencent' ? 'QQ音乐台' : 'JD音乐台·网易',
-                  sourceCode: src,
-                  trackId: String(trackId || ''),
+                  source: '网易云音乐',
+                  sourceCode: 'netease_web',
+                  trackId: String(s.id),
                   title,
                   artist,
                   url: '',
-                  score: calcMusicMatchScore(title, artist, rawSong || queryKeyword, cleanArtistForQuery || rawArtist, false)
+                  score: calcMusicMatchScore(`${title} ${albumName}`, artist, rawSong || baseKeyword, cleanArtistForQuery || rawArtist, false)
                 });
               }
             }
           }
         } catch (_) {}
-      }
-    }
-
-    // 2. NetEase Cloud Music Official Search API
-    if (sourcePref === 'all' || sourcePref === 'netease' || candidates.length === 0) {
-      try {
-        const neUrl = `https://music.163.com/api/search/get/web?csrf_token=&hlpretag=&hlposttag=&s=${encodeURIComponent(queryKeyword)}&type=1&offset=0&total=true&limit=8`;
-        const neRes = await fetch(neUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-            'Referer': 'https://music.163.com/'
-          }
-        });
-        if (neRes.ok) {
-          const neData = await neRes.json();
-          const songs = neData?.result?.songs || [];
-          for (const s of songs.slice(0, 6)) {
-            const title = String(s.name || '');
-            const artist = Array.isArray(s.artists) ? s.artists.map((a) => a.name).join(' / ') : '';
-            if (s.id) {
-              candidates.push({
-                source: '网易云音乐',
-                sourceCode: 'netease_web',
-                trackId: String(s.id),
-                title,
-                artist,
-                url: '',
-                score: calcMusicMatchScore(title, artist, rawSong || queryKeyword, cleanArtistForQuery || rawArtist, false)
-              });
-            }
-          }
-        }
-      } catch (_) {}
+      })());
     }
 
     // 3. iTunes High-Availability Anime/Game Soundtrack Stream Search
     const searchItunesTerms = [queryKeyword];
-    if (rawSong && cleanArtistForQuery && queryKeyword !== rawSong) {
+    if (rawSong && cleanArtistForQuery && baseKeyword !== rawSong) {
       searchItunesTerms.push(`${rawSong} soundtrack`);
-      searchItunesTerms.push(`${cleanArtistForQuery} soundtrack`);
-    } else if (rawSong) {
-      searchItunesTerms.push(`${rawSong} anime ost`);
+    } else if (rawSong && !hasInstHint) {
+      searchItunesTerms.push(`${rawSong} instrumental`);
     }
     for (const term of searchItunesTerms.slice(0, 2)) {
-      try {
-        const itUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&limit=8`;
-        const itRes = await fetch(itUrl);
-        if (itRes.ok) {
-          const itData = await itRes.json();
-          for (const item of (itData?.results || []).slice(0, 6)) {
-            if (!item.previewUrl) continue;
-            const title = String(item.trackName || '');
-            const artist = String(item.artistName || '');
-            candidates.push({
-              source: '动漫游戏原声台',
-              sourceCode: 'itunes',
-              trackId: String(item.trackId || ''),
-              title,
-              artist,
-              url: `/api/music/stream?url=${encodeURIComponent(item.previewUrl)}`,
-              rawStreamUrl: item.previewUrl,
-              score: calcMusicMatchScore(title, artist, rawSong || term, cleanArtistForQuery || rawArtist, true) + 8
-            });
+      tasks.push((async () => {
+        try {
+          const ctrl = new AbortController();
+          const tid = setTimeout(() => ctrl.abort(), 2600);
+          const itUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&limit=8`;
+          const itRes = await fetch(itUrl, { signal: ctrl.signal });
+          clearTimeout(tid);
+          if (itRes.ok) {
+            const itData = await itRes.json();
+            for (const item of (itData?.results || []).slice(0, 6)) {
+              if (!item.previewUrl) continue;
+              const title = String(item.trackName || '');
+              const artist = String(item.artistName || '');
+              const collection = String(item.collectionName || '');
+              const genre = String(item.primaryGenreName || '');
+              candidates.push({
+                source: '动漫游戏原声台',
+                sourceCode: 'itunes',
+                trackId: String(item.trackId || ''),
+                title,
+                artist,
+                url: `/api/music/stream?url=${encodeURIComponent(item.previewUrl)}`,
+                rawStreamUrl: item.previewUrl,
+                score: calcMusicMatchScore(`${title} ${collection} ${genre}`, artist, rawSong || term, cleanArtistForQuery || rawArtist, true) + 12
+              });
+            }
           }
-        }
-      } catch (_) {}
+        } catch (_) {}
+      })());
     }
+
+    await Promise.allSettled(tasks);
 
     // Sort by weight descending
     candidates.sort((a, b) => b.score - a.score);
 
-    // Resolve and verify URLs for top candidates
-    for (let i = 0; i < Math.min(6, candidates.length); i++) {
-      const cand = candidates[i];
+    // Resolve and verify URLs for top candidates in parallel
+    const topCandidates = candidates.slice(0, 5);
+    await Promise.allSettled(topCandidates.map(async (cand) => {
       if (!cand.url && cand.trackId) {
         if (cand.sourceCode === 'netease' || cand.sourceCode === 'tencent') {
           try {
+            const ctrl = new AbortController();
+            const tid = setTimeout(() => ctrl.abort(), 2200);
             const uRes = await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${cand.sourceCode}&id=${encodeURIComponent(cand.trackId)}&br=320`, {
-              headers: { 'User-Agent': 'Mozilla/5.0' }
+              headers: { 'User-Agent': 'Mozilla/5.0' },
+              signal: ctrl.signal
             });
+            clearTimeout(tid);
             if (uRes.ok) {
               const uData = await uRes.json();
               if (uData && uData.url) {
@@ -721,7 +754,7 @@ app.post('/api/music/search', async (req, res) => {
           }
         }
       }
-    }
+    }));
 
     const playable = candidates.filter((c) => Boolean(c.url));
     playable.sort((a, b) => b.score - a.score);

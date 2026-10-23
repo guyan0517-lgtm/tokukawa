@@ -1796,11 +1796,11 @@ button {
 
 .vn-clue-card-layer {
   position: absolute;
-  top: 0;
+  top: 48px;
   left: 0;
   right: 0;
-  bottom: 24%;
-  z-index: 14;
+  bottom: 148px;
+  z-index: 30;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1818,27 +1818,32 @@ button {
 }
 
 .vn-clue-card {
-  width: clamp(118px, 14vw, 152px);
-  background: var(--card-bg);
-  border: 1.5px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-  padding: 6px;
+  width: clamp(144px, 18vw, 182px);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--text-primary) 88%, transparent) 0%, color-mix(in srgb, var(--text-primary) 95%, transparent) 100%);
+  border: 1.5px solid color-mix(in srgb, var(--card-bg) 28%, transparent);
+  border-top: 2px solid color-mix(in srgb, var(--card-bg) 62%, transparent);
+  outline: 1px dashed color-mix(in srgb, var(--card-bg) 24%, transparent);
+  outline-offset: -5px;
+  border-radius: 10px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.24);
+  padding: 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  color: var(--card-bg);
   pointer-events: auto;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .vn-clue-card-img-wrap {
   width: 100%;
-  aspect-ratio: 3 / 4;
-  max-height: 186px;
-  border-radius: 8px;
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
   overflow: hidden;
-  background: var(--secondary-bg);
-  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--text-primary) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-bg) 24%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1858,13 +1863,46 @@ button {
   font-weight: 700;
   line-height: 1.35;
   padding: 3px 6px;
-  border-radius: 6px;
-  background: var(--secondary-bg);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--card-bg) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-bg) 22%, transparent);
+  color: var(--card-bg);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.vn-theater-wrapper[data-stage-style="ark_grad"] .vn-clue-card {
+  border-radius: 8px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--text-primary) 86%, transparent) 0%, color-mix(in srgb, var(--text-primary) 94%, transparent) 100%);
+  border: 1px solid color-mix(in srgb, var(--card-bg) 24%, transparent);
+  border-top: 2px solid color-mix(in srgb, var(--card-bg) 65%, transparent);
+}
+
+.vn-theater-wrapper[data-stage-style="persona_noir"] .vn-clue-card {
+  border-radius: 12px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--text-primary) 92%, transparent) 0%, color-mix(in srgb, var(--text-primary) 80%, var(--accent-color) 20%) 100%);
+  border: 1px solid color-mix(in srgb, var(--card-bg) 30%, transparent);
+  border-left: 3.5px solid var(--accent-color);
+}
+
+.vn-theater-wrapper[data-stage-style="persona_noir"] .vn-clue-card-name {
+  background: var(--card-bg);
+  color: var(--text-primary);
+  border-color: var(--card-bg);
+}
+
+.vn-theater-wrapper[data-stage-style="cinema_dossier"] .vn-clue-card {
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--text-primary) 90%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-bg) 26%, transparent);
+  border-top: 2.5px solid var(--accent-color);
+}
+
+.vn-theater-wrapper[data-stage-style="cinema_dossier"] .vn-clue-card-name {
+  background: color-mix(in srgb, var(--accent-color) 86%, transparent);
+  color: var(--card-bg);
+  border-color: var(--accent-color);
 }
 
 /* 无背景纯文字可调透明度弹幕层 */

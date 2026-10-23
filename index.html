@@ -577,7 +577,7 @@
             <button type="button" class="moe-btn secondary" data-cat="universal" onclick="onSelectPersonaCategoryFilter('universal')">通用</button>
           </div>
           <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;line-height:1.5;">
-            按键说明：点右上角导包可导入包含全身立绘与表情差分的完整单人角色包；每个角色卡片右侧点导出可把该角色全部档案资料与全部立绘图片打包导出分享。
+            按键说明：点右上角导包可导入单人角色包；点角色进入详情页后可使用搜图、导出与删除功能。
           </div>
         </div>
         <div id="persona-char-grid"></div>
@@ -12634,14 +12634,6 @@ ZH: 修改后的纯客观中文服装配饰清单`
       }
     }
 
-    function onBgmVolumeChange(val) {
-      const v = Math.max(0, Math.min(100, Number(val) || 70));
-      const lbl = document.getElementById('bgm-vol-label');
-      if (lbl) lbl.textContent = v;
-      const player = document.getElementById('bgm-audio-player');
-      if (player) player.volume = v / 100;
-      localStorage.setItem('bgm-volume', String(v));
-    }
 
     function triggerMapBgUpload() {
       document.getElementById('map-bg-file-input').click();
@@ -13343,31 +13335,21 @@ ZH: 修改后的纯客观中文服装配饰清单`
           item.className = 'setting-item';
           item.style.cursor = 'pointer';
           item.style.marginBottom = '0';
-          item.style.flexDirection = 'column';
-          item.style.alignItems = 'stretch';
-          item.style.gap = '6px';
           item.onclick = () => {
             selectPersonaForEdit(c.id);
             switchSubPage('screen-persona', 'persona-basic');
           };
           item.innerHTML = `
-            <div style="display:flex;align-items:center;gap:10px;width:100%;">
-              <div class="setting-item-left">
-                ${validAv ? `<img src="${validAv}" decoding="async" loading="lazy" alt="${c.name}" style="width:100%;height:100%;object-fit:cover;" />` : ''}
-              </div>
-              <div class="setting-item-center">
-                <div class="setting-item-title">${c.name} · ${tType}${c.age ? (' · ' + c.age) : ''} · ${cm}cm</div>
-                <div class="setting-item-sub">差分 ${expCount}/${totalPoolCount} · ${vBadge} · ${bodyNote}</div>
-              </div>
-              <div class="setting-item-right">
-                <button type="button" class="moe-btn" onclick="event.stopPropagation();selectPersonaForEdit('${c.id}');switchSubPage('screen-persona', 'persona-basic')">编辑</button>
-                <button type="button" class="moe-btn secondary" onclick="event.stopPropagation();openScanCharacterImagesModal('${c.id}')">搜图</button>
-                <button type="button" class="moe-btn secondary" onclick="event.stopPropagation();exportSingleCharacterPack('${c.id}')">导出</button>
-                <button type="button" class="moe-btn ${isUniv ? '' : 'secondary'}" onclick="event.stopPropagation();toggleCharacterUniversalStatus('${c.id}')">通用</button>
-              </div>
+            <div class="setting-item-left">
+              ${validAv ? `<img src="${validAv}" decoding="async" loading="lazy" alt="${c.name}" style="width:100%;height:100%;object-fit:cover;" />` : ''}
             </div>
-            <div style="display:flex;justify-content:flex-end;width:100%;padding-top:4px;border-top:1px dashed var(--border-color);">
-              <button type="button" class="moe-btn secondary" style="height:26px;min-height:26px;padding:0 10px;font-size:11px;" onclick="event.stopPropagation();deletePersonaCharacterById('${c.id}', this)">删除</button>
+            <div class="setting-item-center" style="min-width:0;flex:1;">
+              <div class="setting-item-title">${c.name} · ${tType}${c.age ? (' · ' + c.age) : ''} · ${cm}cm</div>
+              <div class="setting-item-sub">差分 ${expCount}/${totalPoolCount} · ${vBadge} · ${bodyNote}</div>
+            </div>
+            <div class="setting-item-right">
+              <button type="button" class="moe-btn" onclick="event.stopPropagation();selectPersonaForEdit('${c.id}');switchSubPage('screen-persona', 'persona-basic')">编辑</button>
+              <button type="button" class="moe-btn ${isUniv ? '' : 'secondary'}" onclick="event.stopPropagation();toggleCharacterUniversalStatus('${c.id}')">通用</button>
             </div>
           `;
           bodyEl.appendChild(item);
@@ -15408,19 +15390,41 @@ ${BUILTIN_CSS_TEMPLATE}`;
     }
 
     const MOOD_OST_QUERY_MAP = {
-      '日常': { song: 'Everyday Life', artist: 'Ost Instrumental' },
-      '悬疑': { song: 'Mystery Investigation', artist: 'Anime Soundtrack' },
-      '诡异': { song: 'Abyss Dark Ambient', artist: 'Yuki Kajiura' },
-      '战斗': { song: 'Battle OST', artist: 'Hiroyuki Sawano' },
-      '抒情': { song: 'Sad Piano', artist: 'Key Sounds Label' },
-      '欢快': { song: 'Peaceful Town', artist: 'Falcom Sound Team jdk' }
+      '日常': { song: '木漏れ日 Piano Instrumental', artist: 'Key Sounds Label' },
+      '悬疑': { song: 'Mystery Investigation OST', artist: 'Kenji Kawai' },
+      '诡异': { song: 'Dark Ambient Soundtrack', artist: 'Yuki Kajiura' },
+      '战斗': { song: 'Battle Soundtrack Instrumental', artist: 'Hiroyuki Sawano' },
+      '抒情': { song: 'Gentle Piano OST', artist: 'Key Sounds Label' },
+      '欢快': { song: 'Sunny Town OST', artist: 'Falcom Sound Team jdk' },
+      '开心': { song: 'Sunny Town OST', artist: 'Falcom Sound Team jdk' },
+      '紧张': { song: 'Suspense Investigation OST', artist: 'Hideyuki Fukasawa' }
     };
 
+    const _bgmSearchMemCache = new Map();
+    let _bgmPlayReqToken = 0;
+
+    function scoreClientInstrumentalCandidate(title, artist, collection = '', genre = '', targetSong = '') {
+      const meta = `${title || ''} ${artist || ''} ${collection || ''} ${genre || ''}`;
+      let s = 70;
+      if (targetSong && String(title || '').toLowerCase().includes(String(targetSong).toLowerCase())) {
+        s += 25;
+      }
+      if (/纯音乐|伴奏|instrumental|inst\b|ost|original soundtrack|soundtrack|bgm|piano|orchestra|string|violin|cello|music box|オルゴール|サウンドトラック|配乐|原声|otome|drama|galgame/i.test(meta)) {
+        s += 32;
+      }
+      if (/cover|翻唱|live|演唱会|现场|remix|dj|夜店|慢摇|feat\.|vocal|歌ってみた|karaoke/i.test(meta)) {
+        s -= 50;
+      }
+      return s;
+    }
+
     async function searchClientSideItunesDirect(qSong, qArtist) {
-      const kw = `${qSong || ''} ${qArtist || ''}`.trim();
-      if (!kw) return null;
+      const baseKw = `${qSong || ''} ${qArtist || ''}`.trim();
+      if (!baseKw) return null;
+      const hasInst = /纯音乐|ost|soundtrack|instrumental|bgm|piano/i.test(baseKw);
+      const kw = hasInst ? baseKw : `${baseKw} soundtrack`;
       try {
-        const url = `https://itunes.apple.com/search?term=${encodeURIComponent(kw)}&media=music&entity=song&limit=8`;
+        const url = `https://itunes.apple.com/search?term=${encodeURIComponent(kw)}&media=music&entity=song&limit=10`;
         const res = await fetch(url);
         if (!res.ok) return null;
         const data = await res.json();
@@ -15430,9 +15434,10 @@ ${BUILTIN_CSS_TEMPLATE}`;
           title: r.trackName || qSong || '未知曲目',
           artist: r.artistName || qArtist || '',
           url: r.previewUrl,
-          source: 'iTunes音乐台',
-          score: Math.max(60, 98 - idx * 4)
+          source: 'iTunes原声台',
+          score: scoreClientInstrumentalCandidate(r.trackName, r.artistName, r.collectionName, r.primaryGenreName, qSong) - idx * 2
         }));
+        cands.sort((a, b) => b.score - a.score);
         return { best: cands[0], candidates: cands };
       } catch (_) {
         return null;
@@ -15443,6 +15448,11 @@ ${BUILTIN_CSS_TEMPLATE}`;
       const cleanSong = String(song || '').trim();
       const cleanArtist = String(artist || '').trim();
       if (!cleanSong && !cleanArtist) return null;
+
+      const cacheKey = `${cleanSong.toLowerCase()}__${cleanArtist.toLowerCase()}__${String(tag || '日常').trim()}`;
+      if (_bgmSearchMemCache.has(cacheKey)) {
+        return _bgmSearchMemCache.get(cacheKey);
+      }
 
       const trySearchOnce = async (qSong, qArtist) => {
         try {
@@ -15463,9 +15473,15 @@ ${BUILTIN_CSS_TEMPLATE}`;
       };
 
       try {
-        let data = await trySearchOnce(cleanSong, cleanArtist);
+        const instArtistHint = cleanArtist
+          ? (/纯音乐|ost|soundtrack|instrumental|bgm/i.test(cleanArtist) ? cleanArtist : `${cleanArtist} OST`)
+          : 'OST Instrumental';
+        let data = await trySearchOnce(cleanSong, instArtistHint);
         if (!data && cleanSong && cleanArtist) {
-          data = await trySearchOnce(cleanSong, '');
+          data = await trySearchOnce(cleanSong, cleanArtist);
+        }
+        if (!data && cleanSong) {
+          data = await trySearchOnce(`${cleanSong} 纯音乐`, '');
         }
         if (!data && cleanArtist) {
           data = await trySearchOnce('', `${cleanArtist} soundtrack`);
@@ -15493,12 +15509,66 @@ ${BUILTIN_CSS_TEMPLATE}`;
             renderReplayBgmList();
           }
           data.best.url = playUrl;
-          return { best: data.best, candidates: data.candidates || [], savedTrack: existing };
+          const finalOut = { best: data.best, candidates: data.candidates || [], savedTrack: existing };
+          _bgmSearchMemCache.set(cacheKey, finalOut);
+          return finalOut;
         }
       } catch (err) {
         console.warn('音乐台权重搜索异常:', err);
       }
       return null;
+    }
+
+    function prewarmChapterBgmUrls(chap) {
+      if (!chap || !Array.isArray(chap.scriptLines)) return;
+      const curProj = getCurrentReplayProject();
+      (async () => {
+        const moodUrlMap = new Map();
+        let changed = false;
+        for (let i = 0; i < chap.scriptLines.length; i++) {
+          const line = chap.scriptLines[i];
+          if (!line || !line.bgmTag) continue;
+          const tagStr = String(line.bgmTag).trim();
+          if (!tagStr || tagStr === '停止') continue;
+          const moodKey = String(line.bgmMood || '').trim();
+          if (moodKey && moodUrlMap.has(moodKey)) {
+            const prev = moodUrlMap.get(moodKey);
+            if (line.bgmUrl !== prev.url || line.bgmTag !== prev.tag) {
+              line.bgmTag = prev.tag;
+              line.bgmSong = prev.song;
+              line.bgmArtist = prev.artist;
+              line.bgmUrl = prev.url;
+              changed = true;
+            }
+            continue;
+          }
+          if (line.bgmUrl && !line.bgmUrl.includes('id=139774.mp3') && !line.bgmUrl.includes('id=26113988.mp3') && !line.bgmUrl.includes('id=22707008.mp3')) {
+            const normUrl = normalizeMusicTrackUrl(line.bgmUrl);
+            if (moodKey && normUrl) {
+              moodUrlMap.set(moodKey, { tag: tagStr, song: line.bgmSong || tagStr, artist: line.bgmArtist || '', url: normUrl });
+            }
+            continue;
+          }
+          let sName = String(line.bgmSong || '').trim();
+          let aName = String(line.bgmArtist || '').trim();
+          if (!sName) {
+            const parts = tagStr.split(/\s*(?:-|—|–|\||｜|\/)\s*/);
+            sName = parts[0]?.trim() || tagStr;
+            if (!aName && parts.length >= 2) aName = parts.slice(1).join(' ').trim();
+          }
+          const resolved = await searchAndResolveMusicByWeight(sName, aName, moodKey || '日常');
+          if (resolved && resolved.best && resolved.best.url) {
+            line.bgmUrl = normalizeMusicTrackUrl(resolved.best.url);
+            changed = true;
+            if (moodKey) {
+              moodUrlMap.set(moodKey, { tag: tagStr, song: sName, artist: aName, url: line.bgmUrl });
+            }
+          }
+        }
+        if (changed && curProj) {
+          saveReplayProjectToDB(curProj).catch(() => {});
+        }
+      })();
     }
 
     async function searchMusicByWeightUI() {
@@ -15518,7 +15588,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
 
       if (btn) { btn.textContent = '搜索中'; btn.disabled = true; }
       if (resBox) {
-        resBox.innerHTML = '<div style="font-size:12px;color:var(--accent-color);font-weight:700;">正在连接JD音乐台、网易云音乐与QQ音乐台计算权重排序...</div>';
+        resBox.innerHTML = '<div style="font-size:12px;color:var(--accent-color);font-weight:700;">正在连接JD音乐台、网易云音乐与QQ音乐台计算纯音乐权重排序...</div>';
       }
 
       try {
@@ -15623,8 +15693,8 @@ ${BUILTIN_CSS_TEMPLATE}`;
       }
     }
 
-    // 1秒平滑音量渐入渐出控制器
-    function fadeBgmVolumeTo(player, targetVol, durationMs = 1000, onComplete = null) {
+    // 平滑音量渐入渐出控制器
+    function fadeBgmVolumeTo(player, targetVol, durationMs = 500, onComplete = null) {
       if (!player) {
         if (typeof onComplete === 'function') onComplete();
         return;
@@ -15632,8 +15702,8 @@ ${BUILTIN_CSS_TEMPLATE}`;
       clearBgmFadeTimer();
       const clampedTarget = Math.max(0, Math.min(1, Number(targetVol) || 0));
       const startVol = Math.max(0, Math.min(1, Number(player.volume) || 0));
-      const steps = 20;
-      const stepMs = Math.max(20, Math.round(durationMs / steps));
+      const steps = 14;
+      const stepMs = Math.max(16, Math.round(durationMs / steps));
       let curStep = 0;
       _bgmFadeTimer = setInterval(() => {
         curStep += 1;
@@ -15654,6 +15724,8 @@ ${BUILTIN_CSS_TEMPLATE}`;
       appState.theaterBgmVolume = v;
       localStorage.setItem('theater-bgm-volume', String(v));
       localStorage.setItem('bgm-volume', String(v));
+      const lbl = document.getElementById('bgm-vol-label');
+      if (lbl) lbl.textContent = String(v);
       const tValEl = document.getElementById('theater-bgm-vol-val');
       if (tValEl) tValEl.textContent = String(v);
       const tSliderEl = document.getElementById('theater-bgm-vol-slider');
@@ -15688,18 +15760,27 @@ ${BUILTIN_CSS_TEMPLATE}`;
       }
 
       if (!player.paused && _currentReplayBgmUrl === finalUrl && player.src) {
-        fadeBgmVolumeTo(player, getTargetTheaterBgmVolume(), 1000);
+        fadeBgmVolumeTo(player, getTargetTheaterBgmVolume(), 360);
         return;
       }
 
+      const myReqToken = ++_bgmPlayReqToken;
+      clearBgmFadeTimer();
+
       const startNewTrackWithFadeIn = (playUrl) => {
+        if (myReqToken !== _bgmPlayReqToken) return;
         clearBgmFadeTimer();
+        try {
+          player.onended = null;
+          player.onerror = null;
+          player.pause();
+        } catch (_) {}
         _currentReplayBgmUrl = playUrl;
         player.volume = 0;
         player.src = playUrl;
         let fallbackTriggered = false;
         const triggerFallbackOnce = () => {
-          if (fallbackTriggered) return;
+          if (fallbackTriggered || myReqToken !== _bgmPlayReqToken) return;
           fallbackTriggered = true;
           if (_currentReplayBgmUrl === playUrl) {
             _currentReplayBgmUrl = '';
@@ -15712,34 +15793,40 @@ ${BUILTIN_CSS_TEMPLATE}`;
           triggerFallbackOnce();
         };
         player.play().then(() => {
-          fadeBgmVolumeTo(player, getTargetTheaterBgmVolume(), 1000);
+          if (myReqToken !== _bgmPlayReqToken) return;
+          fadeBgmVolumeTo(player, getTargetTheaterBgmVolume(), 480);
         }).catch((err) => {
+          if (myReqToken !== _bgmPlayReqToken) return;
           if (err && err.name === 'NotAllowedError') return;
           triggerFallbackOnce();
         });
       };
 
-      if (!player.paused && _currentReplayBgmUrl && _currentReplayBgmUrl !== finalUrl && player.volume > 0.02) {
-        fadeBgmVolumeTo(player, 0, 1000, () => {
-          player.pause();
+      if (!player.paused && _currentReplayBgmUrl && _currentReplayBgmUrl !== finalUrl && player.volume > 0.04) {
+        fadeBgmVolumeTo(player, 0, 220, () => {
+          if (myReqToken !== _bgmPlayReqToken) return;
+          try { player.pause(); } catch (_) {}
           startNewTrackWithFadeIn(finalUrl);
         });
       } else {
+        try { player.pause(); } catch (_) {}
         startNewTrackWithFadeIn(finalUrl);
       }
     }
 
     function stopReplayBgmPreview(useFade = true) {
+      const myReqToken = ++_bgmPlayReqToken;
       const player = document.getElementById('bgm-audio-player');
       if (!player) return;
-      if (!useFade || player.paused || player.volume <= 0.01) {
+      if (!useFade || player.paused || player.volume <= 0.02) {
         clearBgmFadeTimer();
-        player.pause();
+        try { player.pause(); } catch (_) {}
         _currentReplayBgmUrl = '';
         return;
       }
-      fadeBgmVolumeTo(player, 0, 1000, () => {
-        player.pause();
+      fadeBgmVolumeTo(player, 0, 320, () => {
+        if (myReqToken !== _bgmPlayReqToken) return;
+        try { player.pause(); } catch (_) {}
         _currentReplayBgmUrl = '';
       });
     }
@@ -16917,15 +17004,20 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
 
       if (proj) {
         if (!overrideText) proj.rawLog = cleaned;
+        const removedSet = new Set(Array.isArray(proj.removedSpeakerNames) ? proj.removedSpeakerNames : []);
         (proj.extractedSpeakers || []).forEach((oldSpk) => {
           if (oldSpk && oldSpk.isImported) {
             const targetName = oldSpk.trueName || oldSpk.name;
-            if (targetName && !resultMap.has(targetName)) {
+            if (targetName && !removedSet.has(targetName) && !resultMap.has(targetName)) {
               resultMap.set(targetName, oldSpk);
             }
           }
         });
-        proj.extractedSpeakers = Array.from(resultMap.values());
+        proj.extractedSpeakers = Array.from(resultMap.values()).filter((s) => {
+          const n = s.trueName || s.name;
+          const r = s.rawName || '';
+          return !removedSet.has(n) && (!r || !removedSet.has(r));
+        });
         await saveReplayProjectToDB(proj);
       }
       renderExtractedSpeakersList();
@@ -17297,21 +17389,21 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
         const newName = String(val || '').trim() || item.rawName || item.name;
         item.trueName = newName;
         item.name = newName;
-        const existingChar = appState.characters.find((c) => c.name === oldName && c.id !== 'narrator_kp');
+        if (Array.isArray(proj.removedSpeakerNames)) {
+          proj.removedSpeakerNames = proj.removedSpeakerNames.filter((n) => n !== newName);
+        }
+        const existingChar = (item.charId && appState.characters.find((c) => c.id === item.charId))
+          || appState.characters.find((c) => c.name === oldName && c.id !== 'narrator_kp');
         if (existingChar) {
           existingChar.name = newName;
+          item.charId = existingChar.id;
           await db.characters.put(existingChar);
         }
       } else if (field === 'trpgType') {
         item.trpgType = val;
-        if (val === '场外' || val === '骰子') {
-          const toRemove = appState.characters.find((c) => c.name === oldName && c.id !== 'narrator_kp');
-          if (toRemove) {
-            appState.characters = appState.characters.filter((c) => c.id !== toRemove.id);
-            await db.characters.delete(toRemove.id);
-          }
-        } else {
-          const existingChar = appState.characters.find((c) => c.name === oldName && c.id !== 'narrator_kp');
+        if (val !== '场外' && val !== '骰子') {
+          const existingChar = (item.charId && appState.characters.find((c) => c.id === item.charId))
+            || appState.characters.find((c) => c.name === oldName && c.id !== 'narrator_kp');
           if (existingChar) {
             existingChar.trpgType = val;
             existingChar.trpgRoleType = val;
@@ -17335,21 +17427,34 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       await syncExtractedSpeakersToCharacters();
     }
 
-    async function removeExtractedSpeakerAt(idx) {
+    async function removeExtractedSpeakerAt(idx, btnEl = null) {
+      if (btnEl && btnEl.dataset.confirming !== '1') {
+        btnEl.dataset.confirming = '1';
+        const origText = btnEl.textContent || '删人';
+        btnEl.textContent = '确认';
+        btnEl.style.background = 'var(--accent-color)';
+        btnEl.style.color = 'var(--card-bg)';
+        setTimeout(() => {
+          if (btnEl && btnEl.isConnected && btnEl.dataset.confirming === '1') {
+            btnEl.dataset.confirming = '0';
+            btnEl.textContent = origText;
+            btnEl.style.background = '';
+            btnEl.style.color = '';
+          }
+        }, 3000);
+        return;
+      }
       const proj = getCurrentReplayProject();
       if (!proj || !Array.isArray(proj.extractedSpeakers) || !proj.extractedSpeakers[idx]) return;
       const removed = proj.extractedSpeakers.splice(idx, 1)[0];
-      await saveReplayProjectToDB(proj);
-      if (removed && !removed.isImported) {
-        const targetName = removed.trueName || removed.name;
-        const foundChar = appState.characters.find((c) => c.name === targetName && c.id !== 'narrator_kp' && c.moduleId === proj.id);
-        if (foundChar) {
-          appState.characters = appState.characters.filter((c) => c.id !== foundChar.id);
-          await db.characters.delete(foundChar.id);
-        }
+      if (removed) {
+        if (!Array.isArray(proj.removedSpeakerNames)) proj.removedSpeakerNames = [];
+        const tName = removed.trueName || removed.name;
+        const rName = removed.rawName;
+        if (tName && !proj.removedSpeakerNames.includes(tName)) proj.removedSpeakerNames.push(tName);
+        if (rName && !proj.removedSpeakerNames.includes(rName)) proj.removedSpeakerNames.push(rName);
       }
-      populateCharacterSelects();
-      renderPersonaGrid();
+      await saveReplayProjectToDB(proj);
       renderExtractedSpeakersList();
     }
 
@@ -17517,7 +17622,7 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
               ? `<button type="button" class="moe-btn secondary" onclick="openCharacterInTachieStudio('${matchedChar.id}')">立绘</button>
                  <button type="button" class="moe-btn secondary" onclick="openAppScreen('persona');selectPersonaForEdit('${matchedChar.id}');switchSubPage('screen-persona','persona-basic');">编辑</button>`
               : `<button type="button" class="moe-btn" onclick="syncExtractedSpeakersToCharacters()">入档</button>`}
-            ${displayName !== '旁白' ? `<button type="button" class="moe-btn secondary" onclick="removeExtractedSpeakerAt(${idx})">删人</button>` : ''}
+            ${displayName !== '旁白' ? `<button type="button" class="moe-btn secondary" onclick="removeExtractedSpeakerAt(${idx}, this)">删人</button>` : ''}
           </div>
         `;
         box.appendChild(row);
@@ -18766,7 +18871,7 @@ SCENE_ITEM: 场景编号|2到5字简短场景名|NovelAI英文提示词|基底�
 规则三：在整理章节这一步彻底剔除 logs 记录指令与无用废话：凡是遇到诸如点log、logs开启关闭、日志保存链接、已绑卡、已改名、进行了什么鉴定等骰娘指令或系统废话，一律将该行的类型标记为 delete 彻底剔除，绝对禁止保留在旁白或对话中！只有最终的鉴定成功或失败结果、以及生命值或理智值变化才属于右上角检定提示。
 规则四：以括号开头的场外发言已在发给你之前提取到了独立弹幕区域；如果在剩下的句子里发现没有带括号的漏网之鱼，只有百分之百明确脱离模组剧情的玩家场外闲聊吐槽才将其类型标记为 ooc 移入弹幕区；模棱两可的一律视为正常剧情内容。
 规则五：立绘差分切换必须严格从下方提供的该角色可用差分池中选择！调查员与主要NPC拥有36个基础差分加专属差分，次要NPC仅拥有默认、开心、惊讶、愤怒、伤心、害羞、慌乱、疯狂、拿起武器、冷漠、轻伤、重伤共12个差分，绝对禁止给次要NPC填写36差分池里才有的其他差分名字，也绝对禁止原创池子之外的差分名字！切换差分的频率必须适中自然。
-规则六：配乐是视觉小说的灵魂环节！每一章必须根据剧情起承转合规划3到6处 BGM_REC 音乐开始标记，并在紧张解除、压抑留白、突发惊吓或场景切换处标记 BGM_STOP 音乐停止！所选曲目必须全部是日系动漫、视觉小说或日系RPG游戏中的纯音乐与原声带伴奏，例如泽野弘之、梶浦由记、神前晓、折户伸治、高梨康治、川井宪次、牛尾宪辅、光田康典、下村阳子、横山克等作曲家的纯音乐作品或经典Galgame纯音乐，严禁推荐带有人声演唱的流行歌曲，使角色说话与日系背景纯音乐自然融合！
+规则六：配乐是视觉小说的灵魂环节！每一章必须根据剧情起承转合规划3到6处 BGM_REC 音乐开始标记，并在紧张解除、压抑留白、突发惊吓或场景切换处标记 BGM_STOP 音乐停止！所选曲目必须百分之百是纯音乐与无人声伴奏，绝对禁止使用任何带有人声演唱的歌曲！请优先选用日本乙女游戏日乙、BL抓马中的背景纯音乐而非抓马语音、以及文字冒险游戏Galgame与视觉小说原声带中的BGM，例如折户伸治、麻枝准、神前晓、梶浦由记、泽野弘之、川井宪次、牛尾宪辅、光田康典、下村阳子、横山克、林友树、天门等作曲家的纯音乐作品。特别注意：在同一章之中，同一种情绪或氛围必须始终复用同一首纯音乐曲目，例如章节开头是开心日常情绪，中间变成紧张调查，最后又回到开心日常情绪，那么前后这两段开心情绪必须填写完全相同的纯音乐歌名与作曲家，严禁在同一章的同一种情绪下更换两首不同的音乐！
 规则七：如果发现某行台词或旁白里有明显错别字，不要擅自直接篡改原句，必须用 TYPO_MARK 单独标记出来供用户自己核对。
 规则八：一章跑团剧本请每隔一段剧情规划一处 CG_MARK 插图节点，整章共规划 5 到 10 处，不必非要等到激烈高潮才插图，有画面感的日常互动或具体场景动作同样可以插入CG，例如两人一起吃饭、给对方喂饭、递交物品、包扎伤口、查看线索或肢体接触；但位置必须选在有具体互动或动作画面的句子处，绝对禁止插在两个人只是普通站着纯聊天、毫无动作与画面变化的无意义干聊台词处！每一张插图都必须明确规划它的持续时间，即从哪一句开始持续显示到哪一句结束，写成 L起始行号-L结束行号 的格式，并填写简短画面说明和在场人物，此阶段不要编写英文生图提示词。同时结合下方提供的全部场景名字，使用 SCENE_RANGE 规划从第几句到第几句使用哪个场景背景、哪几句是纯CG填 CG、哪几句是黑幕转场填 blackout。
 规则九：在整理章节这一步，所有角色亲口说出的对话台词 dialogue 必须在 LINE_UPDATE 的最后一个字段结合整章上下文、该角色的性格语气以及对他人和自己的称呼习惯，写出贴合人设口吻的地道日语配音翻译，且日语台词前绝对不要写角色人名！旁白 narration 绝对不要翻译日语，最后一个字段直接填无。同时以视觉小说对话框视觉舒适度为切割基准，一个对话框最多只放四行字即约90字以内，如果KP或角色一次发了五到十句话的超长段落，请在保持完整不删减的前提下在合适句号处拆成多条同为 L行号 的 LINE_UPDATE 切到下一句对话框里。
@@ -18775,14 +18880,14 @@ SCENE_ITEM: 场景编号|2到5字简短场景名|NovelAI英文提示词|基底�
 SCENE_BG: 场景编号如scene_1|场所中文名称|纯景物2D视觉小说背景NovelAI英文提示词
 SCENE_RANGE: L起始行号-L结束行号|场景编号如scene_1或CG或blackout
 LINE_UPDATE: L行号|类型dialogue或narration或ooc或delete|说话人姓名或旁白|该角色可用差分池内的准确表情名称|音效名称或无|演出特效none或blackout或shake_char或zoom_char或jump_char或shake_screen|顶格纯中文台词或第三人称旁白文本|仅对话必填的贴合角色语气与称呼的不带人名纯日语翻译或旁白填无
-BGM_REC: L行号|日系动漫游戏纯音乐曲名|作曲家或原声带名称|氛围分类如日常或悬疑或诡异或战斗或抒情或欢快
+BGM_REC: L行号|日乙或BL抓马或文字游戏纯音乐曲名|作曲家或原声带名称|氛围分类如日常或悬疑或诡异或战斗或抒情或欢快
 BGM_STOP: L行号
 TYPO_MARK: L行号|疑似错字原词|建议修改词|简短原因
 CG_MARK: L起始行号-L结束行号|插图简短剧情画面说明|在场角色姓名用顿号分隔`;
 
     function getCustomOrDefaultScriptPrompt() {
       const saved = localStorage.getItem('replay-custom-script-prompt');
-      if (saved && (!saved.includes('delete') || !saved.includes('CG_MARK: L起始行号-L结束行号') || !saved.includes('日系动漫') || saved.includes('根据剧情高潮、关键调查与重要互动') || saved.includes('34个基础差分') || saved.includes('共10个差分'))) {
+      if (saved && (!saved.includes('delete') || !saved.includes('CG_MARK: L起始行号-L结束行号') || !saved.includes('同一章之中，同一种情绪') || saved.includes('根据剧情高潮、关键调查与重要互动') || saved.includes('34个基础差分') || saved.includes('共10个差分'))) {
         return DEFAULT_REPLAY_SCRIPT_PROMPT;
       }
       return saved || DEFAULT_REPLAY_SCRIPT_PROMPT;
@@ -19671,29 +19776,47 @@ ${numberedChapterPreview}`;
           filteredStoryLines[0].bgmMood = autoMood;
         }
 
-        // 自动调用音乐台按AI写的歌名和歌手搜索并绑定可播放音频流地址，播放剧本到了标记行即自动响起
+        // 自动调用音乐台按AI写的歌名和歌手搜索并绑定可播放音频流地址，同一章内同一情绪强制复用同一首纯音乐
         let resolvedBgmCount = 0;
+        const chapterMoodBgmMap = new Map();
         for (let fIdx = 0; fIdx < filteredStoryLines.length; fIdx++) {
           const lineObj = filteredStoryLines[fIdx];
           if (!lineObj || !lineObj.bgmRec) continue;
           const rec = lineObj.bgmRec;
           delete lineObj.bgmRec;
           if (!rec.song) continue;
+          const moodKey = String(rec.tag || '日常').trim();
+          if (chapterMoodBgmMap.has(moodKey)) {
+            const reused = chapterMoodBgmMap.get(moodKey);
+            lineObj.bgmTag = reused.label;
+            lineObj.bgmSong = reused.song;
+            lineObj.bgmArtist = reused.artist;
+            lineObj.bgmMood = moodKey;
+            lineObj.bgmUrl = reused.url;
+            resolvedBgmCount += 1;
+            continue;
+          }
           const searchArtist = rec.artist || '';
           const label = rec.artist ? `${rec.song} - ${rec.artist}` : rec.song;
           lineObj.bgmTag = label;
           lineObj.bgmSong = rec.song;
           lineObj.bgmArtist = rec.artist || '';
-          lineObj.bgmMood = rec.tag || '日常';
+          lineObj.bgmMood = moodKey;
           if (statusEl) {
-            statusEl.textContent = `正在按歌名与歌手解析音乐音源：${label}...`;
+            statusEl.textContent = `正在按歌名与歌手解析纯音乐音源：${label}...`;
           }
-          const resolved = await searchAndResolveMusicByWeight(rec.song, searchArtist, rec.tag || '日常');
+          const resolved = await searchAndResolveMusicByWeight(rec.song, searchArtist, moodKey);
           if (resolved && resolved.best && resolved.best.url) {
             lineObj.bgmUrl = normalizeMusicTrackUrl(resolved.best.url);
           } else {
-            lineObj.bgmUrl = getFallbackInstrumentalBgmUrl(rec.tag || rec.song);
+            lineObj.bgmUrl = getFallbackInstrumentalBgmUrl(moodKey || rec.song);
           }
+          chapterMoodBgmMap.set(moodKey, {
+            label,
+            song: rec.song,
+            artist: rec.artist || '',
+            url: lineObj.bgmUrl
+          });
           resolvedBgmCount += 1;
         }
 
@@ -19755,12 +19878,13 @@ ${numberedChapterPreview}`;
 
       try {
         const scriptDigest = chap.scriptLines.map((l, idx) => `L${idx}|${l.speaker}|${String(l.text || '').slice(0, 65)}`).join('\n');
-        const sysPrompt = `你是日本视觉小说与动漫配乐总监。请通读整章剧本，根据剧情氛围起承转合、日常闲聊、悬疑调查、诡异异变、战斗冲突与温情告别，为本章规划4到7处背景音乐开始节点 BGM_REC 与合适的音乐停止节点 BGM_STOP。
+        const sysPrompt = `你是日本视觉小说与文字冒险游戏配乐总监。请通读整章剧本，根据剧情氛围起承转合、日常闲聊、悬疑调查、诡异异变、战斗冲突与温情告别，为本章规划4到7处背景音乐开始节点 BGM_REC 与合适的音乐停止节点 BGM_STOP。
 严格遵守以下规则：
-1. 推荐的曲目必须全部是日系动漫、视觉小说Galgame或日系RPG游戏中的纯音乐与原声带伴奏，例如泽野弘之、梶浦由记、神前晓、折户伸治、高梨康治、川井宪次、牛尾宪辅、光田康典、下村阳子、横山克等作曲家的经典纯音乐，绝对禁止推荐有人声唱歌的流行歌曲。
-2. 在氛围转换、真相揭晓前夕、突发惊吓或场景切换需要安静留白的那一行标记 BGM_STOP。
-3. 从头到尾严禁使用任何圆括号或方括号，严格按以下行格式输出：
-BGM_REC: L行号|日系动漫游戏纯音乐曲名|作曲家或原声带名称|氛围分类如日常或悬疑或诡异或战斗或抒情或欢快
+1. 推荐的曲目必须百分之百是纯音乐与无人声伴奏，严禁推荐任何有人声演唱的歌曲！请优先选用日本乙女游戏日乙、BL抓马中的背景纯音乐而非抓马人声轨、以及文字冒险游戏Galgame与视觉小说原声带中的BGM，例如折户伸治、麻枝准、神前晓、梶浦由记、泽野弘之、川井宪次、牛尾宪辅、光田康典、下村阳子、横山克、林友树、天门等作曲家的经典纯音乐。
+2. 在同一章之中，同一种情绪或氛围必须始终复用同一首纯音乐曲目！例如一开始是开心日常的情绪，到中间变成紧张悬疑，到最后又回到开心日常的情绪，那么前后这两段开心情绪必须使用完全相同的纯音乐歌名与作曲家，不要在同一章的同一种情绪里使用两首不同的音乐。
+3. 在氛围转换、真相揭晓前夕、突发惊吓或场景切换需要安静留白的那一行标记 BGM_STOP。
+4. 从头到尾严禁使用任何圆括号或方括号，严格按以下行格式输出：
+BGM_REC: L行号|日乙或BL抓马或文字游戏纯音乐曲名|作曲家或原声带名称|氛围分类如日常或悬疑或诡异或战斗或抒情或欢快
 BGM_STOP: L行号`;
 
         const reply = await callLlmCompletion(
@@ -19816,31 +19940,49 @@ BGM_STOP: L行号`;
         });
 
         let boundCount = 0;
+        const chapterMoodBgmMap = new Map();
         for (const rec of recs) {
           const targetLine = chap.scriptLines[rec.lineIdx];
           if (!targetLine || !rec.song) continue;
+          const moodKey = String(rec.tag || '日常').trim();
+          if (chapterMoodBgmMap.has(moodKey)) {
+            const reused = chapterMoodBgmMap.get(moodKey);
+            targetLine.bgmTag = reused.label;
+            targetLine.bgmSong = reused.song;
+            targetLine.bgmArtist = reused.artist;
+            targetLine.bgmMood = moodKey;
+            targetLine.bgmUrl = reused.url;
+            boundCount += 1;
+            continue;
+          }
           const label = rec.artist ? `${rec.song} - ${rec.artist}` : rec.song;
           targetLine.bgmTag = label;
           targetLine.bgmSong = rec.song;
           targetLine.bgmArtist = rec.artist || '';
-          targetLine.bgmMood = rec.tag || '日常';
+          targetLine.bgmMood = moodKey;
           if (statusEl) {
-            statusEl.textContent = `正在从音乐台按歌名与歌手检索绑定：${label}...`;
+            statusEl.textContent = `正在从音乐台按歌名与歌手检索绑定纯音乐：${label}...`;
           }
           const searchArtist = rec.artist || '';
-          const resolved = await searchAndResolveMusicByWeight(rec.song, searchArtist, rec.tag || '日常');
+          const resolved = await searchAndResolveMusicByWeight(rec.song, searchArtist, moodKey);
           if (resolved && resolved.best && resolved.best.url) {
             targetLine.bgmUrl = normalizeMusicTrackUrl(resolved.best.url);
           } else {
-            targetLine.bgmUrl = getFallbackInstrumentalBgmUrl(rec.tag || rec.song);
+            targetLine.bgmUrl = getFallbackInstrumentalBgmUrl(moodKey || rec.song);
           }
+          chapterMoodBgmMap.set(moodKey, {
+            label,
+            song: rec.song,
+            artist: rec.artist || '',
+            url: targetLine.bgmUrl
+          });
           boundCount += 1;
         }
 
         await saveReplayProjectToDB(proj);
         renderReplayScriptEditor();
         if (statusEl) {
-          statusEl.textContent = `本章日系纯音乐配乐完成：共标记并自动绑定 ${boundCount} 处音乐起点与 ${stops.length} 处音乐停止点，进入舞台即可自动渐入渐出播放！`;
+          statusEl.textContent = `本章纯音乐配乐完成：共标记并自动绑定 ${boundCount} 处音乐起点与 ${stops.length} 处音乐停止点，同一情绪已统一复用同一曲目！`;
         }
       } catch (err) {
         alert('章节配乐规划失败：' + err.message);
@@ -22374,6 +22516,19 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
           audioDataUrl,
           updatedAt: Date.now()
         });
+        if (typeof _theaterTtsRamCache !== 'undefined') {
+          if (_theaterTtsRamCache.has(key)) {
+            const oldEntry = _theaterTtsRamCache.get(key);
+            if (oldEntry && oldEntry.blobUrl && String(oldEntry.blobUrl).startsWith('blob:')) {
+              try { URL.revokeObjectURL(oldEntry.blobUrl); } catch (_) {}
+            }
+            _theaterTtsRamCache.delete(key);
+          }
+          const freshBlobUrl = URL.createObjectURL(blob);
+          const preAudio = new Audio(freshBlobUrl);
+          preAudio.preload = 'auto';
+          _theaterTtsRamCache.set(key, { src: audioDataUrl, blobUrl: freshBlobUrl, preAudio });
+        }
         const safeKey = String(key || 'tts').replace(/[\\/:*?"<>|]/g, '_');
         await saveAssetToLocalBridge(`audio/${safeKey}.mp3`, audioDataUrl);
         appendApiConsoleLog({
@@ -22578,6 +22733,9 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         voiceBtn.textContent = '合成中';
       }
       try {
+        await invalidateSingleLineTtsCache(chap.id, line.id);
+        const curProj = getCurrentReplayProject();
+        if (curProj) await saveReplayProjectToDB(curProj);
         const effParams = resolveLineEffectiveVoiceParams(line);
         await synthesizeAndPlayReplayTts(ttsText, voiceId, cacheKey, true, effParams);
         if (btn) btn.classList.add('cached');
@@ -22699,11 +22857,26 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       });
     }
 
+    function evictTtsRamCacheKey(key) {
+      if (!key || typeof _theaterTtsRamCache === 'undefined') return;
+      if (_theaterTtsRamCache.has(key)) {
+        const old = _theaterTtsRamCache.get(key);
+        if (old && old.blobUrl && String(old.blobUrl).startsWith('blob:')) {
+          try { URL.revokeObjectURL(old.blobUrl); } catch (_) {}
+        }
+        _theaterTtsRamCache.delete(key);
+      }
+    }
+
     async function invalidateSingleLineTtsCache(chapId, lineId) {
       if (!chapId || !lineId) return;
+      const kJp = `line_${chapId}_${lineId}_jp`;
+      const kZh = `line_${chapId}_${lineId}_zh`;
+      evictTtsRamCacheKey(kJp);
+      evictTtsRamCacheKey(kZh);
       try {
-        await db.ttsCache.delete(`line_${chapId}_${lineId}_jp`);
-        await db.ttsCache.delete(`line_${chapId}_${lineId}_zh`);
+        await db.ttsCache.delete(kJp);
+        await db.ttsCache.delete(kZh);
       } catch (_) {}
     }
 
@@ -22738,6 +22911,9 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         }
       } else {
         line[field] = val;
+      }
+      if (!isInputEvent && (field === 'text' || field === 'jpText')) {
+        await invalidateSingleLineTtsCache(chap.id, line.id);
       }
       await saveReplayProjectToDB(proj);
     }
@@ -22987,7 +23163,9 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       appState.theaterEditMode = false;
       closeTheaterSelectorLobby();
       openAppScreen('theater');
-      preloadChapterTtsAudioPool(getCurrentReplayChapter(), 0);
+      const curChap = getCurrentReplayChapter();
+      preloadChapterTtsAudioPool(curChap, 0);
+      prewarmChapterBgmUrls(curChap);
       renderTheaterCurrentLine();
     }
 
@@ -23356,7 +23534,9 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       appState.theaterLineIdx = 0;
       renderReplayProjectSelectors();
       closeTheaterSelectorLobby();
-      preloadChapterTtsAudioPool(getCurrentReplayChapter(), 0);
+      const curChap = getCurrentReplayChapter();
+      preloadChapterTtsAudioPool(curChap, 0);
+      prewarmChapterBgmUrls(curChap);
       renderTheaterCurrentLine();
     }
 
@@ -23380,7 +23560,9 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         stopAllTheaterStageAudio();
         return;
       }
-      preloadChapterTtsAudioPool(getCurrentReplayChapter(), appState.theaterLineIdx || 0);
+      const curChap = getCurrentReplayChapter();
+      preloadChapterTtsAudioPool(curChap, appState.theaterLineIdx || 0);
+      prewarmChapterBgmUrls(curChap);
       renderTheaterCurrentLine();
     }
 
@@ -23401,7 +23583,9 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       stopTheaterAutoAndSkip();
       appState.currentReplayChapterIdx = parseInt(val, 10) || 0;
       appState.theaterLineIdx = 0;
-      preloadChapterTtsAudioPool(getCurrentReplayChapter(), 0);
+      const curChap = getCurrentReplayChapter();
+      preloadChapterTtsAudioPool(curChap, 0);
+      prewarmChapterBgmUrls(curChap);
       renderTheaterCurrentLine();
     }
 
@@ -23710,21 +23894,30 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         preloadChapterTtsAudioPool(chap, idx + 1);
         if (isDialogueLine) {
           const cacheKey = `line_${chap.id}_${line.id}_${appState.theaterTtsLang}`;
+          const altKey = `line_${chap.id}_${line.id}_${appState.theaterTtsLang === 'jp' ? 'zh' : 'jp'}`;
           (async () => {
             try {
               let playUrl = '';
+              let activeKey = cacheKey;
               if (_theaterTtsRamCache.has(cacheKey)) {
                 playUrl = _theaterTtsRamCache.get(cacheKey).blobUrl || '';
+              } else if (_theaterTtsRamCache.has(altKey)) {
+                playUrl = _theaterTtsRamCache.get(altKey).blobUrl || '';
+                activeKey = altKey;
               }
               if (!playUrl) {
-                const cached = await db.ttsCache.get(cacheKey);
+                let cached = await db.ttsCache.get(cacheKey);
+                if (!cached || !cached.audioDataUrl) {
+                  cached = await db.ttsCache.get(altKey);
+                  if (cached && cached.audioDataUrl) activeKey = altKey;
+                }
                 if (myRenderSeq !== _theaterRenderSeq) return;
                 if (cached && cached.audioDataUrl) {
-                  if (_theaterTtsRamCache.has(cacheKey)) {
-                    playUrl = _theaterTtsRamCache.get(cacheKey).blobUrl;
+                  if (_theaterTtsRamCache.has(activeKey)) {
+                    playUrl = _theaterTtsRamCache.get(activeKey).blobUrl;
                   } else {
                     playUrl = cached.audioDataUrl;
-                    resolveInstantTtsPlayableUrl(cacheKey, cached.audioDataUrl).catch(() => {});
+                    resolveInstantTtsPlayableUrl(activeKey, cached.audioDataUrl).catch(() => {});
                   }
                 }
               }
