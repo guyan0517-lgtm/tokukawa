@@ -2068,13 +2068,13 @@
             <input type="text" id="local-bridge-url-input" class="moe-input" value="http://127.0.0.1:8765" onchange="localStorage.setItem('local-bridge-url', this.value.trim())" />
           </div>
           <div class="form-group">
-            <label>安卓 Termux 一键启动命令 点右侧复制后粘贴到 Termux 回车即可</label>
+            <label>安卓 Termux 常驻自启命令 仅需初次运行一次 平时无需打开 Termux 也能自动存读</label>
             <div style="display:flex;gap:6px;align-items:stretch;">
               <textarea id="termux-local-bridge-cmd" class="moe-input" style="min-height:74px;font-size:11px;font-family:monospace;flex:1;" readonly></textarea>
               <button type="button" class="moe-btn" onclick="copyTermuxLocalBridgeCmd()">复制</button>
             </div>
           </div>
-          <div id="local-bridge-status-box" style="font-size:12px;color:var(--text-secondary);padding:10px;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:8px;">在 Termux 运行上方命令后点右上角检测或同步即可将全部图片与配音写入 Termux 内部私密目录，点隐图与清理可彻底清空相册残留与未启用旧图</div>
+          <div id="local-bridge-status-box" style="font-size:12px;color:var(--text-secondary);padding:10px;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:8px;">已启用本地双保险自动直存：未打开 Termux 时自动存入内置本地空间与离线镜像，打开 Termux 时后台自动静默连接同步，无需每次手动操作</div>
         </div>
       </div>
     </section>
@@ -3361,6 +3361,23 @@
       bgmTracks: 'id, name, tag',
       ttsCache: 'id',
       workshopProjects: 'id, title, updatedAt'
+    });
+    db.version(6).stores({
+      characters: 'id, name, region',
+      worldbook: 'id, category, title',
+      relations: '++id, charA, charB',
+      memories: '++id, type, timestamp',
+      maps: 'id, regionId',
+      foods: 'id, name',
+      forumPosts: '++id, timestamp',
+      styles: 'id, name',
+      themes: 'id, name',
+      furnitures: 'id, type, name',
+      replayProjects: 'id, title, updatedAt',
+      bgmTracks: 'id, name, tag',
+      ttsCache: 'id',
+      workshopProjects: 'id, title, updatedAt',
+      localAssetMirror: 'path, updatedAt'
     });
 
     const DEFAULT_HEIGHT_MAP = {
@@ -5193,13 +5210,59 @@
       }
     }
 
+    let _termuxBridgeOnlineState = false;
+    let _termuxBridgeLastCheckTs = 0;
+    let _termuxAutoSyncRunning = false;
+
+    async function getLocalAssetMirrorDataUrl(relPath) {
+      if (!relPath) return '';
+      const cleanRel = String(relPath).split('?')[0].replace(/^\/+/, '').replace(/\.\./g, '_').replace(/\.hknw$/, '');
+      if (!cleanRel) return '';
+      try {
+        if (db && db.localAssetMirror) {
+          const rec = await db.localAssetMirror.get(cleanRel);
+          if (rec && rec.dataUrl && typeof rec.dataUrl === 'string' && rec.dataUrl.startsWith('data:')) {
+            return rec.dataUrl;
+          }
+        }
+      } catch (_) {}
+      return '';
+    }
+
+    async function putLocalAssetMirrorDataUrl(relPath, dataUrl) {
+      if (!relPath || !dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) return;
+      if (dataUrl.startsWith('data:image/svg+xml')) return;
+      const cleanRel = String(relPath).split('?')[0].replace(/^\/+/, '').replace(/\.\./g, '_').replace(/\.hknw$/, '');
+      if (!cleanRel) return;
+      try {
+        if (db && db.localAssetMirror) {
+          await db.localAssetMirror.put({
+            path: cleanRel,
+            dataUrl,
+            updatedAt: Date.now()
+          });
+        }
+      } catch (_) {}
+    }
+
     window.addEventListener('error', (e) => {
       const el = e.target;
-      if (el && el.tagName === 'IMG' && el.src && !el.dataset.localFallbackTried) {
+      if (el && el.tagName === 'IMG' && el.src) {
         const baseUrl = getLocalBridgeBaseUrl();
-        if (el.src.startsWith(baseUrl + '/')) {
+        const relPath = extractRelativeAssetPath(el.src, baseUrl);
+        if (el.src.startsWith(baseUrl + '/') && !el.dataset.localFallbackTried) {
           el.dataset.localFallbackTried = '1';
+          _termuxBridgeOnlineState = false;
           el.src = '/local-assets/' + el.src.slice(baseUrl.length + 1);
+          return;
+        }
+        if (relPath && !el.dataset.mirrorFallbackTried) {
+          el.dataset.mirrorFallbackTried = '1';
+          getLocalAssetMirrorDataUrl(relPath).then((mirrorDataUrl) => {
+            if (mirrorDataUrl) {
+              el.src = toFastDisplayUrl(mirrorDataUrl);
+            }
+          }).catch(() => {});
         }
       }
     }, true);
@@ -5215,21 +5278,53 @@
       return localStorage.getItem('local-bridge-enabled') !== 'false';
     }
 
-    async function checkLocalBridgeEndpointAlive(urlBase) {
+    async function checkLocalBridgeEndpointAlive(urlBase, timeoutMs = 950) {
       try {
         const ctrl = new AbortController();
-        const tid = setTimeout(() => ctrl.abort(), 1800);
+        const tid = setTimeout(() => ctrl.abort(), timeoutMs);
         const res = await fetch(urlBase + '/ping', { cache: 'no-store', signal: ctrl.signal });
         clearTimeout(tid);
-        if (!res.ok) return null;
+        if (!res.ok) {
+          if (urlBase.includes(':8765')) _termuxBridgeOnlineState = false;
+          return null;
+        }
         const text = (await res.text()).trim();
-        if (text === 'ok') return { ok: true, service: 'hakoniwa-local-bridge', root: 'HakoniwaData' };
+        if (text === 'ok') {
+          if (urlBase.includes(':8765')) {
+            _termuxBridgeOnlineState = true;
+            _termuxBridgeLastCheckTs = Date.now();
+          }
+          return { ok: true, service: 'hakoniwa-local-bridge', root: 'HakoniwaData' };
+        }
         const info = JSON.parse(text);
         if (info && info.ok && info.service === 'hakoniwa-local-bridge') {
+          if (urlBase.includes(':8765')) {
+            _termuxBridgeOnlineState = true;
+            _termuxBridgeLastCheckTs = Date.now();
+          }
           return info;
         }
-      } catch (_) {}
+      } catch (_) {
+        if (String(urlBase || '').includes(':8765')) {
+          _termuxBridgeOnlineState = false;
+          _termuxBridgeLastCheckTs = Date.now();
+        }
+      }
       return null;
+    }
+
+    async function probeAndAutoSyncLocalBridge() {
+      if (!isLocalBridgeEnabled() || _termuxAutoSyncRunning) return;
+      const baseUrl = getLocalBridgeBaseUrl();
+      const wasOnline = _termuxBridgeOnlineState;
+      const info = await checkLocalBridgeEndpointAlive(baseUrl, 850);
+      if (info && !wasOnline) {
+        _termuxAutoSyncRunning = true;
+        try {
+          await syncAllAssetsToLocalBridgeUI(true);
+        } catch (_) {}
+        _termuxAutoSyncRunning = false;
+      }
     }
 
     function evictAssetFromMemoryCaches(relOrUrl) {
@@ -5283,7 +5378,7 @@
 
     const _ensuredNoMediaDirs = new Set();
     async function ensureLocalBridgeNoMediaForRelPath(cleanRel) {
-      if (!isLocalBridgeEnabled()) return;
+      if (!isLocalBridgeEnabled() || !_termuxBridgeOnlineState) return;
       const baseUrl = getLocalBridgeBaseUrl();
       const parts = String(cleanRel || '').split('/').filter(Boolean);
       const dirsToMark = [''];
@@ -5309,42 +5404,56 @@
     async function saveAssetToLocalBridge(relPath, dataUrl, preferTermuxOnly = false) {
       if (!dataUrl || typeof dataUrl !== 'string') return dataUrl;
       if (dataUrl.startsWith('data:image/svg+xml')) return dataUrl;
-      let resolvedDataUrl = dataUrl;
-      if (!resolvedDataUrl.startsWith('data:')) {
-        if (preferTermuxOnly && (resolvedDataUrl.startsWith('/local-assets/') || resolvedDataUrl.startsWith('blob:'))) {
-          resolvedDataUrl = await resolveImageToDataUrl(resolvedDataUrl);
-          if (!resolvedDataUrl || !resolvedDataUrl.startsWith('data:')) return dataUrl;
-        } else {
-          return dataUrl;
-        }
-      }
       const baseUrl = getLocalBridgeBaseUrl();
       const cleanRel = String(relPath || 'file.bin').split('?')[0].replace(/^\/+/, '').replace(/\.\./g, '_');
       const encodedRel = cleanRel.split('/').map((seg) => encodeURIComponent(seg)).join('/');
       const verSuffix = `?v=${Date.now()}`;
 
+      let resolvedDataUrl = dataUrl;
+      if (!resolvedDataUrl.startsWith('data:')) {
+        if (preferTermuxOnly && (resolvedDataUrl.startsWith('/local-assets/') || resolvedDataUrl.startsWith('blob:') || resolvedDataUrl.startsWith(baseUrl + '/'))) {
+          resolvedDataUrl = await resolveImageToDataUrl(resolvedDataUrl);
+          if (!resolvedDataUrl || !resolvedDataUrl.startsWith('data:')) {
+            resolvedDataUrl = await getLocalAssetMirrorDataUrl(cleanRel);
+          }
+          if (!resolvedDataUrl || !resolvedDataUrl.startsWith('data:')) return dataUrl;
+        } else {
+          return dataUrl;
+        }
+      }
+
       evictAssetFromMemoryCaches(cleanRel);
-      ensureLocalBridgeNoMediaForRelPath(cleanRel).catch(() => {});
+      await putLocalAssetMirrorDataUrl(cleanRel, resolvedDataUrl);
 
       let savedTermuxUrl = '';
       if (isLocalBridgeEnabled()) {
-        try {
-          const ctrl = new AbortController();
-          const tid = setTimeout(() => ctrl.abort(), 4500);
-          const res = await fetch(baseUrl + '/save', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path: cleanRel, dataUrl: resolvedDataUrl }),
-            signal: ctrl.signal
-          });
-          clearTimeout(tid);
-          if (res.ok) {
-            const info = await res.json();
-            if (info && info.ok) {
-              savedTermuxUrl = `${baseUrl}/${encodedRel}${verSuffix}`;
+        if (!_termuxBridgeOnlineState && Date.now() - _termuxBridgeLastCheckTs > 8000) {
+          await checkLocalBridgeEndpointAlive(baseUrl, 700);
+        }
+        if (_termuxBridgeOnlineState) {
+          ensureLocalBridgeNoMediaForRelPath(cleanRel).catch(() => {});
+          try {
+            const ctrl = new AbortController();
+            const tid = setTimeout(() => ctrl.abort(), 2200);
+            const res = await fetch(baseUrl + '/save', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ path: cleanRel, dataUrl: resolvedDataUrl }),
+              signal: ctrl.signal
+            });
+            clearTimeout(tid);
+            if (res.ok) {
+              const info = await res.json();
+              if (info && info.ok) {
+                savedTermuxUrl = `${baseUrl}/${encodedRel}${verSuffix}`;
+              }
+            } else {
+              _termuxBridgeOnlineState = false;
             }
+          } catch (_) {
+            _termuxBridgeOnlineState = false;
           }
-        } catch (_) {}
+        }
       }
 
       if (savedTermuxUrl) {
@@ -5372,7 +5481,7 @@
         } catch (_) {}
       }
 
-      return dataUrl;
+      return resolvedDataUrl;
     }
 
     function extractRelativeAssetPath(urlStr, baseUrl) {
@@ -5659,6 +5768,11 @@
             if (out2 && out2.startsWith('data:')) return out2;
           } catch (_e2) {}
         }
+        const rel = extractRelativeAssetPath(src, baseUrl);
+        if (rel) {
+          const mirrorDataUrl = await getLocalAssetMirrorDataUrl(rel);
+          if (mirrorDataUrl) return mirrorDataUrl;
+        }
       }
       return src;
     }
@@ -5910,7 +6024,7 @@
         ""
       ].join('\n');
       const b64 = btoa(unescape(encodeURIComponent(pyScript)));
-      return `pkg install -y python; test -d "$HOME/storage" || termux-setup-storage; pkill -9 -f python3 2>/dev/null; echo ${b64} | base64 -d | python3 -u`;
+      return `pkg install -y python; test -d "$HOME/storage" || termux-setup-storage; mkdir -p "$HOME/.HakoniwaVault" "$HOME/.termux/boot"; echo ${b64} | base64 -d > "$HOME/.HakoniwaVault/bridge_daemon.py"; printf '#!/data/data/com.termux/files/usr/bin/sh\\ntermux-wake-lock 2>/dev/null\\npgrep -f "bridge_daemon.py" >/dev/null 2>&1 || nohup python3 -u "$HOME/.HakoniwaVault/bridge_daemon.py" > "$HOME/.HakoniwaVault/bridge.log" 2>&1 &\\n' > "$HOME/.HakoniwaVault/start_bridge.sh"; chmod +x "$HOME/.HakoniwaVault/start_bridge.sh"; cp "$HOME/.HakoniwaVault/start_bridge.sh" "$HOME/.termux/boot/start_hakoniwa_bridge.sh"; chmod +x "$HOME/.termux/boot/start_hakoniwa_bridge.sh"; grep -q "HakoniwaVault/start_bridge.sh" "$HOME/.bashrc" 2>/dev/null || echo 'sh "$HOME/.HakoniwaVault/start_bridge.sh" >/dev/null 2>&1' >> "$HOME/.bashrc"; grep -q "HakoniwaVault/start_bridge.sh" "$HOME/.profile" 2>/dev/null || echo 'sh "$HOME/.HakoniwaVault/start_bridge.sh" >/dev/null 2>&1' >> "$HOME/.profile"; pkill -9 -f bridge_daemon.py 2>/dev/null; pkill -9 -f python3 2>/dev/null; sh "$HOME/.HakoniwaVault/start_bridge.sh"; echo "=== 箱庭物语后台常驻自启服务已安装并启动，后续无需再次粘贴运行 ==="`;
     }
 
     function copyTermuxLocalBridgeCmd() {
@@ -5923,7 +6037,7 @@
         document.execCommand('copy');
       });
       if (statusBox) {
-        statusBox.textContent = '已复制新版 Termux 启动命令！去 Termux 粘贴回车运行后，旧文件夹与新文件夹中的全部图片都会移入 Termux 内部私密空间并彻底从手机相册消失，软件内显示完全不受影响。';
+        statusBox.textContent = '已复制常驻自启命令！去 Termux 粘贴回车运行一次后，服务将写入后台常驻与自启脚本；平时即使不打开 Termux，软件也会通过内置离线镜像自动保存和读取全部线索与图片。';
       }
     }
 
@@ -6128,6 +6242,12 @@
             if (isAssetNeedsLocalMigration(cg.customPadImg, termuxOnline, baseUrl)) {
               const newUrl = await saveAssetToLocalBridge(`projects/${safeProj}/cgs/pad_${cg.id}.png`, cg.customPadImg, termuxOnline);
               if (newUrl !== cg.customPadImg) { cg.customPadImg = newUrl; projChanged = true; count++; }
+            }
+          }
+          for (const cl of (ch.clueNodes || [])) {
+            if (cl && isAssetNeedsLocalMigration(cl.imageUrl, termuxOnline, baseUrl)) {
+              const newUrl = await saveAssetToLocalBridge(`projects/${safeProj}/clues/${cl.id}.png`, cl.imageUrl, termuxOnline);
+              if (newUrl !== cl.imageUrl) { cl.imageUrl = newUrl; projChanged = true; count++; }
             }
           }
         }
@@ -20010,6 +20130,8 @@ ${numberedChapterPreview}`;
         chap.scenes = scenes;
         chap.cgNodes = cgNodes;
         chap.scriptLines = filteredStoryLines;
+        if (!Array.isArray(chap.clueNodes)) chap.clueNodes = [];
+        syncChapterClueLineBindings(chap);
         await saveReplayProjectToDB(proj);
 
         renderReplayStudioUI();
@@ -20425,7 +20547,28 @@ ${scriptText}`;
           if (typeof cg.lineIdx === 'number' && cg.lineIdx > safeIdx) {
             cg.lineIdx += 1;
           }
+          if (typeof cg.startLineIdx === 'number' && cg.startLineIdx > safeIdx) {
+            cg.startLineIdx += 1;
+          }
+          if (typeof cg.endLineIdx === 'number' && cg.endLineIdx > safeIdx) {
+            cg.endLineIdx += 1;
+          }
         });
+        syncChapterCgLineBindings(chap);
+      }
+      if (Array.isArray(chap.clueNodes)) {
+        chap.clueNodes.forEach((cl) => {
+          if (typeof cl.lineIdx === 'number' && cl.lineIdx > safeIdx) {
+            cl.lineIdx += 1;
+          }
+          if (typeof cl.startLineIdx === 'number' && cl.startLineIdx > safeIdx) {
+            cl.startLineIdx += 1;
+          }
+          if (typeof cl.endLineIdx === 'number' && cl.endLineIdx > safeIdx) {
+            cl.endLineIdx += 1;
+          }
+        });
+        syncChapterClueLineBindings(chap);
       }
       if (Array.isArray(chap.danmakuList)) {
         chap.danmakuList.forEach((dm) => {
@@ -20477,7 +20620,28 @@ ${scriptText}`;
           if (typeof cg.lineIdx === 'number' && cg.lineIdx > lineIdx) {
             cg.lineIdx = Math.max(0, cg.lineIdx - 1);
           }
+          if (typeof cg.startLineIdx === 'number' && cg.startLineIdx > lineIdx) {
+            cg.startLineIdx = Math.max(0, cg.startLineIdx - 1);
+          }
+          if (typeof cg.endLineIdx === 'number' && cg.endLineIdx >= lineIdx) {
+            cg.endLineIdx = Math.max(cg.startLineIdx ?? 0, cg.endLineIdx - 1);
+          }
         });
+        syncChapterCgLineBindings(chap);
+      }
+      if (Array.isArray(chap.clueNodes)) {
+        chap.clueNodes.forEach((cl) => {
+          if (typeof cl.lineIdx === 'number' && cl.lineIdx > lineIdx) {
+            cl.lineIdx = Math.max(0, cl.lineIdx - 1);
+          }
+          if (typeof cl.startLineIdx === 'number' && cl.startLineIdx > lineIdx) {
+            cl.startLineIdx = Math.max(0, cl.startLineIdx - 1);
+          }
+          if (typeof cl.endLineIdx === 'number' && cl.endLineIdx >= lineIdx) {
+            cl.endLineIdx = Math.max(cl.startLineIdx ?? 0, cl.endLineIdx - 1);
+          }
+        });
+        syncChapterClueLineBindings(chap);
       }
       if (Array.isArray(chap.danmakuList)) {
         chap.danmakuList.forEach((dm) => {
@@ -20531,6 +20695,25 @@ ${scriptText}`;
         syncChapterCgLineBindings(chap);
       }
 
+      if (Array.isArray(chap.clueNodes)) {
+        chap.clueNodes.forEach((cl) => {
+          const s = cl.startLineIdx ?? cl.lineIdx ?? 0;
+          const e = cl.endLineIdx ?? s;
+          if (s === e) {
+            if (s === lineIdx) {
+              cl.startLineIdx = targetIdx;
+              cl.lineIdx = targetIdx;
+              cl.endLineIdx = targetIdx;
+            } else if (s === targetIdx) {
+              cl.startLineIdx = lineIdx;
+              cl.lineIdx = lineIdx;
+              cl.endLineIdx = lineIdx;
+            }
+          }
+        });
+        syncChapterClueLineBindings(chap);
+      }
+
       computeChapterStageSlots(chap.scriptLines);
       await saveReplayProjectToDB(proj);
       renderReplayScriptEditor();
@@ -20540,17 +20723,37 @@ ${scriptText}`;
       if (!chap || !Array.isArray(chap.scriptLines)) return;
       chap.scriptLines.forEach((l) => { l.clueId = ''; });
       if (!Array.isArray(chap.clueNodes)) chap.clueNodes = [];
+      const maxIdx = Math.max(0, chap.scriptLines.length - 1);
       chap.clueNodes.forEach((cl) => {
         if (!cl) return;
-        const s = Math.max(0, Math.min(chap.scriptLines.length - 1, Number(cl.startLineIdx ?? cl.lineIdx ?? 0)));
-        const e = Math.max(s, Math.min(chap.scriptLines.length - 1, Number(cl.endLineIdx ?? s)));
+        const s = Math.max(0, Math.min(maxIdx, Number(cl.startLineIdx ?? cl.lineIdx ?? 0)));
+        const e = Math.max(s, Math.min(maxIdx, Number(cl.endLineIdx ?? s)));
         cl.startLineIdx = s;
         cl.lineIdx = s;
         cl.endLineIdx = e;
+        cl.lineText = chap.scriptLines[s]?.text || cl.lineText || '';
         for (let k = s; k <= e; k++) {
           if (chap.scriptLines[k]) chap.scriptLines[k].clueId = cl.id;
         }
       });
+    }
+
+    function isValidAcquiredTrpgClue(clueName, sNum, eNum, scriptLines) {
+      const cleanName = String(clueName || '').trim();
+      if (!cleanName || cleanName === '无' || /^none$/i.test(cleanName)) return false;
+      const windowStart = Math.max(0, sNum - 2);
+      const windowEnd = Math.min((scriptLines?.length || 1) - 1, eNum + 2);
+      const ctxText = [];
+      for (let i = windowStart; i <= windowEnd; i++) {
+        if (scriptLines[i] && scriptLines[i].text) ctxText.push(scriptLines[i].text);
+      }
+      const joined = ctxText.join(' ');
+      const rejectNpcOnlyRegex = /(?:拿出|掏出|翻开|端着|握着|拿着)[^，。！？]{0,8}(?:本子|笔记本|记事本|册子|茶杯|水杯|酒杯|怀表|手机|烟|打火机)(?![^。！？]{0,16}(?:递给|交给|塞给|送给|获得|得到|收入|收下|接过|拿走|揣进|放进|捡起|拾起|搜出|线索|写着|记载|记录着))/;
+      const acquireOrEvidenceRegex = /获得|得到|拿到|收下|收入|接过|递给|交给|塞给|送给|捡起|拾起|搜出|翻出|找出|发现|查获|揣进|收进|放入|钥匙|信件|日记|残页|纸条|字条|卷宗|档案|实验报告|病历|账本|遗书|照片|徽章|护身符|法器|匕首|手枪|药剂|证物|血迹|密码|刻字|内容写着|上面写着/;
+      if (rejectNpcOnlyRegex.test(joined) && !acquireOrEvidenceRegex.test(joined)) {
+        return false;
+      }
+      return true;
     }
 
     async function aiExtractCurrentChapterClues() {
@@ -20563,19 +20766,25 @@ ${scriptText}`;
       const btn = document.getElementById('replay-ai-clue-btn');
       const statusEl = document.getElementById('replay-script-status-bar');
       if (btn) { btn.textContent = '分析中'; btn.disabled = true; }
-      if (statusEl) statusEl.textContent = `正在分析 ${chap.title} 中调查员获得道具、信件、钥匙或证物的线索节点...`;
+      if (statusEl) statusEl.textContent = `正在严格筛查 ${chap.title} 中调查员真正获得到手或具有实质破案作用的跑团道具线索...`;
 
       try {
         const numberedLines = chap.scriptLines.map((l, i) => `${i + 1}|${l.speaker || '旁白'}|${l.text || ''}`).join('\n');
-        const prompt = `你是跑团视觉小说导演。请通读以下当前章节的剧本台词，找出剧情中获得关键道具、发现重要证物、拾取钥匙信件日记或展示关键物品线索的节点，每章精选 1 到 6 个最关键的道具线索节点即可。
+        const prompt = `你是资深跑团KP与视觉小说导演。请通读以下当前章节的剧本台词，严格按照跑团规则筛选本章真正属于「道具线索」的节点。
+
+【道具线索的唯一判定铁律】：
+1. 只有调查员真正「获得、得到、拾取、搜出、接过、收到并持有到自己手上」的实质性道具，或者经过调查检定真正发现、查获、阅读了关键内容并对推进跑团解谜有实际作用、确实需要特别展示给玩家的破案实证，才允许被列为线索！
+2. 绝对禁止把剧情里随便出现的普通物品当成线索！例如：别人只是拿出一个本子记录、NPC手里拿着茶杯或书本、某人掏出怀表看时间，只要这个东西「没有给到调查员手上、没有被调查员获得、对跑团调查没有任何实质作用、也不需要特别展示细节」，就绝对不是线索，一律严禁提取！
+3. 宁缺毋滥：绝不硬凑数量！如果这一章里调查员只得到了1件道具就只输出1条；如果这一章里调查员根本没有真正得到任何道具或关键实证，请直接单独输出一行 NONE，绝对不要为了凑数把普通物品列出来！
+
 每条输出格式严格为：
 CLUE|起始句号|结束句号|道具短名称|纯物品特写NovelAI英文生图提示词
 
-规则：
-1. 起始句号与结束句号为从1开始的句子编号，通常持续 1 到 3 句。
-2. 道具短名称控制在 2 到 8 个中文字以内，例如：染血的怀表、古旧黄铜钥匙、残缺的日记页。
+格式要求：
+1. 起始句号与结束句号为从1开始的句子编号，精准对应调查员获得该道具或查看该关键线索的那 1 到 3 句台词。
+2. 道具短名称控制在 2 到 8 个中文字以内。
 3. 英文提示词只画该道具物品本身的精致特写，严禁出现人物，必须以 no humans, still life, object focus, item close-up, centered composition, detailed game icon prop illustration 开头。
-4. 只输出 CLUE|... 行，严禁输出任何解释。
+4. 从头到尾严禁使用任何括号，只输出 CLUE|... 行或 NONE，严禁输出任何解释。
 
 当前章节剧本台词：
 ${numberedLines}`;
@@ -20586,42 +20795,53 @@ ${numberedLines}`;
           { caller: `跑团章节道具线索提取·${chap.title}`, preferSubApi: false }
         );
         const lines = String(raw || '').split('\n').map((s) => s.trim()).filter((s) => s.startsWith('CLUE|'));
-        if (!Array.isArray(chap.clueNodes)) chap.clueNodes = [];
-        let addedCount = 0;
+        const prevClues = Array.isArray(chap.clueNodes) ? chap.clueNodes : [];
+        const oldByName = new Map();
+        prevClues.forEach((c) => {
+          if (c && c.name) oldByName.set(c.name.trim(), c);
+        });
+        const keptManualClues = prevClues.filter((c) => c && (c.isManual || c.imageUrl));
+        const newExtractedClues = [];
+
         lines.forEach((row, idx) => {
           const parts = row.split('|').map((x) => x.trim());
           if (parts.length < 4) return;
           const sNum = Math.max(1, Math.min(chap.scriptLines.length, parseInt(parts[1], 10) || 1)) - 1;
           const eNum = Math.max(sNum, Math.min(chap.scriptLines.length - 1, (parseInt(parts[2], 10) || (sNum + 1)) - 1));
-          const clueName = parts[3] || `线索道具${idx + 1}`;
+          const clueName = (parts[3] || '').trim();
+          if (!isValidAcquiredTrpgClue(clueName, sNum, eNum, chap.scriptLines)) return;
           const enPrompt = parts[4] || 'no humans, still life, object focus, item close-up, centered composition, detailed visual novel prop illustration, masterpiece, best quality';
-          const existing = chap.clueNodes.find((c) => Number(c.startLineIdx ?? c.lineIdx) === sNum || c.name === clueName);
-          if (existing) {
-            existing.startLineIdx = sNum;
-            existing.lineIdx = sNum;
-            existing.endLineIdx = eNum;
-            existing.name = clueName;
-            if (!existing.prompt) existing.prompt = enPrompt;
-          } else {
-            chap.clueNodes.push({
-              id: `clue_${Date.now()}_${idx}`,
-              name: clueName,
-              startLineIdx: sNum,
-              lineIdx: sNum,
-              endLineIdx: eNum,
-              lineText: chap.scriptLines[sNum]?.text || '',
-              prompt: enPrompt,
-              imageUrl: ''
-            });
-            addedCount++;
+          const matchedOld = oldByName.get(clueName);
+          newExtractedClues.push({
+            id: matchedOld?.id || `clue_${Date.now()}_${idx}`,
+            name: clueName,
+            startLineIdx: sNum,
+            lineIdx: sNum,
+            endLineIdx: eNum,
+            lineText: chap.scriptLines[sNum]?.text || '',
+            prompt: matchedOld?.prompt || enPrompt,
+            imageUrl: matchedOld?.imageUrl || '',
+            isManual: Boolean(matchedOld?.isManual)
+          });
+        });
+
+        const mergedClues = [...newExtractedClues];
+        keptManualClues.forEach((mc) => {
+          if (!mergedClues.some((nc) => nc.id === mc.id || nc.name === mc.name)) {
+            mergedClues.push(mc);
           }
         });
+        mergedClues.sort((a, b) => Number(a.startLineIdx ?? a.lineIdx ?? 0) - Number(b.startLineIdx ?? b.lineIdx ?? 0));
+        chap.clueNodes = mergedClues;
+
         syncChapterClueLineBindings(chap);
         await saveReplayProjectToDB(proj);
         renderReplayScriptEditor();
         renderReplayCgStudio();
         if (statusEl) {
-          statusEl.textContent = `已完成线索分析，本章共标记 ${chap.clueNodes.length} 个道具线索，可前往生图页绘制道具图片`;
+          statusEl.textContent = chap.clueNodes.length > 0
+            ? `已完成严格线索筛查：本章共确认 ${chap.clueNodes.length} 个调查员真正获得或核心实证道具线索`
+            : `已完成严格线索筛查：本章未发现调查员真正获得到手的道具线索，已自动排除无关日常物品`;
         }
       } catch (err) {
         alert('AI提取线索失败：' + err.message);
@@ -20652,7 +20872,8 @@ ${numberedLines}`;
           endLineIdx: lineIdx,
           lineText: lineObj.text || '',
           prompt: 'no humans, still life, object focus, item close-up, centered composition, detailed visual novel clue item illustration, masterpiece, best quality',
-          imageUrl: ''
+          imageUrl: '',
+          isManual: true
         });
       }
       syncChapterClueLineBindings(chap);
@@ -21667,7 +21888,8 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         endLineIdx: lastIdx,
         lineText: chap.scriptLines?.[lastIdx]?.text || '',
         prompt: 'no humans, still life, object focus, item close-up, centered composition, detailed visual novel clue prop illustration, masterpiece, best quality',
-        imageUrl: ''
+        imageUrl: '',
+        isManual: true
       });
       syncChapterClueLineBindings(chap);
       await saveReplayProjectToDB(proj);
@@ -21856,7 +22078,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       }
       if (rawUrl.startsWith('/api/workshop/asset/')) {
         if (typeof _localWorkshopAssetUrlMap === 'object' && _localWorkshopAssetUrlMap.has(rawUrl)) {
-          return toFastDisplayUrl(_localWorkshopAssetUrlMap.get(rawUrl));
+          return await resolveTheaterPlayableUrl(_localWorkshopAssetUrlMap.get(rawUrl), fallbackMime);
         }
         const fullApiUrl = resolveBackendApiUrl(rawUrl);
         if (_mountedZipAssetBlobCache.has(fullApiUrl)) {
@@ -21873,6 +22095,23 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
           }
         } catch (_) {}
         return fullApiUrl;
+      }
+      const baseUrl = getLocalBridgeBaseUrl();
+      if (rawUrl.startsWith(baseUrl + '/') || rawUrl.startsWith('/local-assets/') || rawUrl.includes(':8765/')) {
+        const rel = extractRelativeAssetPath(rawUrl, baseUrl);
+        if (rawUrl.startsWith(baseUrl + '/') && !_termuxBridgeOnlineState) {
+          if (rel) {
+            const mirrorDataUrl = await getLocalAssetMirrorDataUrl(rel);
+            if (mirrorDataUrl) return toFastDisplayUrl(mirrorDataUrl);
+          }
+          return '/local-assets/' + rawUrl.slice(baseUrl.length + 1);
+        }
+        if (rel) {
+          const mirrorDataUrl = await getLocalAssetMirrorDataUrl(rel);
+          if (mirrorDataUrl && !_termuxBridgeOnlineState) {
+            return toFastDisplayUrl(mirrorDataUrl);
+          }
+        }
       }
       return toFastDisplayUrl(rawUrl);
     }
@@ -22182,24 +22421,59 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
     async function packAssetUrlToPortableDataUrl(rawUrl) {
       if (!rawUrl || typeof rawUrl !== 'string') return '';
       if (rawUrl.startsWith('data:')) return rawUrl;
-      if (rawUrl.startsWith('/api/workshop/asset/')) return rawUrl;
+      if (rawUrl.startsWith('/api/workshop/asset/')) {
+        if (typeof _localWorkshopAssetUrlMap === 'object' && _localWorkshopAssetUrlMap.has(rawUrl)) {
+          const mapped = _localWorkshopAssetUrlMap.get(rawUrl);
+          if (mapped && mapped !== rawUrl) {
+            return await packAssetUrlToPortableDataUrl(mapped);
+          }
+        }
+        return rawUrl;
+      }
       if (_blobToOriginDataUrl && _blobToOriginDataUrl.has(rawUrl)) {
         return _blobToOriginDataUrl.get(rawUrl);
       }
+      const baseUrl = getLocalBridgeBaseUrl();
+      const rel = extractRelativeAssetPath(rawUrl, baseUrl);
+      if (rel) {
+        const mirrorDataUrl = await getLocalAssetMirrorDataUrl(rel);
+        if (mirrorDataUrl && mirrorDataUrl.startsWith('data:')) {
+          return mirrorDataUrl;
+        }
+      }
       try {
         const res = await fetch(rawUrl);
-        if (!res.ok) return rawUrl;
-        const blob = await res.blob();
-        if (!blob || blob.size === 0) return rawUrl;
-        return await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : rawUrl);
-          reader.onerror = () => resolve(rawUrl);
-          reader.readAsDataURL(blob);
-        });
-      } catch (_) {
-        return rawUrl;
+        if (res.ok) {
+          const blob = await res.blob();
+          if (blob && blob.size > 0) {
+            const dataUrl = await new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+              reader.onerror = () => resolve('');
+              reader.readAsDataURL(blob);
+            });
+            if (dataUrl && dataUrl.startsWith('data:')) return dataUrl;
+          }
+        }
+      } catch (_) {}
+      if (rawUrl.startsWith(baseUrl + '/')) {
+        try {
+          const fallbackRes = await fetch('/local-assets/' + rawUrl.slice(baseUrl.length + 1));
+          if (fallbackRes.ok) {
+            const blob = await fallbackRes.blob();
+            if (blob && blob.size > 0) {
+              const dataUrl = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+                reader.onerror = () => resolve('');
+                reader.readAsDataURL(blob);
+              });
+              if (dataUrl && dataUrl.startsWith('data:')) return dataUrl;
+            }
+          }
+        } catch (_) {}
       }
+      return rawUrl;
     }
 
     function sendWorkshopPayloadWithProgress(url, jsonString, onProgress) {
@@ -22743,9 +23017,25 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
 
           let dataUrl = refOrDataUrl;
           if (refOrDataUrl.startsWith('/api/workshop/asset/')) {
-            const { data } = await fetchBackendJsonSafe(`${refOrDataUrl}?format=dataurl`);
-            if (data && data.ok && data.dataUrl) {
-              dataUrl = data.dataUrl;
+            if (typeof _localWorkshopAssetUrlMap === 'object' && _localWorkshopAssetUrlMap.has(refOrDataUrl)) {
+              const localOrigin = _localWorkshopAssetUrlMap.get(refOrDataUrl);
+              const portableLocal = await packAssetUrlToPortableDataUrl(localOrigin);
+              if (portableLocal && portableLocal.startsWith('data:')) {
+                dataUrl = portableLocal;
+              }
+            }
+            if (!dataUrl.startsWith('data:')) {
+              try {
+                const { data } = await fetchBackendJsonSafe(`${refOrDataUrl}?format=dataurl`);
+                if (data && data.ok && data.dataUrl) {
+                  dataUrl = data.dataUrl;
+                }
+              } catch (_) {}
+            }
+          } else if (!refOrDataUrl.startsWith('data:')) {
+            const portable = await packAssetUrlToPortableDataUrl(refOrDataUrl);
+            if (portable && portable.startsWith('data:')) {
+              dataUrl = portable;
             }
           }
           if (typeof dataUrl === 'string' && dataUrl.startsWith('data:') && dataUrl.includes(';base64,')) {
@@ -22934,6 +23224,10 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
           const pack = JSON.parse(await manifestFile.async('string'));
           const proj = pack.project;
           if (!proj || !proj.id) throw new Error('压缩包内未找到有效的模组工程');
+          (proj.chapters || []).forEach((ch) => {
+            syncChapterCgLineBindings(ch);
+            syncChapterClueLineBindings(ch);
+          });
 
           const ttsLookup = new Map();
           (pack.ttsCache || []).forEach((item) => {
@@ -22969,6 +23263,10 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
           const pack = JSON.parse(text);
           const proj = pack.project;
           if (!proj || !proj.id) throw new Error('未找到有效的模组数据');
+          (proj.chapters || []).forEach((ch) => {
+            syncChapterCgLineBindings(ch);
+            syncChapterClueLineBindings(ch);
+          });
           const ttsLookup = new Map();
           (pack.ttsCache || []).forEach((item) => {
             if (item && item.id && (item.audioDataUrl || item.audioData)) {
@@ -25421,49 +25719,67 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
 
       if (typeof JSZip !== 'undefined') {
         const zip = new JSZip();
-        const extractDataUrlToZip = (dataUrl, zipPath) => {
+        const extractDataUrlToZip = async (rawUrl, zipPath) => {
+          const dataUrl = await packAssetUrlToPortableDataUrl(rawUrl);
           if (typeof dataUrl === 'string' && dataUrl.startsWith('data:') && dataUrl.includes(';base64,')) {
             const b64 = dataUrl.split(';base64,')[1];
             zip.file(zipPath, b64, { base64: true });
             return `__ZIP_ASSET__:${zipPath}`;
           }
-          return dataUrl;
+          return rawUrl;
         };
 
-        (pack.characters || []).forEach((c, cIdx) => {
+        for (let cIdx = 0; cIdx < (pack.characters || []).length; cIdx++) {
+          const c = pack.characters[cIdx];
           const cid = c.id || `char_${cIdx}`;
-          if (c.profileAvatar) c.profileAvatar = extractDataUrlToZip(c.profileAvatar, `images/chars/${cid}_profile.png`);
-          if (c.tachieBase) c.tachieBase = extractDataUrlToZip(c.tachieBase, `images/chars/${cid}_base.png`);
-          if (c.charLockImg) c.charLockImg = extractDataUrlToZip(c.charLockImg, `images/chars/${cid}_lock.png`);
-          if (c.chibiImg) c.chibiImg = extractDataUrlToZip(c.chibiImg, `images/chars/${cid}_chibi.png`);
+          if (c.profileAvatar) c.profileAvatar = await extractDataUrlToZip(c.profileAvatar, `images/chars/${cid}_profile.png`);
+          if (c.stageBustAvatar) c.stageBustAvatar = await extractDataUrlToZip(c.stageBustAvatar, `images/chars/${cid}_bust.png`);
+          if (c.tachieBase) c.tachieBase = await extractDataUrlToZip(c.tachieBase, `images/chars/${cid}_base.png`);
+          if (c.charLockImg) c.charLockImg = await extractDataUrlToZip(c.charLockImg, `images/chars/${cid}_lock.png`);
+          if (c.chibiImg) c.chibiImg = await extractDataUrlToZip(c.chibiImg, `images/chars/${cid}_chibi.png`);
           if (c.tachieExpressions) {
-            Object.keys(c.tachieExpressions).forEach((exp) => {
-              c.tachieExpressions[exp] = extractDataUrlToZip(c.tachieExpressions[exp], `images/chars/${cid}_exp_${exp}.png`);
-            });
+            for (const exp of Object.keys(c.tachieExpressions)) {
+              c.tachieExpressions[exp] = await extractDataUrlToZip(c.tachieExpressions[exp], `images/chars/${cid}_exp_${exp}.png`);
+            }
           }
           if (c.tachieRawExpressions) {
-            Object.keys(c.tachieRawExpressions).forEach((exp) => {
-              c.tachieRawExpressions[exp] = extractDataUrlToZip(c.tachieRawExpressions[exp], `images/chars/${cid}_raw_${exp}.png`);
-            });
+            for (const exp of Object.keys(c.tachieRawExpressions)) {
+              c.tachieRawExpressions[exp] = await extractDataUrlToZip(c.tachieRawExpressions[exp], `images/chars/${cid}_raw_${exp}.png`);
+            }
           }
-        });
+        }
 
-        (pack.project?.chapters || []).forEach((ch, chIdx) => {
-          (ch.scenes || []).forEach((sc, sIdx) => {
-            if (sc.imageUrl) sc.imageUrl = extractDataUrlToZip(sc.imageUrl, `images/scenes/ch${chIdx}_${sc.id || sIdx}.png`);
-          });
-          (ch.cgNodes || []).forEach((cg, gIdx) => {
-            if (cg.imageUrl) cg.imageUrl = extractDataUrlToZip(cg.imageUrl, `images/cgs/ch${chIdx}_${cg.id || gIdx}.png`);
-            if (cg.customPadImg) cg.customPadImg = extractDataUrlToZip(cg.customPadImg, `images/cgs/ch${chIdx}_${cg.id || gIdx}_pad.png`);
-          });
-        });
+        for (let gIdx = 0; gIdx < (pack.project?.globalScenes || []).length; gIdx++) {
+          const gsc = pack.project.globalScenes[gIdx];
+          if (gsc && gsc.imageUrl) {
+            gsc.imageUrl = await extractDataUrlToZip(gsc.imageUrl, `images/scenes/global_${gsc.id || gIdx}.png`);
+          }
+        }
 
-        (pack.ttsCache || []).forEach((item, tIdx) => {
-          if (item.audioDataUrl) {
+        for (let chIdx = 0; chIdx < (pack.project?.chapters || []).length; chIdx++) {
+          const ch = pack.project.chapters[chIdx];
+          for (let sIdx = 0; sIdx < (ch.scenes || []).length; sIdx++) {
+            const sc = ch.scenes[sIdx];
+            if (sc && sc.imageUrl) sc.imageUrl = await extractDataUrlToZip(sc.imageUrl, `images/scenes/ch${chIdx}_${sc.id || sIdx}.png`);
+          }
+          for (let gIdx = 0; gIdx < (ch.cgNodes || []).length; gIdx++) {
+            const cg = ch.cgNodes[gIdx];
+            if (cg && cg.imageUrl) cg.imageUrl = await extractDataUrlToZip(cg.imageUrl, `images/cgs/ch${chIdx}_${cg.id || gIdx}.png`);
+            if (cg && cg.customPadImg) cg.customPadImg = await extractDataUrlToZip(cg.customPadImg, `images/cgs/ch${chIdx}_${cg.id || gIdx}_pad.png`);
+          }
+          for (let clIdx = 0; clIdx < (ch.clueNodes || []).length; clIdx++) {
+            const cl = ch.clueNodes[clIdx];
+            if (cl && cl.imageUrl) cl.imageUrl = await extractDataUrlToZip(cl.imageUrl, `images/clues/ch${chIdx}_${cl.id || clIdx}.png`);
+          }
+        }
+
+        for (let tIdx = 0; tIdx < (pack.ttsCache || []).length; tIdx++) {
+          const item = pack.ttsCache[tIdx];
+          if (item && item.audioDataUrl) {
             const safeKey = String(item.id || `tts_${tIdx}`).replace(/[^a-zA-Z0-9_-]/g, '_');
-            item.audioDataUrl = extractDataUrlToZip(item.audioDataUrl, `audio/${safeKey}.mp3`);
+            item.audioDataUrl = await extractDataUrlToZip(item.audioDataUrl, `audio/${safeKey}.mp3`);
           }
-        });
+        }
 
         zip.file('manifest.json', JSON.stringify(pack));
         const zipBlob = await zip.generateAsync({ type: 'blob' });
@@ -25491,6 +25807,10 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
 
     async function applyImportedReplayPackData(pack) {
       if (pack.project) {
+        (pack.project.chapters || []).forEach((ch) => {
+          syncChapterCgLineBindings(ch);
+          syncChapterClueLineBindings(ch);
+        });
         await db.replayProjects.put(pack.project);
         appState.currentReplayProjectId = pack.project.id;
       }
@@ -25531,46 +25851,64 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
             if (!manifestFile) throw new Error('压缩包内未找到 manifest.json');
             const manifestStr = await manifestFile.async('string');
             const pack = JSON.parse(manifestStr);
+            const safeProj = (pack.project?.title || pack.project?.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
 
-            const restoreZipAsset = async (val, mime) => {
+            const restoreZipAsset = async (val, mime, customSavePath = '') => {
               if (typeof val === 'string' && val.startsWith('__ZIP_ASSET__:')) {
                 const relPath = val.replace('__ZIP_ASSET__:', '');
                 const zf = zip.file(relPath);
                 if (zf) {
                   const b64 = await zf.async('base64');
                   const dataUrl = `data:${mime};base64,${b64}`;
-                  await saveAssetToLocalBridge(relPath, dataUrl);
-                  return dataUrl;
+                  return await saveAssetToLocalBridge(customSavePath || relPath, dataUrl);
                 }
               }
               return val;
             };
 
             for (const c of (pack.characters || [])) {
-              if (c.profileAvatar) c.profileAvatar = await restoreZipAsset(c.profileAvatar, 'image/png');
-              if (c.tachieBase) c.tachieBase = await restoreZipAsset(c.tachieBase, 'image/png');
-              if (c.charLockImg) c.charLockImg = await restoreZipAsset(c.charLockImg, 'image/png');
-              if (c.chibiImg) c.chibiImg = await restoreZipAsset(c.chibiImg, 'image/png');
+              const safeName = (c.name || c.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
+              if (c.profileAvatar) c.profileAvatar = await restoreZipAsset(c.profileAvatar, 'image/png', `characters/${safeName}/profile_avatar.png`);
+              if (c.stageBustAvatar) c.stageBustAvatar = await restoreZipAsset(c.stageBustAvatar, 'image/png', `characters/${safeName}/stage_bust.png`);
+              if (c.tachieBase) c.tachieBase = await restoreZipAsset(c.tachieBase, 'image/png', `characters/${safeName}/base.png`);
+              if (c.charLockImg) c.charLockImg = await restoreZipAsset(c.charLockImg, 'image/png', `characters/${safeName}/lock.png`);
+              if (c.chibiImg) c.chibiImg = await restoreZipAsset(c.chibiImg, 'image/png', `characters/${safeName}/chibiImg.png`);
               for (const k of Object.keys(c.tachieExpressions || {})) {
-                c.tachieExpressions[k] = await restoreZipAsset(c.tachieExpressions[k], 'image/png');
+                const safeExp = String(k).replace(/[\\/:*?"<>|]/g, '_');
+                c.tachieExpressions[k] = await restoreZipAsset(c.tachieExpressions[k], 'image/png', `characters/${safeName}/${safeExp}.png`);
               }
               for (const k of Object.keys(c.tachieRawExpressions || {})) {
-                c.tachieRawExpressions[k] = await restoreZipAsset(c.tachieRawExpressions[k], 'image/png');
+                const safeExp = String(k).replace(/[\\/:*?"<>|]/g, '_');
+                c.tachieRawExpressions[k] = await restoreZipAsset(c.tachieRawExpressions[k], 'image/png', `characters/${safeName}/raw_${safeExp}.png`);
+              }
+            }
+
+            for (const gsc of (pack.project?.globalScenes || [])) {
+              if (gsc && gsc.imageUrl) {
+                gsc.imageUrl = await restoreZipAsset(gsc.imageUrl, 'image/png', `projects/${safeProj}/scenes/${gsc.id}.png`);
               }
             }
 
             for (const ch of (pack.project?.chapters || [])) {
               for (const sc of (ch.scenes || [])) {
-                if (sc.imageUrl) sc.imageUrl = await restoreZipAsset(sc.imageUrl, 'image/png');
+                if (sc && sc.imageUrl) sc.imageUrl = await restoreZipAsset(sc.imageUrl, 'image/png', `projects/${safeProj}/scenes/${sc.id}.png`);
               }
               for (const cg of (ch.cgNodes || [])) {
-                if (cg.imageUrl) cg.imageUrl = await restoreZipAsset(cg.imageUrl, 'image/png');
-                if (cg.customPadImg) cg.customPadImg = await restoreZipAsset(cg.customPadImg, 'image/png');
+                if (cg && cg.imageUrl) cg.imageUrl = await restoreZipAsset(cg.imageUrl, 'image/png', `projects/${safeProj}/cgs/${cg.id}.png`);
+                if (cg && cg.customPadImg) cg.customPadImg = await restoreZipAsset(cg.customPadImg, 'image/png', `projects/${safeProj}/cgs/pad_${cg.id}.png`);
               }
+              for (const cl of (ch.clueNodes || [])) {
+                if (cl && cl.imageUrl) cl.imageUrl = await restoreZipAsset(cl.imageUrl, 'image/png', `projects/${safeProj}/clues/${cl.id}.png`);
+              }
+              syncChapterCgLineBindings(ch);
+              syncChapterClueLineBindings(ch);
             }
 
             for (const item of (pack.ttsCache || [])) {
-              if (item.audioDataUrl) item.audioDataUrl = await restoreZipAsset(item.audioDataUrl, 'audio/mp3');
+              if (item.audioDataUrl) {
+                const safeId = String(item.id || 'tts').replace(/[\\/:*?"<>|]/g, '_');
+                item.audioDataUrl = await restoreZipAsset(item.audioDataUrl, 'audio/mp3', `audio/${safeId}.mp3`);
+              }
             }
 
             await applyImportedReplayPackData(pack);
@@ -25823,6 +26161,18 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       initCustomFontAndDanmakuSettings();
       await seedDefaultBgmTracks();
       appState.replayProjects = await db.replayProjects.toArray();
+      for (const proj of appState.replayProjects) {
+        let fixedClue = false;
+        for (const ch of (proj.chapters || [])) {
+          if (Array.isArray(ch.clueNodes) && ch.clueNodes.length > 0 && Array.isArray(ch.scriptLines)) {
+            syncChapterClueLineBindings(ch);
+            fixedClue = true;
+          }
+        }
+        if (fixedClue) {
+          await db.replayProjects.put(proj);
+        }
+      }
       appState.replayProjects.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
       if (appState.replayProjects.length === 0) {
         await createNewReplayProject();
@@ -26055,11 +26405,10 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       restoreSessionNavAndDrafts();
       setTimeout(() => {
         if (isLocalBridgeEnabled()) {
-          ensureLocalBridgeNoMediaForRelPath('characters/init.png').catch(() => {});
-          ensureLocalBridgeNoMediaForRelPath('styles/init.png').catch(() => {});
-          ensureLocalBridgeNoMediaForRelPath('scenes/init.png').catch(() => {});
-          ensureLocalBridgeNoMediaForRelPath('cgs/init.png').catch(() => {});
-          syncAllAssetsToLocalBridgeUI(true).catch(() => {});
+          probeAndAutoSyncLocalBridge().catch(() => {});
+          setInterval(() => {
+            probeAndAutoSyncLocalBridge().catch(() => {});
+          }, 12000);
         }
       }, 1200);
     }
