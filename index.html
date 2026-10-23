@@ -2953,23 +2953,23 @@
 
     <!-- ==================== 14. 横屏 16:9 视觉小说剧本剧场 ==================== -->
     <section id="screen-theater" class="screen">
-      <div class="vn-theater-wrapper" id="vn-theater-stage-root" data-stage-style="ark_grad">
+      <div class="vn-theater-wrapper" id="vn-theater-stage-root" data-stage-style="ark_grad" oncontextmenu="if(!event.target.closest('input,textarea'))event.preventDefault();">
         <!-- 第1层：当前场所背景层 -->
-        <div class="vn-bg-layer" id="vn-theater-bg-layer"></div>
+        <div class="vn-bg-layer" id="vn-theater-bg-layer" onclick="handleTheaterDockClick()"></div>
 
         <!-- 第2层：多角色真实身高比例对齐全身立绘层 -->
         <div class="vn-tachie-layer" id="vn-theater-tachie-layer"></div>
 
         <!-- 第3层：全屏剧情CG插画层 仅当该节点已生成CG图片时显示 -->
-        <div class="vn-cg-layer" id="vn-theater-cg-layer" onclick="handleTheaterDockClick()">
-          <img id="vn-theater-cg-img" src="" alt="剧情CG" title="点击进入下一句，连续点击三下下载CG" onclick="event.stopPropagation(); handleTheaterCgClick(event); handleTheaterDockClick();" />
+        <div class="vn-cg-layer" id="vn-theater-cg-layer" onclick="handleTheaterCgClick(event); handleTheaterDockClick();">
+          <img id="vn-theater-cg-img" src="" alt="剧情CG" draggable="false" />
         </div>
 
         <!-- 第3.2层：画面中央浮现线索道具卡片层 -->
         <div class="vn-clue-card-layer" id="vn-theater-clue-layer">
           <div class="vn-clue-card" onclick="event.stopPropagation(); handleTheaterDockClick();">
             <div class="vn-clue-card-img-wrap">
-              <img id="vn-theater-clue-img" src="" alt="线索道具" />
+              <img id="vn-theater-clue-img" src="" alt="线索道具" draggable="false" />
             </div>
             <div class="vn-clue-card-name" id="vn-theater-clue-name"></div>
           </div>
@@ -2996,16 +2996,17 @@
 
         <!-- 第5.8层：日乙风长按圆形进度条快进浮层 -->
         <div class="vn-longpress-ff-hud" id="vn-theater-longpress-hud">
-          <div class="vn-longpress-ring-wrap">
-            <svg class="vn-longpress-ring-svg" viewBox="0 0 64 64">
-              <circle class="vn-longpress-ring-bg" cx="32" cy="32" r="26"></circle>
-              <circle class="vn-longpress-ring-bar" id="vn-theater-longpress-ring-bar" cx="32" cy="32" r="26"></circle>
+          <div class="vn-longpress-ring-box">
+            <svg class="vn-longpress-svg" viewBox="0 0 64 64">
+              <circle class="vn-lp-track" cx="32" cy="32" r="28"></circle>
+              <circle class="vn-lp-inner-deco" cx="32" cy="32" r="22"></circle>
+              <circle class="vn-lp-bar" id="vn-longpress-progress-circle" cx="32" cy="32" r="28" stroke-dasharray="175.9" stroke-dashoffset="175.9"></circle>
             </svg>
-            <div class="vn-longpress-ring-icon">
+            <div class="vn-longpress-center-icon">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><polygon points="5 5 13 12 5 19 5 5"></polygon><polygon points="13 5 21 12 13 19 13 5"></polygon></svg>
             </div>
           </div>
-          <span class="vn-longpress-ring-label" id="vn-theater-longpress-label">长按快进</span>
+          <span class="vn-longpress-label" id="vn-longpress-label">长按快进</span>
         </div>
 
         <!-- 第6层：角落极简小号SVG图标按钮 -->
@@ -25772,6 +25773,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const holdDelayMs = 150;
       const fillDurationMs = 420;
 
+      const getRingCircleEl = () => document.getElementById('vn-longpress-progress-circle') || document.getElementById('vn-theater-longpress-ring-bar');
+      const getRingLabelEl = () => document.getElementById('vn-longpress-label') || document.getElementById('vn-theater-longpress-label');
+
       const stopLongPressSession = () => {
         if (_longPressStartTimer) {
           clearTimeout(_longPressStartTimer);
@@ -25782,8 +25786,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           _longPressRafId = null;
         }
         const hud = document.getElementById('vn-theater-longpress-hud');
-        const circle = document.getElementById('vn-longpress-progress-circle');
-        const lbl = document.getElementById('vn-longpress-label');
+        const circle = getRingCircleEl();
+        const lbl = getRingLabelEl();
         if (hud) {
           hud.classList.remove('active', 'fast-forwarding');
         }
@@ -25801,20 +25805,23 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
       };
 
-      stageRoot.addEventListener('pointerdown', (ev) => {
+      const isIgnoredStageTarget = (target) => {
+        if (!target || typeof target.closest !== 'function') return true;
+        return Boolean(target.closest('button, select, input, textarea, .modal, .vn-selector-lobby, .vn-top-bar, .vn-stage-ctrl-bar, .vn-stage-edit-panel'));
+      };
+
+      const startLongPressSession = (ev) => {
         if (appState.theaterEditMode) return;
         const target = ev.target;
-        if (!target) return;
-        if (target.closest('button, select, input, textarea, .modal, .vn-selector-lobby, .vn-top-bar, .vn-stage-ctrl-bar, .vn-stage-edit-panel')) {
-          return;
-        }
-        stopLongPressSession();
+        if (isIgnoredStageTarget(target)) return;
+        if (_longPressStartTimer || _longPressActiveFlag) return;
         _longPressSuppressNextClick = false;
 
         _longPressStartTimer = setTimeout(() => {
+          _longPressStartTimer = null;
           const hud = document.getElementById('vn-theater-longpress-hud');
-          const circle = document.getElementById('vn-longpress-progress-circle');
-          const lbl = document.getElementById('vn-longpress-label');
+          const circle = getRingCircleEl();
+          const lbl = getRingLabelEl();
           if (!hud || !circle) return;
           _longPressActiveFlag = true;
           _longPressSuppressNextClick = true;
@@ -25843,18 +25850,36 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           };
           _longPressRafId = requestAnimationFrame(stepRing);
         }, holdDelayMs);
+      };
+
+      stageRoot.addEventListener('contextmenu', (ev) => {
+        if (ev.target && typeof ev.target.closest === 'function' && ev.target.closest('input, textarea')) return;
+        ev.preventDefault();
       });
 
-      window.addEventListener('pointerup', () => {
+      stageRoot.addEventListener('dragstart', (ev) => {
+        ev.preventDefault();
+      });
+
+      stageRoot.addEventListener('pointerdown', (ev) => {
+        if (ev.button && ev.button !== 0) return;
+        startLongPressSession(ev);
+      });
+
+      stageRoot.addEventListener('touchstart', (ev) => {
+        startLongPressSession(ev);
+      }, { passive: true });
+
+      const handleRelease = () => {
         if (_longPressStartTimer || _longPressActiveFlag) {
           stopLongPressSession();
         }
-      });
-      window.addEventListener('pointercancel', () => {
-        if (_longPressStartTimer || _longPressActiveFlag) {
-          stopLongPressSession();
-        }
-      });
+      };
+
+      window.addEventListener('pointerup', handleRelease);
+      window.addEventListener('pointercancel', handleRelease);
+      window.addEventListener('touchend', handleRelease);
+      window.addEventListener('touchcancel', handleRelease);
     }
 
     function getBuiltinStageStickerSvg(stickerType) {
@@ -26853,7 +26878,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     }
 
     function handleTheaterCgClick(event) {
-      handleStageImgTripleClick(event, '剧场CG');
+      const cgImg = document.getElementById('vn-theater-cg-img');
+      if (cgImg && cgImg.getAttribute('src')) {
+        handleStageImgTripleClick({ currentTarget: cgImg, target: cgImg, stopPropagation: () => {} }, '剧场CG');
+      }
     }
 
     function openTheaterAlbumModal() {

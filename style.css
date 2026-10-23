@@ -1582,7 +1582,17 @@ body.landscape-game-active #screen-theater.active {
   flex-direction: column;
   justify-content: space-between;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
   font-family: var(--custom-user-font, var(--font-sans)) !important;
+}
+
+.vn-theater-wrapper img {
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-user-drag: none !important;
 }
 
 html,
@@ -1699,6 +1709,7 @@ button {
   min-width: 0;
   transition: transform 0.36s cubic-bezier(0.16, 1, 0.3, 1), filter 0.32s ease, opacity 0.32s ease;
   transform-origin: bottom center;
+  pointer-events: none;
 }
 
 .vn-stage-actor.speaking {
@@ -1747,8 +1758,10 @@ button {
   max-width: none;
   object-fit: contain;
   object-position: bottom center;
-  pointer-events: auto;
-  cursor: pointer;
+  pointer-events: none !important;
+  -webkit-touch-callout: none !important;
+  user-select: none !important;
+  -webkit-user-drag: none !important;
 }
 
 .vn-cg-layer {
@@ -1785,7 +1798,10 @@ button {
   max-height: 100%;
   object-fit: contain;
   object-position: center center;
-  cursor: pointer;
+  pointer-events: none !important;
+  -webkit-touch-callout: none !important;
+  user-select: none !important;
+  -webkit-user-drag: none !important;
   transform: none;
   transition: opacity 0.45s ease;
 }
@@ -1852,6 +1868,10 @@ button {
   height: 100%;
   object-fit: cover;
   display: block;
+  pointer-events: none !important;
+  -webkit-touch-callout: none !important;
+  user-select: none !important;
+  -webkit-user-drag: none !important;
 }
 
 .vn-clue-card-name {
