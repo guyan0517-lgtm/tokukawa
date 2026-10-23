@@ -2387,6 +2387,7 @@
         <span class="app-header-title" id="replay-screen-header-title">模组</span>
         <div class="app-header-actions" id="replay-screen-header-actions">
           <button type="button" class="moe-btn secondary" onclick="openTheaterWithLobby()">剧本</button>
+          <button type="button" class="moe-btn" id="replay-manual-save-btn" onclick="manualSaveCurrentReplayProject(this)">保存</button>
         </div>
       </div>
 
@@ -2394,6 +2395,7 @@
         <button type="button" class="sub-tab-btn" data-sub="replay-sub-guide" onclick="switchSubPage('screen-replay', 'replay-sub-guide')">教程</button>
         <button type="button" class="sub-tab-btn active" data-sub="replay-sub-import" onclick="switchSubPage('screen-replay', 'replay-sub-import')">分章</button>
         <button type="button" class="sub-tab-btn" data-sub="replay-sub-script" onclick="switchSubPage('screen-replay', 'replay-sub-script')">剧本</button>
+        <button type="button" class="sub-tab-btn" data-sub="replay-sub-stagefx" onclick="switchSubPage('screen-replay', 'replay-sub-stagefx');renderReplayStageFxStudio();">演出</button>
         <button type="button" class="sub-tab-btn" data-sub="replay-sub-voice" onclick="switchSubPage('screen-replay', 'replay-sub-voice');renderReplayVoiceStudio();">配音</button>
         <button type="button" class="sub-tab-btn" data-sub="replay-sub-cg" onclick="switchSubPage('screen-replay', 'replay-sub-cg');renderReplayCgStudio();">生图</button>
       </div>
@@ -2695,6 +2697,53 @@
         <div id="replay-script-lines-container" style="display:flex;flex-direction:column;gap:8px;"></div>
       </div>
 
+      <!-- 子页3.2：独立舞台演出工作台 氛围 转场 字效 匿影 贴纸 连续地图 -->
+      <div id="replay-sub-stagefx" class="app-subpage">
+        <div class="moe-card">
+          <div class="moe-card-header">
+            <span class="moe-card-title">本章舞台演出控制台</span>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button type="button" class="moe-btn secondary" onclick="toggleStageFxPromptEditor()">提示</button>
+              <button type="button" class="moe-btn" id="replay-stagefx-ai-btn" onclick="aiDirectorConfigureChapterStageFx()">智能</button>
+              <button type="button" class="moe-btn secondary" onclick="clearAllChapterStageFx()">清除</button>
+              <button type="button" class="moe-btn" onclick="manualSaveCurrentReplayProject(this)">保存</button>
+            </div>
+          </div>
+          <div id="replay-stagefx-prompt-box" style="display:none;margin-bottom:8px;padding:10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <span style="font-size:12px;font-weight:800;color:var(--text-primary);">舞台演出智能编排提示词 可直接修改保存</span>
+              <div style="display:flex;gap:6px;">
+                <button type="button" class="moe-btn secondary" onclick="resetCustomStageFxPrompt()">恢复</button>
+                <button type="button" class="moe-btn" onclick="saveCustomStageFxPrompt()">保存</button>
+              </div>
+            </div>
+            <textarea id="replay-stagefx-prompt-textarea" class="moe-input" style="min-height:120px;font-size:11px;line-height:1.5;"></textarea>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:8px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label>当前章节</label>
+              <select id="replay-stagefx-chapter-select" class="moe-input" onchange="onSelectReplayChapter(this.value);renderReplayStageFxStudio();"></select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label>本章默认环境氛围</label>
+              <select id="replay-stagefx-chapter-ambient" class="moe-input" onchange="onChangeChapterDefaultAmbient(this.value)">
+                <option value="none">无环境粒子</option>
+                <option value="rain">细雨绵绵</option>
+                <option value="fog">迷雾笼罩</option>
+                <option value="ember">灰烬火星</option>
+                <option value="dust">微光浮尘</option>
+                <option value="snow">飘雪寒霜</option>
+                <option value="crimson">深渊暗红</option>
+              </select>
+            </div>
+          </div>
+          <div id="replay-stagefx-status-bar" style="font-size:11px;color:var(--accent-color);font-weight:700;margin-top:8px;">
+            点智能可在不改动任何台词与配音的前提下，自动为本章配置场景延续、氛围、转场、叫喊与背叛震撼字效、神秘人匿影及情绪贴纸；点清除可一键清空全部特效
+          </div>
+        </div>
+        <div id="replay-stagefx-lines-container" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+
       <!-- 子页3.5：专属角色配音工作台 -->
       <div id="replay-sub-voice" class="app-subpage">
         <div class="moe-card">
@@ -2774,6 +2823,15 @@
               <select id="replay-cg-chapter-select" class="moe-input" onchange="onSelectReplayChapter(this.value)"></select>
             </div>
             <div id="replay-cg-queue-status" style="font-size:11px;color:var(--accent-color);font-weight:700;">点上方写词可根据前后文补全提示词，每张插图内可单独输入修改意见并点改词</div>
+          </div>
+
+          <div class="moe-card">
+            <div class="moe-card-header">
+              <span class="moe-card-title">本章场景地图与起止句范围</span>
+              <button type="button" class="moe-btn secondary" onclick="addManualSceneBgNode()">新增</button>
+            </div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;">点上方写词会自动修复并规划每张地图与每张插图从哪一句播放到哪一句；场景地图一经切换会持续显示，直到下一次切换新地图为止</div>
+            <div id="replay-scene-nodes-list-container" style="display:flex;flex-direction:column;gap:10px;"></div>
           </div>
 
           <div class="moe-card">
@@ -2904,8 +2962,9 @@
           </div>
         </div>
 
-        <!-- 第3.5层：全屏暗角呼吸氛围层 -->
+        <!-- 第3.5层：全屏暗角呼吸氛围层与粒子环境氛围层 -->
         <div class="vn-vignette-layer" id="vn-theater-vignette-layer"></div>
+        <div class="vn-ambient-layer" id="vn-theater-ambient-layer"></div>
 
         <!-- 第4层：顶部场外无背景纯文字弹幕层 -->
         <div class="vn-ooc-layer" id="vn-theater-ooc-layer"></div>
@@ -2913,10 +2972,27 @@
         <!-- 第5层：跑团掷骰检定结果简洁浮窗 -->
         <div class="vn-dice-toast" id="vn-theater-dice-toast"></div>
 
+        <!-- 第5.2层：场景切换转场遮罩层 -->
+        <div class="vn-transition-layer" id="vn-theater-transition-layer"></div>
+
         <!-- 第5.5层：高级文游全屏黑幕缓慢浮现文字转场层 -->
         <div class="vn-blackout-overlay" id="vn-theater-blackout-layer" onclick="dismissBlackoutOrNextLine()">
           <div class="vn-blackout-text" id="vn-theater-blackout-text"></div>
           <div class="vn-blackout-sub">点击屏幕继续</div>
+        </div>
+
+        <!-- 第5.8层：日乙风长按圆形进度条快进浮层 -->
+        <div class="vn-longpress-ff-hud" id="vn-theater-longpress-hud">
+          <div class="vn-longpress-ring-wrap">
+            <svg class="vn-longpress-ring-svg" viewBox="0 0 64 64">
+              <circle class="vn-longpress-ring-bg" cx="32" cy="32" r="26"></circle>
+              <circle class="vn-longpress-ring-bar" id="vn-theater-longpress-ring-bar" cx="32" cy="32" r="26"></circle>
+            </svg>
+            <div class="vn-longpress-ring-icon">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><polygon points="5 5 13 12 5 19 5 5"></polygon><polygon points="13 5 21 12 13 19 13 5"></polygon></svg>
+            </div>
+          </div>
+          <span class="vn-longpress-ring-label" id="vn-theater-longpress-label">长按快进</span>
         </div>
 
         <!-- 第6层：角落极简小号SVG图标按钮 -->
@@ -16380,7 +16456,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
       }
       updateReplayProjectAvatarPreviewDOM(curProj);
 
-      const chapSelectIds = ['replay-script-chapter-select', 'replay-voice-chapter-select', 'replay-cg-chapter-select', 'replay-clue-chapter-select', 'theater-chapter-select'];
+      const chapSelectIds = ['replay-script-chapter-select', 'replay-stagefx-chapter-select', 'replay-voice-chapter-select', 'replay-cg-chapter-select', 'replay-clue-chapter-select', 'theater-chapter-select'];
       chapSelectIds.forEach((id) => {
         const cSel = document.getElementById(id);
         if (!cSel) return;
@@ -16404,6 +16480,38 @@ ${BUILTIN_CSS_TEMPLATE}`;
       });
     }
 
+    async function manualSaveCurrentReplayProject(btnEl) {
+      const proj = getCurrentReplayProject();
+      if (!proj) return;
+      const chap = getCurrentReplayChapter();
+      if (chap) {
+        if (typeof ensureContinuousChapterScenes === 'function') {
+          ensureContinuousChapterScenes(chap);
+        }
+        if (typeof syncChapterCgLineBindings === 'function') {
+          syncChapterCgLineBindings(chap);
+        }
+        if (typeof syncChapterClueLineBindings === 'function') {
+          syncChapterClueLineBindings(chap);
+        }
+      }
+      await saveReplayProjectToDB(proj);
+      const headerBtn = document.getElementById('replay-manual-save-btn');
+      const targets = [btnEl, headerBtn].filter(Boolean);
+      targets.forEach((b) => {
+        b.textContent = '已存';
+      });
+      const stageFxStatus = document.getElementById('replay-stagefx-status');
+      if (stageFxStatus) {
+        stageFxStatus.textContent = '已保存当前模组全部剧本、地图、插图与演出设定';
+      }
+      setTimeout(() => {
+        targets.forEach((b) => {
+          b.textContent = '保存';
+        });
+      }, 1400);
+    }
+
     function renderReplayStudioUI() {
       renderReplayProjectSelectors();
       const proj = getCurrentReplayProject();
@@ -16422,6 +16530,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
       if (typeof renderExtractedModuleScenesList === 'function') renderExtractedModuleScenesList();
       renderReplayChaptersList();
       renderReplayScriptEditor();
+      if (typeof renderReplayStageFxStudio === 'function') renderReplayStageFxStudio();
       if (typeof renderReplayVoiceStudio === 'function') renderReplayVoiceStudio();
       renderReplayCgStudio();
     }
@@ -21104,6 +21213,78 @@ ${numberedLines}`;
       });
     }
 
+    function syncChapterSceneLineRangesFromLines(chap) {
+      if (!chap || !Array.isArray(chap.scenes) || !Array.isArray(chap.scriptLines) || chap.scriptLines.length === 0) return;
+      const rangeMap = new Map();
+      chap.scriptLines.forEach((l, idx) => {
+        const sid = l?.sceneId;
+        if (!sid || sid === 'cg_only') return;
+        if (!rangeMap.has(sid)) {
+          rangeMap.set(sid, { start: idx, end: idx });
+        } else {
+          rangeMap.get(sid).end = idx;
+        }
+      });
+      chap.scenes.forEach((sc) => {
+        if (!sc || !sc.id) return;
+        const r = rangeMap.get(sc.id);
+        if (r) {
+          if (sc.startLineIdx === undefined) sc.startLineIdx = r.start;
+          if (sc.endLineIdx === undefined) sc.endLineIdx = r.end;
+        }
+      });
+    }
+
+    function ensureContinuousChapterScenes(chap) {
+      if (!chap || !Array.isArray(chap.scriptLines) || chap.scriptLines.length === 0) return;
+      const fallbackSceneId = (Array.isArray(chap.scenes) && chap.scenes[0]?.id) ? chap.scenes[0].id : '';
+      let activeSceneId = '';
+      for (let i = 0; i < chap.scriptLines.length; i++) {
+        const line = chap.scriptLines[i];
+        if (!line) continue;
+        if (line.sceneId && line.sceneId !== 'cg_only') {
+          activeSceneId = line.sceneId;
+        } else if (line.sceneId === 'cg_only' && !line._explicitNoBg) {
+          line.sceneId = activeSceneId || fallbackSceneId || 'cg_only';
+        } else if (!line.sceneId) {
+          line.sceneId = activeSceneId || fallbackSceneId || '';
+        }
+      }
+      syncChapterSceneLineRangesFromLines(chap);
+    }
+
+    function propagateSceneSwitchFromLine(chap, lineIdx, newSceneId) {
+      if (!chap || !Array.isArray(chap.scriptLines) || !chap.scriptLines[lineIdx]) return;
+      const oldSceneId = chap.scriptLines[lineIdx].sceneId || '';
+      chap.scriptLines[lineIdx].sceneId = newSceneId;
+      chap.scriptLines[lineIdx]._sceneSwitchAnchor = true;
+      chap.scriptLines[lineIdx]._explicitNoBg = (newSceneId === 'cg_only');
+      for (let k = lineIdx + 1; k < chap.scriptLines.length; k++) {
+        const nextLine = chap.scriptLines[k];
+        if (!nextLine) continue;
+        if (nextLine._sceneSwitchAnchor) break;
+        if (!nextLine.sceneId || nextLine.sceneId === oldSceneId || (nextLine.sceneId === 'cg_only' && !nextLine._explicitNoBg)) {
+          nextLine.sceneId = newSceneId;
+          nextLine._explicitNoBg = (newSceneId === 'cg_only');
+        } else {
+          break;
+        }
+      }
+      if (Array.isArray(chap.scenes)) {
+        const targetSc = chap.scenes.find((s) => s && s.id === newSceneId);
+        if (targetSc) {
+          let endIdx = lineIdx;
+          for (let k = lineIdx; k < chap.scriptLines.length; k++) {
+            if (chap.scriptLines[k]?.sceneId === newSceneId) endIdx = k;
+            else if (k > lineIdx) break;
+          }
+          targetSc.startLineIdx = lineIdx;
+          targetSc.endLineIdx = endIdx;
+        }
+      }
+      syncChapterSceneLineRangesFromLines(chap);
+    }
+
     async function updateReplayScriptLineField(lineIdx, field, val) {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
@@ -21113,7 +21294,11 @@ ${numberedLines}`;
       } else if (field === 'text') {
         val = String(val || '').replace(/^[\s\u3000]+/gm, '');
       }
-      chap.scriptLines[lineIdx][field] = val;
+      if (field === 'sceneId') {
+        propagateSceneSwitchFromLine(chap, lineIdx, val);
+      } else {
+        chap.scriptLines[lineIdx][field] = val;
+      }
       if (field === 'type' && val === 'narration') {
         chap.scriptLines[lineIdx].speaker = '旁白';
         chap.scriptLines[lineIdx].jpText = '';
@@ -21152,6 +21337,8 @@ ${numberedLines}`;
       await saveReplayProjectToDB(proj);
       if (field !== 'text') {
         renderReplayScriptEditor();
+        if (typeof renderReplayStageFxStudio === 'function') renderReplayStageFxStudio();
+        if (field === 'sceneId') renderReplayCgStudio();
       }
     }
 
@@ -21204,13 +21391,16 @@ ${numberedLines}`;
       renderReplayCgStudio();
     }
 
-    const DEFAULT_REPLAY_CG_PROMPT = `你是专业视觉小说CG插画导演与NovelAI提示词专家。请通读整章剧情脉络、全体登场角色人设外貌以及每个CG插点的前后文剧情，一次性为本章全部CG编写贴合剧情氛围的中文画面说明与完整NovelAI英文生图提示词。
+    const DEFAULT_REPLAY_CG_PROMPT = `你是专业视觉小说CG插画与场景地图导演及NovelAI提示词专家。请通读整章剧情脉络、全体登场角色人设外貌、本章场景地图列表以及每个CG插点的前后文剧情，一次性完成两项任务：
+1. 修复并裁定本章每个场景地图从第几句持续到第几句，确保从第0句到最后一句全程都有连贯的场景地图覆盖，一旦切换到某张地图就一直持续到下一处地点转移才切换下一张地图，绝不留任何无背景空档，并为每个场景地图编写纯景无人NovelAI英文提示词。
+2. 修复并裁定本章每张剧情CG插图从第几句持续到第几句，同时为每张CG编写贴合剧情氛围的中文画面说明与完整NovelAI英文生图提示词。
 特别注意：
-1. 如果在场只有1个人，请写 1girl 或 1boy 并融合该角色的外貌服装词、具体动作神态与场景光影。
-2. 如果在场有2个或更多角色，严禁把所有人都写成同一张脸！必须在英文提示词里明确写出人数如 2girls、1boy 1girl 或 multiple people，并分别写清每个角色各自不同的发色、瞳色、发型、服装与具体互动动作，确保多人同框各自特征鲜明且有真实互动感。
-3. 编写CG时绝对不要特地写任何年龄差！必须确保PC几个人年龄是一样的、同龄同辈、外貌年龄感完全一致，没有任何谁年龄高、谁年龄低的情况！所有调查员与男性角色全员都是好看漂亮的俊美青年美型画风，凡是有男性角色出场，必须使用 bishounen, handsome young man, pretty face, delicate facial features 等高颜值美型词，绝对禁止写 age difference, older man, younger girl, mature male, mature man, middle-aged, old, long face, horse face 等任何拉开年龄差距或让男性变得成熟苍老的词汇！
+1. 如果CG在场只有1个人，请写 1girl 或 1boy 并融合该角色的外貌服装词、具体动作神态与场景光影。
+2. 如果CG在场有2个或更多角色，严禁把所有人都写成同一张脸！必须在英文提示词里明确写出人数如 2girls、1boy 1girl 或 multiple people，并分别写清每个角色各自不同的发色、瞳色、发型、服装与具体互动动作。
+3. 编写CG时绝对不要特地写任何年龄差！必须确保PC几个人年龄是一样的、同龄同辈、外貌年龄感完全一致，所有调查员与男性角色全员都是好看漂亮的俊美青年美型画风，凡是有男性角色出场，必须使用 bishounen, handsome young man, pretty face, delicate facial features 等高颜值美型词，绝对禁止写 age difference, older man, younger girl, mature male, mature man, middle-aged, old, long face, horse face 等词汇！
 4. 从头到尾严禁使用任何圆括号或方括号，严格按以下行格式逐条输出：
-CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿号分隔|完整NovelAI英文提示词`;
+SCENE_RANGE: 场景序号数字如0|起始行号数字|结束行号数字|完整NovelAI纯景无人英文提示词
+CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面构图说明|在场角色姓名用顿号分隔|完整NovelAI英文提示词`;
 
     function getCustomOrDefaultCgSystemPrompt() {
       const saved = localStorage.getItem('replay-custom-cg-sys-prompt');
@@ -21251,26 +21441,35 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       if (statusEl) statusEl.textContent = '已恢复CG写词默认提示词';
     }
 
-    // 整理完章节后，点击「写词」由AI读取每个CG插点的前后文剧情与出场人物设定，统一撰写NovelAI场景CG提示词
+    // 整理完章节后，点击「写词」由AI同时修复场景地图起止句范围、修复CG插图起止句范围，并统一撰写NovelAI提示词
     async function generateChapterCgPromptsViaAi() {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
-      if (!proj || !chap || !Array.isArray(chap.cgNodes) || chap.cgNodes.length === 0) {
-        alert('当前章节还没有标记任何CG插点，请先整理剧本或在台词处点插图');
+      if (!proj || !chap) return;
+      const hasCgs = Array.isArray(chap.cgNodes) && chap.cgNodes.length > 0;
+      const hasScenes = Array.isArray(chap.scenes) && chap.scenes.length > 0;
+      if (!hasCgs && !hasScenes) {
+        alert('当前章节还没有场景地图或CG插点，请先整理剧本或在上方点击新增');
         return;
       }
 
       const btn = document.getElementById('replay-cg-write-prompts-btn');
       const statusEl = document.getElementById('replay-cg-queue-status');
       if (btn) { btn.textContent = '写词中'; btn.disabled = true; }
-      if (statusEl) statusEl.textContent = `正在根据本章 ${chap.cgNodes.length} 个CG插点的前后文剧情与人物外貌设定编写NovelAI英文提示词...`;
+      if (statusEl) statusEl.textContent = `正在根据整章剧情同步修复 ${chap.scenes?.length || 0} 个场景地图与 ${chap.cgNodes?.length || 0} 张CG插图的起止句范围并编写提示词...`;
 
       try {
         const lines = chap.scriptLines || [];
-        const cgContextBlocks = chap.cgNodes.map((cg, cIdx) => {
-          const centerIdx = Math.max(0, Math.min(lines.length - 1, cg.lineIdx || 0));
+        const maxLineIdx = Math.max(0, lines.length - 1);
+        const sceneContextBlocks = (chap.scenes || []).map((sc, sIdx) => {
+          return `场景序号:${sIdx}|场景ID:${sc.id}|场景名称:${sc.name || ''}|当前起止行:L${sc.startLineIdx ?? 0}-L${sc.endLineIdx ?? maxLineIdx}|原提示词:${sc.prompt || ''}`;
+        }).join('\n');
+
+        const cgContextBlocks = (chap.cgNodes || []).map((cg, cIdx) => {
+          const centerIdx = Math.max(0, Math.min(maxLineIdx, cg.startLineIdx ?? cg.lineIdx ?? 0));
+          const curEndIdx = Math.max(centerIdx, Math.min(maxLineIdx, cg.endLineIdx ?? centerIdx));
           const start = Math.max(0, centerIdx - 4);
-          const end = Math.min(lines.length, centerIdx + 5);
+          const end = Math.min(lines.length, curEndIdx + 5);
           const contextLines = lines.slice(start, end).map((l, off) => `L${start + off} ${l.speaker}:${l.text}`).join(' / ');
           const present = Array.isArray(cg.presentNames) && cg.presentNames.length > 0
             ? cg.presentNames
@@ -21279,10 +21478,10 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
             const c = appState.characters.find((x) => x.name === n);
             return `${n} 外貌服装词:${c?.naiTags ? stripBasePoseAndExpFromPrompt(c.naiTags) : 'solo, anime style'}`;
           }).join('；');
-          return `CG序号:${cIdx}|原定说明:${cg.zhDesc || ''}|在场人数:${present.length}|在场角色与外貌:${charAppearances || '调查员'}|前后文剧情:${contextLines}`;
+          return `CG序号:${cIdx}|当前起止行:L${centerIdx}-L${curEndIdx}|原定说明:${cg.zhDesc || ''}|在场人数:${present.length}|在场角色与外貌:${charAppearances || '调查员'}|前后文剧情:${contextLines}`;
         }).join('\n\n');
 
-        const fullChapterOverview = lines.slice(0, 260).map((l, idx) => `L${idx} ${l.speaker}:${l.text}`).join('\n');
+        const fullChapterOverview = lines.slice(0, 280).map((l, idx) => `L${idx} ${l.speaker}:${l.text}`).join('\n');
         const allCharsInfo = (appState.characters || [])
           .filter((c) => c.id !== 'narrator_kp' && c.trpgType !== '旁白')
           .map((c) => `角色:${c.name}｜定位:${c.trpgType || '调查员'}｜外貌:${c.body || ''}｜性格:${c.quirk || ''}｜NovelAI外貌服装词:${c.naiTags ? stripBasePoseAndExpFromPrompt(c.naiTags) : 'solo, anime style'}`)
@@ -21293,52 +21492,104 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         const reply = await callLlmCompletion(
           [
             { role: 'system', content: sysPrompt },
-            { role: 'user', content: `本章登场角色人设与外貌词：\n${allCharsInfo}\n\n整章剧情脉络概览：\n${fullChapterOverview}\n\n本章全部待写词CG插点明细：\n${cgContextBlocks}` }
+            { role: 'user', content: `本章总台词行数：共 ${lines.length} 句，行号从 0 到 ${maxLineIdx}\n\n本章登场角色人设与外貌词：\n${allCharsInfo}\n\n本章场景地图列表：\n${sceneContextBlocks || '无'}\n\n整章剧情脉络概览：\n${fullChapterOverview}\n\n本章全部待写词CG插点明细：\n${cgContextBlocks || '无'}` }
           ],
           null,
-          { caller: `章节CG根据全文与人设批量写提示词·${chap.title}`, preferSubApi: false }
+          { caller: `章节CG与地图起止范围修复写词·${chap.title}`, preferSubApi: false }
         );
 
+        let updatedSceneRanges = 0;
         if (reply) {
           reply.split('\n').forEach((rawLine) => {
             const l = rawLine.trim();
-            if (l.startsWith('CG_PROMPT:')) {
+            if (l.startsWith('SCENE_RANGE:') && Array.isArray(chap.scenes)) {
+              const parts = l.replace(/^SCENE_RANGE:\s*/i, '').split('|').map((s) => s.trim());
+              if (parts.length >= 3) {
+                const sIdx = parseInt(parts[0].replace(/\D/g, ''), 10);
+                const sLine = Math.max(0, Math.min(maxLineIdx, parseInt(parts[1].replace(/\D/g, ''), 10) || 0));
+                const eLine = Math.max(sLine, Math.min(maxLineIdx, parseInt(parts[2].replace(/\D/g, ''), 10) || sLine));
+                if (sIdx >= 0 && sIdx < chap.scenes.length) {
+                  const scNode = chap.scenes[sIdx];
+                  scNode.startLineIdx = sLine;
+                  scNode.endLineIdx = eLine;
+                  if (parts[3]) {
+                    const cleanScPrompt = parts.slice(3).join(', ').trim();
+                    if (cleanScPrompt) {
+                      scNode.prompt = cleanScPrompt.includes('no humans')
+                        ? cleanScPrompt
+                        : `no humans, nobody, scenery, masterpiece, best quality, anime visual novel background art, wide angle 16:9, ${cleanScPrompt}`;
+                    }
+                  }
+                  for (let k = sLine; k <= eLine; k++) {
+                    if (lines[k]) {
+                      lines[k].sceneId = scNode.id;
+                      lines[k]._explicitNoBg = false;
+                      lines[k]._sceneSwitchAnchor = (k === sLine);
+                    }
+                  }
+                  updatedSceneRanges += 1;
+                }
+              }
+            } else if (l.startsWith('CG_PROMPT:') && Array.isArray(chap.cgNodes)) {
               const parts = l.replace(/^CG_PROMPT:\s*/i, '').split('|').map((s) => s.trim());
               if (parts.length >= 4) {
                 const cIdx = parseInt(parts[0].replace(/\D/g, ''), 10);
                 if (cIdx >= 0 && cIdx < chap.cgNodes.length) {
                   const node = chap.cgNodes[cIdx];
-                  if (parts[1]) node.zhDesc = parts[1];
-                  const parsedNames = parts[2].split(/[、,，\s]+/).filter(Boolean);
-                  if (parsedNames.length > 0) node.presentNames = parsedNames;
-                  const rawEn = parts.slice(3).join(', ').replace(/\b(age difference|age gap|older man|older male|older woman|younger girl|younger boy|mature male|mature man|middle-aged|old man|long face|horse face)\b\s*,?/gi, '').trim();
-                  node.prompt = `masterpiece, best quality, very aesthetic, absurdres, cinematic anime CG illustration, 16:9 wide angle, dramatic lighting, same age peers, ${rawEn}`;
-                  node.refCharId = '';
+                  const isNew6Col = parts.length >= 6 && /^\d+$/.test(parts[1].replace(/^[Ll]/, '')) && /^\d+$/.test(parts[2].replace(/^[Ll]/, ''));
+                  if (isNew6Col) {
+                    const sLine = Math.max(0, Math.min(maxLineIdx, parseInt(parts[1].replace(/\D/g, ''), 10) || 0));
+                    const eLine = Math.max(sLine, Math.min(maxLineIdx, parseInt(parts[2].replace(/\D/g, ''), 10) || sLine));
+                    node.startLineIdx = sLine;
+                    node.lineIdx = sLine;
+                    node.endLineIdx = eLine;
+                    if (lines[sLine]) node.lineText = lines[sLine].text;
+                    if (parts[3]) node.zhDesc = parts[3];
+                    const parsedNames = parts[4].split(/[、,，\s]+/).filter(Boolean);
+                    if (parsedNames.length > 0) node.presentNames = parsedNames;
+                    const rawEn = parts.slice(5).join(', ').replace(/\b(age difference|age gap|older man|older male|older woman|younger girl|younger boy|mature male|mature man|middle-aged|old man|long face|horse face)\b\s*,?/gi, '').trim();
+                    node.prompt = `masterpiece, best quality, very aesthetic, absurdres, cinematic anime CG illustration, 16:9 wide angle, dramatic lighting, same age peers, ${rawEn}`;
+                    node.refCharId = '';
+                  } else {
+                    if (parts[1]) node.zhDesc = parts[1];
+                    const parsedNames = parts[2].split(/[、,，\s]+/).filter(Boolean);
+                    if (parsedNames.length > 0) node.presentNames = parsedNames;
+                    const rawEn = parts.slice(3).join(', ').replace(/\b(age difference|age gap|older man|older male|older woman|younger girl|younger boy|mature male|mature man|middle-aged|old man|long face|horse face)\b\s*,?/gi, '').trim();
+                    node.prompt = `masterpiece, best quality, very aesthetic, absurdres, cinematic anime CG illustration, 16:9 wide angle, dramatic lighting, same age peers, ${rawEn}`;
+                    node.refCharId = '';
+                  }
                 }
               }
             }
           });
         }
 
-        chap.cgNodes.forEach((node) => {
-          if (!node.prompt || !node.prompt.trim()) {
-            const present = Array.isArray(node.presentNames) && node.presentNames.length > 0 ? node.presentNames : ['调查员'];
-            const countTag = present.length > 1 ? `${present.length} characters, multiple people` : 'solo';
-            const charTags = present.map((n) => {
-              const c = appState.characters.find((x) => x.name === n);
-              return c?.naiTags ? stripBasePoseAndExpFromPrompt(c.naiTags) : 'anime style';
-            }).join(', ');
-            node.prompt = `masterpiece, best quality, very aesthetic, absurdres, cinematic visual novel event CG, 16:9 wide shot, ${countTag}, ${charTags}, dramatic lighting, detailed background`;
-          }
-        });
+        // 确保整章地图连续不断档
+        ensureContinuousChapterScenes(chap);
+        if (Array.isArray(chap.cgNodes)) {
+          chap.cgNodes.forEach((node) => {
+            if (!node.prompt || !node.prompt.trim()) {
+              const present = Array.isArray(node.presentNames) && node.presentNames.length > 0 ? node.presentNames : ['调查员'];
+              const countTag = present.length > 1 ? `${present.length} characters, multiple people` : 'solo';
+              const charTags = present.map((n) => {
+                const c = appState.characters.find((x) => x.name === n);
+                return c?.naiTags ? stripBasePoseAndExpFromPrompt(c.naiTags) : 'anime style';
+              }).join(', ');
+              node.prompt = `masterpiece, best quality, very aesthetic, absurdres, cinematic visual novel event CG, 16:9 wide shot, ${countTag}, ${charTags}, dramatic lighting, detailed background`;
+            }
+          });
+          syncChapterCgLineBindings(chap);
+        }
 
         await saveReplayProjectToDB(proj);
+        renderReplayScriptEditor();
+        if (typeof renderReplayStageFxStudio === 'function') renderReplayStageFxStudio();
         renderReplayCgStudio();
         if (statusEl) {
-          statusEl.textContent = `已结合整章剧情与全员人设为本章 ${chap.cgNodes.length} 张CG一次性写好提示词！`;
+          statusEl.textContent = `已同步修复本章 ${chap.scenes?.length || 0} 张场景地图与 ${chap.cgNodes?.length || 0} 张CG插图的起止句范围并写好提示词`;
         }
       } catch (err) {
-        alert('生成CG提示词失败：' + err.message);
+        alert('生成CG提示词与修复地图范围失败：' + err.message);
       } finally {
         if (btn) { btn.textContent = '写词'; btn.disabled = false; }
       }
@@ -21426,22 +21677,112 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       }
     }
 
-    // 线索道具与剧情CG生图工作台
+    async function saveSingleSceneNodePrompt(sIdx, btnEl) {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      if (!proj || !chap || !chap.scenes || !chap.scenes[sIdx]) return;
+      await saveReplayProjectToDB(proj);
+      if (btnEl) {
+        btnEl.textContent = '已存';
+        setTimeout(() => {
+          if (btnEl) btnEl.textContent = '保存';
+        }, 1200);
+      }
+    }
+
+    async function deleteReplaySceneNode(sIdx) {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      if (!proj || !chap || !Array.isArray(chap.scenes) || !chap.scenes[sIdx]) return;
+      const removed = chap.scenes.splice(sIdx, 1)[0];
+      const fallbackId = chap.scenes[0]?.id || '';
+      if (removed && Array.isArray(chap.scriptLines)) {
+        chap.scriptLines.forEach((l) => {
+          if (l && l.sceneId === removed.id) {
+            l.sceneId = fallbackId;
+          }
+        });
+      }
+      ensureContinuousChapterScenes(chap);
+      await saveReplayProjectToDB(proj);
+      renderExtractedModuleScenesList();
+      renderReplayScriptEditor();
+      if (typeof renderReplayStageFxStudio === 'function') renderReplayStageFxStudio();
+      renderReplayCgStudio();
+    }
+
+    // 场景地图、线索道具与剧情CG生图工作台
     function renderReplayCgStudio() {
+      const sceneBox = document.getElementById('replay-scene-nodes-list-container');
       const clueBox = document.getElementById('replay-clue-nodes-list-container');
       const cgBox = document.getElementById('replay-cg-nodes-list-container');
       if (!cgBox) return;
       const chap = getCurrentReplayChapter();
       if (!chap) {
+        if (sceneBox) sceneBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">请先选择章节并整理剧本</div>';
         if (clueBox) clueBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">请先选择章节并整理剧本</div>';
         cgBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">请先选择章节并整理剧本</div>';
         return;
       }
 
+      ensureContinuousChapterScenes(chap);
+      const totalScriptLines = Array.isArray(chap.scriptLines) ? chap.scriptLines.length : 0;
+
+      // 0. 渲染本章场景地图与起止句范围列表
+      if (sceneBox) {
+        const scenes = chap.scenes || [];
+        if (scenes.length === 0) {
+          sceneBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">本章暂无场景地图，整理剧本时将自动提取，也可点右上角新增</div>';
+        } else {
+          sceneBox.innerHTML = '';
+          scenes.forEach((sc, sIdx) => {
+            const scStartIdx = Math.max(0, Math.min(Math.max(0, totalScriptLines - 1), Number(sc.startLineIdx ?? 0)));
+            const scEndIdx = Math.max(scStartIdx, Math.min(Math.max(0, totalScriptLines - 1), Number(sc.endLineIdx ?? Math.max(0, totalScriptLines - 1))));
+            const scStartOptions = totalScriptLines > 0
+              ? chap.scriptLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === scStartIdx ? 'selected' : ''}>从第 ${lIdx + 1} 句：${(l.speaker || '旁白')}·${String(l.text || '').slice(0, 14)}</option>`).join('')
+              : `<option value="0">第 1 句</option>`;
+            const scEndOptions = totalScriptLines > 0
+              ? chap.scriptLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === scEndIdx ? 'selected' : ''}>到第 ${lIdx + 1} 句：${(l.speaker || '旁白')}·${String(l.text || '').slice(0, 14)}</option>`).join('')
+              : `<option value="0">第 1 句</option>`;
+
+            const card = document.createElement('div');
+            card.id = 'scene-card-' + sc.id;
+            card.className = 'setting-item';
+            card.style.flexDirection = 'column';
+            card.style.alignItems = 'stretch';
+            card.style.gap = '6px';
+            card.innerHTML = `
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                <input type="text" class="moe-input" value="${(sc.name || '').replace(/"/g, '&quot;')}" placeholder="场景地图名称" style="max-width:190px;height:30px;min-height:30px;font-weight:700;font-size:12px;" oninput="updateReplaySceneNodeField(${sIdx}, 'name', this.value)" onchange="updateReplaySceneNodeField(${sIdx}, 'name', this.value)" />
+                <span style="font-size:11px;font-weight:700;color:var(--accent-color);">地图 #${sIdx + 1} · 持续第 ${scStartIdx + 1} 至第 ${scEndIdx + 1} 句</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <select class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplaySceneNodeField(${sIdx}, 'startLineIdx', this.value)">
+                  ${scStartOptions}
+                </select>
+                <select class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplaySceneNodeField(${sIdx}, 'endLineIdx', this.value)">
+                  ${scEndOptions}
+                </select>
+              </div>
+              <textarea class="moe-input" style="min-height:52px;font-size:11px;" placeholder="纯景无人物场景背景英文提示词" oninput="updateReplaySceneNodeField(${sIdx}, 'prompt', this.value)" onchange="updateReplaySceneNodeField(${sIdx}, 'prompt', this.value)">${sc.prompt || ''}</textarea>
+              <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;">
+                <button type="button" class="moe-btn secondary" onclick="saveSingleSceneNodePrompt(${sIdx}, this)">保存</button>
+                <button type="button" class="moe-btn" id="scene-gen-btn-${sIdx}" onclick="generateSingleReplaySceneBg(${sIdx})">${sc.imageUrl ? '重绘' : '生图'}</button>
+                <button type="button" class="moe-btn secondary" onclick="document.getElementById('scene-upload-input-${sIdx}').click()">传图</button>
+                <input type="file" id="scene-upload-input-${sIdx}" accept="image/*" style="display:none;" onchange="handleReplaySceneBgUpload(event, ${sIdx})" />
+                <button type="button" class="moe-btn secondary" onclick="deleteReplaySceneNode(${sIdx})">删除</button>
+              </div>
+              ${sc.imageUrl ? `<img src="${toFastDisplayUrl(sc.imageUrl)}" decoding="async" loading="lazy" alt="${sc.name}" style="width:100%;height:140px;object-fit:cover;border-radius:8px;border:1.5px solid var(--border-color);cursor:pointer;" title="连续点击三下下载场景图" onclick="handleStageImgTripleClick(event, '场景_${sc.name}')" />` : ''}
+            `;
+            sceneBox.appendChild(card);
+          });
+        }
+      }
+
       // 1. 渲染本章线索道具列表
       if (clueBox) {
         const clueNodes = chap.clueNodes || [];
-        const totalLinesForClue = Array.isArray(chap.scriptLines) ? chap.scriptLines.length : 0;
+        const totalLinesForClue = totalScriptLines;
         if (clueNodes.length === 0) {
           clueBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">本章暂无线索道具节点，可在剧本页点顶部线索按钮自动分析提取，或点右上角新增</div>';
         } else {
@@ -21495,7 +21836,6 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         cgBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">本章暂无CG节点，整理剧本时将自动标记CG插点，也可在剧本页任意台词处点插图</div>';
       } else {
         cgBox.innerHTML = '';
-        const totalScriptLines = Array.isArray(chap.scriptLines) ? chap.scriptLines.length : 0;
         cgNodes.forEach((cg, cIdx) => {
           const isMultiPerson = Array.isArray(cg.presentNames) && cg.presentNames.length > 1;
           const presentLabel = Array.isArray(cg.presentNames) && cg.presentNames.length > 0 ? cg.presentNames.join('、') : '待定';
@@ -21595,9 +21935,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       const sc = chap.scenes[sIdx];
       if (field === 'startLineIdx' || field === 'endLineIdx') {
         const parsed = parseInt(val, 10);
-        if (isNaN(parsed) || parsed < 0) {
-          delete sc[field];
-        } else {
+        if (!isNaN(parsed) && parsed >= 0) {
           const maxIdx = Math.max(0, (chap.scriptLines?.length || 1) - 1);
           const clamped = Math.max(0, Math.min(maxIdx, parsed));
           sc[field] = clamped;
@@ -21607,17 +21945,28 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
             sc.startLineIdx = clamped;
           }
           if (Array.isArray(chap.scriptLines)) {
-            for (let k = sc.startLineIdx; k <= sc.endLineIdx; k++) {
-              if (chap.scriptLines[k]) chap.scriptLines[k].sceneId = sc.id;
+            const sLine = sc.startLineIdx ?? 0;
+            const eLine = sc.endLineIdx ?? sLine;
+            for (let k = sLine; k <= eLine; k++) {
+              if (chap.scriptLines[k]) {
+                chap.scriptLines[k].sceneId = sc.id;
+                chap.scriptLines[k]._explicitNoBg = false;
+                if (k === sLine) chap.scriptLines[k]._sceneSwitchAnchor = true;
+              }
             }
           }
         }
         await saveReplayProjectToDB(proj);
         renderReplayScriptEditor();
+        if (typeof renderReplayStageFxStudio === 'function') renderReplayStageFxStudio();
         renderReplayCgStudio();
         return;
       }
       sc[field] = val;
+      if (field === 'name') {
+        const gFound = (proj.globalScenes || []).find((x) => x.id === sc.id);
+        if (gFound) gFound.name = val;
+      }
       await saveReplayProjectToDB(proj);
     }
 
@@ -21656,9 +22005,12 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       if (!proj || !chap) return;
       if (!Array.isArray(chap.scenes)) chap.scenes = [];
       const idx = chap.scenes.length + 1;
+      const lastLineIdx = Math.max(0, (chap.scriptLines?.length || 1) - 1);
       chap.scenes.push({
-        id: `scene_${idx}`,
+        id: `scene_${Date.now()}_${idx}`,
         name: `新增场所 ${idx}`,
+        startLineIdx: 0,
+        endLineIdx: lastLineIdx,
         prompt: 'no humans, nobody, scenery, masterpiece, best quality, anime visual novel background art, wide angle 16:9 interior, atmospheric lighting',
         imageUrl: ''
       });
@@ -21672,6 +22024,339 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       if (!proj || !chap) return;
       const lastIdx = Math.max(0, (chap.scriptLines?.length || 1) - 1);
       await addManualCgForScriptLine(lastIdx);
+    }
+
+    // ==================== 独立「演出」工作台：转场、环境粒子氛围、分级叫喊、背叛黑底红字、神秘人？？？匿影、SVG贴纸 ====================
+    const DEFAULT_STAGE_FX_DIRECTOR_PROMPT = `你是顶尖日乙与悬疑视觉小说舞台演出导演。请阅读本章剧本台词与场景列表，为关键剧情台词编排沉浸式舞台演出效果，并输出整章默认氛围与关键行的演出指令。
+可用参数说明：
+1. 章节默认氛围 CHAP_AMBIENT 可选值：none、rain、fog、ember、dust、snow、crimson
+2. 单句转场 transition 可选值：none、fade_black、flash_white、memory_sepia、eye_open、curtain_wipe
+3. 单句氛围 ambient 可选值：inherit、none、rain、fog、ember、dust、snow、crimson
+4. 文字动效 textFx 可选值：
+   - normal 常规打字
+   - shout_s 微喊 字号微放大并轻微震颤
+   - shout_m 大喊 字号明显放大加粗并弹跳震动
+   - shout_l 暴喝 特大字号并强烈震屏冲击
+   - hesitate 欲言又止 先缓慢打出省略号停顿再浮现正文
+   - betrayal 震撼背叛 遭遇亲密之人背叛或极端残酷真相揭露时，对话框变纯黑底鲜红字并一字一顿重锤砸出
+   - whisper 轻声低语 缩小字号半透明轻柔浮现
+5. 神秘人匿影 mysteryMode 可选值：
+   - none 正常显示姓名与立绘
+   - name_only 仅名字显示为？？？
+   - full_shadow 名字显示为？？？且立绘与小头像变为纯黑剪影隐藏真容，适合某角色刚出场尚未自报姓名或隐藏身份时
+6. 情绪贴纸 sticker 可选值：none、sweat、anger、question、exclaim、music、sparkle、silence、heart
+
+请只对真正需要演出的关键句输出指令，不必每句都加特效，保持克制精致的日乙演出节奏。从头到尾严禁使用任何括号，严格按以下格式逐行输出：
+CHAP_AMBIENT: 氛围代号
+STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker值`;
+
+    function getCustomOrDefaultStageFxPrompt() {
+      const saved = localStorage.getItem('replay-custom-stagefx-sys-prompt');
+      return (saved && saved.trim()) ? saved.trim() : DEFAULT_STAGE_FX_DIRECTOR_PROMPT;
+    }
+
+    function toggleStageFxPromptEditor() {
+      const box = document.getElementById('replay-stagefx-prompt-box');
+      const ta = document.getElementById('replay-stagefx-prompt-textarea');
+      if (!box) return;
+      const isHidden = box.style.display === 'none' || !box.style.display;
+      box.style.display = isHidden ? 'block' : 'none';
+      if (isHidden && ta) {
+        ta.value = getCustomOrDefaultStageFxPrompt();
+      }
+    }
+
+    function saveCustomStageFxPrompt(silent = false) {
+      const ta = document.getElementById('replay-stagefx-prompt-textarea');
+      if (!ta) return;
+      const val = ta.value.trim();
+      if (val) {
+        localStorage.setItem('replay-custom-stagefx-sys-prompt', val);
+      } else {
+        localStorage.removeItem('replay-custom-stagefx-sys-prompt');
+      }
+      if (!silent) {
+        const st = document.getElementById('replay-stagefx-status');
+        if (st) st.textContent = '已保存演出导演默认提示词';
+      }
+    }
+
+    function resetCustomStageFxPrompt() {
+      localStorage.removeItem('replay-custom-stagefx-sys-prompt');
+      const ta = document.getElementById('replay-stagefx-prompt-textarea');
+      if (ta) ta.value = DEFAULT_STAGE_FX_DIRECTOR_PROMPT;
+      const st = document.getElementById('replay-stagefx-status');
+      if (st) st.textContent = '已恢复演出导演默认提示词';
+    }
+
+    async function onStageFxDefaultAmbientChange(val) {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      if (!proj || !chap) return;
+      chap.defaultAmbient = val || 'none';
+      await saveReplayProjectToDB(proj);
+      const st = document.getElementById('replay-stagefx-status');
+      if (st) st.textContent = '已更新本章默认环境氛围';
+    }
+
+    async function updateLineStageFxField(lineIdx, field, val) {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      if (!proj || !chap || !Array.isArray(chap.scriptLines) || !chap.scriptLines[lineIdx]) return;
+      if (field === 'sceneId') {
+        propagateSceneSwitchFromLine(chap, lineIdx, val);
+      } else {
+        chap.scriptLines[lineIdx][field] = val;
+      }
+      await saveReplayProjectToDB(proj);
+      renderReplayStageFxStudio();
+      if (field === 'sceneId') {
+        renderReplayScriptEditor();
+        renderReplayCgStudio();
+      }
+    }
+
+    async function clearSingleLineStageFx(lineIdx) {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      if (!proj || !chap || !Array.isArray(chap.scriptLines) || !chap.scriptLines[lineIdx]) return;
+      const line = chap.scriptLines[lineIdx];
+      line.transition = 'none';
+      line.ambient = 'inherit';
+      line.textFx = 'normal';
+      line.mysteryMode = 'none';
+      line.sticker = 'none';
+      if (line.effect === 'shake_screen' || line.effect === 'blackout') {
+        line.effect = 'none';
+      }
+      await saveReplayProjectToDB(proj);
+      renderReplayStageFxStudio();
+      const st = document.getElementById('replay-stagefx-status');
+      if (st) st.textContent = `已清除第 ${lineIdx + 1} 句的舞台演出特效`;
+    }
+
+    async function clearAllChapterStageFx() {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      if (!proj || !chap || !Array.isArray(chap.scriptLines)) return;
+      chap.defaultAmbient = 'none';
+      chap.scriptLines.forEach((line) => {
+        if (!line) return;
+        line.transition = 'none';
+        line.ambient = 'inherit';
+        line.textFx = 'normal';
+        line.mysteryMode = 'none';
+        line.sticker = 'none';
+        if (line.effect && line.effect !== 'none') {
+          line.effect = 'none';
+        }
+      });
+      await saveReplayProjectToDB(proj);
+      renderReplayStageFxStudio();
+      renderReplayScriptEditor();
+      const st = document.getElementById('replay-stagefx-status');
+      if (st) st.textContent = '已一键清除本章全部转场、氛围、文字动效、神秘人匿影与贴纸特效';
+    }
+
+    async function aiDirectorConfigureChapterStageFx() {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      if (!proj || !chap || !Array.isArray(chap.scriptLines) || chap.scriptLines.length === 0) {
+        alert('请先在剧本页生成本章剧本后再使用智能演出编排');
+        return;
+      }
+      const btn = document.getElementById('replay-stagefx-ai-btn');
+      const st = document.getElementById('replay-stagefx-status');
+      if (btn) { btn.textContent = '编排中'; btn.disabled = true; }
+      if (st) st.textContent = '正在阅读本章剧情并智能编排环境氛围、转场、分级叫喊、背叛红字、神秘人匿影与情绪贴纸...';
+
+      try {
+        const linesOverview = chap.scriptLines.slice(0, 260).map((l, idx) => `L${idx} ${l.speaker || '旁白'}:${l.text || ''}`).join('\n');
+        const reply = await callLlmCompletion(
+          [
+            { role: 'system', content: getCustomOrDefaultStageFxPrompt() },
+            { role: 'user', content: `章节标题：${chap.title || '本章'}\n\n章节台词列表：\n${linesOverview}` }
+          ],
+          null,
+          { caller: `智能舞台演出导演编排·${chap.title}`, preferSubApi: false }
+        );
+
+        let appliedCount = 0;
+        if (reply) {
+          reply.split('\n').forEach((raw) => {
+            const lineStr = raw.trim();
+            if (lineStr.startsWith('CHAP_AMBIENT:')) {
+              const amb = lineStr.replace(/^CHAP_AMBIENT:\s*/i, '').trim().toLowerCase();
+              if (['none', 'rain', 'fog', 'ember', 'dust', 'snow', 'crimson'].includes(amb)) {
+                chap.defaultAmbient = amb;
+              }
+            } else if (lineStr.startsWith('STAGE_FX:')) {
+              const parts = lineStr.replace(/^STAGE_FX:\s*/i, '').split('|').map((s) => s.trim());
+              if (parts.length >= 6) {
+                const lIdx = parseInt(parts[0].replace(/\D/g, ''), 10);
+                if (lIdx >= 0 && lIdx < chap.scriptLines.length) {
+                  const target = chap.scriptLines[lIdx];
+                  if (['none', 'fade_black', 'flash_white', 'memory_sepia', 'eye_open', 'curtain_wipe'].includes(parts[1])) {
+                    target.transition = parts[1];
+                  }
+                  if (['inherit', 'none', 'rain', 'fog', 'ember', 'dust', 'snow', 'crimson'].includes(parts[2])) {
+                    target.ambient = parts[2];
+                  }
+                  if (['normal', 'shout_s', 'shout_m', 'shout_l', 'hesitate', 'betrayal', 'whisper'].includes(parts[3])) {
+                    target.textFx = parts[3];
+                  }
+                  if (['none', 'name_only', 'full_shadow'].includes(parts[4])) {
+                    target.mysteryMode = parts[4];
+                  }
+                  if (['none', 'sweat', 'anger', 'question', 'exclaim', 'music', 'sparkle', 'silence', 'heart'].includes(parts[5])) {
+                    target.sticker = parts[5];
+                  }
+                  appliedCount += 1;
+                }
+              }
+            }
+          });
+        }
+
+        await saveReplayProjectToDB(proj);
+        renderReplayStageFxStudio();
+        if (st) {
+          st.textContent = `已完成本章舞台演出智能编排，共配置 ${appliedCount} 处高光演出节点`;
+        }
+      } catch (err) {
+        alert('智能演出编排失败：' + err.message);
+      } finally {
+        if (btn) { btn.textContent = '智能'; btn.disabled = false; }
+      }
+    }
+
+    function renderReplayStageFxStudio() {
+      const box = document.getElementById('replay-stagefx-lines-container');
+      const ambSel = document.getElementById('replay-stagefx-default-ambient');
+      if (!box) return;
+      const chap = getCurrentReplayChapter();
+      if (!chap || !Array.isArray(chap.scriptLines) || chap.scriptLines.length === 0) {
+        box.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">当前章节尚未整理剧本，请先在剧本分页点击整理生成剧本</div>';
+        return;
+      }
+
+      ensureContinuousChapterScenes(chap);
+      if (ambSel) {
+        ambSel.value = chap.defaultAmbient || 'none';
+      }
+
+      const sceneOptionsList = [];
+      const seenScIds = new Set();
+      (chap.scenes || []).forEach((s) => {
+        if (s && s.id && !seenScIds.has(s.id)) {
+          seenScIds.add(s.id);
+          sceneOptionsList.push({ id: s.id, label: s.name || s.id });
+        }
+      });
+      sceneOptionsList.push({ id: 'cg_only', label: '无背景' });
+
+      const transMap = {
+        none: '无转场',
+        fade_black: '黑场淡入',
+        flash_white: '白光闪切',
+        memory_sepia: '旧忆泛黄',
+        eye_open: '睁眼聚焦',
+        curtain_wipe: '拉幕横切'
+      };
+      const ambMap = {
+        inherit: '随章节',
+        none: '无氛围',
+        rain: '细雨',
+        fog: '迷雾',
+        ember: '火星',
+        dust: '浮尘',
+        snow: '飘雪',
+        crimson: '暗红'
+      };
+      const textFxMap = {
+        normal: '常规打字',
+        shout_s: '微喊放大',
+        shout_m: '大喊震动',
+        shout_l: '暴喝震屏',
+        hesitate: '欲言又止',
+        betrayal: '背叛红字',
+        whisper: '轻声低语'
+      };
+      const mysteryMap = {
+        none: '正常显名',
+        name_only: '名字问号',
+        full_shadow: '问号剪影'
+      };
+      const stickerMap = {
+        none: '无贴纸',
+        sweat: '汗滴',
+        anger: '青筋',
+        question: '问号',
+        exclaim: '惊叹',
+        music: '音符',
+        sparkle: '闪光',
+        silence: '省略',
+        heart: '悸动'
+      };
+
+      box.innerHTML = '';
+      chap.scriptLines.forEach((line, idx) => {
+        const curSc = line.sceneId || sceneOptionsList[0]?.id || 'cg_only';
+        const prevSc = idx > 0 ? (chap.scriptLines[idx - 1]?.sceneId || '') : '';
+        const isSceneSwitch = idx === 0 || curSc !== prevSc || Boolean(line._sceneSwitchAnchor);
+        const curTrans = line.transition || 'none';
+        const curAmb = line.ambient || 'inherit';
+        const curTextFx = line.textFx || 'normal';
+        const curMystery = line.mysteryMode || 'none';
+        const curSticker = line.sticker || 'none';
+
+        const badges = [];
+        if (isSceneSwitch && curSc !== 'cg_only') {
+          const scObj = sceneOptionsList.find((x) => x.id === curSc);
+          badges.push(`<span class="vn-console-badge accent">切图·${scObj ? scObj.label : curSc}</span>`);
+        }
+        if (curTrans !== 'none') badges.push(`<span class="vn-console-badge accent">${transMap[curTrans] || curTrans}</span>`);
+        if (curAmb !== 'inherit' && curAmb !== 'none') badges.push(`<span class="vn-console-badge">${ambMap[curAmb] || curAmb}</span>`);
+        if (curTextFx !== 'normal') badges.push(`<span class="vn-console-badge accent">${textFxMap[curTextFx] || curTextFx}</span>`);
+        if (curMystery !== 'none') badges.push(`<span class="vn-console-badge accent">${mysteryMap[curMystery] || curMystery}</span>`);
+        if (curSticker !== 'none') badges.push(`<span class="vn-console-badge">贴纸·${stickerMap[curSticker] || curSticker}</span>`);
+
+        const row = document.createElement('div');
+        row.className = 'vn-console-row';
+        row.style.gap = '6px';
+        row.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1;">
+              <span class="vn-console-idx">#${idx + 1}</span>
+              <span class="vn-console-speaker" style="width:auto;max-width:92px;">${curMystery !== 'none' ? '？？？' : (line.speaker || '旁白')}</span>
+              <span class="vn-console-text" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${String(line.text || '').slice(0, 38)}</span>
+            </div>
+            <div class="vn-console-badges">${badges.join('')}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <select class="moe-input" style="flex:1;min-width:98px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="从此句起切换场景地图并持续到下次切换" onchange="updateLineStageFxField(${idx}, 'sceneId', this.value)">
+              ${sceneOptionsList.map((sc) => `<option value="${sc.id.replace(/"/g, '&quot;')}" ${sc.id === curSc ? 'selected' : ''}>地图·${sc.label}</option>`).join('')}
+            </select>
+            <select class="moe-input" style="flex:1;min-width:92px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="镜头转场特效" onchange="updateLineStageFxField(${idx}, 'transition', this.value)">
+              ${Object.entries(transMap).map(([k, v]) => `<option value="${k}" ${k === curTrans ? 'selected' : ''}>${v}</option>`).join('')}
+            </select>
+            <select class="moe-input" style="flex:1;min-width:86px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="环境粒子氛围" onchange="updateLineStageFxField(${idx}, 'ambient', this.value)">
+              ${Object.entries(ambMap).map(([k, v]) => `<option value="${k}" ${k === curAmb ? 'selected' : ''}>${v}</option>`).join('')}
+            </select>
+            <select class="moe-input" style="flex:1;min-width:92px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="文字阅读与叫喊背叛动效" onchange="updateLineStageFxField(${idx}, 'textFx', this.value)">
+              ${Object.entries(textFxMap).map(([k, v]) => `<option value="${k}" ${k === curTextFx ? 'selected' : ''}>${v}</option>`).join('')}
+            </select>
+            <select class="moe-input" style="flex:1;min-width:92px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="神秘人未知名？？？与剪影" onchange="updateLineStageFxField(${idx}, 'mysteryMode', this.value)">
+              ${Object.entries(mysteryMap).map(([k, v]) => `<option value="${k}" ${k === curMystery ? 'selected' : ''}>${v}</option>`).join('')}
+            </select>
+            <select class="moe-input" style="flex:1;min-width:84px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="角色头顶SVG矢量情绪贴纸" onchange="updateLineStageFxField(${idx}, 'sticker', this.value)">
+              ${Object.entries(stickerMap).map(([k, v]) => `<option value="${k}" ${k === curSticker ? 'selected' : ''}>${v}</option>`).join('')}
+            </select>
+            <button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;flex-shrink:0;" onclick="clearSingleLineStageFx(${idx})">清除</button>
+          </div>
+        `;
+        box.appendChild(row);
+      });
     }
 
     async function deleteReplayCgNode(cIdx) {
@@ -24116,7 +24801,11 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       const line = chap.scriptLines[idx];
       if (!line) return;
 
-      line[field] = val;
+      if (field === 'sceneId') {
+        propagateSceneSwitchFromLine(chap, idx, val);
+      } else {
+        line[field] = val;
+      }
       if (field === 'type' && val === 'narration') {
         line.speaker = '旁白';
         line.jpText = '';
@@ -24156,6 +24845,8 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       }
       await saveReplayProjectToDB(proj);
       renderReplayScriptEditor();
+      if (typeof renderReplayStageFxStudio === 'function') renderReplayStageFxStudio();
+      if (field === 'sceneId') renderReplayCgStudio();
       renderTheaterCurrentLine();
     }
 
@@ -24482,9 +25173,133 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
 
     let _theaterRenderSeq = 0;
     let _lastTheaterDockClickAt = 0;
+    let _longPressFfBound = false;
+    let _longPressActiveFlag = false;
+    let _longPressSuppressNextClick = false;
+    let _longPressRafId = null;
+    let _longPressStartTimer = null;
+
+    function initTheaterLongPressFastForward() {
+      if (_longPressFfBound) return;
+      const stageRoot = document.getElementById('vn-theater-stage-root');
+      if (!stageRoot) return;
+      _longPressFfBound = true;
+
+      const circumference = 175.9;
+      const holdDelayMs = 150;
+      const fillDurationMs = 420;
+
+      const stopLongPressSession = () => {
+        if (_longPressStartTimer) {
+          clearTimeout(_longPressStartTimer);
+          _longPressStartTimer = null;
+        }
+        if (_longPressRafId) {
+          cancelAnimationFrame(_longPressRafId);
+          _longPressRafId = null;
+        }
+        const hud = document.getElementById('vn-theater-longpress-hud');
+        const circle = document.getElementById('vn-longpress-progress-circle');
+        const lbl = document.getElementById('vn-longpress-label');
+        if (hud) {
+          hud.classList.remove('active', 'fast-forwarding');
+        }
+        if (circle) {
+          circle.style.strokeDashoffset = String(circumference);
+        }
+        if (lbl) {
+          lbl.textContent = '长按快进';
+        }
+        if (_longPressActiveFlag) {
+          _longPressActiveFlag = false;
+          if (appState.theaterSkipPlay) {
+            stopTheaterAutoAndSkip();
+          }
+        }
+      };
+
+      stageRoot.addEventListener('pointerdown', (ev) => {
+        if (appState.theaterEditMode) return;
+        const target = ev.target;
+        if (!target) return;
+        if (target.closest('button, select, input, textarea, .modal, .vn-selector-lobby, .vn-top-bar, .vn-stage-ctrl-bar, .vn-stage-edit-panel')) {
+          return;
+        }
+        stopLongPressSession();
+        _longPressSuppressNextClick = false;
+
+        _longPressStartTimer = setTimeout(() => {
+          const hud = document.getElementById('vn-theater-longpress-hud');
+          const circle = document.getElementById('vn-longpress-progress-circle');
+          const lbl = document.getElementById('vn-longpress-label');
+          if (!hud || !circle) return;
+          _longPressActiveFlag = true;
+          _longPressSuppressNextClick = true;
+          hud.classList.add('active');
+          if (lbl) lbl.textContent = '蓄力快进';
+          const startTs = performance.now();
+
+          const stepRing = (nowTs) => {
+            if (!_longPressActiveFlag) return;
+            const elapsed = Math.max(0, nowTs - startTs);
+            const ratio = Math.min(1, elapsed / fillDurationMs);
+            circle.style.strokeDashoffset = String(circumference * (1 - ratio));
+            if (ratio < 1) {
+              _longPressRafId = requestAnimationFrame(stepRing);
+            } else {
+              hud.classList.add('fast-forwarding');
+              if (lbl) lbl.textContent = '快进中';
+              if (!appState.theaterSkipPlay) {
+                appState.theaterSkipPlay = true;
+                appState.theaterAutoPlay = false;
+                const skipBtn = document.getElementById('theater-skip-btn');
+                if (skipBtn) skipBtn.classList.add('accent-sticker');
+                nextTheaterLine();
+              }
+            }
+          };
+          _longPressRafId = requestAnimationFrame(stepRing);
+        }, holdDelayMs);
+      });
+
+      window.addEventListener('pointerup', () => {
+        if (_longPressStartTimer || _longPressActiveFlag) {
+          stopLongPressSession();
+        }
+      });
+      window.addEventListener('pointercancel', () => {
+        if (_longPressStartTimer || _longPressActiveFlag) {
+          stopLongPressSession();
+        }
+      });
+    }
+
+    function getBuiltinStageStickerSvg(stickerType) {
+      switch (stickerType) {
+        case 'sweat':
+          return `<svg viewBox="0 0 36 36" fill="none"><path d="M22 6C22 6 30 17 30 23C30 27.4 26.4 31 22 31C17.6 31 14 27.4 14 23C14 17 22 6 22 6Z" fill="#7ec8f8" stroke="#ffffff" stroke-width="2"/><path d="M19 21C19 24 20.5 26 22.5 26" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/></svg>`;
+        case 'anger':
+          return `<svg viewBox="0 0 36 36" fill="none"><path d="M8 14C13 14 15 12 15 7M28 14C23 14 21 12 21 7M8 22C13 22 15 24 15 29M28 22C23 22 21 24 21 29" stroke="#e55353" stroke-width="3.2" stroke-linecap="round"/></svg>`;
+        case 'question':
+          return `<svg viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="15" fill="rgba(20,24,32,0.75)" stroke="#f6c85f" stroke-width="2"/><path d="M14.5 13.5C14.5 11.2 16.3 9.8 18.5 9.8C20.7 9.8 22.4 11.3 22.4 13.3C22.4 15 21.1 16 19.6 16.9C18.5 17.6 18 18.4 18 19.8" stroke="#f6c85f" stroke-width="2.6" stroke-linecap="round"/><circle cx="18" cy="24.8" r="1.8" fill="#f6c85f"/></svg>`;
+        case 'exclaim':
+          return `<svg viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="15" fill="rgba(20,24,32,0.75)" stroke="#ff7a6b" stroke-width="2"/><path d="M18 9.5V20" stroke="#ff7a6b" stroke-width="3.2" stroke-linecap="round"/><circle cx="18" cy="25.2" r="2" fill="#ff7a6b"/></svg>`;
+        case 'music':
+          return `<svg viewBox="0 0 36 36" fill="none"><path d="M14 25V11L27 8V22" stroke="#f49ac2" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="11" cy="25.5" r="3.5" fill="#f49ac2"/><circle cx="24" cy="22.5" r="3.5" fill="#f49ac2"/></svg>`;
+        case 'sparkle':
+          return `<svg viewBox="0 0 36 36" fill="none"><path d="M18 4L21.2 14.8L32 18L21.2 21.2L18 32L14.8 21.2L4 18L14.8 14.8L18 4Z" fill="#ffe082" stroke="#ffffff" stroke-width="1.5"/></svg>`;
+        case 'silence':
+          return `<svg viewBox="0 0 36 36" fill="none"><rect x="4" y="10" width="28" height="16" rx="8" fill="rgba(20,24,32,0.78)" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/><circle cx="11.5" cy="18" r="2" fill="#ffffff"/><circle cx="18" cy="18" r="2" fill="#ffffff"/><circle cx="24.5" cy="18" r="2" fill="#ffffff"/></svg>`;
+        case 'heart':
+          return `<svg viewBox="0 0 36 36" fill="none"><path d="M18 29.5C18 29.5 7 22.2 7 13.8C7 9.8 10.1 7 13.7 7C15.9 7 17.8 8.1 18 9.8C18.2 8.1 20.1 7 22.3 7C25.9 7 29 9.8 29 13.8C29 22.2 18 29.5 18 29.5Z" fill="#f06292" stroke="#ffffff" stroke-width="1.8"/></svg>`;
+        default:
+          return '';
+      }
+    }
 
     function initTheaterScreen() {
       stopTheaterAutoAndSkip();
+      initTheaterLongPressFastForward();
       renderReplayProjectSelectors();
       renderTheaterSelectorLobby();
       const ttsSlider = document.getElementById('theater-tts-vol-slider');
@@ -24587,18 +25402,23 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       }
     }
 
-    // 逐字打字机浮现台词：一字一字蹦完后默认停住等待用户点击才进入下一句；仅当开启「自动」时才会在打字完成后计时跳句
-    function startTheaterTypewriter(textEl, fullText, onComplete) {
+    // 逐字打字机浮现台词：支持分级叫喊、欲言又止省略号先导、背叛黑底红字一字一顿重锤动效
+    function startTheaterTypewriter(textEl, fullText, onComplete, textFx = 'normal') {
       if (_theaterTypewriterTimer) {
         clearInterval(_theaterTypewriterTimer);
         _theaterTypewriterTimer = null;
       }
       _theaterFullLineText = String(fullText || '').replace(/^[\s\u3000]+/gm, '');
+      const bottomDock = document.getElementById('vn-theater-bottom-dock');
+      if (bottomDock) {
+        bottomDock.classList.toggle('betrayal-dock', textFx === 'betrayal');
+      }
       if (!textEl) {
         _theaterIsTyping = false;
         if (typeof onComplete === 'function') onComplete();
         return;
       }
+      textEl.className = 'vn-dialogue-text' + (textFx && textFx !== 'normal' ? ` textfx-${textFx}` : '');
       textEl.scrollTop = 0;
       if (appState.theaterEditMode || appState.theaterSkipPlay || !_theaterFullLineText) {
         _theaterIsTyping = false;
@@ -24608,6 +25428,36 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       }
       _theaterIsTyping = true;
       textEl.textContent = '';
+
+      if (textFx === 'hesitate') {
+        const preDots = '…… ';
+        let dotIdx = 0;
+        let inBody = false;
+        let charIdx = 0;
+        _theaterTypewriterTimer = setInterval(() => {
+          if (!inBody) {
+            dotIdx += 1;
+            textEl.textContent = preDots.slice(0, dotIdx);
+            if (dotIdx >= preDots.length) {
+              inBody = true;
+            }
+          } else {
+            charIdx += 2;
+            if (charIdx >= _theaterFullLineText.length) {
+              textEl.textContent = _theaterFullLineText;
+              _theaterIsTyping = false;
+              clearInterval(_theaterTypewriterTimer);
+              _theaterTypewriterTimer = null;
+              if (typeof onComplete === 'function') onComplete();
+            } else {
+              textEl.textContent = _theaterFullLineText.slice(0, charIdx);
+            }
+          }
+        }, 72);
+        return;
+      }
+
+      const intervalMs = textFx === 'betrayal' ? 88 : (textFx === 'whisper' ? 42 : 28);
       let charIdx = 0;
       _theaterTypewriterTimer = setInterval(() => {
         charIdx += 1;
@@ -24620,10 +25470,14 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         } else {
           textEl.textContent = _theaterFullLineText.slice(0, charIdx);
         }
-      }, 28);
+      }, intervalMs);
     }
 
     function handleTheaterDockClick() {
+      if (_longPressSuppressNextClick) {
+        _longPressSuppressNextClick = false;
+        return;
+      }
       if (appState.theaterEditMode) return;
       unlockBgmAudioPlayerOnUserGesture();
       const now = Date.now();
@@ -24705,6 +25559,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         clearTimeout(_theaterStepTimer);
         _theaterStepTimer = null;
       }
+      initTheaterLongPressFastForward();
       const curProj = getCurrentReplayProject();
       applyProjectStageStyleToDom(curProj);
       const chap = getCurrentReplayChapter();
@@ -24717,6 +25572,8 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       const tachieLayer = document.getElementById('vn-theater-tachie-layer');
       const cgLayer = document.getElementById('vn-theater-cg-layer');
       const cgImg = document.getElementById('vn-theater-cg-img');
+      const ambientLayer = document.getElementById('vn-theater-ambient-layer');
+      const transitionLayer = document.getElementById('vn-theater-transition-layer');
       const diceToast = document.getElementById('vn-theater-dice-toast');
       const blackoutLayer = document.getElementById('vn-theater-blackout-layer');
       const blackoutText = document.getElementById('vn-theater-blackout-text');
@@ -24756,6 +25613,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         return;
       }
 
+      ensureContinuousChapterScenes(chap);
       let idx = Math.max(0, Math.min(chap.scriptLines.length - 1, appState.theaterLineIdx || 0));
       const oocToSpawn = [];
       if (!appState.theaterEditMode) {
@@ -24781,6 +25639,9 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       }
 
       const activeEffect = inferNaturalLineEffect(line, idx);
+      const activeTextFx = line.textFx || 'normal';
+      const activeMystery = line.mysteryMode || 'none';
+      const activeSticker = line.sticker || 'none';
       const displayLineText = String(line.text || '').replace(/^[\s\u3000]+/gm, '');
       const isDialogueLine = line.type !== 'narration' && Boolean(line.speaker && line.speaker !== '旁白' && line.speaker !== '检定');
 
@@ -24797,11 +25658,47 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         }
       }
 
-      // 同步原子更新左上角人名与启动打字机，彻底杜绝异步等待期间人名与台词错位或点击跳下下句
-      if (speakerEl) speakerEl.textContent = isDialogueLine ? line.speaker : '旁白';
+      // 同步原子更新左上角人名与启动打字机：若开启神秘人匿影则名字显示为？？？
+      if (speakerEl) {
+        if (!isDialogueLine) {
+          speakerEl.textContent = '旁白';
+        } else if (activeMystery === 'name_only' || activeMystery === 'full_shadow') {
+          speakerEl.textContent = '？？？';
+        } else {
+          speakerEl.textContent = line.speaker;
+        }
+      }
       if (expEl) expEl.textContent = '';
       if (jpEl) jpEl.textContent = '';
       saveCurrentSessionNavState();
+
+      // 渲染环境氛围层与镜头转场层
+      if (ambientLayer) {
+        let effAmb = line.ambient || 'inherit';
+        if (effAmb === 'inherit') {
+          for (let k = idx - 1; k >= 0; k--) {
+            const pAmb = chap.scriptLines[k]?.ambient;
+            if (pAmb && pAmb !== 'inherit') {
+              effAmb = pAmb;
+              break;
+            }
+          }
+        }
+        if (effAmb === 'inherit') {
+          effAmb = chap.defaultAmbient || 'none';
+        }
+        ambientLayer.className = 'vn-ambient-layer' + (effAmb && effAmb !== 'none' ? ` active amb-${effAmb}` : '');
+      }
+
+      if (transitionLayer && stageRoot) {
+        const curTrans = line.transition || 'none';
+        stageRoot.classList.toggle('stage-memory-sepia', curTrans === 'memory_sepia');
+        transitionLayer.className = 'vn-transition-layer';
+        if (curTrans && curTrans !== 'none' && curTrans !== 'memory_sepia' && !appState.theaterEditMode) {
+          void transitionLayer.offsetWidth;
+          transitionLayer.classList.add(`trans-${curTrans}`);
+        }
+      }
 
       let typewriterDone = false;
       let voiceDone = true;
@@ -24812,7 +25709,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
           if (_theaterStepTimer) clearTimeout(_theaterStepTimer);
           _theaterStepTimer = setTimeout(() => {
             if (myRenderSeq === _theaterRenderSeq && appState.theaterSkipPlay === true) nextTheaterLine();
-          }, 420);
+          }, 360);
           return;
         }
         if (appState.theaterAutoPlay === true && typewriterDone && voiceDone) {
@@ -24827,7 +25724,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         if (myRenderSeq !== _theaterRenderSeq) return;
         typewriterDone = true;
         scheduleAutoAdvanceIfReady();
-      });
+      }, activeTextFx);
 
       // 优先立即启动本句语音播放与后续台词内存预热，不等待下方立绘Canvas裁切，彻底消除0.5秒延迟
       if (canPlayStageAudio && !appState.theaterSkipPlay && !appState.theaterEditMode) {
@@ -24971,7 +25868,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       // 0.5 高级文游全屏黑幕渐入渐出文字转场 与 全屏震动暗角灯效
       if (stageRoot) {
         stageRoot.classList.remove('fx-shake-screen');
-        if (activeEffect === 'shake_screen') {
+        if (activeEffect === 'shake_screen' || activeTextFx === 'shout_l' || activeTextFx === 'betrayal') {
           void stageRoot.offsetWidth;
           stageRoot.classList.add('fx-shake-screen');
         }
@@ -25087,18 +25984,19 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         }
       }
 
-      // 3. 更新底层场所背景图
+      // 3. 更新底层场所背景图：沿着台词向上回溯最近一次切换的地图，确保全程不断档
       if (bgLayer) {
         let activeSceneId = line.sceneId || '';
-        if (!activeSceneId) {
+        if (!activeSceneId || (activeSceneId === 'cg_only' && !line._explicitNoBg)) {
           for (let k = idx - 1; k >= 0; k--) {
-            if (chap.scriptLines[k] && chap.scriptLines[k].sceneId) {
-              activeSceneId = chap.scriptLines[k].sceneId;
+            const candSc = chap.scriptLines[k]?.sceneId;
+            if (candSc && (candSc !== 'cg_only' || chap.scriptLines[k]?._explicitNoBg)) {
+              activeSceneId = candSc;
               break;
             }
           }
         }
-        if (activeSceneId === 'cg_only') {
+        if (activeSceneId === 'cg_only' && line._explicitNoBg) {
           bgLayer.style.backgroundImage = 'none';
         } else {
           const allScenes = [...(chap.scenes || []), ...(curProj?.globalScenes || [])];
@@ -25164,8 +26062,9 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         }
       }
 
-      // 5. 更新对话框左侧说话人小头像相框：旁白或无真实图片时不显示默认小人图标
+      // 5. 更新对话框左侧说话人小头像相框：若开启问号剪影则头像同步转为神秘黑影
       if (sideBustBox && sideBustImg) {
+        sideBustBox.classList.toggle('mystery-shadow', activeMystery === 'full_shadow');
         const showSideBust = localStorage.getItem('theater-show-side-bust') !== 'false';
         const sideChk = document.getElementById('theater-show-side-bust-chk');
         if (sideChk) sideChk.checked = showSideBust;
@@ -25187,7 +26086,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         }
       }
 
-      // 6. 渲染在场角色立绘：若角色尚无真实立绘或仅为svg默认图标则留白不渲染
+      // 6. 渲染在场角色立绘及神秘人剪影、头顶SVG矢量情绪贴纸
       if (tachieLayer) {
         const allTheaterChars = getAllTheaterCharactersForCurrentProject();
         const spriteRosterSig = `${chap.scriptLines.length}_${allTheaterChars.filter((c) => c && (c.tachieBase || c.chibiImg || (c.tachieExpressions && Object.keys(c.tachieExpressions).length > 0))).map((c) => c.name).join(',')}`;
@@ -25240,10 +26139,15 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
 
           let fxClass = '';
           if (isCurrentSpeaker) {
-            if (activeEffect === 'shake_char') fxClass = ' fx-shake-char';
-            else if (activeEffect === 'zoom_char') fxClass = ' fx-zoom-char';
-            else if (activeEffect === 'jump_char') fxClass = ' fx-jump-char';
+            if (activeEffect === 'shake_char' || activeTextFx === 'shout_m' || activeTextFx === 'shout_l') fxClass += ' fx-shake-char';
+            else if (activeEffect === 'zoom_char') fxClass += ' fx-zoom-char';
+            else if (activeEffect === 'jump_char') fxClass += ' fx-jump-char';
+            if (activeMystery === 'full_shadow') fxClass += ' mystery-shadow';
           }
+
+          const stickerHtml = (isCurrentSpeaker && activeSticker && activeSticker !== 'none')
+            ? `<div class="vn-actor-sticker">${getBuiltinStageStickerSvg(activeSticker)}</div>`
+            : '';
 
           const actorDiv = document.createElement('div');
           actorDiv.className = 'vn-stage-actor ' + (isCurrentSpeaker ? 'speaking' : 'dimmed') + fxClass;
@@ -25252,7 +26156,8 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
           const finalBottomPx = (-globalOffsetY) + expOffsetPx;
           actorDiv.style.bottom = finalBottomPx + 'px';
           actorDiv.innerHTML = `
-            <img src="${croppedSprite}" decoding="async" alt="${charObj.name}" style="height:100%;width:auto;max-width:none;" title="${charObj.name} · ${netCm}cm · ${expKey}" />
+            ${stickerHtml}
+            <img src="${croppedSprite}" decoding="async" alt="${charObj.name}" style="height:100%;width:auto;max-width:none;" title="${activeMystery !== 'none' && isCurrentSpeaker ? '？？？' : charObj.name} · ${netCm}cm · ${expKey}" />
           `;
           actorNodes.push(actorDiv);
         }
