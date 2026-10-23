@@ -2387,7 +2387,6 @@
         <span class="app-header-title" id="replay-screen-header-title">模组</span>
         <div class="app-header-actions" id="replay-screen-header-actions">
           <button type="button" class="moe-btn secondary" onclick="openTheaterWithLobby()">剧本</button>
-          <button type="button" class="moe-btn" onclick="createNewReplayProject()">新建</button>
         </div>
       </div>
 
@@ -2460,6 +2459,7 @@
           <div class="moe-card-header">
             <span class="moe-card-title">第一步：选择或新建模组回放工程</span>
             <div style="display:flex;gap:6px;">
+              <button type="button" class="moe-btn" onclick="createNewReplayProject()">新建</button>
               <button type="button" class="moe-btn secondary" onclick="document.getElementById('replay-import-pack-input').click()">导入</button>
               <input type="file" id="replay-import-pack-input" accept=".zip,.json" style="display:none;" onchange="importReplayProjectJson(event)" />
               <button type="button" class="moe-btn secondary" onclick="exportCurrentReplayProjectJson()">导出</button>
@@ -2811,8 +2811,17 @@
         </div>
       </div>
 
-      <!-- 子页5：线上剧本工坊 -->
-      <div id="replay-sub-workshop" class="app-subpage">
+    </section>
+
+    <!-- ==================== 13.5 独立线上剧本工坊 App ==================== -->
+    <section id="screen-workshop" class="screen">
+      <div class="app-header">
+        <button type="button" class="app-back-btn" onclick="goHomeScreen()" title="返回"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+        <span class="app-header-title">工坊</span>
+        <div class="app-header-actions"></div>
+      </div>
+
+      <div id="replay-sub-workshop" class="app-subpage active" style="display:block;">
         <div class="moe-card">
           <div class="moe-card-header">
             <span class="moe-card-title">一、 我的模组增量去重上传</span>
@@ -3655,36 +3664,21 @@
           if (subtabsEl) subtabsEl.style.display = 'flex';
           if (headerActsEl) headerActsEl.style.display = 'flex';
           if (headerTitleEl) headerTitleEl.textContent = '模组';
-          const wsPage = document.getElementById('replay-sub-workshop');
-          if (wsPage && wsPage.classList.contains('active')) {
-            switchSubPage('screen-replay', 'replay-sub-import');
-          }
           renderReplayStudioUI();
+        } else if (normalizedApp === 'workshop') {
+          renderReplayWorkshop();
         }
       }
       saveCurrentSessionNavState();
     }
 
     function openWorkshopFromHome() {
-      appState.inLandscapeGame = false;
-      document.body.classList.remove('landscape-game-active');
-      document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
-      const replayScr = document.getElementById('screen-replay');
-      if (replayScr) replayScr.classList.add('active');
-      const subtabsEl = document.getElementById('replay-subtabs');
-      const headerActsEl = document.getElementById('replay-screen-header-actions');
-      const headerTitleEl = document.getElementById('replay-screen-header-title');
-      if (subtabsEl) subtabsEl.style.display = 'none';
-      if (headerActsEl) headerActsEl.style.display = 'none';
-      if (headerTitleEl) headerTitleEl.textContent = '工坊';
-      switchSubPage('screen-replay', 'replay-sub-workshop');
-      renderReplayWorkshop();
-      saveCurrentSessionNavState();
+      openAppScreen('workshop');
     }
 
     function switchReplaySubTab(subId) {
       if (subId === 'replay-sub-workshop') {
-        openWorkshopFromHome();
+        openAppScreen('workshop');
         return;
       }
       const subtabsEl = document.getElementById('replay-subtabs');
@@ -4773,18 +4767,49 @@
       let response = null;
       let lastDirectResponse = null;
       let lastFetchErr = null;
+      let activeUseStream = useStream;
+
+      const stripImagesFromMessages = (msgs) =>
+        (msgs || []).map((m) => {
+          if (Array.isArray(m.content)) {
+            const txt = m.content
+              .filter((p) => p && p.type === 'text' && p.text)
+              .map((p) => p.text)
+              .join('\n');
+            return { ...m, content: txt || '请按要求输出提示词' };
+          }
+          return m;
+        });
+
+      const hasVisionParts = Array.isArray(messages) && messages.some((m) => Array.isArray(m?.content));
 
       for (const reqUrl of candidateUrls) {
         try {
           const directRes = await fetch(reqUrl, {
             method: 'POST',
             headers,
-            body: JSON.stringify(bodyObj)
+            body: JSON.stringify({ model, messages, stream: activeUseStream })
           });
           if (directRes.ok) {
             _workingLlmEndpointCache.set(rawUrl, reqUrl);
             response = directRes;
             break;
+          }
+          // 若网关返回 502 / 503 / 504，自动切换流式传输重试或剥离过大图片载荷避免反代崩溃
+          if (directRes.status === 502 || directRes.status === 503 || directRes.status === 504) {
+            const retryStream = true;
+            const retryMsgs = hasVisionParts ? stripImagesFromMessages(messages) : messages;
+            const retryRes = await fetch(reqUrl, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ model, messages: retryMsgs, stream: retryStream })
+            });
+            if (retryRes.ok) {
+              _workingLlmEndpointCache.set(rawUrl, reqUrl);
+              activeUseStream = retryStream;
+              response = retryRes;
+              break;
+            }
           }
           lastDirectResponse = directRes;
           if (directRes.status !== 404 && directRes.status !== 405) {
@@ -4805,7 +4830,7 @@
                 url: reqUrl,
                 method: 'POST',
                 headers,
-                body: bodyObj
+                body: { model, messages, stream: activeUseStream }
               })
             });
             if (proxyRes.ok) {
@@ -4835,7 +4860,7 @@
         throw lastFetchErr || new Error('网络连接失败，请检查接口地址与跨域设置');
       }
 
-      if (useStream && response.body) {
+      if (activeUseStream && response.body) {
         const reader = response.body.getReader();
         const decoder = new TextDecoder('utf-8');
         let fullText = '';
@@ -7594,45 +7619,45 @@
     ];
 
     const BUILTIN_STANDING_EXP_TAGS = {
-      '默认': 'standing, calm neutral expression, closed mouth, looking at viewer',
-      '微笑': 'standing, three-quarter view, gentle soft smile, soft eyes, looking at viewer',
-      '大笑': 'standing, bright laughing expression, cheerful eyes, one hand on hip',
-      '温柔': 'standing, three-quarter view, tender affectionate smile, softened gaze, head tilted slightly',
-      '害羞': 'standing, angled side view, shy expression, soft blush on cheeks, averted gaze',
-      '脸红': 'standing, flustered expression, deep blush on cheeks, one hand touching cheek',
-      '调侃': 'standing, three-quarter view, playful teasing expression, raised eyebrow, arms crossed',
-      '惊讶': 'standing, wide eyes, parted lips, surprised expression, leaning back slightly',
-      '震惊': 'standing, dynamic off-balance standing pose, wide staring eyes, contracted pupils, shocked expression',
-      '慌乱': 'standing, dynamic off-balance standing pose, flustered panicked expression, sweatdrop, waving hands',
-      '沉思': 'standing, side profile view, thoughtful serious expression, one hand touching chin, downcast eyes',
-      '冷漠': 'standing, three-quarter view, cold indifferent expression, sharp calm gaze, arms crossed',
-      '嘲讽': 'standing, angled side view, condescending gaze, raised chin, cold sneer',
-      '生气': 'standing, three-quarter view, angry expression, furrowed brows, sharp glare, clenched fists',
-      '暴怒': 'standing, dynamic leaning forward standing pose, furious expression, intense glare, shouting',
-      '失落': 'standing, angled side view, sad downcast eyes, lowered head, melancholic expression',
-      '哭泣': 'standing, three-quarter view, crying, tears flowing down cheeks, sad fragile expression',
-      '绝望': 'standing, off-balance standing pose, hollow lifeless eyes, pale face, despair expression',
-      '崩溃': 'standing, dynamic swaying standing pose, breakdown expression, tears, one hand covering forehead',
-      '微醺': 'standing, swaying standing pose, tipsy expression, half-closed eyes, soft pink blush',
-      '尴尬': 'standing, three-quarter view, awkward expression, sweatdrop on cheek, looking away, rubbing back of neck',
-      '得意': 'standing, three-quarter view, proud confident expression, chin raised, hands on hips',
-      '贼笑': 'standing, angled side view, sly mischievous expression, narrowed eyes',
-      '感动': 'standing, three-quarter view, touched emotional expression, glistening eyes, hand over chest',
-      '无奈': 'standing, helpless expression, half-closed eyes, sighing, shrugging shoulders',
-      '叹气': 'standing, side profile view, sighing, closed eyes, relaxed shoulders',
-      '装可怜': 'standing, three-quarter view, pleading puppy eyes, pouting lips, head tilted',
-      '欣喜': 'standing, delighted joyful expression, sparkling eyes, hands clasped near chest',
-      '不满': 'standing, three-quarter view, displeased pouting expression, furrowed brows, arms folded',
-      '鄙夷': 'standing, from behind, looking back over shoulder, disdainful cold gaze, narrowed eyes',
-      '深情': 'standing, three-quarter view, deep affectionate gaze, gentle expression, reaching one hand out',
-      '备战': 'standing, dynamic combat ready standing stance, sharp focused eyes, holding weapon',
-      '出招': 'standing, dynamic attacking standing pose, intense determined gaze, swinging weapon',
-      '决胜': 'standing, three-quarter back view, looking back over shoulder, calm victorious expression',
-      '开心': 'standing, happy cheerful smile, bright eyes',
-      '愤怒': 'standing, angry expression, furrowed brows, glaring',
-      '伤心': 'standing, sad expression, downcast eyes, tears',
-      '疯狂': 'standing, dynamic off-balance standing pose, unhinged wide eyes, manic expression',
-      '拿起武器': 'standing, alert standing stance, serious expression, holding weapon',
+      '默认': 'upright standing, three-quarter view, natural contrapposto weight shift, calm neutral expression, closed mouth, one hand relaxed at side, other hand lightly resting near waist, looking at viewer',
+      '微笑': 'upright standing, three-quarter view, elegant asymmetric standing stance, gentle soft smile, softened eyes, one hand lightly raised near chest, looking at viewer',
+      '大笑': 'upright standing, angled side view, lively asymmetric standing posture, bright laughing expression, cheerful eyes, one hand resting on hip, other hand gesturing outward',
+      '温柔': 'upright standing, three-quarter view, graceful contrapposto stance, tender affectionate smile, softened gaze, extending one hand gently forward toward viewer',
+      '害羞': 'upright standing, angled side view, weight shifted to back foot, shy expression, soft blush on cheeks, averted gaze, fingers lightly holding own sleeve cuff',
+      '脸红': 'upright standing, three-quarter view, flustered expression, deep blush on cheeks, one hand raised near cheek, other hand holding coat hem',
+      '调侃': 'upright standing, angled three-quarter view, relaxed asymmetric standing stance, playful teasing expression, raised eyebrow, one hand extending forward with pointing finger',
+      '惊讶': 'upright standing, three-quarter view, wide eyes, parted lips, surprised expression, both hands raised slightly in front of chest',
+      '震惊': 'upright standing, angled side view, half step back upright stance, wide staring eyes, contracted pupils, shocked expression, one hand reaching out in disbelief',
+      '慌乱': 'upright standing, three-quarter view, flustered panicked expression, sweatdrop, waving hands in front of chest, upright head level',
+      '沉思': 'upright standing, side profile view, composed asymmetric standing stance, thoughtful serious expression, one hand lightly touching chin, other arm across waist, downcast eyes',
+      '冷漠': 'upright standing, three-quarter back view, looking back over shoulder, cold indifferent expression, sharp calm gaze, arms relaxed',
+      '嘲讽': 'upright standing, angled side view, weight on one leg, condescending gaze, cold sneer, one arm folded across waist, other hand gesturing dismissively',
+      '生气': 'upright standing, three-quarter view, sharp upright combat-ready stance, angry expression, furrowed brows, sharp glare, one arm extended forward pointing, other hand clenched into fist',
+      '暴怒': 'upright standing, dynamic upright striding stance, furious expression, intense glare, shouting, one hand sweeping outward forcefully, billowing clothes, head upright',
+      '失落': 'upright standing, side profile view, melancholic expression, sad downcast eyes, one hand lightly pressing over heart, upright posture',
+      '哭泣': 'upright standing, three-quarter view, crying, tears flowing down cheeks, sad fragile expression, one hand wiping tears near eye',
+      '绝望': 'upright standing, angled three-quarter view, hollow lifeless eyes, pale face, despair expression, arms hanging loosely, one hand reaching weakly forward, upright posture',
+      '崩溃': 'upright standing, three-quarter view, emotional breakdown expression, streaming tears, wide trembling eyes, one hand covering mouth, other hand reaching out, upright head level',
+      '微醺': 'upright standing, angled three-quarter view, relaxed contrapposto stance, tipsy expression, half-closed eyes, soft pink blush, one hand raised holding imaginary glass or gesturing softly',
+      '尴尬': 'upright standing, three-quarter view, awkward expression, sweatdrop on cheek, averted eyes, one hand lightly touching side of cheek',
+      '得意': 'upright standing, angled side view, confident contrapposto stance, proud expression, one hand on hip, other hand raised at chest level',
+      '贼笑': 'upright standing, three-quarter view, sly mischievous expression, narrowed eyes, one finger near lips, asymmetric standing pose',
+      '感动': 'upright standing, three-quarter view, touched emotional expression, glistening eyes, both hands clasped gently in front of chest',
+      '无奈': 'upright standing, angled three-quarter view, helpless expression, half-closed eyes, sighing, one palm open gesturing outward at waist height',
+      '叹气': 'upright standing, side profile view, sighing, closed eyes, one hand resting lightly on chest, composed upright stance',
+      '装可怜': 'upright standing, three-quarter view, pleading puppy eyes, pouting lips, hands held together in front of chest',
+      '欣喜': 'upright standing, three-quarter view, delighted joyful expression, sparkling eyes, one arm reaching forward welcomingly',
+      '不满': 'upright standing, angled side view, displeased pouting expression, furrowed brows, arms crossed in front of chest, looking sideways at viewer',
+      '鄙夷': 'upright standing, from behind, looking back over shoulder, disdainful cold gaze, narrowed eyes, upright posture',
+      '深情': 'upright standing, three-quarter view, deep affectionate gaze, gentle expression, reaching one hand out toward viewer, open palm',
+      '备战': 'upright standing, angled three-quarter view, dynamic upright combat stance, sharp focused eyes, holding weapon at ready',
+      '出招': 'upright standing, dynamic upright action stance, intense determined gaze, brandishing weapon forward, flowing coat hem, head level upright',
+      '决胜': 'upright standing, three-quarter back view, looking back over shoulder, calm victorious expression, holding weapon at side',
+      '开心': 'upright standing, three-quarter view, happy cheerful smile, bright eyes, one hand raised in greeting',
+      '愤怒': 'upright standing, angled three-quarter view, angry expression, furrowed brows, glaring, clenched fists, upright stance',
+      '伤心': 'upright standing, side profile view, sad expression, downcast eyes, tears, one hand over chest',
+      '疯狂': 'upright standing, three-quarter view, unhinged wide eyes, manic expression, one hand reaching forward with spread fingers, upright posture',
+      '拿起武器': 'upright standing, angled three-quarter view, alert upright stance, serious expression, holding weapon',
       '轻伤': '',
       '重伤': ''
     };
@@ -7660,8 +7685,8 @@
       const baseList = isMinorNpc ? MINOR_NPC_8_EXPRESSIONS : TACHIE_25_EXPRESSIONS;
       return baseList.map((name) => ({
         name,
-        zhDesc: name === '默认' ? '平静无表情默认站姿' : `${name}站立全身差分`,
-        enTags: (name === '轻伤' || name === '重伤') ? '' : (BUILTIN_STANDING_EXP_TAGS[name] || `standing, ${name} expression`)
+        zhDesc: name === '默认' ? '平静无表情自然立绘站姿' : `${name}多角度直立全身差分`,
+        enTags: (name === '轻伤' || name === '重伤') ? '' : (BUILTIN_STANDING_EXP_TAGS[name] || `upright standing, three-quarter view, ${name} expression`)
       }));
     }
 
@@ -7757,13 +7782,39 @@
       });
     }
 
+    // 将参考图压缩为轻量级 JPEG 供 AI 识图写词使用，彻底避免大图触发反代网关 502 Bad Gateway
+    function compressRefImageForLlmVision(rawDataUrl, maxSide = 512, quality = 0.72) {
+      return new Promise((resolve) => {
+        if (!rawDataUrl || typeof rawDataUrl !== 'string') return resolve('');
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const w = img.width || 512;
+          const h = img.height || 512;
+          const scale = Math.min(1, maxSide / Math.max(w, h, 1));
+          const tw = Math.max(1, Math.round(w * scale));
+          const th = Math.max(1, Math.round(h * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = tw;
+          canvas.height = th;
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, tw, th);
+          ctx.drawImage(img, 0, 0, tw, th);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => resolve(rawDataUrl);
+        img.src = rawDataUrl;
+      });
+    }
+
     function handleRefImageUpload(event) {
       const files = Array.from(event.target.files || []);
       if (!files.length) return;
       files.slice(0, 8).forEach((file) => {
         const reader = new FileReader();
         reader.onload = async (e) => {
-          const normUrl = await normalizeUploadedImageForNai(e.target.result, 1024);
+          const normUrl = await compressRefImageForLlmVision(e.target.result, 512, 0.75);
           appState.designRefImages.push(normUrl);
           renderDesignRefThumbsList();
         };
@@ -7782,10 +7833,10 @@
       renderDesignRefThumbsList();
     }
 
-    // 彻底剥离任何会导致生成设定集多头像分格或残留旧动作表情的词汇
+    // 彻底剥离任何会导致生成设定集多头像分格、坐跪弯腰或同质化抱头拉领子的词汇
     function stripMultiHeadAndSpriteSheetTags(rawStr) {
       return String(rawStr || '')
-        .replace(/\b(visual novel sprite|game sprite|official art|character sheet|reference sheet|expression sheet|expression chart|turnaround|character turnaround|multiple views|multiple angles|front and back|front and side|three-view|orthographic|multiple expressions|facial expressions|face inset|headshot inset|portrait inset|side portraits|artbook|concept art|split screen|multi-panel|inset|picture in picture|sitting|seated|kneeling|crouching|squatting|lying|lying down|sleeping|2girls|2boys|multiple girls|multiple boys|multiple people|crowd|duo|two people)\b\s*,?/gi, '')
+        .replace(/\b(visual novel sprite|game sprite|official art|character sheet|reference sheet|expression sheet|expression chart|turnaround|character turnaround|multiple views|multiple angles|front and back|front and side|three-view|orthographic|multiple expressions|facial expressions|face inset|headshot inset|portrait inset|side portraits|artbook|concept art|split screen|multi-panel|inset|picture in picture|sitting|seated|kneeling|crouching|squatting|lying|lying down|sleeping|bending over|bent over|hunched|hunched over|bowing|stooping|slumped on floor|hands on head|holding head|clutching head|grabbing hair|pulling hair|tugging collar|pulling collar|loosening collar|touching collar|clutching stomach|holding stomach|clutching abdomen|bleeding from abdomen|stomach wound|abdominal wound|2girls|2boys|multiple girls|multiple boys|multiple people|crowd|duo|two people)\b\s*,?/gi, '')
         .replace(/,\s*,+/g, ', ')
         .replace(/^[\s,]+|[\s,]+$/g, '')
         .trim();
@@ -7846,7 +7897,7 @@
         .replace(/\b(cute fang|single fang|twin fangs|little fang|small fang|sharp fang|sharp fangs|fangs|fang|snaggletooth|sharp teeth|bared teeth|clenched teeth|grin|smirk)\b\s*,?/gi, '')
         .replace(/虎牙|小虎牙|尖牙|獠牙/g, '')
         .replace(/,\s*(slight confident smile|gentle warm smile|gentle smile|slight smile|lazy smile|warm smile|playful smile|sweet smile|bright open laughing smile|tender affectionate smile|neutral expression|calm neutral expression|cold expression|calm expression|stern expression|serene emotionless face|serene gentle expression|serene expression|calm authoritative expression|shy expression|flustered expression|teasing expression|surprised expression|shocked expression|flustered panicked expression|thoughtful serious expression|cold indifferent expression|arrogant sneer|angry expression|furious expression|sad melancholic expression|fragile expression|despair expression|tipsy expression|playful smirk|knowing smirk|condescending gaze|intense glare|sharp glare|averted gaze|downcast eyes|hollow gaze|empty lifeless eyes|contracted pupils|wide staring eyes|wide eyes|softened eyes|soft eyes|cheerful eyes|half-closed eyes|red-rimmed eyes|furrowed brows|raised eyebrow|parted lips|parted trembling lips|trembling lips|biting lower lip|bared teeth|blush on cheeks|deep red blush|soft pink blush|sweatdrop on cheek|silent tears|single tear rolling down cheek|tears flowing down cheeks|streaming tears|crying|one hand on hip|one hand resting near hip|one hand lightly resting over chest|one hand lightly resting near chest|one hand lightly touching own neck or collar|one hand tugging collar|one hand gesturing near chin|one hand raised near chest level|one arm held out slightly in disbelief|waving both hands at different heights in front of chest|one hand touching chin|other arm folded across waist|arms folded across chest|crossed arms|one hand resting on hip or coat lapel|one hand clenched into fist near chest|one arm extended pointing or sweeping outward|one hand clutching chest fabric|one hand pressed against heart|one hand lightly holding sleeve|clutching chest clothes tightly with one hand|one hand loosening collar or resting on hip|other arm slightly raised|extending one hand slightly toward viewer|holding cute fluffy pet|glowing blue cocktail|holding teacup|cocktail shaker|gavel|tarot cards|quill pen|holding lantern|holding keys|looking at viewer|looking down at viewer|looking down slightly|looking back over shoulder|facing viewer|front view|side view|side profile view|from behind|back view|three-quarter back view|three-quarter view|three-quarter angle|three-quarter side stance|arms at sides|arms naturally at sides|arms relaxed at sides|standing straight|graceful contrapposto standing posture|dignified contrapposto posture|energetic contrapposto posture|calm composed standing posture|weight shifted to one leg|weight on one leg|weight on back foot|relaxed natural posture|slight head tilt|head tilted|head tilted back slightly|lowered head|chin slightly raised|asymmetrical standing pose|asymmetrical posture|asymmetrical stance|asymmetrical aggressive stance|dynamic contrapposto pose|dynamic angled body|dynamic angled posture|leaning slightly forward|leaning forward slightly|leaning back slightly|leaning to one side|cocked hip|turned slightly sideways|turned slightly away|stepping back half a step|stepping backward|off-balance asymmetrical pose|angled side posture|tilted shoulders|slumped asymmetrical posture|hunched angled posture|trembling shoulders|swaying asymmetrical posture|cheerful|gentle|calm)\b/gi, '')
-        .replace(/\b(standing straight|standing|one hand on hip|slight confident smile|lazy smile|cold expression|calm expression|warm smile|playful smile|sweet smile|gentle smile|stern expression|serene emotionless face|serene expression|neutral calm face|neutral expression|smile|blush|front view|three-quarter view|side view|side profile|from behind|back view|weight shifted to one leg|relaxed natural posture|one hand resting near hip|arms at sides|arms naturally at sides|looking at viewer|facing viewer|centered)\s*,?/gi, '')
+        .replace(/\b(standing straight|upright standing|standing|one hand on hip|slight confident smile|lazy smile|cold expression|calm expression|warm smile|playful smile|sweet smile|gentle smile|stern expression|serene emotionless face|serene expression|neutral calm face|neutral expression|smile|blush|front view|three-quarter view|side view|side profile|from behind|back view|weight shifted to one leg|relaxed natural posture|one hand resting near hip|arms at sides|arms naturally at sides|looking at viewer|facing viewer|centered)\s*,?/gi, '')
         .replace(/,\s*,+/g, ', ')
         .replace(/^[\s,]+|[\s,]+$/g, '')
         .trim();
@@ -8157,7 +8208,7 @@
         const isMinorNpc = isMinorNpcCharacter(charObj);
         const baseTemplateActions = buildPersonaMatchedActions(charObj);
         const actPromptLines = baseTemplateActions
-          .map((act, idx) => `ACT${idx + 1}: ${act.name}|${act.zhDesc}|${act.enTags || '请AI根据本条状态规则自主编写站立动作与神态英文标签'}`)
+          .map((act, idx) => `ACT${idx + 1}: ${act.name}|${act.zhDesc}|请AI根据该角色性格与明日方舟阴阳师式立绘站姿自主设计独特的多角度直立站姿、大幅度手部动作与神态英文标签`)
           .join('\n');
 
         const sys = `你是顶级克苏鲁跑团调查员视觉小说角色立绘主美与 NovelAI V4.5 提示词专家。请仔细阅读用户输入的角色人设以及所选模组卷数中的剧情细节，一次性同步完成以下内容：
@@ -8170,14 +8221,14 @@ ${isMinorNpc ? '' : '第三部分：根据角色在模组文章中的性格、�
 第二条：所有调查员与男性角色全员都是好看漂亮的俊美青年美型画风，角色之间年龄差很小，可以是成年人但绝对不能写成熟！如果是男性角色，正比立绘 BASE_TAGS 中必须写上俊美青年美少年与精致脸型标签：1boy, bishounen, handsome young man, pretty face, delicate facial features, narrow eyes, slender eyes, tsurime, long eyelashes，绝对禁止写 mature male, mature man, middle-aged, old, long face, horse face 等任何让男性变得成熟苍老或马脸的词汇！
 第三条：BASE_TAGS 只能包含纯粹的人物外貌五官、发色发型、身材特征以及从头到脚的衣服鞋靴配饰！BASE_TAGS 中绝对禁止包含虎牙、小虎牙、尖牙即 fang, fangs, snaggletooth, sharp teeth，绝对禁止包含任何面部表情如 smile, grin, smirk, blush，绝对禁止包含任何动作姿态或手势！BASE_TAGS 必须以 solo, single character 开头确保画面只有唯一一个全身人物。
 第四条：OUTFIT_ZH 中文服装方案只允许写纯粹客观的衣物款式、版型、颜色、材质、花纹与配饰清单，禁止写主观吹捧修辞。服装与鞋履根据角色自身人设、年龄与职业自由设计即可。
-第五条：ACT1 默认状态必须是平静无表情的自然默认站姿：three-quarter view, calm composed standing posture, neutral expressionless face, calm closed mouth, arms relaxed naturally at sides, looking at viewer，绝不在默认状态咧嘴露牙或做夸张动作。
-第六条：编写全部${baseTemplateActions.length}个必选差分${isMinorNpc ? '' : '与额外差分'}时，必须同步在写词阶段一次性全部写好。每个差分只允许写身体朝向角度、站立肢体动作、手势与面部五官表情，绝对禁止在 ACT 差分词里重复写 BASE_TAGS 外貌服装词，也绝对禁止在 ACT 差分词里写 1girl、1boy、solo 等人数性别词！每个差分可以换角度，可以换四十五度角 three-quarter view、正侧面 side profile view、斜侧面 angled side view、背面或背身回眸 from behind, looking back over shoulder，动作可以有重心不稳或动态倾斜 standing off-balance, dynamic standing pose，但无论如何人物都必须是站着的 standing, full body standing，绝对不能让他坐下，严禁出现坐姿、跪姿、蹲姿、睡姿、躺姿！
-第七条：轻伤和重伤两个差分完全由你自主编写英文提示词，严禁写得敷衍或千篇一律！其中轻伤必须写成身上有多处细小的伤口、脸颊与衣服手臂各处都沾了一点血迹，例如 standing, multiple small cuts and fine scratches on face and arms, light blood splatters and bloodstains scattered on clothes and skin，不要只写成受一点看不见的小伤；重伤必须写成浑身上下到处都是血迹、全身多处都是明显的流血伤口与破损，例如 standing, covered in blood, heavy bloodstains all over body and clothes, multiple bleeding wounds and gashes all over body, battle damaged torn clothes，绝对不要写成单纯捂着肚子或腹部被扎的死板动作！并且无论轻伤还是重伤，人物都必须保持双脚站立姿势 standing，绝对不要是跪着的 kneeling，绝对不要是躺着的 lying！
+第五条：ACT1 默认状态不能是呆板罚站或军姿站桩，必须是参考明日方舟与阴阳师立绘那种自然有张力的直立默认站姿，例如重心微偏一侧的优雅站姿、微侧身四十五度角、一手自然垂落一手轻搭腰际或大衣边缘，表情平静无表情 neutral expressionless face, calm closed mouth, looking at viewer，绝不在默认状态咧嘴露牙。
+第六条：编写全部${baseTemplateActions.length}个必选差分${isMinorNpc ? '' : '与额外差分'}时，严禁同质化！绝对禁止所有角色一生气或崩溃就写抱头 hands on head, holding head, clutching head，绝对禁止一调侃或微醺就写拉领子 tugging collar, pulling collar, loosening collar！也不要出现死板的站桩站姿！请参考明日方舟与阴阳师的高级角色立绘，多在身体朝向角度与手部动作上做丰富变化：身体朝向可交替使用四十五度角 three-quarter view、斜侧面 angled side view、正侧面 side profile view、微背身回眸 three-quarter back view looking over shoulder；手部动作幅度可以大一些，比如单手向前平伸向镜头 reaching one hand forward toward viewer、单手扬起挥动、手掌摊开示意、指尖轻点下巴或唇边、单手扶袖口或衣摆、单手背在身后、双臂环胸、手按刀柄或持握写实随身道具等。但无论动作怎么变化，它始终是全身立绘，人物必须保持全身直立 upright standing, full body standing，绝对禁止坐着 sitting、禁止跪着 kneeling、禁止蹲着 crouching、禁止弯腰驼背或低头垮塌 bending over, hunched over, bowing，确保人物头顶始终保持在正常直立水平线上，绝不影响立绘在舞台上的整体高度！
+第七条：轻伤和重伤两个差分完全由你自主编写英文提示词，严禁写得敷衍或千篇一律！轻伤必须写成身上有多处细小的伤口、脸颊与衣服手臂各处沾有零星血迹，例如 upright standing, multiple small cuts and fine scratches on face and arms, light blood splatters and bloodstains scattered on clothes and skin；重伤必须写成浑身上下到处都是血迹、全身肩膀手臂胸口衣摆多处都有明显流血裂口与破损，例如 upright standing, covered in blood, heavy bloodstains all over body and clothes, multiple bleeding wounds and gashes on shoulders chest and arms, battle damaged torn clothes，绝对禁止写成捂着肚子或腹部流血 clutching stomach, bleeding abdomen！并且轻伤和重伤都必须保持直立站姿 upright standing，严禁跪下或弯腰影响立绘高度！
 第八条：这是一个克苏鲁调查员世界观，没有魔法超能力！拿起武器、备战、出招、决胜以及日常手持物必须严格依据角色人设中的「武器随身携带道具」即${wt.zh}来写，一般为写实小刀、匕首、左轮手枪、警棍、手电筒或笔记本，绝对禁止妄自揣测编写魔法权杖、发光神剑、悬浮塔罗、茶壶或超能力特效！
-第九条：绝对禁止在任何英文标签中写 visual novel sprite, official art, character sheet, reference sheet, multiple views, expression sheet, face inset, sitting, kneeling, lying, sleeping 等词汇。从头到尾严禁使用任何圆括号或方括号，严格按照以下格式逐行输出：
+第九条：绝对禁止在任何英文标签中写 visual novel sprite, official art, character sheet, reference sheet, multiple views, expression sheet, face inset, sitting, kneeling, lying, sleeping, bending over, hunched, holding head, tugging collar 等词汇。从头到尾严禁使用任何圆括号或方括号，严格按照以下格式逐行输出：
 OUTFIT_ZH: 纯客观的从头到脚服装款式材质颜色与随身配饰清单
 BASE_TAGS: 完全不含任何动作表情且不含虎牙的超详细正比纯外貌与全身衣服英文标签串
-${actPromptLines}${isMinorNpc ? '' : '\nEXTRA1: 两个字额外差分名如记录|结合模组与随身道具的自然动作简述|含自然身体角度、手持写实道具与神态的英文标签\nEXTRA2: 两个字额外差分名如探查|结合模组与随身道具的特色动作简述|含自然身体角度、手部动作与神态的英文标签'}`;
+${actPromptLines}${isMinorNpc ? '' : '\nEXTRA1: 两个字额外差分名如记录|结合模组与随身道具的自然直立动作简述|含多角度直立站姿、大幅度手部动作与神态的英文标签\nEXTRA2: 两个字额外差分名如探查|结合模组与随身道具的特色直立动作简述|含多角度直立站姿、手部动作与神态的英文标签'}`;
 
         const editedPersonaBox = document.getElementById(isChibi ? 'chibi-char-persona-preview' : 'tachie-char-persona-preview')?.value.trim() || '';
         if (editedPersonaBox) {
@@ -8185,26 +8236,52 @@ ${actPromptLines}${isMinorNpc ? '' : '\nEXTRA1: 两个字额外差分名如记�
         }
         const personaDesc = editedPersonaBox || `名字：${charObj.name}\n身份定位：${isMinorNpc ? '次要NPC' : (charObj.trpgRoleType || '调查员或主要NPC')}\n年龄：${charObj.age || ''}\n真实身高：${cm}cm\n外貌：${charObj.body || ''}\n性格：${charObj.quirk || ''}\n背景：${charObj.surface || ''}\n武器随身携带道具：${charObj.weapon || wt.zh}`;
 
-        const usrText = `请根据以下角色人设${moduleContext ? '以及所选模组卷数中的人物表现' : ''}，先编写完全不含任何表情、动作与虎牙的纯外貌加衣服底词 BASE_TAGS，再同步写好全部 ${baseTemplateActions.length} 个必选差分动作词${isMinorNpc ? '' : '与额外模组差分动作词'}。注意所有调查员与男性角色全员高颜值年轻美型、年龄差小，严禁写任何成熟或显老词汇，武器必须使用写实调查员武器${wt.zh}，绝不编造魔法超能力道具：
+        const usrText = `请根据以下角色人设${moduleContext ? '以及所选模组卷数中的人物表现' : ''}，先编写完全不含任何表情、动作与虎牙的纯外貌加衣服底词 BASE_TAGS，再同步写好全部 ${baseTemplateActions.length} 个必选差分动作词${isMinorNpc ? '' : '与额外模组差分动作词'}。注意所有差分必须是参考明日方舟与阴阳师立绘的多样化直立站姿与手部延伸动作，严禁抱头、严禁拉领子、严禁坐下跪下或弯腰导致头部高度下降、严禁重伤只写腹部流血，武器必须使用写实调查员武器${wt.zh}：
 角色人设要求：
 ${personaDesc}${moduleContext ? `\n\n模组文章参考内容：\n${moduleContext}` : ''}`;
 
         const hasRefImgs = Array.isArray(appState.designRefImages) && appState.designRefImages.length > 0;
-        const userContent = hasRefImgs
-          ? [
+        let reply = '';
+        if (hasRefImgs) {
+          const compactImgs = [];
+          for (const rawImg of appState.designRefImages.slice(0, 3)) {
+            const cUrl = await compressRefImageForLlmVision(rawImg, 480, 0.7);
+            if (cUrl) compactImgs.push(cUrl);
+          }
+          try {
+            const visionContent = [
               { type: 'text', text: usrText + '\n已附带参考图，请只提取图中的五官发型与服装配饰细节，严禁抄袭图中的原有姿势或表情！' },
-              ...appState.designRefImages.map((u) => ({ type: 'image_url', image_url: { url: u } }))
-            ]
-          : usrText;
-
-        const reply = await callLlmCompletion(
-          [
-            { role: 'system', content: sys },
-            { role: 'user', content: userContent }
-          ],
-          null,
-          { caller: `AI一键写词·${charObj.name}`, preferSubApi: true }
-        );
+              ...compactImgs.map((u) => ({ type: 'image_url', image_url: { url: u } }))
+            ];
+            reply = await callLlmCompletion(
+              [
+                { role: 'system', content: sys },
+                { role: 'user', content: visionContent }
+              ],
+              null,
+              { caller: `AI一键写词·${charObj.name}`, preferSubApi: true }
+            );
+          } catch (visionErr) {
+            console.warn('带参考图识图写词通道返回异常，自动降级为纯文本写词以防 502:', visionErr);
+            reply = await callLlmCompletion(
+              [
+                { role: 'system', content: sys },
+                { role: 'user', content: usrText }
+              ],
+              null,
+              { caller: `AI一键写词·纯文本容错·${charObj.name}`, preferSubApi: true }
+            );
+          }
+        } else {
+          reply = await callLlmCompletion(
+            [
+              { role: 'system', content: sys },
+              { role: 'user', content: usrText }
+            ],
+            null,
+            { caller: `AI一键写词·${charObj.name}`, preferSubApi: true }
+          );
+        }
 
         const outfitMatch = reply.match(/OUTFIT_ZH:\s*([^\n]+)/i);
         const baseMatch = reply.match(/BASE_TAGS:\s*([^\n]+)/i);
@@ -8334,7 +8411,7 @@ ${personaDesc}${moduleContext ? `\n\n模组文章参考内容：\n${moduleContex
       }
 
       try {
-        // 批量修改全部动作提示词 或 仅修改勾选的多个动作提示词（AI可同时看到角色默认底词与全部动作提示词）
+        // 批量修改全部动作提示词 或 仅修改勾选的多个动作提示词
         if (!isChibi && (targetVal === 'all_actions' || targetVal === 'checked_actions')) {
           const actions = getCharActionList(charObj);
           const targetIndices = targetVal === 'all_actions'
@@ -8357,8 +8434,8 @@ ${personaDesc}${moduleContext ? `\n\n模组文章参考内容：\n${moduleContex
                 content: `你是克苏鲁调查员视觉小说角色差分动作提示词总监。现在给你看该角色的完整人设、默认外貌衣服底词 BASE_TAGS 以及当前全部差分动作列表。
 请严格按照用户的修改指令，对指定的目标差分动作进行批量修改或重写。
 核心要求：
-1. 只能包含身体朝向角度、肢体姿态、手部动作、手持写实道具如${wt.zh}以及面部五官神态表情，不要重复整套衣服底词。
-2. 严禁编写任何魔法超能力特效或奇幻法器；绝望与崩溃等强烈情绪必须有大幅度弯腰、抱头或脱力动作，不要写成普通死板站姿。
+1. 只能包含身体朝向角度、直立站姿重心变化、手部延伸动作、手持写实道具如${wt.zh}以及面部五官神态表情，不要重复整套衣服底词。
+2. 参考明日方舟与阴阳师角色立绘，多用四十五度角、斜侧面、正侧面、背身回眸等角度变化与手部向前伸展等动作，严禁写抱头、严禁写拉领子、严禁写腹部流血、严禁写呆板军姿站桩；人物必须保持全身直立 upright standing，严禁坐着、跪着或弯腰导致头部不在水平线上！
 3. 从头到尾严禁使用任何圆括号或方括号，只输出需要修改的目标行，严格按以下格式逐行返回：
 ACT序号: 差分名|修改后的中文动作简述|修改后的完整英文动作与神态标签串`
               },
@@ -8397,7 +8474,7 @@ ACT序号: 差分名|修改后的中文动作简述|修改后的完整英文动�
           return;
         }
 
-        // 修改单个动作差分（同样向AI提供全套提示词上下文以便保持整体协调）
+        // 修改单个动作差分
         if (!isChibi && targetVal.startsWith('act_')) {
           const actIdx = parseInt(targetVal.replace('act_', ''), 10);
           const actions = getCharActionList(charObj);
@@ -8411,8 +8488,8 @@ ACT序号: 差分名|修改后的中文动作简述|修改后的完整英文动�
                 role: 'system',
                 content: `你是 NovelAI V4.5 视觉小说角色差分动作与表情修改专家。现在给你提供角色完整底词与全部动作提示词上下文，请严格按照用户的中文要求，修改该角色「${targetAct.name}」这一个差分状态的英文动作与表情提示词 ACT_TAGS 以及中文动作简述 ACT_ZH。
 核心要求：
-1. 只描写该状态下的身体朝向角度、肢体大幅度动作、手势、手持写实调查员道具以及五官神态表情，不要重复整套衣服底词。
-2. 动作要有鲜明动态区分度，严禁把绝望或崩溃写成普通站姿，绝对禁止写 visual novel sprite 或 character sheet 等词汇。
+1. 只描写该状态下的身体朝向角度、明日方舟与阴阳师风格的直立站姿变化、手部延伸动作、手持写实调查员道具以及五官神态表情，不要重复整套衣服底词。
+2. 严禁抱头、严禁拉领子、严禁坐下跪下或弯腰低头影响立绘高度，绝对禁止写 visual novel sprite 或 character sheet 等词汇。
 3. 从头到尾严禁使用任何圆括号或方括号，严格按以下两行输出：
 ACT_ZH: 修改后的简短中文动作神态说明
 ACT_TAGS: 修改后的完整英文动作角度与表情标签串`
@@ -15385,9 +15462,14 @@ ${BUILTIN_CSS_TEMPLATE}`;
     const DEFAULT_REPLAY_BGM_TRACKS = [];
 
     const CLOUD_BACKEND_BASE_URL = 'https://ais-pre-5aqw4p6y6ubd56bhcfdzdb-15965869021.asia-east1.run.app';
+    const _localWorkshopAssetUrlMap = new Map();
 
     function resolveBackendApiUrl(apiPath) {
       const cleanPath = String(apiPath || '').startsWith('/') ? String(apiPath) : ('/' + String(apiPath || ''));
+      const customBackend = (localStorage.getItem('custom-workshop-backend-url') || '').trim().replace(/\/+$/, '');
+      if (customBackend) {
+        return customBackend + cleanPath;
+      }
       const host = (typeof window !== 'undefined' && window.location && window.location.hostname) ? window.location.hostname : '';
       if (host && (host.includes('github.io') || host.includes('pages.dev') || host.includes('vercel.app') || host.includes('netlify.app') || window.location.protocol === 'file:')) {
         return CLOUD_BACKEND_BASE_URL + cleanPath;
@@ -15396,26 +15478,42 @@ ${BUILTIN_CSS_TEMPLATE}`;
     }
 
     async function fetchBackendJsonSafe(apiPath, options = {}) {
-      const primaryUrl = resolveBackendApiUrl(apiPath);
-      const tryFetchJson = async (url) => {
-        const res = await fetch(url, options);
-        const text = await res.text();
-        if (!text || text.trim().startsWith('<')) {
-          throw new Error('接口返回了静态网页而非JSON数据');
+      const cleanPath = String(apiPath || '').startsWith('/') ? String(apiPath) : ('/' + String(apiPath || ''));
+      const primaryUrl = resolveBackendApiUrl(cleanPath);
+      const tryFetchJson = async (url, timeoutMs = 6500) => {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+        try {
+          const res = await fetch(url, { ...options, signal: ctrl.signal });
+          const text = await res.text();
+          if (!text || text.trim().startsWith('<')) {
+            throw new Error('接口返回了静态网页而非JSON数据');
+          }
+          const data = JSON.parse(text);
+          return { res, data };
+        } finally {
+          clearTimeout(timer);
         }
-        const data = JSON.parse(text);
-        return { res, data };
       };
-      try {
-        return await tryFetchJson(primaryUrl);
-      } catch (err) {
-        const cleanPath = String(apiPath || '').startsWith('/') ? String(apiPath) : ('/' + String(apiPath || ''));
-        const fallbackUrl = CLOUD_BACKEND_BASE_URL + cleanPath;
-        if (primaryUrl !== fallbackUrl) {
-          return await tryFetchJson(fallbackUrl);
-        }
-        throw err;
+
+      const candidateUrls = [primaryUrl];
+      const cloudUrl = CLOUD_BACKEND_BASE_URL + cleanPath;
+      if (!candidateUrls.includes(cloudUrl)) {
+        candidateUrls.push(cloudUrl);
       }
+      if ((!options.method || options.method === 'GET') && cloudUrl.startsWith('http')) {
+        candidateUrls.push('https://corsproxy.io/?' + encodeURIComponent(cloudUrl));
+      }
+
+      let lastErr = null;
+      for (const u of candidateUrls) {
+        try {
+          return await tryFetchJson(u);
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      throw lastErr || new Error('网络连接失败');
     }
 
     function getFallbackInstrumentalBgmUrl(tagOrName = '') {
@@ -21757,6 +21855,9 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         return '';
       }
       if (rawUrl.startsWith('/api/workshop/asset/')) {
+        if (typeof _localWorkshopAssetUrlMap === 'object' && _localWorkshopAssetUrlMap.has(rawUrl)) {
+          return toFastDisplayUrl(_localWorkshopAssetUrlMap.get(rawUrl));
+        }
         const fullApiUrl = resolveBackendApiUrl(rawUrl);
         if (_mountedZipAssetBlobCache.has(fullApiUrl)) {
           return _mountedZipAssetBlobCache.get(fullApiUrl);
@@ -21796,6 +21897,50 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
       h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
       return 'h_' + (h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0') + '_' + len.toString(36);
+    }
+
+    function getWorkshopUploadedHashSet() {
+      try {
+        const raw = localStorage.getItem('workshop-uploaded-asset-hashes-v1');
+        const arr = raw ? JSON.parse(raw) : [];
+        return new Set(Array.isArray(arr) ? arr : []);
+      } catch (_) {
+        return new Set();
+      }
+    }
+
+    function saveWorkshopUploadedHashSet(hashSet) {
+      try {
+        const arr = Array.from(hashSet).slice(-6000);
+        localStorage.setItem('workshop-uploaded-asset-hashes-v1', JSON.stringify(arr));
+      } catch (_) {}
+    }
+
+    function buildWorkshopSummaryItemFromProject(projObj) {
+      if (!projObj || !projObj.id) return null;
+      const chaps = Array.isArray(projObj.chapters) ? projObj.chapters : [];
+      const chaptersMeta = Array.isArray(projObj.chaptersMeta) && projObj.chaptersMeta.length > 0
+        ? projObj.chaptersMeta
+        : chaps.map((ch, idx) => ({
+            id: ch.id || `chap_${idx}`,
+            order: Number(ch.order ?? idx),
+            title: ch.title || `第 ${idx + 1} 章`,
+            lineCount: Array.isArray(ch.scriptLines) ? ch.scriptLines.length : 0,
+            cgCount: Array.isArray(ch.cgNodes) ? ch.cgNodes.length : 0,
+            clueCount: Array.isArray(ch.clueNodes) ? ch.clueNodes.length : 0,
+            version: Number(ch.version || 1)
+          }));
+      return {
+        id: projObj.id,
+        title: projObj.title || '未命名模组',
+        author: projObj.author || '跑团KP',
+        desc: projObj.desc || '',
+        avatarUrl: projObj.avatarUrl || '',
+        chapterCount: Number(projObj.chapterCount || chaptersMeta.length || chaps.length || 0),
+        sizeBytes: Number(projObj.sizeBytes || projObj.payloadSizeBytes || 0),
+        updatedAt: Number(projObj.updatedAt || Date.now()),
+        chaptersMeta
+      };
     }
 
     function onSelectWorkshopUploadProject(projId) {
@@ -21864,17 +22009,51 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         descInput.value = proj.workshopDesc || '';
       }
 
-      let remoteItems = [];
+      const mergedMap = new Map();
       try {
         const { data } = await fetchBackendJsonSafe('/api/workshop/list');
         if (data && Array.isArray(data.items)) {
-          remoteItems = data.items;
+          data.items.forEach((it) => {
+            if (it && it.id) mergedMap.set(it.id, it);
+          });
         }
-      } catch (err) {
-        console.warn('获取线上工坊列表异常:', err);
-      }
+      } catch (_) {}
 
-      _workshopItemsCache = remoteItems.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      try {
+        if (typeof getTermuxUrl === 'function') {
+          const tResp = await fetch(`${getTermuxUrl()}/file/${encodeURIComponent('workshop/index.json')}`);
+          if (tResp.ok) {
+            const tItems = await tResp.json();
+            if (Array.isArray(tItems)) {
+              tItems.forEach((it) => {
+                if (!it || !it.id) return;
+                const prev = mergedMap.get(it.id);
+                if (!prev || Number(it.updatedAt || 0) >= Number(prev.updatedAt || 0)) {
+                  mergedMap.set(it.id, it);
+                }
+              });
+            }
+          }
+        }
+      } catch (_) {}
+
+      try {
+        if (db && db.workshopProjects) {
+          const localWsRows = await db.workshopProjects.toArray();
+          if (Array.isArray(localWsRows)) {
+            localWsRows.forEach((row) => {
+              const summary = buildWorkshopSummaryItemFromProject(row);
+              if (!summary) return;
+              const prev = mergedMap.get(summary.id);
+              if (!prev || Number(summary.updatedAt || 0) >= Number(prev.updatedAt || 0)) {
+                mergedMap.set(summary.id, summary);
+              }
+            });
+          }
+        }
+      } catch (_) {}
+
+      _workshopItemsCache = Array.from(mergedMap.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
       renderReplayWorkshopList();
     }
 
@@ -21917,10 +22096,13 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
 
         const timeStr = item.updatedAt ? new Date(item.updatedAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
         const sizeStr = formatWorkshopSizeText(item.sizeBytes);
-        const rawAvatar = item.avatarUrl || (localProj ? resolveModuleDisplayAvatar(localProj) : '');
-        const avatarSrc = rawAvatar && rawAvatar.startsWith('/api/workshop/asset/')
-          ? resolveBackendApiUrl(rawAvatar)
-          : toFastDisplayUrl(rawAvatar);
+        const rawAvatar = (localProj ? resolveModuleDisplayAvatar(localProj) : '') || item.avatarUrl || '';
+        const mappedAvatar = (rawAvatar && typeof _localWorkshopAssetUrlMap === 'object' && _localWorkshopAssetUrlMap.has(rawAvatar))
+          ? _localWorkshopAssetUrlMap.get(rawAvatar)
+          : rawAvatar;
+        const avatarSrc = mappedAvatar && mappedAvatar.startsWith('/api/workshop/asset/')
+          ? resolveBackendApiUrl(mappedAvatar)
+          : toFastDisplayUrl(mappedAvatar);
         const chapsMeta = Array.isArray(item.chaptersMeta) ? item.chaptersMeta : [];
 
         const chapRowsHtml = chapsMeta.length > 0
@@ -22025,7 +22207,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         const xhr = new XMLHttpRequest();
         xhr.open('POST', url, true);
         xhr.setRequestHeader('Content-Type', 'application/json;charset=utf-8');
-        xhr.timeout = 300000;
+        xhr.timeout = 25000;
         if (xhr.upload && typeof onProgress === 'function') {
           xhr.upload.onprogress = (evt) => {
             if (evt.lengthComputable && evt.total > 0) {
@@ -22036,7 +22218,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         xhr.onload = () => {
           const text = xhr.responseText || '';
           if (!text || text.trim().startsWith('<')) {
-            reject(new Error('接口返回了静态网页而非JSON数据'));
+            reject(new Error('STATIC_HOST_NO_API'));
             return;
           }
           try {
@@ -22050,8 +22232,8 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
             reject(e);
           }
         };
-        xhr.onerror = () => reject(new Error('网络传输连接失败'));
-        xhr.ontimeout = () => reject(new Error('上传超时'));
+        xhr.onerror = () => reject(new Error('NETWORK_UNREACHABLE'));
+        xhr.ontimeout = () => reject(new Error('UPLOAD_TIMEOUT'));
         xhr.send(jsonString);
       });
     }
@@ -22088,14 +22270,6 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       setProgress(4, `正在扫描「${proj.title}」的立绘、场所、插图、线索与配音指纹...`);
 
       try {
-        // 清理旧版本残留在作者浏览器里的重复工坊副本，释放本地浏览器内存
-        try {
-          if (db && db.workshopProjects) {
-            await db.workshopProjects.delete(proj.id);
-          }
-          localStorage.removeItem('hakoniwa-workshop-local-projects');
-        } catch (_) {}
-
         const speakerNameSet = new Set();
         (proj.extractedSpeakers || []).forEach((s) => {
           if (s.name) speakerNameSet.add(s.name);
@@ -22109,7 +22283,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
 
         const rawRelatedChars = (appState.characters || []).filter((c) => c.moduleId === proj.id || speakerNameSet.has(c.name));
 
-        // 收集所有大体积素材的哈希指纹表，准备向云端比对去重
+        // 收集所有素材的哈希指纹表，准备比对去重
         const assetMapByHash = new Map();
         let totalAssetBytes = 0;
 
@@ -22119,12 +22293,17 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
           const portable = await packAssetUrlToPortableDataUrl(rawUrl);
           if (!portable || !portable.startsWith('data:')) return portable;
           const hash = computeFastAssetFingerprint(portable);
+          const assetRef = `/api/workshop/asset/${hash}`;
+          if (typeof _localWorkshopAssetUrlMap === 'object') {
+            _localWorkshopAssetUrlMap.set(assetRef, rawUrl);
+            _localWorkshopAssetUrlMap.set(hash, rawUrl);
+          }
           if (!assetMapByHash.has(hash)) {
             const byteLen = Math.round(portable.length * 0.75);
             totalAssetBytes += byteLen;
             assetMapByHash.set(hash, { hash, dataUrl: portable, label, byteLen });
           }
-          return `/api/workshop/asset/${hash}`;
+          return assetRef;
         };
 
         const packedAvatarRef = proj.avatarUrl ? await registerAssetForDedup(proj.avatarUrl, '模组封面头像') : '';
@@ -22232,17 +22411,25 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         }
 
         const allHashes = Array.from(assetMapByHash.keys());
-        setProgress(18, `共扫描到 ${allHashes.length} 个立绘场景配音素材，正在与云端工坊比对去重...`);
+        setProgress(18, `共扫描到 ${allHashes.length} 个立绘场景配音素材，正在比对去重...`);
 
-        let missingHashes = allHashes;
+        const localUploadedSet = getWorkshopUploadedHashSet();
+        let missingHashes = allHashes.filter((h) => !localUploadedSet.has(h));
+        let cloudReachable = false;
+
         if (allHashes.length > 0) {
-          const checkRes = await fetchBackendJsonSafe('/api/workshop/check-assets', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ hashes: allHashes })
-          });
-          if (checkRes.data && checkRes.data.ok && Array.isArray(checkRes.data.missing)) {
-            missingHashes = checkRes.data.missing;
+          try {
+            const checkRes = await fetchBackendJsonSafe('/api/workshop/check-assets', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ hashes: allHashes })
+            });
+            if (checkRes && checkRes.data && checkRes.data.ok && Array.isArray(checkRes.data.missing)) {
+              cloudReachable = true;
+              missingHashes = checkRes.data.missing;
+            }
+          } catch (_) {
+            cloudReachable = false;
           }
         }
 
@@ -22253,9 +22440,21 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
           if (!item) continue;
           const pct = 22 + ((i + 1) / Math.max(1, missingHashes.length)) * 58;
           setProgress(pct, `正在上传新增或修改素材 ${i + 1} / ${missingHashes.length}：${item.label}，已自动跳过 ${skippedCount} 个未改动素材`);
-          const uploadUrl = resolveBackendApiUrl('/api/workshop/upload-asset');
-          await sendWorkshopPayloadWithProgress(uploadUrl, JSON.stringify({ hash: item.hash, dataUrl: item.dataUrl }), null);
+          if (cloudReachable) {
+            try {
+              const uploadUrl = resolveBackendApiUrl('/api/workshop/upload-asset');
+              await sendWorkshopPayloadWithProgress(uploadUrl, JSON.stringify({ hash: item.hash, dataUrl: item.dataUrl }), null);
+            } catch (_) {
+              cloudReachable = false;
+            }
+          }
+          localUploadedSet.add(h);
         }
+        allHashes.forEach((h) => localUploadedSet.add(h));
+        saveWorkshopUploadedHashSet(localUploadedSet);
+
+        // 释放临时内存，不在浏览器里留存任何重型Base64副本
+        assetMapByHash.clear();
 
         const singleChapObj = packedChapters[0];
         const singleTtsKey = String(singleChapObj?.id || `chap_${targetChapIdx}`);
@@ -22282,12 +22481,100 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         const finalJsonBody = JSON.stringify(payload);
         const sizeText = formatWorkshopSizeText(totalAssetBytes || new Blob([finalJsonBody]).size);
 
-        setProgress(85, `正在同步模组章节清单至云端工坊...`);
-        const primaryUrl = resolveBackendApiUrl('/api/workshop/upload-chapter');
-        const resultData = await sendWorkshopPayloadWithProgress(primaryUrl, finalJsonBody, (loaded, total) => {
-          const pct = 85 + (loaded / Math.max(1, total)) * 14;
-          setProgress(pct, `正在写入工坊索引：${Math.round((loaded / Math.max(1, total)) * 100)}%`);
-        });
+        setProgress(85, `正在同步模组章节清单至工坊...`);
+        let resultData = null;
+        if (cloudReachable) {
+          try {
+            const primaryUrl = resolveBackendApiUrl('/api/workshop/upload-chapter');
+            resultData = await sendWorkshopPayloadWithProgress(primaryUrl, finalJsonBody, (loaded, total) => {
+              const pct = 85 + (loaded / Math.max(1, total)) * 14;
+              setProgress(pct, `正在写入工坊索引：${Math.round((loaded / Math.max(1, total)) * 100)}%`);
+            });
+          } catch (_) {
+            cloudReachable = false;
+          }
+        }
+
+        // 将只包含哈希引用的轻量级清单保存到工坊列表，绝不占用额外图片内存，且保证静态站点也能100%上传成功
+        let isOverwrite = false;
+        let chapterVersion = 1;
+        let finalChapters = packedChapters.slice();
+        let finalTtsByChapter = { ...ttsByChapter };
+
+        try {
+          if (db && db.workshopProjects) {
+            const existingRecord = await db.workshopProjects.get(proj.id);
+            if (existingRecord && !isFullModule && Array.isArray(existingRecord.chapters)) {
+              const mergedChaps = existingRecord.chapters.slice();
+              const existIdx = mergedChaps.findIndex((c) => Number(c.order ?? -1) === Number(singleChapObj.order ?? targetChapIdx) || (c.id && c.id === singleChapObj.id));
+              if (existIdx >= 0) {
+                isOverwrite = true;
+                chapterVersion = Number(mergedChaps[existIdx].version || 1) + 1;
+                singleChapObj.version = chapterVersion;
+                mergedChaps[existIdx] = singleChapObj;
+              } else {
+                singleChapObj.version = 1;
+                mergedChaps.push(singleChapObj);
+              }
+              mergedChaps.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
+              finalChapters = mergedChaps;
+              finalTtsByChapter = { ...(existingRecord.ttsByChapter || {}), ...ttsByChapter };
+            }
+          }
+        } catch (_) {}
+
+        const chaptersMeta = finalChapters.map((ch, idx) => ({
+          id: ch.id || `chap_${idx}`,
+          order: Number(ch.order ?? idx),
+          title: ch.title || `第 ${idx + 1} 章`,
+          lineCount: Array.isArray(ch.scriptLines) ? ch.scriptLines.length : 0,
+          cgCount: Array.isArray(ch.cgNodes) ? ch.cgNodes.length : 0,
+          clueCount: Array.isArray(ch.clueNodes) ? ch.clueNodes.length : 0,
+          version: Number(ch.version || 1)
+        }));
+
+        const lightweightWorkshopRecord = {
+          id: proj.id,
+          title: proj.title || '未命名跑团剧本',
+          author,
+          desc,
+          avatarUrl: packedAvatarRef || '',
+          uiTheme: payload.uiTheme,
+          globalScenes: packedGlobalScenes,
+          extractedSpeakers: proj.extractedSpeakers || [],
+          characters: relatedChars,
+          bgmTracks: appState.bgmTracks || [],
+          chapters: finalChapters,
+          chaptersMeta,
+          ttsByChapter: finalTtsByChapter,
+          chapterCount: finalChapters.length,
+          sizeBytes: totalAssetBytes,
+          updatedAt: Date.now()
+        };
+
+        try {
+          if (db && db.workshopProjects) {
+            await db.workshopProjects.put(lightweightWorkshopRecord);
+          }
+        } catch (_) {}
+
+        try {
+          if (typeof saveToTermux === 'function') {
+            await saveToTermux(`workshop/projects/${proj.id}.json`, JSON.stringify(lightweightWorkshopRecord));
+            const allRows = (db && db.workshopProjects) ? await db.workshopProjects.toArray() : [lightweightWorkshopRecord];
+            const indexItems = allRows.map((r) => buildWorkshopSummaryItemFromProject(r)).filter(Boolean);
+            await saveToTermux('workshop/index.json', JSON.stringify(indexItems));
+          }
+        } catch (_) {}
+
+        if (!resultData) {
+          resultData = {
+            ok: true,
+            isOverwrite,
+            chapterVersion,
+            chapterCount: finalChapters.length
+          };
+        }
 
         setProgress(100, '上传完成！');
         proj.workshopSyncedAt = Date.now();
@@ -22298,7 +22585,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
 
         if (statusEl) {
           if (isFullModule) {
-            statusEl.textContent = `已发布整部模组「${proj.title}」共 ${resultData.chapterCount || packedChapters.length} 章 · 本次仅上传 ${missingHashes.length} 个新素材，自动跳过 ${skippedCount} 个未变素材 · 总包约 ${sizeText}`;
+            statusEl.textContent = `已发布整部模组「${proj.title}」共 ${resultData.chapterCount || finalChapters.length} 章 · 本次仅上传 ${missingHashes.length} 个新素材，自动跳过 ${skippedCount} 个未变素材 · 总包约 ${sizeText}`;
           } else {
             statusEl.textContent = resultData.isOverwrite
               ? `已更新工坊中的「${singleChapObj.title}」第 ${resultData.chapterVersion} 版 · 新增上传 ${missingHashes.length} 个素材，跳过 ${skippedCount} 个未变素材`
@@ -22319,11 +22606,35 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
     }
 
     async function fetchWorkshopFullProjectById(projectId) {
-      const { res, data } = await fetchBackendJsonSafe(`/api/workshop/project/${encodeURIComponent(projectId)}`);
-      if (res && res.ok && data && data.ok && data.project) {
-        return data.project;
+      try {
+        const { res, data } = await fetchBackendJsonSafe(`/api/workshop/project/${encodeURIComponent(projectId)}`);
+        if (res && res.ok && data && data.ok && data.project) {
+          return data.project;
+        }
+      } catch (_) {}
+      try {
+        if (typeof getTermuxUrl === 'function') {
+          const tResp = await fetch(`${getTermuxUrl()}/file/${encodeURIComponent(`workshop/projects/${projectId}.json`)}`);
+          if (tResp.ok) {
+            const tProj = await tResp.json();
+            if (tProj && tProj.id) return tProj;
+          }
+        }
+      } catch (_) {}
+      try {
+        if (db && db.workshopProjects) {
+          const localRec = await db.workshopProjects.get(projectId);
+          if (localRec && localRec.id) return localRec;
+        }
+      } catch (_) {}
+      const ownProj = (appState.replayProjects || []).find((p) => p.id === projectId);
+      if (ownProj) {
+        return {
+          ...ownProj,
+          characters: (appState.characters || []).filter((c) => c.moduleId === ownProj.id)
+        };
       }
-      throw new Error(data?.error || '未找到该线上工坊模组数据');
+      throw new Error('未找到该线上工坊模组数据');
     }
 
     // 在线阅读：不下载任何素材到浏览器IndexedDB或本地磁盘，直接拉取轻量剧本清单并在舞台逐行流式加载
