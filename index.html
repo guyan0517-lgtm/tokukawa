@@ -2473,12 +2473,29 @@
           <div class="moe-card-header">
             <span class="moe-card-title">第三步：本模组提取出的出场人物档案 可改真名、改定位或标为场外</span>
             <div style="display:flex;gap:6px;">
+              <button type="button" class="moe-btn secondary" onclick="openImportCharacterToReplayModal()">导入</button>
               <button type="button" class="moe-btn secondary" onclick="extractSpeakersFromReplayLog()">重提</button>
               <button type="button" class="moe-btn" onclick="syncExtractedSpeakersToCharacters()">入档</button>
             </div>
           </div>
           <div id="replay-extracted-speakers-list" style="display:flex;flex-direction:column;gap:6px;">
             <div style="font-size:12px;color:var(--text-secondary);">粘贴日志后点击上方分章，即可自动识别本模组全部人物并归入角色档案</div>
+          </div>
+        </div>
+
+        <div id="modal-replay-import-char" class="modal" style="display:none;">
+          <div class="modal-content" style="max-width:440px;width:92%;max-height:85vh;display:flex;flex-direction:column;gap:10px;">
+            <div class="moe-card-header" style="padding-bottom:6px;border-bottom:1px solid var(--border-color);margin-bottom:0;">
+              <span class="moe-card-title">导入已有角色</span>
+              <button type="button" class="moe-btn secondary" style="min-width:32px;padding:4px 8px;" onclick="closeImportCharacterToReplayModal()">关闭</button>
+            </div>
+            <div style="font-size:11px;color:var(--text-secondary);">勾选已有人设放进本模组出场人物名单，AI整理剧本时将直接使用其设定与差分：</div>
+            <div id="replay-import-char-list" style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;max-height:48vh;padding-right:2px;">
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:6px;border-top:1px solid var(--border-color);">
+              <button type="button" class="moe-btn secondary" onclick="closeImportCharacterToReplayModal()">取消</button>
+              <button type="button" class="moe-btn" onclick="confirmImportCharactersToReplay()">确定</button>
+            </div>
           </div>
         </div>
 
@@ -16272,6 +16289,14 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
 
       if (proj) {
         if (!overrideText) proj.rawLog = cleaned;
+        (proj.extractedSpeakers || []).forEach((oldSpk) => {
+          if (oldSpk && oldSpk.isImported) {
+            const targetName = oldSpk.trueName || oldSpk.name;
+            if (targetName && !resultMap.has(targetName)) {
+              resultMap.set(targetName, oldSpk);
+            }
+          }
+        });
         proj.extractedSpeakers = Array.from(resultMap.values());
         await saveReplayProjectToDB(proj);
       }
@@ -16406,9 +16431,9 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       if (!proj || !Array.isArray(proj.extractedSpeakers) || !proj.extractedSpeakers[idx]) return;
       const removed = proj.extractedSpeakers.splice(idx, 1)[0];
       await saveReplayProjectToDB(proj);
-      if (removed) {
+      if (removed && !removed.isImported) {
         const targetName = removed.trueName || removed.name;
-        const foundChar = appState.characters.find((c) => c.name === targetName && c.id !== 'narrator_kp');
+        const foundChar = appState.characters.find((c) => c.name === targetName && c.id !== 'narrator_kp' && c.moduleId === proj.id);
         if (foundChar) {
           appState.characters = appState.characters.filter((c) => c.id !== foundChar.id);
           await db.characters.delete(foundChar.id);
@@ -16416,6 +16441,118 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       }
       populateCharacterSelects();
       renderPersonaGrid();
+      renderExtractedSpeakersList();
+    }
+
+    function openImportCharacterToReplayModal() {
+      const proj = getCurrentReplayProject();
+      if (!proj) {
+        alert('请先选择或创建一个跑团模组项目');
+        return;
+      }
+      const modal = document.getElementById('modal-replay-import-char');
+      const listContainer = document.getElementById('replay-import-char-list');
+      if (!modal || !listContainer) return;
+
+      const existingNames = new Set();
+      (proj.extractedSpeakers || []).forEach((s) => {
+        if (s.name) existingNames.add(s.name);
+        if (s.trueName) existingNames.add(s.trueName);
+      });
+
+      const candidates = (appState.characters || []).filter((c) => {
+        return c.id !== 'narrator_kp' && c.name && c.name !== '旁白';
+      });
+
+      if (candidates.length === 0) {
+        listContainer.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);text-align:center;padding:16px 0;">角色库中暂无可用角色，可前往人设页创建</div>';
+      } else {
+        listContainer.innerHTML = '';
+        candidates.forEach((c) => {
+          const isAlreadyIn = existingNames.has(c.name);
+          const roleType = c.trpgRoleType || c.trpgType || '调查员';
+          const p = c.personaData || {};
+          const shortDesc = p.personality || c.quirk || c.body || c.role || '已有完整人设';
+
+          const itemEl = document.createElement('label');
+          itemEl.className = 'setting-item';
+          itemEl.style.cursor = isAlreadyIn ? 'default' : 'pointer';
+          itemEl.style.opacity = isAlreadyIn ? '0.6' : '1';
+          itemEl.style.margin = '0';
+          itemEl.style.userSelect = 'none';
+
+          itemEl.innerHTML = `
+            <div class="setting-item-left" style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+              <input type="checkbox" data-char-id="${c.id}" ${isAlreadyIn ? 'checked disabled' : ''} style="width:16px;height:16px;flex-shrink:0;margin:0;cursor:${isAlreadyIn ? 'not-allowed' : 'pointer'};" />
+              <div style="width:34px;height:34px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
+                ${c.tachieBase || c.chibiImg
+                  ? `<img src="${c.tachieBase || c.chibiImg}" style="width:100%;height:100%;object-fit:cover;" />`
+                  : `<span style="font-size:13px;font-weight:800;color:var(--accent-color);">${(c.name || '人').slice(0, 1)}</span>`}
+              </div>
+            </div>
+            <div class="setting-item-center" style="min-width:0;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="setting-item-title" style="font-weight:700;">${c.name}</span>
+                <span style="font-size:10px;padding:1px 5px;border-radius:6px;background:var(--secondary-bg);color:var(--text-secondary);border:1px solid var(--border-color);">${roleType}</span>
+                ${isAlreadyIn ? '<span style="font-size:10px;color:var(--accent-color);">已在本模组</span>' : ''}
+              </div>
+              <div class="setting-item-sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${shortDesc}</div>
+            </div>
+          `;
+          listContainer.appendChild(itemEl);
+        });
+      }
+
+      modal.style.display = 'flex';
+    }
+
+    function closeImportCharacterToReplayModal() {
+      const modal = document.getElementById('modal-replay-import-char');
+      if (modal) modal.style.display = 'none';
+    }
+
+    async function confirmImportCharactersToReplay() {
+      const proj = getCurrentReplayProject();
+      if (!proj) return;
+      const listContainer = document.getElementById('replay-import-char-list');
+      if (!listContainer) return;
+
+      const checkedInputs = listContainer.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)');
+      if (checkedInputs.length === 0) {
+        closeImportCharacterToReplayModal();
+        return;
+      }
+
+      if (!Array.isArray(proj.extractedSpeakers)) {
+        proj.extractedSpeakers = [];
+      }
+
+      checkedInputs.forEach((input) => {
+        const charId = input.getAttribute('data-char-id');
+        const c = (appState.characters || []).find((x) => x.id === charId);
+        if (!c) return;
+
+        const roleType = c.trpgRoleType || c.trpgType || '调查员';
+        const existingIdx = proj.extractedSpeakers.findIndex((s) => (s.trueName || s.name) === c.name || (s.charId && s.charId === c.id));
+        if (existingIdx >= 0) {
+          proj.extractedSpeakers[existingIdx].isImported = true;
+          proj.extractedSpeakers[existingIdx].charId = c.id;
+          proj.extractedSpeakers[existingIdx].trpgType = roleType;
+        } else {
+          proj.extractedSpeakers.push({
+            rawName: c.name,
+            name: c.name,
+            trueName: c.name,
+            count: 0,
+            trpgType: roleType,
+            isImported: true,
+            charId: c.id
+          });
+        }
+      });
+
+      await saveReplayProjectToDB(proj);
+      closeImportCharacterToReplayModal();
       renderExtractedSpeakersList();
     }
 
@@ -16438,8 +16575,9 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
         if (item.trpgType === 'NPC') item.trpgType = '主要NPC';
         const displayName = item.trueName || item.name;
         const rawNote = item.rawName && item.rawName !== displayName ? `原昵称 ${item.rawName} · ` : '';
-        const matchedChar = appState.characters.find((c) => c.name === displayName);
+        const matchedChar = appState.characters.find((c) => c.name === displayName || (item.charId && c.id === item.charId));
         const expCountLabel = item.trpgType === '次要NPC' ? `${MINOR_NPC_8_EXPRESSIONS.length}基础差分` : (item.trpgType === '调查员' || item.trpgType === '主要NPC' ? `${TACHIE_25_EXPRESSIONS.length}基础差分` : '');
+        const importTag = item.isImported ? '<span style="font-size:10px;padding:1px 5px;border-radius:6px;background:var(--secondary-bg);color:var(--accent-color);border:1px solid var(--border-color);margin-left:4px;">导入</span>' : '';
         const statusText = item.trpgType === '场外'
           ? `${rawNote}发言 ${item.count} 次 · 已设为场外吐槽弹幕`
           : (matchedChar
@@ -16461,6 +16599,7 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
           <div class="setting-item-center">
             <div style="display:flex;align-items:center;gap:6px;">
               <input type="text" class="moe-input" value="${(displayName || '').replace(/"/g, '&quot;')}" style="height:28px;min-height:28px;max-width:140px;font-size:12px;font-weight:700;" title="可直接改为跑团角色真名并同步至角色档案" onchange="updateExtractedSpeakerMapping(${idx}, 'trueName', this.value)" />
+              ${importTag}
             </div>
             <div class="setting-item-sub">${statusText}</div>
           </div>
@@ -18031,27 +18170,42 @@ CG_MARK: L起始行号-L结束行号|插图简短剧情画面说明|在场角色
           ? MINOR_NPC_8_EXPRESSIONS
           : ['默认', '开心', '惊讶', '愤怒', '伤心', '害羞', '慌乱', '疯狂', '拿起武器', '冷漠', '轻伤', '重伤'];
 
+        const moduleSpeakerItems = Array.isArray(proj.extractedSpeakers) ? proj.extractedSpeakers : [];
         const speakerSet = new Set();
         baseLines.forEach((l) => {
           if (l.speaker && l.speaker !== '旁白' && l.speaker !== '检定') speakerSet.add(l.speaker);
         });
+        moduleSpeakerItems.forEach((s) => {
+          if (s.trpgType !== '场外' && s.trpgType !== '骰子' && s.trpgType !== '旁白') {
+            const n = s.trueName || s.name;
+            if (n && n !== '旁白') speakerSet.add(n);
+          }
+        });
         (appState.characters || []).forEach((c) => {
-          if (c.id !== 'narrator_kp' && c.name && c.name !== '旁白') speakerSet.add(c.name);
+          if (c.id !== 'narrator_kp' && c.name && c.name !== '旁白') {
+            const isBoundToModule = (c.moduleId && c.moduleId === proj.id) || moduleSpeakerItems.some((s) => (s.trueName || s.name) === c.name || s.charId === c.id);
+            if (isBoundToModule || c.isUniversal) {
+              speakerSet.add(c.name);
+            }
+          }
         });
 
         const investigatorNames = [];
         Array.from(speakerSet).forEach((name) => {
-          const c = appState.characters.find((x) => x.name === name);
-          if (!c || (!isMinorNpcCharacter(c) && (c.trpgType === '调查员' || c.trpgRoleType === '调查员'))) {
+          const spkItem = moduleSpeakerItems.find((s) => (s.trueName || s.name) === name);
+          const c = appState.characters.find((x) => x.name === name || (spkItem && spkItem.charId === x.id));
+          const effectiveRole = spkItem?.trpgType || c?.trpgRoleType || c?.trpgType || '调查员';
+          if (!isMinorNpcCharacter(c) && effectiveRole === '调查员') {
             investigatorNames.push(name);
           }
         });
 
         const fieldCfg = getSelectedCharPromptFields();
         const charContextLines = Array.from(speakerSet).map((name) => {
-          const c = appState.characters.find((x) => x.name === name);
+          const spkItem = moduleSpeakerItems.find((s) => (s.trueName || s.name) === name);
+          const c = appState.characters.find((x) => x.name === name || (spkItem && spkItem.charId === x.id));
           const p = c?.personaData || {};
-          const roleType = isMinorNpcCharacter(c) ? '次要NPC' : (c?.trpgRoleType || c?.trpgType || '调查员');
+          const roleType = spkItem?.trpgType || (isMinorNpcCharacter(c) ? '次要NPC' : (c?.trpgRoleType || c?.trpgType || '调查员'));
           const pool = getCharacterAvailableExpressionPool(c);
           const segments = [`名字:${name}`, `身份定位:${roleType}`];
           if (fieldCfg.age !== false) segments.push(`年龄:${p.age || c?.age || '未知'}`);
