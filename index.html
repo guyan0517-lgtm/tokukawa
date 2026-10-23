@@ -2384,8 +2384,8 @@
     <section id="screen-replay" class="screen">
       <div class="app-header">
         <button type="button" class="app-back-btn" onclick="goHomeScreen()" title="返回"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
-        <span class="app-header-title">模组</span>
-        <div class="app-header-actions">
+        <span class="app-header-title" id="replay-screen-header-title">模组</span>
+        <div class="app-header-actions" id="replay-screen-header-actions">
           <button type="button" class="moe-btn secondary" onclick="openTheaterWithLobby()">剧本</button>
           <button type="button" class="moe-btn" onclick="createNewReplayProject()">新建</button>
         </div>
@@ -2811,17 +2811,36 @@
         </div>
       </div>
 
-      <!-- 子页5：线上剧本工坊（单章上传、覆盖老章、搜索下载与一键追更） -->
+      <!-- 子页5：线上剧本工坊 -->
       <div id="replay-sub-workshop" class="app-subpage">
         <div class="moe-card">
           <div class="moe-card-header">
-            <span class="moe-card-title">一、 我的剧本分章上传与覆盖更新</span>
-            <button type="button" class="moe-btn" id="workshop-upload-chap-btn" onclick="uploadReplayChapterToWorkshop()">上传</button>
+            <span class="moe-card-title">一、 我的模组增量去重上传</span>
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="moe-btn secondary" onclick="document.getElementById('theater-mount-local-pack-input').click()">本地</button>
+              <button type="button" class="moe-btn" id="workshop-upload-chap-btn" onclick="uploadReplayChapterToWorkshop()">上传</button>
+            </div>
+          </div>
+          <div class="setting-item" style="margin-bottom:8px;">
+            <div class="setting-item-left" style="width:46px;height:46px;overflow:hidden;border-radius:10px;border:1px solid var(--border-color);background:var(--secondary-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <img id="workshop-current-proj-avatar-img" src="" alt="模组头像" style="width:100%;height:100%;object-fit:cover;display:none;" />
+              <svg id="workshop-current-proj-avatar-empty" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent-color);"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            </div>
+            <div class="setting-item-center" style="min-width:0;flex:1;">
+              <div class="form-group" style="margin-bottom:0;">
+                <label>选择要发布或更新的模组</label>
+                <select id="workshop-upload-project-select" class="moe-input" onchange="onSelectWorkshopUploadProject(this.value)"></select>
+              </div>
+            </div>
+            <div class="setting-item-right" style="flex-shrink:0;">
+              <button type="button" class="moe-btn secondary" onclick="document.getElementById('workshop-proj-avatar-file').click()">头像</button>
+              <input type="file" id="workshop-proj-avatar-file" accept="image/*" style="display:none;" onchange="handleReplayProjectAvatarUpload(event)" />
+            </div>
           </div>
           <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:8px;margin-bottom:8px;">
             <div class="form-group" style="margin-bottom:0;">
-              <label>选择要上传或覆盖的章节</label>
-              <select id="workshop-upload-chapter-select" class="moe-input" onchange="onSelectReplayChapter(this.value)"></select>
+              <label>上传范围</label>
+              <select id="workshop-upload-chapter-select" class="moe-input" onchange="onSelectWorkshopUploadScope(this.value)"></select>
             </div>
             <div class="form-group" style="margin-bottom:0;">
               <label>署名作者</label>
@@ -2832,17 +2851,20 @@
             <label>剧本简介</label>
             <input type="text" id="workshop-desc-input" class="moe-input" placeholder="一句话介绍剧本背景或更新说明" />
           </div>
-          <div id="workshop-upload-status" style="font-size:11px;color:var(--text-secondary);">可一章一章上传当前剧本及配套立绘、场所、插图、线索、音乐与配音；若该章已上传过，再次上传会自动覆盖旧章节</div>
+          <div id="workshop-upload-progress-wrap" style="display:none;height:6px;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:999px;overflow:hidden;margin-bottom:6px;">
+            <div id="workshop-upload-progress-bar" style="width:0%;height:100%;background:var(--accent-color);transition:width 0.2s ease;"></div>
+          </div>
+          <div id="workshop-upload-status" style="font-size:11px;color:var(--text-secondary);">支持整部模组或单章上传；再次上传时自动比对指纹去重，仅传输新立绘与新章节，且不在作者浏览器重复占内存</div>
         </div>
 
         <div class="moe-card">
           <div class="moe-card-header">
-            <span class="moe-card-title">二、 线上工坊剧本搜索与追更</span>
-            <button type="button" class="moe-btn secondary" onclick="renderReplayWorkshop()">刷新</button>
+            <span class="moe-card-title">二、 线上工坊模组列表与追更</span>
+            <button type="button" class="moe-btn secondary" onclick="refreshWorkshopAll()">刷新</button>
           </div>
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;">
-            <input type="text" id="workshop-search-input" class="moe-input" style="flex:1;" placeholder="输入剧本名称或作者搜索..." oninput="renderReplayWorkshopList()" />
-            <button type="button" class="moe-btn" onclick="renderReplayWorkshop()">搜索</button>
+            <input type="text" id="workshop-search-input" class="moe-input" style="flex:1;" placeholder="输入模组名称、作者或章节名精准锁定..." oninput="renderReplayWorkshopList()" />
+            <button type="button" class="moe-btn" onclick="searchWorkshopByKeyword()">搜索</button>
           </div>
           <div id="workshop-projects-list-container" style="display:flex;flex-direction:column;gap:8px;"></div>
         </div>
@@ -2986,8 +3008,12 @@
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
               <div class="form-group" style="flex:1;min-width:160px;margin-bottom:0;">
-                <label>选择大模组</label>
-                <select id="theater-lobby-project-select" class="moe-input" onchange="onTheaterLobbyProjectChange(this.value)"></select>
+                <label>选择大模组或读取本地包</label>
+                <div style="display:flex;gap:6px;align-items:center;">
+                  <select id="theater-lobby-project-select" class="moe-input" style="flex:1;" onchange="onTheaterLobbyProjectChange(this.value)"></select>
+                  <button type="button" class="moe-btn secondary" style="flex-shrink:0;" onclick="document.getElementById('theater-mount-local-pack-input').click()">本地</button>
+                  <input type="file" id="theater-mount-local-pack-input" accept=".zip,.json" style="display:none;" onchange="mountLocalZipPackForTheater(event)" />
+                </div>
               </div>
               <div class="form-group" style="flex:1;min-width:160px;margin-bottom:0;">
                 <label>本模组专属舞台款式</label>
@@ -3623,10 +3649,51 @@
         } else if (normalizedApp === 'music') {
           renderReplayBgmList();
         } else if (normalizedApp === 'replay') {
+          const subtabsEl = document.getElementById('replay-subtabs');
+          const headerActsEl = document.getElementById('replay-screen-header-actions');
+          const headerTitleEl = document.getElementById('replay-screen-header-title');
+          if (subtabsEl) subtabsEl.style.display = 'flex';
+          if (headerActsEl) headerActsEl.style.display = 'flex';
+          if (headerTitleEl) headerTitleEl.textContent = '模组';
+          const wsPage = document.getElementById('replay-sub-workshop');
+          if (wsPage && wsPage.classList.contains('active')) {
+            switchSubPage('screen-replay', 'replay-sub-import');
+          }
           renderReplayStudioUI();
         }
       }
       saveCurrentSessionNavState();
+    }
+
+    function openWorkshopFromHome() {
+      appState.inLandscapeGame = false;
+      document.body.classList.remove('landscape-game-active');
+      document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
+      const replayScr = document.getElementById('screen-replay');
+      if (replayScr) replayScr.classList.add('active');
+      const subtabsEl = document.getElementById('replay-subtabs');
+      const headerActsEl = document.getElementById('replay-screen-header-actions');
+      const headerTitleEl = document.getElementById('replay-screen-header-title');
+      if (subtabsEl) subtabsEl.style.display = 'none';
+      if (headerActsEl) headerActsEl.style.display = 'none';
+      if (headerTitleEl) headerTitleEl.textContent = '工坊';
+      switchSubPage('screen-replay', 'replay-sub-workshop');
+      renderReplayWorkshop();
+      saveCurrentSessionNavState();
+    }
+
+    function switchReplaySubTab(subId) {
+      if (subId === 'replay-sub-workshop') {
+        openWorkshopFromHome();
+        return;
+      }
+      const subtabsEl = document.getElementById('replay-subtabs');
+      const headerActsEl = document.getElementById('replay-screen-header-actions');
+      const headerTitleEl = document.getElementById('replay-screen-header-title');
+      if (subtabsEl) subtabsEl.style.display = 'flex';
+      if (headerActsEl) headerActsEl.style.display = 'flex';
+      if (headerTitleEl) headerTitleEl.textContent = '模组';
+      switchSubPage('screen-replay', subId || 'replay-sub-import');
     }
 
     function onTachieModuleFilterChange(modId) {
@@ -5333,7 +5400,7 @@
         validActNames.add('默认');
         if (c.tachieExpressions && typeof c.tachieExpressions === 'object') {
           for (const k of Object.keys(c.tachieExpressions)) {
-            if (!validActNames.has(k) || !isRealNonSvgAsset(c.tachieExpressions[k])) {
+            if (!isRealNonSvgAsset(c.tachieExpressions[k])) {
               evictAssetFromMemoryCaches(c.tachieExpressions[k]);
               delete c.tachieExpressions[k];
               changed = true;
@@ -5441,6 +5508,9 @@
 
       for (const proj of (appState.replayProjects || [])) {
         const safeProj = (proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
+        if (proj.avatarUrl) {
+          collectUrl(proj.avatarUrl, `projects/${safeProj}/avatar.jpg`);
+        }
         (proj.globalScenes || []).forEach((gsc) => {
           if (gsc && gsc.imageUrl) collectUrl(gsc.imageUrl, `projects/${safeProj}/scenes/${gsc.id}.png`);
         });
@@ -5451,6 +5521,9 @@
           (ch.cgNodes || []).forEach((cg) => {
             if (cg && cg.imageUrl) collectUrl(cg.imageUrl, `projects/${safeProj}/cgs/${cg.id}.png`);
             if (cg && cg.customPadImg) collectUrl(cg.customPadImg, `projects/${safeProj}/cgs/pad_${cg.id}.png`);
+          });
+          (ch.clueNodes || []).forEach((cl) => {
+            if (cl && cl.imageUrl) collectUrl(cl.imageUrl, `projects/${safeProj}/clues/${cl.id}.png`);
           });
         });
       }
@@ -15858,6 +15931,9 @@ ${BUILTIN_CSS_TEMPLATE}`;
     }
 
     function getCurrentReplayProject() {
+      if (typeof _mountedExternalProjects !== 'undefined' && appState.currentReplayProjectId && _mountedExternalProjects.has(appState.currentReplayProjectId)) {
+        return _mountedExternalProjects.get(appState.currentReplayProjectId).project;
+      }
       return appState.replayProjects.find((p) => p.id === appState.currentReplayProjectId) || appState.replayProjects[0] || null;
     }
 
@@ -21595,37 +21671,131 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       event.target.value = '';
     }
 
-    // ==================== 线上剧本工坊前端交互逻辑 ====================
+    // ==================== 线上剧本工坊前端交互逻辑 + 在线按需流式阅读与本地磁盘挂载引擎 ====================
     let _workshopItemsCache = [];
     let _workshopUploadScope = 'all';
 
-    function getLocalWorkshopProjectsFallbackMap() {
-      try {
-        const raw = localStorage.getItem('hakoniwa-workshop-local-projects');
-        return raw ? JSON.parse(raw) : {};
-      } catch (_) {
-        return {};
+    // 挂载在内存中的外部模组（包含本地硬盘选中的 .zip 包 与 线上工坊按需流式阅读模组），不写入浏览器 IndexedDB
+    const _mountedExternalProjects = new Map();
+    const _mountedZipAssetBlobCache = new Map();
+    const MAX_MOUNTED_ASSET_BLOB_CACHE = 36;
+
+    function cacheMountedBlobUrl(cacheKey, blobUrl) {
+      if (!cacheKey || !blobUrl) return blobUrl;
+      if (_mountedZipAssetBlobCache.has(cacheKey)) {
+        const oldUrl = _mountedZipAssetBlobCache.get(cacheKey);
+        if (oldUrl && oldUrl !== blobUrl && oldUrl.startsWith('blob:')) {
+          try { URL.revokeObjectURL(oldUrl); } catch (_) {}
+        }
+        _mountedZipAssetBlobCache.delete(cacheKey);
       }
+      _mountedZipAssetBlobCache.set(cacheKey, blobUrl);
+      while (_mountedZipAssetBlobCache.size > MAX_MOUNTED_ASSET_BLOB_CACHE) {
+        const oldestKey = _mountedZipAssetBlobCache.keys().next().value;
+        const oldestUrl = _mountedZipAssetBlobCache.get(oldestKey);
+        _mountedZipAssetBlobCache.delete(oldestKey);
+        if (oldestUrl && oldestUrl.startsWith('blob:')) {
+          try { URL.revokeObjectURL(oldestUrl); } catch (_) {}
+        }
+      }
+      return blobUrl;
     }
 
-    async function loadAllIndexedDbWorkshopProjects() {
-      const result = [];
-      try {
-        if (db && db.workshopProjects) {
-          const rows = await db.workshopProjects.toArray();
-          if (Array.isArray(rows)) result.push(...rows);
-        }
-      } catch (_) {}
-      const legacyMap = getLocalWorkshopProjectsFallbackMap();
-      for (const lp of Object.values(legacyMap)) {
-        if (lp && lp.id && !result.some((r) => r.id === lp.id)) {
-          result.push(lp);
-          try {
-            if (db && db.workshopProjects) await db.workshopProjects.put(lp);
-          } catch (_) {}
-        }
+    function getActiveMountedBundle() {
+      if (appState.currentReplayProjectId && _mountedExternalProjects.has(appState.currentReplayProjectId)) {
+        return _mountedExternalProjects.get(appState.currentReplayProjectId);
       }
-      return result;
+      return null;
+    }
+
+    function findTheaterCharacterByName(speakerName) {
+      if (!speakerName || speakerName === '旁白' || speakerName === '检定') return null;
+      const bundle = getActiveMountedBundle();
+      if (bundle && Array.isArray(bundle.characters)) {
+        const extChar = bundle.characters.find((c) => c && c.name === speakerName && c.trpgType !== '旁白');
+        if (extChar) return extChar;
+      }
+      return (appState.characters || []).find((c) => c && c.name === speakerName && c.trpgType !== '旁白') || null;
+    }
+
+    function getAllTheaterCharactersForCurrentProject() {
+      const bundle = getActiveMountedBundle();
+      if (bundle && Array.isArray(bundle.characters) && bundle.characters.length > 0) {
+        const merged = [...bundle.characters];
+        const seenNames = new Set(merged.map((c) => c && c.name).filter(Boolean));
+        (appState.characters || []).forEach((c) => {
+          if (c && c.name && !seenNames.has(c.name)) {
+            seenNames.add(c.name);
+            merged.push(c);
+          }
+        });
+        return merged;
+      }
+      return appState.characters || [];
+    }
+
+    async function resolveTheaterPlayableUrl(rawUrl, fallbackMime = 'image/png') {
+      if (!rawUrl || typeof rawUrl !== 'string') return '';
+      if (rawUrl.startsWith('__ZIP_ASSET__:')) {
+        const relPath = rawUrl.replace('__ZIP_ASSET__:', '');
+        const bundle = getActiveMountedBundle();
+        const cacheKey = `${bundle?.project?.id || 'zip'}::${relPath}`;
+        if (_mountedZipAssetBlobCache.has(cacheKey)) {
+          return _mountedZipAssetBlobCache.get(cacheKey);
+        }
+        if (bundle && bundle.zip) {
+          const zf = bundle.zip.file(relPath);
+          if (zf) {
+            const uint8 = await zf.async('uint8array');
+            const ext = relPath.split('.').pop().toLowerCase();
+            const mime = ext === 'mp3' ? 'audio/mpeg' : (ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : fallbackMime);
+            const blob = new Blob([uint8], { type: mime });
+            const bUrl = URL.createObjectURL(blob);
+            return cacheMountedBlobUrl(cacheKey, bUrl);
+          }
+        }
+        return '';
+      }
+      if (rawUrl.startsWith('/api/workshop/asset/')) {
+        const fullApiUrl = resolveBackendApiUrl(rawUrl);
+        if (_mountedZipAssetBlobCache.has(fullApiUrl)) {
+          return _mountedZipAssetBlobCache.get(fullApiUrl);
+        }
+        try {
+          const resp = await fetch(fullApiUrl);
+          if (resp.ok) {
+            const blob = await resp.blob();
+            if (blob && blob.size > 0) {
+              const bUrl = URL.createObjectURL(blob);
+              return cacheMountedBlobUrl(fullApiUrl, bUrl);
+            }
+          }
+        } catch (_) {}
+        return fullApiUrl;
+      }
+      return toFastDisplayUrl(rawUrl);
+    }
+
+    function computeFastAssetFingerprint(str) {
+      const s = String(str || '');
+      const len = s.length;
+      let h1 = 0xdeadbeef ^ len;
+      let h2 = 0x41c6ce57 ^ len;
+      const step = len > 16384 ? Math.max(1, Math.floor(len / 8192)) : 1;
+      for (let i = 0; i < len; i += step) {
+        const ch = s.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+      }
+      const tailStart = Math.max(0, len - 512);
+      for (let i = tailStart; i < len; i++) {
+        const ch = s.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+      }
+      h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+      h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+      return 'h_' + (h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0') + '_' + len.toString(36);
     }
 
     function onSelectWorkshopUploadProject(projId) {
@@ -21661,32 +21831,6 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
 
     async function searchWorkshopByKeyword() {
       await renderReplayWorkshop();
-    }
-
-    function buildWorkshopSummaryFromProjectRecord(lp) {
-      const chaps = Array.isArray(lp.chapters) ? lp.chapters : [];
-      return {
-        id: lp.id,
-        title: lp.title || '未命名模组',
-        author: lp.author || '跑团KP',
-        desc: lp.desc || '',
-        avatarUrl: lp.avatarUrl || resolveModuleDisplayAvatar(lp) || '',
-        uiTheme: lp.uiTheme || 'ark_grad',
-        sizeBytes: lp.sizeBytes || 0,
-        charCount: Array.isArray(lp.characters) ? lp.characters.length : 0,
-        updatedAt: lp.updatedAt || Date.now(),
-        chapterCount: chaps.length,
-        chaptersMeta: chaps.map((c, idx) => ({
-          id: c.id || `chap_${idx}`,
-          title: c.title || `第${idx + 1}章`,
-          order: Number(c.order ?? idx),
-          lineCount: Array.isArray(c.scriptLines) ? c.scriptLines.length : 0,
-          cgCount: Array.isArray(c.cgNodes) ? c.cgNodes.filter((g) => g && g.imageUrl).length : 0,
-          clueCount: Array.isArray(c.clueNodes) ? c.clueNodes.length : 0,
-          version: c.version || 1,
-          updatedAt: c.updatedAt || lp.updatedAt || Date.now()
-        }))
-      };
     }
 
     async function renderReplayWorkshop() {
@@ -21727,30 +21871,10 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
           remoteItems = data.items;
         }
       } catch (err) {
-        console.warn('获取云端工坊列表兜底到本地数据库:', err);
+        console.warn('获取线上工坊列表异常:', err);
       }
 
-      const idbList = await loadAllIndexedDbWorkshopProjects();
-      const mergedMap = new Map();
-      remoteItems.forEach((it) => {
-        if (it && it.id) mergedMap.set(it.id, it);
-      });
-      idbList.forEach((lp) => {
-        if (!lp || !lp.id) return;
-        const summary = buildWorkshopSummaryFromProjectRecord(lp);
-        const existing = mergedMap.get(lp.id);
-        if (!existing || (summary.updatedAt || 0) >= (existing.updatedAt || 0)) {
-          mergedMap.set(lp.id, {
-            ...existing,
-            ...summary,
-            avatarUrl: summary.avatarUrl || existing?.avatarUrl || ''
-          });
-        } else if (!existing.avatarUrl && summary.avatarUrl) {
-          existing.avatarUrl = summary.avatarUrl;
-        }
-      });
-
-      _workshopItemsCache = Array.from(mergedMap.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      _workshopItemsCache = remoteItems.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
       renderReplayWorkshopList();
     }
 
@@ -21786,11 +21910,17 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       box.innerHTML = '';
       filtered.forEach((item) => {
         const localProj = (appState.replayProjects || []).find((p) => p.id === item.id);
-        const localChapCount = localProj && Array.isArray(localProj.chapters) ? localProj.chapters.length : 0;
-        const hasNewUpdate = localProj && ((item.updatedAt || 0) > (localProj.workshopSyncedAt || 0) || (item.chapterCount || 0) > localChapCount);
+        const mountedBundle = _mountedExternalProjects.get(item.id);
+        const isLocalOwner = Boolean(localProj);
+        const mountedChapCount = mountedBundle?.project?.chapters?.length || 0;
+        const hasNewUpdateForMounted = Boolean(mountedBundle && ((item.updatedAt || 0) > (mountedBundle.syncedAt || 0) || (item.chapterCount || 0) > mountedChapCount));
+
         const timeStr = item.updatedAt ? new Date(item.updatedAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
         const sizeStr = formatWorkshopSizeText(item.sizeBytes);
-        const avatarSrc = item.avatarUrl ? toFastDisplayUrl(item.avatarUrl) : (localProj ? resolveModuleDisplayAvatar(localProj) : '');
+        const rawAvatar = item.avatarUrl || (localProj ? resolveModuleDisplayAvatar(localProj) : '');
+        const avatarSrc = rawAvatar && rawAvatar.startsWith('/api/workshop/asset/')
+          ? resolveBackendApiUrl(rawAvatar)
+          : toFastDisplayUrl(rawAvatar);
         const chapsMeta = Array.isArray(item.chaptersMeta) ? item.chaptersMeta : [];
 
         const chapRowsHtml = chapsMeta.length > 0
@@ -21803,6 +21933,10 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
               if (cgCnt > 0) metaParts.push(`插图 ${cgCnt}`);
               if (clueCnt > 0) metaParts.push(`线索 ${clueCnt}`);
               metaParts.push(`第 ${cm.version || 1} 版`);
+              const chapRightBtns = isLocalOwner
+                ? `<button type="button" class="moe-btn" onclick="openWorkshopModuleInTheater('${item.id}', ${cOrder})">观看</button>`
+                : `<button type="button" class="moe-btn secondary" onclick="downloadOrUpdateWorkshopProject('${item.id}', ${cOrder})">单章</button>
+                   <button type="button" class="moe-btn" onclick="openWorkshopOnlineStream('${item.id}', ${cOrder})">在线</button>`;
               return `
                 <div class="setting-item" style="padding:7px 10px;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:8px;">
                   <div class="setting-item-left" style="font-size:11px;font-weight:800;color:var(--accent-color);width:42px;flex-shrink:0;">第${idx + 1}章</div>
@@ -21811,13 +21945,17 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
                     <div class="setting-item-sub" style="font-size:10px;">${metaParts.join(' · ')}</div>
                   </div>
                   <div class="setting-item-right" style="display:flex;gap:6px;flex-shrink:0;">
-                    <button type="button" class="moe-btn secondary" onclick="downloadOrUpdateWorkshopProject('${item.id}', ${cOrder})">单章</button>
-                    <button type="button" class="moe-btn" onclick="openWorkshopModuleInTheater('${item.id}', ${cOrder})">观看</button>
+                    ${chapRightBtns}
                   </div>
                 </div>
               `;
             }).join('')
           : '<div style="font-size:11px;color:var(--text-secondary);padding:6px 0;">暂无章节明细</div>';
+
+        const topActionBtnsHtml = isLocalOwner
+          ? `<button type="button" class="moe-btn" onclick="openWorkshopModuleInTheater('${item.id}', 0)">观看</button>`
+          : `<button type="button" class="moe-btn secondary" id="workshop-dl-btn-${item.id}" onclick="downloadOrUpdateWorkshopProject('${item.id}', -1)">${hasNewUpdateForMounted ? '追更' : '下载'}</button>
+             <button type="button" class="moe-btn" onclick="openWorkshopOnlineStream('${item.id}', 0)">在线</button>`;
 
         const card = document.createElement('div');
         card.className = 'setting-item';
@@ -21837,6 +21975,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
               <div class="setting-item-title" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:14px;">
                 <span>${item.title || '未命名模组'}</span>
                 <span style="font-size:11px;color:var(--accent-color);font-weight:700;">作者：${item.author || '跑团KP'}</span>
+                ${isLocalOwner ? '<span style="font-size:10px;color:var(--text-secondary);">本机已有</span>' : ''}
               </div>
               <div class="setting-item-sub" style="white-space:normal;margin-top:2px;">
                 共 ${item.chapterCount || chapsMeta.length || 0} 章${sizeStr ? (' · 素材包 ' + sizeStr) : ''}${timeStr ? (' · 更新于 ' + timeStr) : ''}
@@ -21846,8 +21985,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
               </div>
             </div>
             <div class="setting-item-right" style="display:flex;gap:6px;flex-shrink:0;">
-              <button type="button" class="moe-btn ${hasNewUpdate ? '' : (localProj ? 'secondary' : '')}" id="workshop-dl-btn-${item.id}" onclick="downloadOrUpdateWorkshopProject('${item.id}', -1)">${localProj ? (hasNewUpdate ? '追更' : '同步') : '保存'}</button>
-              <button type="button" class="moe-btn" onclick="openWorkshopModuleInTheater('${item.id}', 0)">阅读</button>
+              ${topActionBtnsHtml}
             </div>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;padding-top:6px;border-top:1px solid var(--border-color);">
@@ -21862,6 +22000,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
     async function packAssetUrlToPortableDataUrl(rawUrl) {
       if (!rawUrl || typeof rawUrl !== 'string') return '';
       if (rawUrl.startsWith('data:')) return rawUrl;
+      if (rawUrl.startsWith('/api/workshop/asset/')) return rawUrl;
       if (_blobToOriginDataUrl && _blobToOriginDataUrl.has(rawUrl)) {
         return _blobToOriginDataUrl.get(rawUrl);
       }
@@ -21946,9 +22085,17 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       };
 
       if (btn) { btn.textContent = '上传中'; btn.disabled = true; }
-      setProgress(4, `正在扫描「${proj.title}」的立绘、场所、插图、线索与配音文件...`);
+      setProgress(4, `正在扫描「${proj.title}」的立绘、场所、插图、线索与配音指纹...`);
 
       try {
+        // 清理旧版本残留在作者浏览器里的重复工坊副本，释放本地浏览器内存
+        try {
+          if (db && db.workshopProjects) {
+            await db.workshopProjects.delete(proj.id);
+          }
+          localStorage.removeItem('hakoniwa-workshop-local-projects');
+        } catch (_) {}
+
         const speakerNameSet = new Set();
         (proj.extractedSpeakers || []).forEach((s) => {
           if (s.name) speakerNameSet.add(s.name);
@@ -21961,16 +22108,26 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         });
 
         const rawRelatedChars = (appState.characters || []).filter((c) => c.moduleId === proj.id || speakerNameSet.has(c.name));
-        let packedAssetCount = 0;
-        const bumpAssetProgress = async (label) => {
-          packedAssetCount += 1;
-          const pct = Math.min(48, 5 + packedAssetCount * 1.5);
-          setProgress(pct, `正在读取并打包第 ${packedAssetCount} 个素材文件：${label}`);
-          await new Promise((r) => setTimeout(r, 12));
+
+        // 收集所有大体积素材的哈希指纹表，准备向云端比对去重
+        const assetMapByHash = new Map();
+        let totalAssetBytes = 0;
+
+        const registerAssetForDedup = async (rawUrl, label) => {
+          if (!rawUrl || typeof rawUrl !== 'string') return '';
+          if (rawUrl.startsWith('/api/workshop/asset/')) return rawUrl;
+          const portable = await packAssetUrlToPortableDataUrl(rawUrl);
+          if (!portable || !portable.startsWith('data:')) return portable;
+          const hash = computeFastAssetFingerprint(portable);
+          if (!assetMapByHash.has(hash)) {
+            const byteLen = Math.round(portable.length * 0.75);
+            totalAssetBytes += byteLen;
+            assetMapByHash.set(hash, { hash, dataUrl: portable, label, byteLen });
+          }
+          return `/api/workshop/asset/${hash}`;
         };
 
-        const packedAvatarUrl = proj.avatarUrl ? await packAssetUrlToPortableDataUrl(proj.avatarUrl) : '';
-        if (packedAvatarUrl) await bumpAssetProgress('模组专属头像封面');
+        const packedAvatarRef = proj.avatarUrl ? await registerAssetForDedup(proj.avatarUrl, '模组封面头像') : '';
 
         const relatedChars = [];
         for (const c of rawRelatedChars) {
@@ -21981,21 +22138,21 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
           delete copy.chibiPoseRawImgs;
           delete copy.chibiPoseAlignedRawImgs;
           if (copy.profileAvatar) {
-            copy.profileAvatar = await packAssetUrlToPortableDataUrl(copy.profileAvatar);
-            await bumpAssetProgress(`${copy.name} · 头像`);
+            copy.profileAvatar = await registerAssetForDedup(copy.profileAvatar, `${copy.name} · 头像`);
           }
           if (copy.stageBustAvatar) {
-            copy.stageBustAvatar = await packAssetUrlToPortableDataUrl(copy.stageBustAvatar);
+            copy.stageBustAvatar = await registerAssetForDedup(copy.stageBustAvatar, `${copy.name} · 小像`);
           }
           if (copy.tachieBase) {
-            copy.tachieBase = await packAssetUrlToPortableDataUrl(copy.tachieBase);
-            await bumpAssetProgress(`${copy.name} · 基础立绘`);
+            copy.tachieBase = await registerAssetForDedup(copy.tachieBase, `${copy.name} · 基础立绘`);
+          }
+          if (copy.chibiImg) {
+            copy.chibiImg = await registerAssetForDedup(copy.chibiImg, `${copy.name} · 小人`);
           }
           if (copy.tachieExpressions && typeof copy.tachieExpressions === 'object') {
             for (const [expKey, expUrl] of Object.entries(copy.tachieExpressions)) {
               if (expUrl) {
-                copy.tachieExpressions[expKey] = await packAssetUrlToPortableDataUrl(expUrl);
-                await bumpAssetProgress(`${copy.name} · 表情差分 ${expKey}`);
+                copy.tachieExpressions[expKey] = await registerAssetForDedup(expUrl, `${copy.name} · 差分 ${expKey}`);
               }
             }
           }
@@ -22006,8 +22163,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         for (const gsc of (proj.globalScenes || [])) {
           const gCopy = { ...gsc };
           if (gCopy.imageUrl) {
-            gCopy.imageUrl = await packAssetUrlToPortableDataUrl(gCopy.imageUrl);
-            await bumpAssetProgress(`全局场景 · ${gCopy.name || gCopy.id}`);
+            gCopy.imageUrl = await registerAssetForDedup(gCopy.imageUrl, `全局场景 · ${gCopy.name || gCopy.id}`);
           }
           packedGlobalScenes.push(gCopy);
         }
@@ -22023,24 +22179,24 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
           if (Array.isArray(chapCopy.scenes)) {
             for (const sc of chapCopy.scenes) {
               if (sc && sc.imageUrl) {
-                sc.imageUrl = await packAssetUrlToPortableDataUrl(sc.imageUrl);
-                await bumpAssetProgress(`${chapCopy.title || '章节'} · 场景 ${sc.name || ''}`);
+                sc.imageUrl = await registerAssetForDedup(sc.imageUrl, `${chapCopy.title || '章节'} · 场景 ${sc.name || ''}`);
               }
             }
           }
           if (Array.isArray(chapCopy.cgNodes)) {
             for (const cg of chapCopy.cgNodes) {
               if (cg && cg.imageUrl) {
-                cg.imageUrl = await packAssetUrlToPortableDataUrl(cg.imageUrl);
-                await bumpAssetProgress(`${chapCopy.title || '章节'} · 插图`);
+                cg.imageUrl = await registerAssetForDedup(cg.imageUrl, `${chapCopy.title || '章节'} · 插图`);
+              }
+              if (cg && cg.customPadImg) {
+                cg.customPadImg = await registerAssetForDedup(cg.customPadImg, `${chapCopy.title || '章节'} · 插图垫图`);
               }
             }
           }
           if (Array.isArray(chapCopy.clueNodes)) {
             for (const cl of chapCopy.clueNodes) {
               if (cl && cl.imageUrl) {
-                cl.imageUrl = await packAssetUrlToPortableDataUrl(cl.imageUrl);
-                await bumpAssetProgress(`${chapCopy.title || '章节'} · 线索 ${cl.name || ''}`);
+                cl.imageUrl = await registerAssetForDedup(cl.imageUrl, `${chapCopy.title || '章节'} · 线索 ${cl.name || ''}`);
               }
             }
           }
@@ -22060,13 +22216,12 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
                 const ttsRec = await db.ttsCache.get(k);
                 if (ttsRec && (ttsRec.audioDataUrl || ttsRec.audioData)) {
                   seenTtsKeys.add(k);
-                  const portableAudio = await packAssetUrlToPortableDataUrl(ttsRec.audioDataUrl || ttsRec.audioData);
+                  const audioRef = await registerAssetForDedup(ttsRec.audioDataUrl || ttsRec.audioData, `${chapCopy.title || '章节'} · 语音`);
                   chapTtsArr.push({
                     ...ttsRec,
-                    audioDataUrl: portableAudio,
-                    audioData: portableAudio
+                    audioDataUrl: audioRef,
+                    audioData: audioRef
                   });
-                  await bumpAssetProgress(`${chapCopy.title || '章节'} · 台词语音`);
                 }
               }
             }
@@ -22076,8 +22231,31 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
           packedChapters.push(chapCopy);
         }
 
-        setProgress(52, '正在编码整包数据并计算数据包体积...');
-        await new Promise((r) => setTimeout(r, 40));
+        const allHashes = Array.from(assetMapByHash.keys());
+        setProgress(18, `共扫描到 ${allHashes.length} 个立绘场景配音素材，正在与云端工坊比对去重...`);
+
+        let missingHashes = allHashes;
+        if (allHashes.length > 0) {
+          const checkRes = await fetchBackendJsonSafe('/api/workshop/check-assets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hashes: allHashes })
+          });
+          if (checkRes.data && checkRes.data.ok && Array.isArray(checkRes.data.missing)) {
+            missingHashes = checkRes.data.missing;
+          }
+        }
+
+        const skippedCount = Math.max(0, allHashes.length - missingHashes.length);
+        for (let i = 0; i < missingHashes.length; i++) {
+          const h = missingHashes[i];
+          const item = assetMapByHash.get(h);
+          if (!item) continue;
+          const pct = 22 + ((i + 1) / Math.max(1, missingHashes.length)) * 58;
+          setProgress(pct, `正在上传新增或修改素材 ${i + 1} / ${missingHashes.length}：${item.label}，已自动跳过 ${skippedCount} 个未改动素材`);
+          const uploadUrl = resolveBackendApiUrl('/api/workshop/upload-asset');
+          await sendWorkshopPayloadWithProgress(uploadUrl, JSON.stringify({ hash: item.hash, dataUrl: item.dataUrl }), null);
+        }
 
         const singleChapObj = packedChapters[0];
         const singleTtsKey = String(singleChapObj?.id || `chap_${targetChapIdx}`);
@@ -22086,7 +22264,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
           title: proj.title || '未命名跑团剧本',
           author,
           desc,
-          avatarUrl: packedAvatarUrl || resolveModuleDisplayAvatar(proj) || '',
+          avatarUrl: packedAvatarRef || '',
           uiTheme: proj.uiTheme || localStorage.getItem('vn-theater-stage-style') || 'ark_grad',
           globalScenes: packedGlobalScenes,
           extractedSpeakers: proj.extractedSpeakers || [],
@@ -22097,116 +22275,19 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
           ttsByChapter,
           chapterIndex: targetChapIdx,
           chapterData: singleChapObj,
-          chapterTtsList: ttsByChapter[singleTtsKey] || []
+          chapterTtsList: ttsByChapter[singleTtsKey] || [],
+          payloadSizeBytes: totalAssetBytes
         };
 
-        const jsonBody = JSON.stringify(payload);
-        const payloadSizeBytes = new Blob([jsonBody]).size;
-        payload.payloadSizeBytes = payloadSizeBytes;
         const finalJsonBody = JSON.stringify(payload);
-        const sizeText = formatWorkshopSizeText(payloadSizeBytes);
+        const sizeText = formatWorkshopSizeText(totalAssetBytes || new Blob([finalJsonBody]).size);
 
-        // 1. 先写入浏览器大容量 IndexedDB 工坊库，确保本地100%持久保存且绝不因5MB限制丢失
-        setProgress(62, `正在写入本地工坊仓库并上传云端，数据包大小 ${sizeText}...`);
-        const now = Date.now();
-        let existingIdb = null;
-        try {
-          if (db && db.workshopProjects) {
-            existingIdb = await db.workshopProjects.get(proj.id);
-          }
-        } catch (_) {}
-
-        const storedRecord = existingIdb || {
-          id: proj.id,
-          title: payload.title,
-          author,
-          desc,
-          avatarUrl: payload.avatarUrl,
-          uiTheme: payload.uiTheme,
-          globalScenes: packedGlobalScenes,
-          extractedSpeakers: payload.extractedSpeakers,
-          characters: relatedChars,
-          bgmTracks: payload.bgmTracks,
-          chapters: [],
-          ttsByChapter: {},
-          sizeBytes: payloadSizeBytes,
-          updatedAt: now
-        };
-        storedRecord.title = payload.title;
-        storedRecord.author = author;
-        storedRecord.desc = desc;
-        if (payload.avatarUrl) storedRecord.avatarUrl = payload.avatarUrl;
-        storedRecord.uiTheme = payload.uiTheme;
-        storedRecord.globalScenes = packedGlobalScenes;
-        storedRecord.extractedSpeakers = payload.extractedSpeakers;
-        storedRecord.characters = relatedChars;
-        storedRecord.bgmTracks = payload.bgmTracks;
-        storedRecord.sizeBytes = Math.max(Number(storedRecord.sizeBytes) || 0, payloadSizeBytes);
-        storedRecord.updatedAt = now;
-        if (!Array.isArray(storedRecord.chapters)) storedRecord.chapters = [];
-        if (!storedRecord.ttsByChapter || typeof storedRecord.ttsByChapter !== 'object') storedRecord.ttsByChapter = {};
-
-        let isOverwrite = false;
-        let latestVersion = 1;
-        if (isFullModule) {
-          isOverwrite = storedRecord.chapters.length > 0;
-          storedRecord.chapters = packedChapters.map((ch, idx) => {
-            const ord = Number(ch.order ?? idx);
-            const oldC = storedRecord.chapters.find((c) => (ch.id && c.id === ch.id) || Number(c.order ?? -1) === ord);
-            const ver = (Number(oldC?.version) || 0) + 1;
-            latestVersion = Math.max(latestVersion, ver);
-            return { ...ch, order: ord, version: ver, updatedAt: now };
-          });
-          Object.assign(storedRecord.ttsByChapter, ttsByChapter);
-        } else {
-          const eIdx = storedRecord.chapters.findIndex((c) => (singleChapObj.id && c.id === singleChapObj.id) || Number(c.order ?? -1) === targetChapIdx);
-          if (eIdx >= 0) {
-            isOverwrite = true;
-            latestVersion = (Number(storedRecord.chapters[eIdx].version) || 1) + 1;
-            storedRecord.chapters[eIdx] = { ...singleChapObj, order: targetChapIdx, version: latestVersion, updatedAt: now };
-          } else {
-            storedRecord.chapters.push({ ...singleChapObj, order: targetChapIdx, version: 1, updatedAt: now });
-          }
-          storedRecord.chapters.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
-          storedRecord.ttsByChapter[singleTtsKey] = ttsByChapter[singleTtsKey] || [];
-        }
-
-        if (db && db.workshopProjects) {
-          await db.workshopProjects.put(storedRecord);
-        }
-
-        // 2. 通过带实时上传进度的 XHR 传输至云端服务器
-        let resultData = null;
+        setProgress(85, `正在同步模组章节清单至云端工坊...`);
         const primaryUrl = resolveBackendApiUrl('/api/workshop/upload-chapter');
-        try {
-          resultData = await sendWorkshopPayloadWithProgress(primaryUrl, finalJsonBody, (loaded, total) => {
-            const pct = 64 + (loaded / total) * 34;
-            setProgress(pct, `正在上传至线上工坊：${Math.round((loaded / total) * 100)}% · ${formatWorkshopSizeText(loaded)} / ${formatWorkshopSizeText(total)}`);
-          });
-        } catch (netErr) {
-          const fallbackUrl = CLOUD_BACKEND_BASE_URL + '/api/workshop/upload-chapter';
-          if (primaryUrl !== fallbackUrl) {
-            try {
-              resultData = await sendWorkshopPayloadWithProgress(fallbackUrl, finalJsonBody, (loaded, total) => {
-                const pct = 64 + (loaded / total) * 34;
-                setProgress(pct, `正在上传至云端工坊：${Math.round((loaded / total) * 100)}% · ${formatWorkshopSizeText(loaded)} / ${formatWorkshopSizeText(total)}`);
-              });
-            } catch (_) {}
-          }
-        }
-
-        if (!resultData) {
-          for (let step = 68; step <= 96; step += 7) {
-            setProgress(step, `正在校验并同步工坊完整数据包 ${step}% · 共 ${sizeText}...`);
-            await new Promise((r) => setTimeout(r, 90));
-          }
-          resultData = {
-            ok: true,
-            isOverwrite,
-            chapterVersion: latestVersion,
-            chapterCount: storedRecord.chapters.length
-          };
-        }
+        const resultData = await sendWorkshopPayloadWithProgress(primaryUrl, finalJsonBody, (loaded, total) => {
+          const pct = 85 + (loaded / Math.max(1, total)) * 14;
+          setProgress(pct, `正在写入工坊索引：${Math.round((loaded / Math.max(1, total)) * 100)}%`);
+        });
 
         setProgress(100, '上传完成！');
         proj.workshopSyncedAt = Date.now();
@@ -22217,17 +22298,17 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
 
         if (statusEl) {
           if (isFullModule) {
-            statusEl.textContent = `已成功将整部模组「${proj.title}」共 ${storedRecord.chapters.length} 章及 ${packedAssetCount} 个立绘场景配音文件完整发布到工坊，数据包大小 ${sizeText}`;
+            statusEl.textContent = `已发布整部模组「${proj.title}」共 ${resultData.chapterCount || packedChapters.length} 章 · 本次仅上传 ${missingHashes.length} 个新素材，自动跳过 ${skippedCount} 个未变素材 · 总包约 ${sizeText}`;
           } else {
             statusEl.textContent = resultData.isOverwrite
-              ? `已成功覆盖更新工坊中的「${singleChapObj.title}」第 ${resultData.chapterVersion} 版 · 数据包 ${sizeText}`
-              : `已成功发布「${singleChapObj.title}」到工坊，当前模组在工坊共有 ${resultData.chapterCount} 章 · 数据包 ${sizeText}`;
+              ? `已更新工坊中的「${singleChapObj.title}」第 ${resultData.chapterVersion} 版 · 新增上传 ${missingHashes.length} 个素材，跳过 ${skippedCount} 个未变素材`
+              : `已发布「${singleChapObj.title}」到工坊，当前共 ${resultData.chapterCount} 章 · 新增上传 ${missingHashes.length} 个素材，跳过 ${skippedCount} 个未变素材`;
           }
         }
         await renderReplayWorkshop();
         setTimeout(() => {
           if (progWrap) progWrap.style.display = 'none';
-        }, 1200);
+        }, 1400);
       } catch (err) {
         alert('上传工坊失败：' + err.message);
         if (statusEl) statusEl.textContent = '上传失败：' + err.message;
@@ -22238,159 +22319,389 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
     }
 
     async function fetchWorkshopFullProjectById(projectId) {
-      let remoteProj = null;
-      try {
-        const { res, data } = await fetchBackendJsonSafe(`/api/workshop/project/${encodeURIComponent(projectId)}`);
-        if (res.ok && data && data.ok && data.project) {
-          remoteProj = data.project;
-        }
-      } catch (_) {}
-      if (!remoteProj && db && db.workshopProjects) {
-        try {
-          const idbRec = await db.workshopProjects.get(projectId);
-          if (idbRec) remoteProj = idbRec;
-        } catch (_) {}
+      const { res, data } = await fetchBackendJsonSafe(`/api/workshop/project/${encodeURIComponent(projectId)}`);
+      if (res && res.ok && data && data.ok && data.project) {
+        return data.project;
       }
-      if (!remoteProj) {
-        const localMap = getLocalWorkshopProjectsFallbackMap();
-        remoteProj = localMap[projectId] || null;
-      }
-      return remoteProj;
+      throw new Error(data?.error || '未找到该线上工坊模组数据');
     }
 
-    async function downloadOrUpdateWorkshopProject(projectId, onlyChapterOrder = -1) {
-      const btn = document.getElementById(`workshop-dl-btn-${projectId}`);
-      if (btn) { btn.textContent = '同步中'; btn.disabled = true; }
+    // 在线阅读：不下载任何素材到浏览器IndexedDB或本地磁盘，直接拉取轻量剧本清单并在舞台逐行流式加载
+    async function openWorkshopOnlineStream(projectId, chapterOrder = 0) {
+      unlockBgmAudioPlayerOnUserGesture();
+      const statusEl = document.getElementById('workshop-upload-status');
+      if (statusEl) statusEl.textContent = '正在连接线上工坊并开启按需流式阅读...';
       try {
         const remoteProj = await fetchWorkshopFullProjectById(projectId);
-        if (!remoteProj) {
-          throw new Error('未找到该工坊模组数据');
-        }
+        const chaps = Array.isArray(remoteProj.chapters) ? remoteProj.chapters : [];
+        chaps.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
 
-        // 1. 同步关联角色与立绘差分到本地
-        if (Array.isArray(remoteProj.characters)) {
-          for (const rc of remoteProj.characters) {
-            if (!rc || !rc.id) continue;
-            const localIdx = appState.characters.findIndex((c) => c.id === rc.id || c.name === rc.name);
-            if (localIdx >= 0) {
-              appState.characters[localIdx] = { ...appState.characters[localIdx], ...rc };
-              await db.characters.put(appState.characters[localIdx]);
-            } else {
-              appState.characters.push(rc);
-              await db.characters.put(rc);
-            }
-          }
-        }
+        const streamProj = {
+          id: remoteProj.id,
+          title: remoteProj.title || '工坊模组',
+          avatarUrl: remoteProj.avatarUrl || '',
+          uiTheme: remoteProj.uiTheme || 'ark_grad',
+          stageStylePreset: remoteProj.uiTheme || 'ark_grad',
+          globalScenes: remoteProj.globalScenes || [],
+          extractedSpeakers: remoteProj.extractedSpeakers || [],
+          chapters: chaps,
+          isOnlineStream: true
+        };
 
-        // 2. 同步关联音乐库到本地
-        if (Array.isArray(remoteProj.bgmTracks)) {
-          for (const rb of remoteProj.bgmTracks) {
-            if (!rb || (!rb.id && !rb.name)) continue;
-            const exists = (appState.bgmTracks || []).some((b) => (rb.id && b.id === rb.id) || (rb.name && b.name === rb.name));
-            if (!exists) {
-              const trackObj = { ...rb, id: rb.id || ('bgm_ws_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)) };
-              appState.bgmTracks.push(trackObj);
-              await db.bgmTracks.put(trackObj);
-            }
-          }
-        }
-
-        // 3. 同步配音音频到本地 ttsCache
+        const ttsLookup = new Map();
         if (remoteProj.ttsByChapter && typeof remoteProj.ttsByChapter === 'object') {
-          for (const chapKey of Object.keys(remoteProj.ttsByChapter)) {
-            const ttsArr = remoteProj.ttsByChapter[chapKey];
-            if (Array.isArray(ttsArr)) {
-              for (const rec of ttsArr) {
+          Object.values(remoteProj.ttsByChapter).forEach((arr) => {
+            if (Array.isArray(arr)) {
+              arr.forEach((rec) => {
                 if (rec && rec.id && (rec.audioDataUrl || rec.audioData)) {
-                  await db.ttsCache.put({
-                    ...rec,
-                    audioDataUrl: rec.audioDataUrl || rec.audioData
-                  });
+                  ttsLookup.set(rec.id, rec.audioDataUrl || rec.audioData);
                 }
-              }
-            }
-          }
-        }
-
-        // 4. 合并或新建本地跑团剧本项目（支持整部同步或单章覆盖追更）
-        const chapsToSync = (typeof onlyChapterOrder === 'number' && onlyChapterOrder >= 0)
-          ? (remoteProj.chapters || []).filter((c, idx) => Number(c.order ?? idx) === onlyChapterOrder)
-          : (remoteProj.chapters || []);
-
-        let localProj = (appState.replayProjects || []).find((p) => p.id === remoteProj.id);
-        if (!localProj) {
-          localProj = {
-            id: remoteProj.id,
-            title: remoteProj.title || '工坊模组',
-            avatarUrl: remoteProj.avatarUrl || '',
-            rawLog: '',
-            uiTheme: remoteProj.uiTheme || 'ark_grad',
-            globalScenes: remoteProj.globalScenes || [],
-            extractedSpeakers: remoteProj.extractedSpeakers || [],
-            chapters: chapsToSync,
-            workshopDesc: remoteProj.desc || '',
-            workshopSyncedAt: remoteProj.updatedAt || Date.now(),
-            updatedAt: Date.now()
-          };
-          appState.replayProjects.unshift(localProj);
-        } else {
-          localProj.title = remoteProj.title || localProj.title;
-          if (remoteProj.avatarUrl) localProj.avatarUrl = remoteProj.avatarUrl;
-          if (remoteProj.uiTheme) localProj.uiTheme = remoteProj.uiTheme;
-          if (Array.isArray(remoteProj.globalScenes) && remoteProj.globalScenes.length > 0) {
-            localProj.globalScenes = remoteProj.globalScenes;
-          }
-          if (Array.isArray(remoteProj.extractedSpeakers) && remoteProj.extractedSpeakers.length > 0) {
-            localProj.extractedSpeakers = remoteProj.extractedSpeakers;
-          }
-          if (!Array.isArray(localProj.chapters)) localProj.chapters = [];
-          chapsToSync.forEach((rChap, rIdx) => {
-            const targetOrder = Number(rChap.order ?? rIdx);
-            const cIdx = localProj.chapters.findIndex((c) => (rChap.id && c.id === rChap.id) || Number(c.order ?? -1) === targetOrder);
-            if (cIdx >= 0) {
-              localProj.chapters[cIdx] = { ...rChap, order: targetOrder };
-            } else {
-              localProj.chapters.push({ ...rChap, order: targetOrder });
+              });
             }
           });
-          localProj.chapters.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
-          localProj.workshopSyncedAt = remoteProj.updatedAt || Date.now();
-          localProj.updatedAt = Date.now();
         }
 
-        await saveReplayProjectToDB(localProj);
-        appState.currentReplayProjectId = localProj.id;
-        appState.currentReplayChapterIdx = (typeof onlyChapterOrder === 'number' && onlyChapterOrder >= 0)
-          ? Math.max(0, localProj.chapters.findIndex((c, idx) => Number(c.order ?? idx) === onlyChapterOrder))
-          : 0;
-        populateCharacterSelects();
-        renderReplayProjectSelectors();
-        renderReplayChaptersList();
-        renderReplayScriptEditor();
-        renderReplayCgStudio();
+        _mountedExternalProjects.set(streamProj.id, {
+          mode: 'online',
+          project: streamProj,
+          characters: Array.isArray(remoteProj.characters) ? remoteProj.characters : [],
+          bgmTracks: Array.isArray(remoteProj.bgmTracks) ? remoteProj.bgmTracks : [],
+          ttsLookup,
+          zip: null,
+          assetHashes: new Map(),
+          syncedAt: remoteProj.updatedAt || Date.now()
+        });
+
+        appState.currentReplayProjectId = streamProj.id;
+        const foundIdx = chaps.findIndex((c, idx) => Number(c.order ?? idx) === Number(chapterOrder));
+        appState.currentReplayChapterIdx = foundIdx >= 0 ? foundIdx : 0;
+        openTheaterForCurrentChapter();
+      } catch (err) {
+        alert('开启在线阅读失败：' + err.message);
+      }
+    }
+
+    // 下载与增量去重追更：将工坊模组打包为独立 .zip 文件直接下载到手机或电脑本地文件夹，绝不写入浏览器 IndexedDB
+    async function downloadOrUpdateWorkshopProject(projectId, onlyChapterOrder = -1) {
+      const btn = document.getElementById(`workshop-dl-btn-${projectId}`);
+      const statusEl = document.getElementById('workshop-upload-status');
+      const progWrap = document.getElementById('workshop-upload-progress-wrap');
+      const progBar = document.getElementById('workshop-upload-progress-bar');
+
+      const setDlProgress = (pct, msg) => {
+        if (progWrap) progWrap.style.display = 'block';
+        if (progBar) progBar.style.width = `${Math.max(2, Math.min(100, Math.round(pct)))}%`;
+        if (statusEl && msg) statusEl.textContent = msg;
+      };
+
+      if (btn) { btn.textContent = '下载中'; btn.disabled = true; }
+      try {
+        setDlProgress(5, '正在从云端工坊获取模组清单...');
+        const remoteProj = await fetchWorkshopFullProjectById(projectId);
+        if (typeof JSZip === 'undefined') {
+          throw new Error('未加载压缩组件 JSZip');
+        }
+
+        // 检查是否已在舞台挂载过旧版本本地包：若有则直接复用其 zip 实例与已有素材，实现本地包增量去重追更
+        const existingBundle = _mountedExternalProjects.get(projectId);
+        const isIncremental = Boolean(existingBundle && existingBundle.mode === 'zip' && existingBundle.zip);
+        const zip = isIncremental ? existingBundle.zip : new JSZip();
+        const existingAssetHashes = isIncremental && existingBundle.assetHashes instanceof Map
+          ? existingBundle.assetHashes
+          : new Map();
+
+        let fetchedAssets = 0;
+        let reusedAssets = 0;
+
+        const pullAssetIntoZip = async (refOrDataUrl, zipPath) => {
+          if (!refOrDataUrl || typeof refOrDataUrl !== 'string') return '';
+          if (refOrDataUrl.startsWith('__ZIP_ASSET__:')) return refOrDataUrl;
+          let assetHash = '';
+          if (refOrDataUrl.startsWith('/api/workshop/asset/')) {
+            assetHash = refOrDataUrl.replace('/api/workshop/asset/', '').split('?')[0].trim();
+          } else if (refOrDataUrl.startsWith('data:')) {
+            assetHash = computeFastAssetFingerprint(refOrDataUrl);
+          } else {
+            return refOrDataUrl;
+          }
+
+          if (assetHash && existingAssetHashes.get(zipPath) === assetHash && zip.file(zipPath)) {
+            reusedAssets += 1;
+            return `__ZIP_ASSET__:${zipPath}`;
+          }
+
+          let dataUrl = refOrDataUrl;
+          if (refOrDataUrl.startsWith('/api/workshop/asset/')) {
+            const { data } = await fetchBackendJsonSafe(`${refOrDataUrl}?format=dataurl`);
+            if (data && data.ok && data.dataUrl) {
+              dataUrl = data.dataUrl;
+            }
+          }
+          if (typeof dataUrl === 'string' && dataUrl.startsWith('data:') && dataUrl.includes(';base64,')) {
+            const b64 = dataUrl.split(';base64,')[1];
+            zip.file(zipPath, b64, { base64: true });
+            if (assetHash) existingAssetHashes.set(zipPath, assetHash);
+            fetchedAssets += 1;
+            const pct = Math.min(88, 12 + fetchedAssets * 2);
+            setDlProgress(pct, `正在下载新增素材 ${fetchedAssets} 个，已去重跳过 ${reusedAssets} 个本地已有素材...`);
+            return `__ZIP_ASSET__:${zipPath}`;
+          }
+          return refOrDataUrl;
+        };
+
+        const charsCopy = JSON.parse(JSON.stringify(remoteProj.characters || []));
+        for (let cIdx = 0; cIdx < charsCopy.length; cIdx++) {
+          const c = charsCopy[cIdx];
+          const cid = c.id || `char_${cIdx}`;
+          if (c.profileAvatar) c.profileAvatar = await pullAssetIntoZip(c.profileAvatar, `images/chars/${cid}_profile.png`);
+          if (c.stageBustAvatar) c.stageBustAvatar = await pullAssetIntoZip(c.stageBustAvatar, `images/chars/${cid}_bust.png`);
+          if (c.tachieBase) c.tachieBase = await pullAssetIntoZip(c.tachieBase, `images/chars/${cid}_base.png`);
+          if (c.chibiImg) c.chibiImg = await pullAssetIntoZip(c.chibiImg, `images/chars/${cid}_chibi.png`);
+          if (c.tachieExpressions && typeof c.tachieExpressions === 'object') {
+            for (const exp of Object.keys(c.tachieExpressions)) {
+              c.tachieExpressions[exp] = await pullAssetIntoZip(c.tachieExpressions[exp], `images/chars/${cid}_exp_${exp}.png`);
+            }
+          }
+        }
+
+        const globalScenesCopy = JSON.parse(JSON.stringify(remoteProj.globalScenes || []));
+        for (let gIdx = 0; gIdx < globalScenesCopy.length; gIdx++) {
+          const gsc = globalScenesCopy[gIdx];
+          if (gsc && gsc.imageUrl) {
+            gsc.imageUrl = await pullAssetIntoZip(gsc.imageUrl, `images/scenes/global_${gsc.id || gIdx}.png`);
+          }
+        }
+
+        const remoteChaps = JSON.parse(JSON.stringify(remoteProj.chapters || []));
+        const targetChaps = (typeof onlyChapterOrder === 'number' && onlyChapterOrder >= 0)
+          ? remoteChaps.filter((c, idx) => Number(c.order ?? idx) === onlyChapterOrder)
+          : remoteChaps;
+
+        const mergedChaps = isIncremental && Array.isArray(existingBundle.project?.chapters)
+          ? JSON.parse(JSON.stringify(existingBundle.project.chapters))
+          : [];
+
+        const ttsListForPack = [];
+        const existingTtsMap = new Map();
+        if (isIncremental && existingBundle.ttsLookup instanceof Map) {
+          existingBundle.ttsLookup.forEach((val, key) => {
+            existingTtsMap.set(key, { id: key, audioDataUrl: val });
+          });
+        }
+
+        for (let i = 0; i < targetChaps.length; i++) {
+          const ch = targetChaps[i];
+          const ord = Number(ch.order ?? i);
+          for (let sIdx = 0; sIdx < (ch.scenes || []).length; sIdx++) {
+            const sc = ch.scenes[sIdx];
+            if (sc && sc.imageUrl) {
+              sc.imageUrl = await pullAssetIntoZip(sc.imageUrl, `images/scenes/ch${ord}_${sc.id || sIdx}.png`);
+            }
+          }
+          for (let gIdx = 0; gIdx < (ch.cgNodes || []).length; gIdx++) {
+            const cg = ch.cgNodes[gIdx];
+            if (cg && cg.imageUrl) {
+              cg.imageUrl = await pullAssetIntoZip(cg.imageUrl, `images/cgs/ch${ord}_${cg.id || gIdx}.png`);
+            }
+            if (cg && cg.customPadImg) {
+              cg.customPadImg = await pullAssetIntoZip(cg.customPadImg, `images/cgs/ch${ord}_${cg.id || gIdx}_pad.png`);
+            }
+          }
+          for (let clIdx = 0; clIdx < (ch.clueNodes || []).length; clIdx++) {
+            const cl = ch.clueNodes[clIdx];
+            if (cl && cl.imageUrl) {
+              cl.imageUrl = await pullAssetIntoZip(cl.imageUrl, `images/clues/ch${ord}_${cl.id || clIdx}.png`);
+            }
+          }
+
+          const ttsKey = String(ch.id || `chap_${ord}`);
+          const chapTts = (remoteProj.ttsByChapter && remoteProj.ttsByChapter[ttsKey]) || [];
+          for (let tIdx = 0; tIdx < chapTts.length; tIdx++) {
+            const rec = chapTts[tIdx];
+            if (rec && rec.id && (rec.audioDataUrl || rec.audioData)) {
+              const safeKey = String(rec.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+              const zRef = await pullAssetIntoZip(rec.audioDataUrl || rec.audioData, `audio/${safeKey}.mp3`);
+              existingTtsMap.set(rec.id, { ...rec, audioDataUrl: zRef });
+            }
+          }
+
+          const existIdx = mergedChaps.findIndex((mc) => (ch.id && mc.id === ch.id) || Number(mc.order ?? -1) === ord);
+          if (existIdx >= 0) {
+            mergedChaps[existIdx] = { ...ch, order: ord };
+          } else {
+            mergedChaps.push({ ...ch, order: ord });
+          }
+        }
+
+        mergedChaps.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
+        existingTtsMap.forEach((v) => ttsListForPack.push(v));
+
+        const avatarZipRef = remoteProj.avatarUrl
+          ? await pullAssetIntoZip(remoteProj.avatarUrl, `images/project_avatar.jpg`)
+          : '';
+
+        const packProjectObj = {
+          id: remoteProj.id,
+          title: remoteProj.title || '工坊模组',
+          avatarUrl: avatarZipRef,
+          uiTheme: remoteProj.uiTheme || 'ark_grad',
+          stageStylePreset: remoteProj.uiTheme || 'ark_grad',
+          globalScenes: globalScenesCopy,
+          extractedSpeakers: remoteProj.extractedSpeakers || [],
+          chapters: mergedChaps,
+          workshopDesc: remoteProj.desc || '',
+          updatedAt: remoteProj.updatedAt || Date.now()
+        };
+
+        const assetHashesObj = {};
+        existingAssetHashes.forEach((v, k) => { assetHashesObj[k] = v; });
+
+        const packManifest = {
+          type: 'TRPG_VN_REPLAY_PACK_V2_ZIP',
+          exportedAt: Date.now(),
+          project: packProjectObj,
+          characters: charsCopy,
+          bgmTracks: remoteProj.bgmTracks || [],
+          ttsCache: ttsListForPack,
+          assetHashes: assetHashesObj
+        };
+
+        zip.file('manifest.json', JSON.stringify(packManifest));
+        setDlProgress(94, '正在打包生成本地压缩包并弹出保存...');
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const dlUrl = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = dlUrl;
+        const suffix = (typeof onlyChapterOrder === 'number' && onlyChapterOrder >= 0) ? `_第${onlyChapterOrder + 1}章` : '_完整模组包';
+        a.download = `${packProjectObj.title}${suffix}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(dlUrl), 3000);
+
+        // 同时将该本地包挂载到舞台内存列表（0 MB IndexedDB 占用），方便立刻在舞台观看
+        const ttsLookup = new Map();
+        ttsListForPack.forEach((r) => {
+          if (r && r.id && r.audioDataUrl) ttsLookup.set(r.id, r.audioDataUrl);
+        });
+        _mountedExternalProjects.set(packProjectObj.id, {
+          mode: 'zip',
+          project: packProjectObj,
+          characters: charsCopy,
+          bgmTracks: packManifest.bgmTracks,
+          ttsLookup,
+          zip,
+          assetHashes: existingAssetHashes,
+          syncedAt: remoteProj.updatedAt || Date.now()
+        });
+
+        setDlProgress(100, `已下载到手机或电脑本地文件夹，并自动挂载至舞台列表 · 本次下载 ${fetchedAssets} 个新素材，去重复用 ${reusedAssets} 个素材`);
         renderReplayWorkshopList();
-        const statusEl = document.getElementById('workshop-upload-status');
-        if (statusEl) {
-          statusEl.textContent = (typeof onlyChapterOrder === 'number' && onlyChapterOrder >= 0)
-            ? `已成功将「${localProj.title}」第 ${onlyChapterOrder + 1} 章及配套立绘场景配音同步到本地`
-            : `已将「${localProj.title}」全套 ${localProj.chapters.length} 章、立绘、场景、CG、线索、配音与音乐同步到本地，可直接点阅读进入观看`;
+        renderTheaterSelectorLobby();
+        setTimeout(() => {
+          if (progWrap) progWrap.style.display = 'none';
+        }, 1600);
+      } catch (err) {
+        alert('下载工坊模组包失败：' + err.message);
+        if (progWrap) progWrap.style.display = 'none';
+      } finally {
+        if (btn) { btn.textContent = '下载'; btn.disabled = false; }
+      }
+    }
+
+    // 舞台「本地」按钮：直接读取手机或电脑本地文件夹里的 .zip 模组包并在舞台按需流式播放，绝不撑爆浏览器内存
+    async function mountLocalZipPackForTheater(event) {
+      const file = event.target?.files?.[0];
+      if (!file) return;
+      try {
+        unlockBgmAudioPlayerOnUserGesture();
+        const isZip = file.name.toLowerCase().endsWith('.zip');
+        if (isZip && typeof JSZip !== 'undefined') {
+          const zip = await JSZip.loadAsync(file);
+          const manifestFile = zip.file('manifest.json');
+          if (!manifestFile) throw new Error('该压缩包内未找到 manifest.json');
+          const pack = JSON.parse(await manifestFile.async('string'));
+          const proj = pack.project;
+          if (!proj || !proj.id) throw new Error('压缩包内未找到有效的模组工程');
+
+          const ttsLookup = new Map();
+          (pack.ttsCache || []).forEach((item) => {
+            if (item && item.id && (item.audioDataUrl || item.audioData)) {
+              ttsLookup.set(item.id, item.audioDataUrl || item.audioData);
+            }
+          });
+          const assetHashes = new Map();
+          if (pack.assetHashes && typeof pack.assetHashes === 'object') {
+            Object.entries(pack.assetHashes).forEach(([k, v]) => assetHashes.set(k, v));
+          }
+
+          _mountedExternalProjects.set(proj.id, {
+            mode: 'zip',
+            project: proj,
+            characters: Array.isArray(pack.characters) ? pack.characters : [],
+            bgmTracks: Array.isArray(pack.bgmTracks) ? pack.bgmTracks : [],
+            ttsLookup,
+            zip,
+            assetHashes,
+            syncedAt: proj.updatedAt || pack.exportedAt || Date.now()
+          });
+
+          appState.currentReplayProjectId = proj.id;
+          appState.currentReplayChapterIdx = 0;
+          appState.theaterLineIdx = 0;
+          appState.theaterPureStageMode = true;
+          appState.theaterEditMode = false;
+          openAppScreen('theater');
+          openTheaterSelectorLobby();
+        } else {
+          const text = await file.text();
+          const pack = JSON.parse(text);
+          const proj = pack.project;
+          if (!proj || !proj.id) throw new Error('未找到有效的模组数据');
+          const ttsLookup = new Map();
+          (pack.ttsCache || []).forEach((item) => {
+            if (item && item.id && (item.audioDataUrl || item.audioData)) {
+              ttsLookup.set(item.id, item.audioDataUrl || item.audioData);
+            }
+          });
+          _mountedExternalProjects.set(proj.id, {
+            mode: 'json',
+            project: proj,
+            characters: Array.isArray(pack.characters) ? pack.characters : [],
+            bgmTracks: Array.isArray(pack.bgmTracks) ? pack.bgmTracks : [],
+            ttsLookup,
+            zip: null,
+            assetHashes: new Map(),
+            syncedAt: proj.updatedAt || Date.now()
+          });
+          appState.currentReplayProjectId = proj.id;
+          appState.currentReplayChapterIdx = 0;
+          appState.theaterLineIdx = 0;
+          appState.theaterPureStageMode = true;
+          appState.theaterEditMode = false;
+          openAppScreen('theater');
+          openTheaterSelectorLobby();
         }
       } catch (err) {
-        alert('同步工坊剧本失败：' + err.message);
+        alert('读取本地模组包失败：' + err.message);
       } finally {
-        if (btn) { btn.textContent = '已存'; btn.disabled = false; }
+        event.target.value = '';
       }
     }
 
     async function openWorkshopModuleInTheater(projectId, chapterOrder = 0) {
       unlockBgmAudioPlayerOnUserGesture();
-      await downloadOrUpdateWorkshopProject(projectId, -1);
       const localProj = (appState.replayProjects || []).find((p) => p.id === projectId);
-      if (!localProj) return;
-      appState.currentReplayProjectId = localProj.id;
-      const foundIdx = (localProj.chapters || []).findIndex((c, idx) => Number(c.order ?? idx) === Number(chapterOrder));
-      appState.currentReplayChapterIdx = foundIdx >= 0 ? foundIdx : 0;
-      openTheaterForCurrentChapter();
+      if (localProj) {
+        // 作者本人或本地已有该模组：直接打开，绝不重复下载
+        appState.currentReplayProjectId = localProj.id;
+        const foundIdx = (localProj.chapters || []).findIndex((c, idx) => Number(c.order ?? idx) === Number(chapterOrder));
+        appState.currentReplayChapterIdx = foundIdx >= 0 ? foundIdx : 0;
+        openTheaterForCurrentChapter();
+        return;
+      }
+      // 朋友点击观看：直接开启零内存占用的在线流式阅读
+      await openWorkshopOnlineStream(projectId, chapterOrder);
     }
 
     // MiniMax 语音合成与 IndexedDB 永久缓存 + BGM自动闪避压低
@@ -23271,12 +23582,21 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       const listBox = document.getElementById('theater-lobby-chapters-list');
       if (!sel || !listBox) return;
 
-      const projects = appState.replayProjects || [];
+      const projects = [...(appState.replayProjects || [])];
+      if (typeof _mountedExternalProjects !== 'undefined') {
+        _mountedExternalProjects.forEach((bundle, pid) => {
+          if (bundle && bundle.project && !projects.some((p) => p.id === pid)) {
+            projects.unshift(bundle.project);
+          }
+        });
+      }
       sel.innerHTML = '';
       projects.forEach((p) => {
         const opt = document.createElement('option');
         opt.value = p.id;
-        opt.textContent = p.title || '未命名模组';
+        const mBundle = typeof _mountedExternalProjects !== 'undefined' ? _mountedExternalProjects.get(p.id) : null;
+        const suffixTag = mBundle ? (mBundle.mode === 'online' ? ' · 在线流式' : ' · 本地包') : '';
+        opt.textContent = (p.title || '未命名模组') + suffixTag;
         if (p.id === appState.currentReplayProjectId) opt.selected = true;
         sel.appendChild(opt);
       });
@@ -23906,6 +24226,15 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
                 activeKey = altKey;
               }
               if (!playUrl) {
+                const mountedBundle = getActiveMountedBundle();
+                if (mountedBundle && mountedBundle.ttsLookup instanceof Map) {
+                  const extRaw = mountedBundle.ttsLookup.get(cacheKey) || mountedBundle.ttsLookup.get(altKey) || (line.ttsKey ? mountedBundle.ttsLookup.get(line.ttsKey) : '');
+                  if (extRaw) {
+                    playUrl = await resolveTheaterPlayableUrl(extRaw, 'audio/mpeg');
+                  }
+                }
+              }
+              if (!playUrl) {
                 let cached = await db.ttsCache.get(cacheKey);
                 if (!cached || !cached.audioDataUrl) {
                   cached = await db.ttsCache.get(altKey);
@@ -24157,7 +24486,9 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
             || allScenes.find((s) => s && s.imageUrl)
             || allScenes[0];
           if (sceneObj && sceneObj.imageUrl) {
-            bgLayer.style.backgroundImage = `url("${toFastDisplayUrl(sceneObj.imageUrl)}")`;
+            const resolvedSceneUrl = await resolveTheaterPlayableUrl(sceneObj.imageUrl, 'image/png');
+            if (myRenderSeq !== _theaterRenderSeq) return;
+            bgLayer.style.backgroundImage = resolvedSceneUrl ? `url("${resolvedSceneUrl}")` : 'linear-gradient(160deg, var(--secondary-bg) 0%, var(--background-color) 100%)';
           } else {
             bgLayer.style.backgroundImage = 'linear-gradient(160deg, var(--secondary-bg) 0%, var(--background-color) 100%)';
           }
@@ -24173,8 +24504,9 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       }) || null;
       if (cgLayer && cgImg) {
         if (cgObj && cgObj.imageUrl) {
-          const fastCgUrl = toFastDisplayUrl(cgObj.imageUrl);
-          if (cgImg.getAttribute('src') !== fastCgUrl) {
+          const fastCgUrl = await resolveTheaterPlayableUrl(cgObj.imageUrl, 'image/png');
+          if (myRenderSeq !== _theaterRenderSeq) return;
+          if (fastCgUrl && cgImg.getAttribute('src') !== fastCgUrl) {
             cgImg.src = fastCgUrl;
           }
           cgLayer.classList.add('active');
@@ -24196,8 +24528,9 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
       if (clueLayer && clueImg && clueNameEl) {
         if (clueObj && (clueObj.imageUrl || clueObj.name)) {
           if (clueObj.imageUrl) {
-            const fastClueUrl = toFastDisplayUrl(clueObj.imageUrl);
-            if (clueImg.getAttribute('src') !== fastClueUrl) {
+            const fastClueUrl = await resolveTheaterPlayableUrl(clueObj.imageUrl, 'image/png');
+            if (myRenderSeq !== _theaterRenderSeq) return;
+            if (fastClueUrl && clueImg.getAttribute('src') !== fastClueUrl) {
               clueImg.src = fastClueUrl;
             }
             clueImg.style.display = 'block';
@@ -24220,9 +24553,15 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
           ? resolveCharacterMiniAvatarInfo(line.speaker, line.exp || '默认')
           : null;
         if (avatarInfo && avatarInfo.src && !String(avatarInfo.src).startsWith('data:image/svg+xml')) {
-          sideBustImg.src = toFastDisplayUrl(avatarInfo.src);
-          sideBustImg.classList.toggle('crop-tachie-head', Boolean(avatarInfo.isFullTachieCrop));
-          sideBustBox.classList.remove('empty');
+          const resolvedBustUrl = await resolveTheaterPlayableUrl(avatarInfo.src, 'image/png');
+          if (myRenderSeq !== _theaterRenderSeq) return;
+          if (resolvedBustUrl) {
+            sideBustImg.src = resolvedBustUrl;
+            sideBustImg.classList.toggle('crop-tachie-head', Boolean(avatarInfo.isFullTachieCrop));
+            sideBustBox.classList.remove('empty');
+          } else {
+            sideBustBox.classList.add('empty');
+          }
         } else {
           sideBustBox.classList.add('empty');
         }
@@ -24230,7 +24569,8 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
 
       // 6. 渲染在场角色立绘：若角色尚无真实立绘或仅为svg默认图标则留白不渲染
       if (tachieLayer) {
-        const spriteRosterSig = `${chap.scriptLines.length}_${(appState.characters || []).filter((c) => hasRealStageSpriteForActor(c?.name)).map((c) => c.name).join(',')}`;
+        const allTheaterChars = getAllTheaterCharactersForCurrentProject();
+        const spriteRosterSig = `${chap.scriptLines.length}_${allTheaterChars.filter((c) => c && (c.tachieBase || c.chibiImg || (c.tachieExpressions && Object.keys(c.tachieExpressions).length > 0))).map((c) => c.name).join(',')}`;
         if (chap._slotsComputedSig !== spriteRosterSig) {
           computeChapterStageSlots(chap.scriptLines);
           chap._slotsComputedSig = spriteRosterSig;
@@ -24254,7 +24594,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         const actorNodes = [];
 
         for (const spkName of presentNames) {
-          const charObj = appState.characters.find((c) => c.name === spkName);
+          const charObj = findTheaterCharacterByName(spkName);
           if (!charObj || charObj.trpgType === '旁白') continue;
           const netCm = charObj.heightCm || DEFAULT_HEIGHT_MAP[charObj.id] || 175;
           const earCm = charObj.earHatCm || 0;
@@ -24270,7 +24610,11 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
             || charObj.chibiImg;
           if (!rawSprite || String(rawSprite).startsWith('data:image/svg+xml')) continue;
 
-          const croppedSprite = await getCroppedSpriteForHeightStage(rawSprite);
+          const playableSprite = await resolveTheaterPlayableUrl(rawSprite, 'image/png');
+          if (myRenderSeq !== _theaterRenderSeq) return;
+          if (!playableSprite) continue;
+
+          const croppedSprite = await getCroppedSpriteForHeightStage(playableSprite);
           if (myRenderSeq !== _theaterRenderSeq) return;
           if (!croppedSprite || String(croppedSprite).startsWith('data:image/svg+xml')) continue;
 
@@ -24451,7 +24795,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
 
     function resolveCharacterMiniAvatarInfo(speakerName, expKey = '默认') {
       if (!speakerName || speakerName === '旁白' || speakerName === '检定') return null;
-      const spkCharObj = (appState.characters || []).find((c) => c.name === speakerName && c.trpgType !== '旁白');
+      const spkCharObj = findTheaterCharacterByName(speakerName);
       if (!spkCharObj) return null;
       if (spkCharObj.stageBustAvatar) {
         return { src: spkCharObj.stageBustAvatar, isFullTachieCrop: false };

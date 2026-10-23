@@ -1,6 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import http from 'http';
+import crypto from 'crypto';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -14,8 +15,8 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json({ limit: '80mb' }));
-app.use(express.urlencoded({ extended: true, limit: '80mb' }));
+app.use(express.json({ limit: '250mb' }));
+app.use(express.urlencoded({ extended: true, limit: '250mb' }));
 
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -1174,11 +1175,147 @@ app.get('/api/peer/poll', (req, res) => {
   pollers.add(entry);
 });
 
-// ==================== 线上剧本工坊 (分章上传、覆盖老章、搜索与追更下载) ====================
+// ==================== 线上剧本工坊 (按素材指纹增量去重上传、在线流式阅读、覆盖更新与追更下载) ====================
 const WORKSHOP_DIR = path.join(__dirname, '.workshop-store');
+const WORKSHOP_ASSETS_DIR = path.join(WORKSHOP_DIR, 'assets');
 const WORKSHOP_INDEX_FILE = path.join(WORKSHOP_DIR, 'workshop-index.json');
 if (!fs.existsSync(WORKSHOP_DIR)) {
   fs.mkdirSync(WORKSHOP_DIR, { recursive: true });
+}
+if (!fs.existsSync(WORKSHOP_ASSETS_DIR)) {
+  fs.mkdirSync(WORKSHOP_ASSETS_DIR, { recursive: true });
+}
+
+function sanitizeAssetHash(rawHash) {
+  return String(rawHash || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
+}
+
+function computeServerDataUrlHash(dataUrl) {
+  return 'h_' + crypto.createHash('sha1').update(String(dataUrl || '')).digest('hex');
+}
+
+function getWorkshopAssetFilePath(hash) {
+  const safe = sanitizeAssetHash(hash);
+  if (!safe) return '';
+  return path.join(WORKSHOP_ASSETS_DIR, `${safe}.json`);
+}
+
+function hasWorkshopAssetOnDisk(hash) {
+  const fp = getWorkshopAssetFilePath(hash);
+  return Boolean(fp && fs.existsSync(fp));
+}
+
+function saveWorkshopAssetToDisk(hash, dataUrl) {
+  const safeHash = sanitizeAssetHash(hash) || computeServerDataUrlHash(dataUrl);
+  const fp = getWorkshopAssetFilePath(safeHash);
+  if (!fp) return null;
+  if (fs.existsSync(fp)) {
+    try {
+      const stat = fs.statSync(fp);
+      return { hash: safeHash, url: `/api/workshop/asset/${safeHash}`, sizeBytes: stat.size };
+    } catch (_) {}
+  }
+  const str = String(dataUrl || '');
+  const commaIdx = str.indexOf(',');
+  if (!str.startsWith('data:') || commaIdx === -1) return null;
+  const header = str.slice(0, commaIdx);
+  const base64 = str.slice(commaIdx + 1);
+  const mimeMatch = header.match(/^data:([^;]+)/i);
+  const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+  const sizeBytes = Math.floor((base64.length * 3) / 4);
+  const record = { hash: safeHash, mime, base64, sizeBytes, updatedAt: Date.now() };
+  fs.writeFileSync(fp, JSON.stringify(record), 'utf-8');
+  return { hash: safeHash, url: `/api/workshop/asset/${safeHash}`, sizeBytes };
+}
+
+function extractInlineDataUrlsInObject(obj, collectedHashesSet) {
+  if (!obj) return obj;
+  if (typeof obj === 'string') {
+    if (obj.startsWith('data:') && !obj.startsWith('data:image/svg+xml') && obj.length > 256) {
+      const saved = saveWorkshopAssetToDisk('', obj);
+      if (saved) {
+        if (collectedHashesSet) collectedHashesSet.add(saved.hash);
+        return saved.url;
+      }
+    } else if (obj.startsWith('/api/workshop/asset/')) {
+      const h = sanitizeAssetHash(obj.slice('/api/workshop/asset/'.length).split('?')[0]);
+      if (h && collectedHashesSet) collectedHashesSet.add(h);
+    }
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    for (let i = 0; i < obj.length; i++) {
+      obj[i] = extractInlineDataUrlsInObject(obj[i], collectedHashesSet);
+    }
+    return obj;
+  }
+  if (typeof obj === 'object') {
+    for (const k of Object.keys(obj)) {
+      obj[k] = extractInlineDataUrlsInObject(obj[k], collectedHashesSet);
+    }
+    return obj;
+  }
+  return obj;
+}
+
+function collectWorkshopAssetHashesInObject(obj, setOut) {
+  if (!obj) return;
+  if (typeof obj === 'string') {
+    const idx = obj.indexOf('/api/workshop/asset/');
+    if (idx !== -1) {
+      const h = sanitizeAssetHash(obj.slice(idx + '/api/workshop/asset/'.length).split('?')[0]);
+      if (h) setOut.add(h);
+    }
+    return;
+  }
+  if (Array.isArray(obj)) {
+    obj.forEach((it) => collectWorkshopAssetHashesInObject(it, setOut));
+    return;
+  }
+  if (typeof obj === 'object') {
+    Object.values(obj).forEach((v) => collectWorkshopAssetHashesInObject(v, setOut));
+  }
+}
+
+function computeTotalSizeOfHashes(hashSet) {
+  let total = 0;
+  for (const h of hashSet) {
+    const fp = getWorkshopAssetFilePath(h);
+    if (fp && fs.existsSync(fp)) {
+      try {
+        const st = fs.statSync(fp);
+        total += Math.round(st.size * 0.75);
+      } catch (_) {}
+    }
+  }
+  return total;
+}
+
+function cleanupOrphanedWorkshopAssets() {
+  try {
+    const indexList = readWorkshopIndex();
+    const activeHashes = new Set();
+    for (const item of indexList) {
+      if (!item || !item.id) continue;
+      const proj = readWorkshopProjectData(item.id);
+      if (proj) {
+        collectWorkshopAssetHashesInObject(proj, activeHashes);
+      }
+    }
+    if (activeHashes.size === 0 && indexList.length > 0) return;
+    const files = fs.readdirSync(WORKSHOP_ASSETS_DIR);
+    for (const fn of files) {
+      if (!fn.endsWith('.json')) continue;
+      const h = fn.slice(0, -5);
+      if (!activeHashes.has(h)) {
+        try {
+          fs.unlinkSync(path.join(WORKSHOP_ASSETS_DIR, fn));
+        } catch (_) {}
+      }
+    }
+  } catch (err) {
+    console.warn('[Workshop] Cleanup orphaned assets error:', err.message);
+  }
 }
 
 function readWorkshopIndex() {
@@ -1217,6 +1354,68 @@ function writeWorkshopProjectData(projectId, data) {
   const projFile = path.join(WORKSHOP_DIR, `${safeId}.json`);
   fs.writeFileSync(projFile, JSON.stringify(data), 'utf-8');
 }
+
+app.post('/api/workshop/check-assets', (req, res) => {
+  try {
+    const hashes = Array.isArray(req.body?.hashes) ? req.body.hashes : [];
+    const existing = [];
+    const missing = [];
+    for (const rawH of hashes) {
+      const h = sanitizeAssetHash(rawH);
+      if (!h) continue;
+      if (hasWorkshopAssetOnDisk(h)) {
+        existing.push(h);
+      } else {
+        missing.push(h);
+      }
+    }
+    res.json({ ok: true, existing, missing });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/workshop/upload-asset', (req, res) => {
+  try {
+    const { hash, dataUrl } = req.body || {};
+    if (!dataUrl || typeof dataUrl !== 'string') {
+      return res.status(400).json({ error: '缺少有效素材数据' });
+    }
+    const saved = saveWorkshopAssetToDisk(hash, dataUrl);
+    if (!saved) {
+      return res.status(400).json({ error: '素材格式无效' });
+    }
+    res.json({ ok: true, hash: saved.hash, url: saved.url, sizeBytes: saved.sizeBytes });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/workshop/asset/:hash', (req, res) => {
+  try {
+    const safeHash = sanitizeAssetHash(req.params.hash);
+    const fp = getWorkshopAssetFilePath(safeHash);
+    if (!fp || !fs.existsSync(fp)) {
+      return res.status(404).json({ error: '素材不存在' });
+    }
+    const raw = JSON.parse(fs.readFileSync(fp, 'utf-8'));
+    if (req.query.format === 'dataurl') {
+      return res.json({
+        ok: true,
+        hash: safeHash,
+        mime: raw.mime || 'application/octet-stream',
+        dataUrl: `data:${raw.mime || 'application/octet-stream'};base64,${raw.base64 || ''}`
+      });
+    }
+    const buf = Buffer.from(raw.base64 || '', 'base64');
+    res.setHeader('Content-Type', raw.mime || 'application/octet-stream');
+    res.setHeader('Content-Length', buf.length);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    return res.send(buf);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.get('/api/workshop/list', (req, res) => {
   try {
@@ -1270,12 +1469,12 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
         title: title || '未命名跑团剧本',
         author: author || '匿名KP',
         desc: desc || '',
-        avatarUrl: avatarUrl || '',
+        avatarUrl: '',
         uiTheme: uiTheme || 'default',
-        globalScenes: Array.isArray(globalScenes) ? globalScenes : [],
-        extractedSpeakers: Array.isArray(extractedSpeakers) ? extractedSpeakers : [],
-        characters: Array.isArray(characters) ? characters : [],
-        bgmTracks: Array.isArray(bgmTracks) ? bgmTracks : [],
+        globalScenes: [],
+        extractedSpeakers: [],
+        characters: [],
+        bgmTracks: [],
         chapters: [],
         ttsByChapter: {},
         createdAt: now,
@@ -1283,23 +1482,27 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
       };
     }
 
+    const assetHashes = new Set();
     storedProj.title = title || storedProj.title || '未命名跑团剧本';
     storedProj.author = author || storedProj.author || '匿名KP';
     if (typeof desc === 'string') storedProj.desc = desc;
-    if (typeof avatarUrl === 'string' && avatarUrl) storedProj.avatarUrl = avatarUrl;
+    if (typeof avatarUrl === 'string' && avatarUrl) {
+      storedProj.avatarUrl = extractInlineDataUrlsInObject(avatarUrl, assetHashes);
+    }
     if (uiTheme) storedProj.uiTheme = uiTheme;
     if (Array.isArray(globalScenes) && globalScenes.length > 0) {
-      storedProj.globalScenes = globalScenes;
+      storedProj.globalScenes = extractInlineDataUrlsInObject(globalScenes, assetHashes);
     }
     if (Array.isArray(extractedSpeakers) && extractedSpeakers.length > 0) {
       storedProj.extractedSpeakers = extractedSpeakers;
     }
     if (Array.isArray(characters) && characters.length > 0) {
+      const cleanedChars = extractInlineDataUrlsInObject(characters, assetHashes);
       const charMap = new Map();
       (storedProj.characters || []).forEach((c) => {
         if (c && c.id) charMap.set(c.id, c);
       });
-      characters.forEach((c) => {
+      cleanedChars.forEach((c) => {
         if (c && c.id) charMap.set(c.id, c);
       });
       storedProj.characters = Array.from(charMap.values());
@@ -1324,8 +1527,9 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
     let latestVersion = 1;
 
     if (mode === 'full' && Array.isArray(chapters) && chapters.length > 0) {
+      const cleanedChaps = extractInlineDataUrlsInObject(chapters, assetHashes);
       isOverwrite = storedProj.chapters.length > 0;
-      storedProj.chapters = chapters.map((ch, idx) => {
+      storedProj.chapters = cleanedChaps.map((ch, idx) => {
         const orderNum = Number(ch.order ?? idx);
         const prev = (storedProj.chapters || []).find((oldC) => (ch.id && oldC.id === ch.id) || Number(oldC.order ?? -1) === orderNum);
         const ver = (Number(prev?.version) || 0) + 1;
@@ -1339,23 +1543,25 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
       });
       storedProj.chapters.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
       if (ttsByChapter && typeof ttsByChapter === 'object') {
-        Object.entries(ttsByChapter).forEach(([k, v]) => {
+        const cleanedTtsMap = extractInlineDataUrlsInObject(ttsByChapter, assetHashes);
+        Object.entries(cleanedTtsMap).forEach(([k, v]) => {
           if (Array.isArray(v)) storedProj.ttsByChapter[k] = v;
         });
       }
     } else if (chapterData) {
-      const targetChapOrder = Number(chapterIndex ?? chapterData.order ?? 0);
-      const prevChap = storedProj.chapters.find((c) => Number(c.order) === targetChapOrder || c.id === chapterData.id);
+      const cleanedChap = extractInlineDataUrlsInObject(chapterData, assetHashes);
+      const targetChapOrder = Number(chapterIndex ?? cleanedChap.order ?? 0);
+      const prevChap = storedProj.chapters.find((c) => Number(c.order) === targetChapOrder || c.id === cleanedChap.id);
       latestVersion = ((Number(prevChap?.version)) || 0) + 1;
       const chapRecord = {
-        ...chapterData,
+        ...cleanedChap,
         order: targetChapOrder,
         version: latestVersion,
         updatedAt: now
       };
 
       const existingIdx = storedProj.chapters.findIndex(
-        (c) => (chapterData.id && c.id === chapterData.id) || Number(c.order) === targetChapOrder
+        (c) => (cleanedChap.id && c.id === cleanedChap.id) || Number(c.order) === targetChapOrder
       );
       isOverwrite = existingIdx >= 0;
       if (existingIdx >= 0) {
@@ -1367,12 +1573,14 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
 
       const ttsKey = String(chapRecord.id || `chap_${targetChapOrder}`);
       if (Array.isArray(chapterTtsList)) {
-        storedProj.ttsByChapter[ttsKey] = chapterTtsList;
+        storedProj.ttsByChapter[ttsKey] = extractInlineDataUrlsInObject(chapterTtsList, assetHashes);
       }
     }
 
+    collectWorkshopAssetHashesInObject(storedProj, assetHashes);
+    const computedAssetBytes = computeTotalSizeOfHashes(assetHashes);
     storedProj.updatedAt = now;
-    if (payloadSizeBytes) storedProj.sizeBytes = Number(payloadSizeBytes) || 0;
+    storedProj.sizeBytes = Math.max(computedAssetBytes, Number(payloadSizeBytes) || 0, Number(storedProj.sizeBytes) || 0);
     writeWorkshopProjectData(projectId, storedProj);
 
     const indexList = readWorkshopIndex();
@@ -1405,6 +1613,7 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
       indexList.unshift(summaryItem);
     }
     writeWorkshopIndex(indexList);
+    cleanupOrphanedWorkshopAssets();
 
     res.json({
       ok: true,
