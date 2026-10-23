@@ -543,6 +543,7 @@
         <button type="button" class="app-back-btn" onclick="handlePersonaBackBtn()" title="返回"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
         <span class="app-header-title">角色</span>
         <div class="app-header-actions">
+          <button type="button" class="moe-btn secondary" onclick="restoreAndSeparateDuplicateCharacters(true)">恢复</button>
           <button type="button" class="moe-btn secondary" onclick="document.getElementById('persona-import-pack-input').click()">导包</button>
           <input type="file" id="persona-import-pack-input" accept=".zip,.json" style="display:none;" onchange="importSingleCharacterPack(event)" />
           <button type="button" id="persona-save-btn" class="moe-btn" onclick="saveCurrentPersona(true)">保存</button>
@@ -14911,6 +14912,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
       ? Math.max(0, Math.min(100, Number(_initBgmVolRaw)))
       : 65;
     let _activeReplayTtsAudio = null;
+    let _activeReplayTtsLineIdx = null;
     let _theaterStepTimer = null;
     let _currentReplayBgmUrl = '';
     let _bgmFadeTimer = null;
@@ -16307,6 +16309,90 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       }
     }
 
+    async function restoreAndSeparateDuplicateCharacters(showToast = false) {
+      if (!db || !db.characters) return;
+      const allDbChars = await db.characters.toArray();
+      if (!Array.isArray(allDbChars) || allDbChars.length === 0) return;
+
+      let recoveredCount = 0;
+      let separatedCount = 0;
+
+      const nameGroups = new Map();
+      allDbChars.forEach((c) => {
+        if (!c || !c.name || c.id === 'narrator_kp' || c.name === '旁白') return;
+        const norm = String(c.name).trim();
+        if (!nameGroups.has(norm)) nameGroups.set(norm, []);
+        nameGroups.get(norm).push(c);
+      });
+
+      for (const [name, group] of nameGroups.entries()) {
+        if (group.length > 1) {
+          group.sort((a, b) => {
+            const aHasImg = (a.tachieBase || a.chibiImg || (a.tachieExpressions && Object.keys(a.tachieExpressions).length > 0)) ? 1 : 0;
+            const bHasImg = (b.tachieBase || b.chibiImg || (b.tachieExpressions && Object.keys(b.tachieExpressions).length > 0)) ? 1 : 0;
+            const aHasPersona = (a.personaData || a.quirk || a.body || a.role) ? 1 : 0;
+            const bHasPersona = (b.personaData || b.quirk || b.body || b.role) ? 1 : 0;
+            return (bHasImg + bHasPersona) - (aHasImg + aHasPersona);
+          });
+
+          const primary = group[0];
+          if (primary.isUniversal === false && !primary.moduleId) {
+            primary.isUniversal = true;
+            await db.characters.put(primary);
+            recoveredCount++;
+          }
+
+          for (let i = 1; i < group.length; i++) {
+            const secondary = group[i];
+            const hasImg = Boolean(secondary.tachieBase || secondary.chibiImg);
+            if (!hasImg && primary.tachieBase) {
+              secondary.tachieBase = primary.tachieBase;
+              secondary.tachieExpressions = { ...(primary.tachieExpressions || {}) };
+              if (primary.chibiImg && !secondary.chibiImg) secondary.chibiImg = primary.chibiImg;
+              if (primary.profileAvatar && !secondary.profileAvatar) secondary.profileAvatar = primary.profileAvatar;
+              if (primary.body && !secondary.body) secondary.body = primary.body;
+              if (primary.quirk && !secondary.quirk) secondary.quirk = primary.quirk;
+              recoveredCount++;
+            }
+            const suffix = secondary.moduleTitle ? `${secondary.moduleTitle}` : `${i + 1}`;
+            if (!secondary.name.includes(suffix)) {
+              secondary.name = `${name} ${suffix}`;
+              separatedCount++;
+            }
+            await db.characters.put(secondary);
+          }
+        }
+      }
+
+      for (const c of allDbChars) {
+        let changed = false;
+        if (!c.tachieBase && c.tachieExpressions && typeof c.tachieExpressions === 'object') {
+          const keys = Object.keys(c.tachieExpressions);
+          if (keys.length > 0) {
+            c.tachieBase = c.tachieExpressions['默认'] || c.tachieExpressions[keys[0]];
+            changed = true;
+            recoveredCount++;
+          }
+        }
+        if (!c.profileAvatar && c.tachieBase) {
+          c.profileAvatar = c.tachieBase;
+          changed = true;
+        }
+        if (changed) {
+          await db.characters.put(c);
+        }
+      }
+
+      appState.characters = await db.characters.toArray();
+      populateCharacterSelects();
+      renderPersonaGrid();
+      if (typeof renderHeightStage === 'function') renderHeightStage();
+
+      if (showToast) {
+        alert(`角色排查完成：已拆分 ${separatedCount} 个同名角色，已恢复 ${recoveredCount} 项角色数据与立绘`);
+      }
+    }
+
     function ensureModuleSpeakersInCharactersSync() {
       const projects = Array.isArray(appState.replayProjects) ? appState.replayProjects : [];
       let anyAddedOrUpdated = false;
@@ -16318,7 +16404,9 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
           if (spk.trpgType === '场外' || spk.trpgType === '骰子' || spk.trpgType === '旁白') return;
           const targetName = spk.trueName || spk.name;
           if (!targetName || targetName === '旁白' || isFakeOrDiceSpeakerName(targetName)) return;
-          let existing = appState.characters.find((c) => c.name === targetName);
+          let existing = spk.charId
+            ? appState.characters.find((c) => c.id === spk.charId)
+            : (appState.characters.find((c) => c.moduleId === proj.id && c.name === targetName) || appState.characters.find((c) => c.name === targetName));
           if (!existing) {
             const roleTypeVal = spk.trpgType || '调查员';
             const newChar = {
@@ -16348,10 +16436,12 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
               isFriend: true
             };
             newChar.customActionList = buildPersonaMatchedActions(newChar);
+            spk.charId = newChar.id;
             appState.characters.push(newChar);
             db.characters.put(newChar);
             anyAddedOrUpdated = true;
           } else {
+            if (!spk.charId) spk.charId = existing.id;
             let charChanged = false;
             if (spk.trpgType && (existing.trpgType !== spk.trpgType || existing.trpgRoleType !== spk.trpgType)) {
               existing.trpgType = spk.trpgType;
@@ -16359,11 +16449,8 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
               existing.customActionList = getCharActionList(existing);
               charChanged = true;
             }
-            if ((spk.trpgType === '次要NPC' || spk.trpgType === '主要NPC') && existing.isUniversal !== false && !existing.moduleId) {
-              existing.isUniversal = false;
-              existing.moduleId = proj.id;
-              existing.moduleTitle = proj.title || '跑团模组';
-              charChanged = true;
+            if (existing.isUniversal) {
+              // 保护跨模组通用角色，不篡改其通用属性与归属
             } else if (!existing.moduleId && proj.id) {
               existing.moduleId = proj.id;
               existing.moduleTitle = proj.title || '跑团模组';
@@ -16631,7 +16718,9 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
         if (spk.trpgType === '场外' || spk.trpgType === '骰子' || spk.trpgType === '旁白') continue;
         const targetName = spk.trueName || spk.name;
         if (!targetName || targetName === '旁白' || isFakeOrDiceSpeakerName(targetName)) continue;
-        let existing = appState.characters.find((c) => c.name === targetName);
+        let existing = spk.charId
+          ? appState.characters.find((c) => c.id === spk.charId)
+          : (appState.characters.find((c) => c.moduleId === proj.id && c.name === targetName) || appState.characters.find((c) => c.name === targetName));
         if (!existing) {
           const roleTypeVal = spk.trpgType || '调查员';
           const newChar = {
@@ -16661,9 +16750,11 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
             isFriend: true
           };
           newChar.customActionList = buildPersonaMatchedActions(newChar);
+          spk.charId = newChar.id;
           appState.characters.push(newChar);
           await db.characters.put(newChar);
         } else {
+          if (!spk.charId) spk.charId = existing.id;
           if (spk.trpgType && (existing.trpgType !== spk.trpgType || existing.trpgRoleType !== spk.trpgType)) {
             existing.trpgType = spk.trpgType;
             existing.trpgRoleType = spk.trpgType;
@@ -16675,10 +16766,8 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
                   : []);
             existing.customActionList = [...baseList, ...userAdded];
           }
-          if (spk.trpgType === '次要NPC' || spk.trpgType === '主要NPC') {
-            existing.isUniversal = false;
-            existing.moduleId = existing.moduleId || proj.id;
-            existing.moduleTitle = existing.moduleTitle || proj.title || '跑团模组';
+          if (existing.isUniversal) {
+            // 保留已有通用角色，不强行降级为非通用
           } else if (!existing.moduleId && proj.id) {
             existing.moduleId = proj.id;
             existing.moduleTitle = proj.title || '';
@@ -20467,18 +20556,31 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         _activeReplayTtsAudio = audio;
         audio.volume = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
         setBgmDuckingActive(true);
-        audio.onended = () => {
+
+        let done = false;
+        let timer = null;
+        const finish = (result) => {
+          if (done) return;
+          done = true;
+          if (timer) { clearTimeout(timer); timer = null; }
+          if (_activeReplayTtsAudio === audio) _activeReplayTtsAudio = null;
           setBgmDuckingActive(false);
-          resolve(true);
+          resolve(result);
         };
-        audio.onerror = () => {
-          setBgmDuckingActive(false);
-          resolve(false);
+
+        audio.onended = () => finish(true);
+        audio.onerror = () => finish(false);
+        audio.onpause = () => {
+          if (audio.ended || audio.currentTime === 0) finish(true);
         };
-        audio.play().catch(() => {
-          setBgmDuckingActive(false);
-          resolve(false);
-        });
+
+        audio.onloadedmetadata = () => {
+          const dur = (audio.duration && !isNaN(audio.duration) && audio.duration > 0) ? (audio.duration + 2) : 10;
+          timer = setTimeout(() => finish(true), Math.min(25, dur) * 1000);
+        };
+        timer = setTimeout(() => finish(true), 12000);
+
+        audio.play().catch(() => finish(false));
       });
     }
 
@@ -20512,47 +20614,79 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       const btn = document.getElementById(`line-tts-btn-${lineIdx}`);
       const voiceBtn = document.getElementById(`voice-studio-play-btn-${lineIdx}`);
 
+      if (_activeReplayTtsLineIdx === lineIdx && _activeReplayTtsAudio && !forceRegen) {
+        try { _activeReplayTtsAudio.pause(); } catch (_) {}
+        _activeReplayTtsAudio = null;
+        _activeReplayTtsLineIdx = null;
+        setBgmDuckingActive(false);
+        if (voiceBtn) {
+          voiceBtn.disabled = false;
+          voiceBtn.textContent = '试听';
+        }
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>`;
+        }
+        return;
+      }
+
+      if (_activeReplayTtsAudio) {
+        try { _activeReplayTtsAudio.pause(); } catch (_) {}
+        _activeReplayTtsAudio = null;
+        setBgmDuckingActive(false);
+        if (_activeReplayTtsLineIdx !== null && _activeReplayTtsLineIdx !== lineIdx) {
+          const prevBtn = document.getElementById(`voice-studio-play-btn-${_activeReplayTtsLineIdx}`);
+          if (prevBtn) {
+            prevBtn.disabled = false;
+            prevBtn.textContent = '试听';
+          }
+          const prevIconBtn = document.getElementById(`line-tts-btn-${_activeReplayTtsLineIdx}`);
+          if (prevIconBtn) {
+            prevIconBtn.disabled = false;
+            prevIconBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>`;
+          }
+        }
+      }
+
       if (!forceRegen) {
-        const cached = await db.ttsCache.get(cacheKey);
+        let cached = await db.ttsCache.get(cacheKey);
+        if (!cached || !cached.audioDataUrl) {
+          const altKey = `line_${chap.id}_${line.id}_${appState.theaterTtsLang === 'jp' ? 'zh' : 'jp'}`;
+          cached = await db.ttsCache.get(altKey);
+        }
         if (!cached || !cached.audioDataUrl) {
           const statusEl = document.getElementById('replay-voice-status-bar');
           if (statusEl) statusEl.textContent = `第 #${lineIdx + 1} 句暂无已生成的语音，未播放`;
+          _activeReplayTtsLineIdx = null;
           return;
         }
+
+        const dotEl = document.getElementById(`voice-dot-${lineIdx}`);
+        if (dotEl) dotEl.style.display = 'inline-block';
+
+        _activeReplayTtsLineIdx = lineIdx;
         if (btn) {
-          btn.disabled = true;
           btn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>`;
         }
         if (voiceBtn) {
-          voiceBtn.disabled = true;
-          voiceBtn.textContent = '播放';
+          voiceBtn.disabled = false;
+          voiceBtn.textContent = '播放中';
         }
-        try {
-          if (_activeReplayTtsAudio) {
-            _activeReplayTtsAudio.pause();
-            _activeReplayTtsAudio = null;
-          }
-          await new Promise((resolve) => {
-            const audio = new Audio(cached.audioDataUrl);
-            audio.volume = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
-            _activeReplayTtsAudio = audio;
-            setBgmDuckingActive(true);
-            audio.onended = () => {
-              if (_activeReplayTtsAudio === audio) _activeReplayTtsAudio = null;
-              setBgmDuckingActive(false);
-              resolve();
-            };
-            audio.onerror = () => {
-              if (_activeReplayTtsAudio === audio) _activeReplayTtsAudio = null;
-              setBgmDuckingActive(false);
-              resolve();
-            };
-            audio.play().catch(() => {
-              setBgmDuckingActive(false);
-              resolve();
-            });
-          });
-        } finally {
+
+        const audio = new Audio(cached.audioDataUrl);
+        audio.volume = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
+        _activeReplayTtsAudio = audio;
+        setBgmDuckingActive(true);
+
+        let finished = false;
+        let safeTimer = null;
+        const resetStatus = () => {
+          if (finished) return;
+          finished = true;
+          if (safeTimer) { clearTimeout(safeTimer); safeTimer = null; }
+          if (_activeReplayTtsAudio === audio) _activeReplayTtsAudio = null;
+          if (_activeReplayTtsLineIdx === lineIdx) _activeReplayTtsLineIdx = null;
+          setBgmDuckingActive(false);
           if (btn) {
             btn.disabled = false;
             btn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>`;
@@ -20561,6 +20695,24 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
             voiceBtn.disabled = false;
             voiceBtn.textContent = '试听';
           }
+        };
+
+        audio.onended = resetStatus;
+        audio.onerror = resetStatus;
+        audio.onpause = () => {
+          if (audio.ended || audio.currentTime === 0) resetStatus();
+        };
+
+        audio.onloadedmetadata = () => {
+          const dur = (audio.duration && !isNaN(audio.duration) && audio.duration > 0) ? (audio.duration + 2) : 10;
+          safeTimer = setTimeout(resetStatus, Math.min(25, dur) * 1000);
+        };
+        safeTimer = setTimeout(resetStatus, 12000);
+
+        try {
+          await audio.play();
+        } catch (_) {
+          resetStatus();
         }
         return;
       }
@@ -20582,21 +20734,25 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         alert(`角色 ${line.speaker} 尚未填写语音音色编号，请先前往角色档案填写`);
         return;
       }
+
+      _activeReplayTtsLineIdx = lineIdx;
       if (btn) {
-        btn.disabled = true;
         btn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>`;
       }
       if (voiceBtn) {
-        voiceBtn.disabled = true;
-        voiceBtn.textContent = '播放';
+        voiceBtn.disabled = false;
+        voiceBtn.textContent = '合成中';
       }
       try {
         const effParams = resolveLineEffectiveVoiceParams(line);
         await synthesizeAndPlayReplayTts(ttsText, voiceId, cacheKey, true, effParams);
         if (btn) btn.classList.add('cached');
+        const dotEl = document.getElementById(`voice-dot-${lineIdx}`);
+        if (dotEl) dotEl.style.display = 'inline-block';
       } catch (err) {
         alert('语音合成失败：' + err.message);
       } finally {
+        if (_activeReplayTtsLineIdx === lineIdx) _activeReplayTtsLineIdx = null;
         if (btn) {
           btn.disabled = false;
           btn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>`;
@@ -20665,8 +20821,10 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
 
         const card = document.createElement('div');
         card.className = 'vn-script-card';
+        card.style.position = 'relative';
         card.innerHTML = `
-          <div class="vn-script-row-top">
+          <span id="voice-dot-${idx}" style="display:none;position:absolute;top:6px;left:6px;width:7px;height:7px;border-radius:50%;background:#4ade80;box-shadow:0 0 6px rgba(74,222,128,0.7);pointer-events:none;z-index:2;"></span>
+          <div class="vn-script-row-top" style="padding-left:4px;">
             <div class="vn-script-row-left">
               <span class="vn-console-idx">#${idx + 1}</span>
               <span style="font-size:12px;font-weight:800;color:var(--text-primary);">${line.speaker}</span>
@@ -20690,6 +20848,20 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
           <input type="text" class="moe-input" value="${cleanJp.replace(/"/g, '&quot;')}" placeholder="日语配音台词" style="height:30px;min-height:30px;font-size:11px;color:var(--text-secondary);" onchange="updateReplayVoiceParam(${idx}, 'jpText', this.value, false)" />
         `;
         box.appendChild(card);
+      });
+
+      const curChapId = chap.id;
+      const curLang = appState.theaterTtsLang || 'jp';
+      dialogueEntries.forEach(async ({ line, idx }) => {
+        try {
+          const key = `line_${curChapId}_${line.id}_${curLang}`;
+          const altKey = `line_${curChapId}_${line.id}_${curLang === 'jp' ? 'zh' : 'jp'}`;
+          const rec = await db.ttsCache.get(key) || await db.ttsCache.get(altKey);
+          if (rec && rec.audioDataUrl) {
+            const dot = document.getElementById(`voice-dot-${idx}`);
+            if (dot) dot.style.display = 'inline-block';
+          }
+        } catch (_) {}
       });
     }
 
@@ -22982,6 +23154,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         appState.selectedPersonaId = appState.characters[0]?.id || '';
       }
       await initReplayAndMusicData();
+      await restoreAndSeparateDuplicateCharacters(false);
       ensureModuleSpeakersInCharactersSync();
       const rememberedModId = localStorage.getItem('last-tachie-module-id');
       if (rememberedModId) {
