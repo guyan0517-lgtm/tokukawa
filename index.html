@@ -2609,7 +2609,7 @@
               <span style="font-size:12px;font-weight:800;color:var(--text-primary);">章节剧本整理默认提示词 可直接修改保存</span>
               <div style="display:flex;gap:6px;">
                 <button type="button" class="moe-btn secondary" onclick="resetCustomScriptPrompt()">恢复</button>
-                <button type="button" class="moe-btn" onclick="saveCustomScriptPrompt('replay-chapters-script-prompt-textarea')">保存</button>
+                <button type="button" class="moe-btn" onclick="saveCustomScriptPrompt('replay-chapters-script-prompt-textarea', this)">保存</button>
               </div>
             </div>
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;font-size:11px;color:var(--text-secondary);">
@@ -2639,7 +2639,7 @@
             <select id="replay-script-chapter-select" class="moe-input" onchange="onSelectReplayChapter(this.value)"></select>
           </div>
 
-          <div class="script-top-btn-grid" style="grid-template-columns:repeat(3, 1fr);">
+          <div class="script-top-btn-grid" style="grid-template-columns:repeat(4, 1fr);">
             <button type="button" class="moe-btn" id="replay-gen-script-btn" onclick="generateCurrentChapterScriptViaAi()">整理</button>
             <button type="button" class="moe-btn secondary" id="replay-ai-bgm-btn" onclick="aiMatchCurrentChapterBgm()">配乐</button>
             <button type="button" class="moe-btn secondary" id="replay-ai-exp-btn" onclick="aiMatchCurrentChapterExpressions()">差分</button>
@@ -2648,7 +2648,16 @@
             <button type="button" class="moe-btn secondary" id="replay-danmaku-btn" onclick="toggleDanmakuReviewPanel()">弹幕</button>
             <button type="button" class="moe-btn secondary" id="replay-typo-btn" onclick="toggleTypoReviewPanel()">错字</button>
             <button type="button" class="moe-btn secondary" onclick="toggleScriptPromptEditor()">提示</button>
-            <button type="button" class="moe-btn" onclick="openTheaterForCurrentChapter()">播放</button>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;padding:8px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
+            <select id="replay-script-speaker-filter-select" class="moe-input" style="flex:1;min-width:140px;height:34px;min-height:34px;line-height:1.3;padding:2px 24px 2px 10px;font-size:12px;" onchange="onChangeScriptSpeakerFilter(this.value)">
+              <option value="">全部说话人台词</option>
+            </select>
+            <select id="replay-script-speaker-merge-target-select" class="moe-input" style="flex:1;min-width:140px;height:34px;min-height:34px;line-height:1.3;padding:2px 24px 2px 10px;font-size:12px;">
+              <option value="">选择替换成的角色</option>
+            </select>
+            <button type="button" class="moe-btn" style="height:34px;min-height:34px;padding:0 12px;flex-shrink:0;" onclick="mergeFilteredSpeakerToTargetChar()">替换</button>
           </div>
 
           <div id="replay-script-prompt-box" style="display:none;margin-top:8px;padding:10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
@@ -2656,7 +2665,7 @@
               <span style="font-size:12px;font-weight:800;color:var(--text-primary);">章节剧本整理默认提示词 可直接修改保存</span>
               <div style="display:flex;gap:6px;">
                 <button type="button" class="moe-btn secondary" onclick="resetCustomScriptPrompt()">恢复</button>
-                <button type="button" class="moe-btn" onclick="saveCustomScriptPrompt('replay-script-prompt-textarea')">保存</button>
+                <button type="button" class="moe-btn" onclick="saveCustomScriptPrompt('replay-script-prompt-textarea', this)">保存</button>
               </div>
             </div>
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;font-size:11px;color:var(--text-secondary);">
@@ -2668,14 +2677,6 @@
               <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" data-char-prompt-field="weaponItems" checked style="width:15px;height:15px;flex-shrink:0;margin:0;padding:0;" onchange="onToggleCharPromptField('weaponItems', this.checked)" />武器</label>
             </div>
             <textarea id="replay-script-prompt-textarea" class="moe-input" style="min-height:150px;font-size:11px;line-height:1.5;"></textarea>
-          </div>
-
-          <div id="replay-typo-review-box" style="display:none;margin-top:8px;padding:10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-              <span style="font-size:12px;font-weight:800;color:var(--text-primary);">疑似错字列表</span>
-              <button type="button" class="moe-btn secondary" onclick="toggleTypoReviewPanel()">收起</button>
-            </div>
-            <div id="replay-typo-list-items" style="display:flex;flex-direction:column;gap:6px;"></div>
           </div>
 
           <div id="replay-danmaku-review-box" style="display:none;margin-top:8px;padding:10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
@@ -18260,7 +18261,6 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
             ${idx < chaps.length - 1 ? `<button type="button" class="moe-btn secondary" onclick="mergeWithNextChapter(${idx})">合章</button>` : ''}
             <button type="button" class="moe-btn secondary" onclick="onSelectReplayChapter(${idx});switchSubPage('screen-replay','replay-sub-script');">剧本</button>
             <button type="button" class="moe-btn secondary" onclick="onSelectReplayChapter(${idx});switchSubPage('screen-replay','replay-sub-cg');">生图</button>
-            <button type="button" class="moe-btn secondary" onclick="onSelectReplayChapter(${idx});openTheaterForCurrentChapter();">播放</button>
           </div>
         `;
 
@@ -18606,7 +18606,7 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       }
     }
 
-    // 自动剥离日语配音台词前可能误带的人名前缀或行号前缀，只保留纯粹日语台词
+    // 自动剥离日语配音台词前可能误带的人名前缀或行号前缀，只保留纯粹日语台词，并统一校准易错多音字与称呼假名读音
     function cleanJapaneseLineText(rawJp, speakerName) {
       let s = String(rawJp || '').trim();
       if (!s) return '';
@@ -18618,6 +18618,11 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       }
       s = s.replace(/^[^\|｜:：\s]{1,10}\s*[\|｜]\s*/, '').trim();
       s = s.replace(/^[「『](.*)[」』]$/, '$1').trim();
+      s = s
+        .replace(/德川\s*愿|徳川\s*願/g, '徳川ねがい')
+        .replace(/小\s*愿|小\s*願|願ちゃん|愿ちゃん/g, 'ねがいちゃん')
+        .replace(/小\s*奇迹|小\s*奇跡|奇跡ちゃん|奇迹ちゃん/g, 'ダイヤちゃん')
+        .replace(/奇迹|奇跡(?=(?:さん|くん|君|ちゃん|様|先生|先輩|、|。|！|？|!|\?|$))/g, 'ダイヤ');
       return s;
     }
 
@@ -18689,7 +18694,10 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
 
     const DEFAULT_REPLAY_VOICE_PROMPT_ADV = `你是日本视觉小说声优台本总监与配音导演。你将一次性收到本章完整模组原文、全部剧本上下文、所有登场角色的详细性格人设与各自语速语调上下限、以及全部待润色的角色对话行。
 请通读整章全文，一次性完成两项工作：
-第一，结合上下文语境、角色关系、称呼习惯与每位角色的性格语气，对每一句角色对话的日语翻译进行全文润色或补全，使其地道自然且高度贴合角色口吻；绝对禁止在日语台词前加说话人名字或冒号，旁白绝不翻译。
+第一，结合上下文语境、角色关系、称呼习惯与每位角色的性格语气，对每一句角色对话的日语翻译进行全文润色或补全：
+1. 必须接地气、口语化，严格按照现实中真人自然聊天的语气翻译，原句短就短、原句长就长，绝不要写成生硬死板的书面语或一大段矫揉造作的文学腔！
+2. 容易混淆读音的多音字与特殊人名必须直接用假名写出正确读音，防止语音合成读错：例如德川愿的愿必须写作ねがい即徳川ねがい，角色名奇迹必须写作片假名ダイヤ，所有中文里小什么的亲昵称呼一律译为什么什么ちゃん！
+3. 绝对禁止在日语台词前加说话人名字或冒号，旁白绝不翻译。
 第二，根据每一句台词在剧情中的情绪变化，为该句填写配音情绪 emotion、语速 speed 与语调 pitch：
 1. emotion 只能从以下7个英文值中选一个：neutral、happy、sad、angry、fearful、disgusted、surprised。
 2. 如果该句是角色普通平常心情，emotion 填 neutral，此时语速和语调必须直接使用该角色的默认语速和默认语调！
@@ -18698,7 +18706,10 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
 JP_VOICE: L行号|emotion英文值|speed数字|pitch数字|润色后的纯日语配音台词`;
 
     const DEFAULT_REPLAY_VOICE_PROMPT_NORMAL = `你是日本视觉小说声优台本总监。你将一次性收到本章完整模组原文、全部剧本上下文、所有登场角色的详细性格人设、以及全部待翻译润色的角色对话行。
-请通读整章全文，结合上下文语境、角色关系、称呼习惯与每位角色的性格语气，仅对每一句角色对话进行地道自然的纯日语翻译与润色；不需要写语速，不需要写情绪，不需要写语调，绝对禁止在日语台词前加说话人名字或冒号，旁白绝不翻译。
+请通读整章全文，结合上下文语境、角色关系、称呼习惯与每位角色的性格语气，仅对每一句角色对话进行地道自然的纯日语翻译与润色：
+1. 必须接地气、口语化，严格按照现实中真人自然聊天的语气翻译，该短就短、该长就长，绝不要写成书面化或刻意堆砌辞藻的文学长句！
+2. 容易混淆读音的多音字与特殊人名必须直接用假名标注写出：例如德川愿的愿必须写作ねがい即徳川ねがい，角色名奇迹必须写作片假名ダイヤ，所有中文里小什么的亲昵称呼一律译为什么什么ちゃん！
+3. 不需要写语速，不需要写情绪，不需要写语调，绝对禁止在日语台词前加说话人名字或冒号，旁白绝不翻译。
 从头到尾严禁使用任何括号，严格按以下单行格式一次性输出全部对话行，绝不漏行：
 JP_VOICE: L行号|润色后的纯日语配音台词`;
 
@@ -19283,14 +19294,17 @@ SCENE_ITEM: 场景编号|2到5字简短场景名|NovelAI英文提示词|基底�
 
     const DEFAULT_REPLAY_SCRIPT_PROMPT = `你是专业跑团Replay视觉小说导演与台本编辑。请一次性通读本章全部跑团剧本行、角色人设、差分池与已整理的场景列表，在整理章节这一步严格遵守以下规则：
 规则一：所有NPC与调查员的动作描写、神态描写、心理与环境互动一律归为旁白 narration，任何角色的对话行 dialogue 中只能保留角色亲口说出的纯台词！如果原句中同时包含角色动作描写与说话台词，必须拆成多条相同行号的 LINE_UPDATE 按先后顺序输出，把动作描写拆成 narration 旁白行，把纯台词拆成 dialogue 对话行，严禁在对话行里夹杂任何动作描写！角色亲口说出的台词字句本身保持原汁原味。
-规则二：旁白 narration 必须全部采用第三人称视角并且顶格书写！对于KP原本以第二人称撰写的旁白，必须把其中所有的「你」「你们」「你的」准确替换为上下文中对应的调查员角色真名，并可适当添加自然过渡连接词，绝对不能在旁白中残留第二人称「你」！对于玩家PC的动作描写转为旁白 narration 时，只允许将第一人称「我」转换为该PC的角色真名并在需要时加简短连接词，绝对禁止删减或改写玩家原本风趣幽默的描写文笔！
+规则二：旁白 narration 必须全部采用第三人称视角并且顶格书写！对于KP原本以第二人称撰写的旁白，请把其中的「你」「你们」「你的」替换为上下文中对应的调查员称呼；在整理修改旁白或正文中的人名时，绝对禁止在人名中间打空格，也不要强行改成生硬的完整全名，请完全按照自然的小说与视觉小说阅读流程书写，原文是什么样、上下文怎么称呼最自然顺口、最适合阅读就写成什么样！对于玩家PC的动作描写转为旁白 narration 时，只将第一人称「我」转换为该PC的自然称呼并在需要时加简短连接词，绝对禁止删减或改写玩家原本风趣幽默的描写文笔！
 规则三：在整理章节这一步彻底剔除 logs 记录指令与无用废话：凡是遇到诸如点log、logs开启关闭、日志保存链接、已绑卡、已改名、进行了什么鉴定等骰娘指令或系统废话，一律将该行的类型标记为 delete 彻底剔除，绝对禁止保留在旁白或对话中！只有最终的鉴定成功或失败结果、以及生命值或理智值变化才属于右上角检定提示。
 规则四：以括号开头的场外发言已在发给你之前提取到了独立弹幕区域；如果在剩下的句子里发现没有带括号的漏网之鱼，只有百分之百明确脱离模组剧情的玩家场外闲聊吐槽才将其类型标记为 ooc 移入弹幕区；模棱两可的一律视为正常剧情内容。
 规则五：立绘差分切换必须严格从下方提供的该角色可用差分池中选择！调查员与主要NPC拥有36个基础差分加专属差分，次要NPC仅拥有默认、开心、惊讶、愤怒、伤心、害羞、慌乱、疯狂、拿起武器、冷漠、轻伤、重伤共12个差分，绝对禁止给次要NPC填写36差分池里才有的其他差分名字，也绝对禁止原创池子之外的差分名字！切换差分的频率必须适中自然。
 规则六：配乐是视觉小说的灵魂环节！每一章必须根据剧情起承转合规划3到6处 BGM_REC 音乐开始标记，并在紧张解除、压抑留白、突发惊吓或场景切换处标记 BGM_STOP 音乐停止！所选曲目必须百分之百是纯音乐与无人声伴奏，绝对禁止使用任何带有人声演唱的歌曲！请优先选用日本乙女游戏日乙、BL抓马中的背景纯音乐而非抓马语音、以及文字冒险游戏Galgame与视觉小说原声带中的BGM，例如折户伸治、麻枝准、神前晓、梶浦由记、泽野弘之、川井宪次、牛尾宪辅、光田康典、下村阳子、横山克、林友树、天门等作曲家的纯音乐作品。特别注意：在同一章之中，同一种情绪或氛围必须始终复用同一首纯音乐曲目，例如章节开头是开心日常情绪，中间变成紧张调查，最后又回到开心日常情绪，那么前后这两段开心情绪必须填写完全相同的纯音乐歌名与作曲家，严禁在同一章的同一种情绪下更换两首不同的音乐！
 规则七：如果发现某行台词或旁白里有明显错别字，不要擅自直接篡改原句，必须用 TYPO_MARK 单独标记出来供用户自己核对。
 规则八：一章跑团剧本请每隔一段剧情规划一处 CG_MARK 插图节点，整章共规划 5 到 10 处，不必非要等到激烈高潮才插图，有画面感的日常互动或具体场景动作同样可以插入CG，例如两人一起吃饭、给对方喂饭、递交物品、包扎伤口、查看线索或肢体接触；但位置必须选在有具体互动或动作画面的句子处，绝对禁止插在两个人只是普通站着纯聊天、毫无动作与画面变化的无意义干聊台词处！每一张插图都必须明确规划它的持续时间，即从哪一句开始持续显示到哪一句结束，写成 L起始行号-L结束行号 的格式，并填写简短画面说明和在场人物，此阶段不要编写英文生图提示词。同时结合下方提供的全部场景名字，使用 SCENE_RANGE 规划从第几句到第几句使用哪个场景背景、哪几句是纯CG填 CG、哪几句是黑幕转场填 blackout。
-规则九：在整理章节这一步，所有角色亲口说出的对话台词 dialogue 必须在 LINE_UPDATE 的最后一个字段结合整章上下文、该角色的性格语气以及对他人和自己的称呼习惯，写出贴合人设口吻的地道日语配音翻译，且日语台词前绝对不要写角色人名！旁白 narration 绝对不要翻译日语，最后一个字段直接填无。同时以视觉小说对话框视觉舒适度为切割基准，一个对话框最多只放四行字即约90字以内，如果KP或角色一次发了五到十句话的超长段落，请在保持完整不删减的前提下在合适句号处拆成多条同为 L行号 的 LINE_UPDATE 切到下一句对话框里。
+规则九：在整理章节这一步，所有角色亲口说出的对话台词 dialogue 必须在 LINE_UPDATE 的最后一个字段结合整章上下文、该角色的性格语气以及对他人和自己的称呼习惯，写出贴合人设口吻的地道日语配音翻译：
+1. 日语翻译必须接地气、口语化，严格按照现实生活中真人在聊天的日常语气来写，原句短就短、原句长就长，绝对不要写成书面化或大段咬文嚼字的文学语句！
+2. 容易混淆的多音字与特殊名字必须用假名标注写出：例如德川愿的愿必须写作ねがい即徳川ねがい，奇迹必须写作片假名ダイヤ，所有小什么的称呼都必须译为什么什么ちゃん！
+3. 日语台词前绝对不要写角色人名！旁白 narration 绝对不要翻译日语，最后一个字段直接填无。同时以视觉小说对话框视觉舒适度为切割基准，一个对话框最多只放四行字即约90字以内，如果KP或角色一次发了五到十句话的超长段落，请在保持完整不删减的前提下在合适句号处拆成多条同为 L行号 的 LINE_UPDATE 切到下一句对话框里。
 
 从头到尾严禁使用任何圆括号或方括号，严格按以下行格式输出：
 SCENE_BG: 场景编号如scene_1|场所中文名称|纯景物2D视觉小说背景NovelAI英文提示词
@@ -19302,11 +19316,15 @@ TYPO_MARK: L行号|疑似错字原词|建议修改词|简短原因
 CG_MARK: L起始行号-L结束行号|插图简短剧情画面说明|在场角色姓名用顿号分隔`;
 
     function getCustomOrDefaultScriptPrompt() {
-      const saved = localStorage.getItem('replay-custom-script-prompt');
-      if (saved && (!saved.includes('delete') || !saved.includes('CG_MARK: L起始行号-L结束行号') || !saved.includes('同一章之中，同一种情绪') || saved.includes('根据剧情高潮、关键调查与重要互动') || saved.includes('34个基础差分') || saved.includes('共10个差分'))) {
-        return DEFAULT_REPLAY_SCRIPT_PROMPT;
+      const proj = typeof getCurrentReplayProject === 'function' ? getCurrentReplayProject() : null;
+      if (proj && typeof proj.customScriptPrompt === 'string' && proj.customScriptPrompt.trim()) {
+        return proj.customScriptPrompt.trim();
       }
-      return saved || DEFAULT_REPLAY_SCRIPT_PROMPT;
+      const saved = localStorage.getItem('replay-custom-script-prompt');
+      if (saved && saved.trim()) {
+        return saved.trim();
+      }
+      return DEFAULT_REPLAY_SCRIPT_PROMPT;
     }
 
     function getSelectedCharPromptFields() {
@@ -19359,27 +19377,46 @@ CG_MARK: L起始行号-L结束行号|插图简短剧情画面说明|在场角色
       }
     }
 
-    function saveCustomScriptPrompt(textareaId = 'replay-script-prompt-textarea') {
+    async function saveCustomScriptPrompt(textareaId = 'replay-script-prompt-textarea', btnEl = null) {
       const ta = document.getElementById(textareaId) || document.getElementById('replay-script-prompt-textarea');
       if (!ta) return;
       const val = ta.value.trim();
+      const proj = typeof getCurrentReplayProject === 'function' ? getCurrentReplayProject() : null;
       if (val) {
         localStorage.setItem('replay-custom-script-prompt', val);
+        if (proj) proj.customScriptPrompt = val;
       } else {
         localStorage.removeItem('replay-custom-script-prompt');
+        if (proj) delete proj.customScriptPrompt;
+      }
+      if (proj && typeof saveReplayProjectToDB === 'function') {
+        await saveReplayProjectToDB(proj);
       }
       const otherTa1 = document.getElementById('replay-script-prompt-textarea');
       const otherTa2 = document.getElementById('replay-chapters-script-prompt-textarea');
       if (otherTa1) otherTa1.value = getCustomOrDefaultScriptPrompt();
       if (otherTa2) otherTa2.value = getCustomOrDefaultScriptPrompt();
+      if (btnEl) {
+        btnEl.textContent = '已存';
+        setTimeout(() => {
+          if (btnEl) btnEl.textContent = '保存';
+        }, 1200);
+      }
       const statusEl = document.getElementById('replay-script-status-bar');
       if (statusEl) statusEl.textContent = '已保存章节剧本整理默认提示词';
       const splitStatusEl = document.getElementById('replay-split-status-bar');
       if (splitStatusEl) splitStatusEl.textContent = '已保存章节剧本整理默认提示词';
     }
 
-    function resetCustomScriptPrompt() {
+    async function resetCustomScriptPrompt() {
       localStorage.removeItem('replay-custom-script-prompt');
+      const proj = typeof getCurrentReplayProject === 'function' ? getCurrentReplayProject() : null;
+      if (proj) {
+        delete proj.customScriptPrompt;
+        if (typeof saveReplayProjectToDB === 'function') {
+          await saveReplayProjectToDB(proj);
+        }
+      }
       const ta1 = document.getElementById('replay-script-prompt-textarea');
       const ta2 = document.getElementById('replay-chapters-script-prompt-textarea');
       if (ta1) ta1.value = DEFAULT_REPLAY_SCRIPT_PROMPT;
@@ -19390,13 +19427,23 @@ CG_MARK: L起始行号-L结束行号|插图简短剧情画面说明|在场角色
       if (splitStatusEl) splitStatusEl.textContent = '已恢复默认章节剧本整理提示词';
     }
 
+    let _scriptTypoOnlyFilter = false;
+    let _scriptSpeakerFilter = '';
+
     function toggleTypoReviewPanel() {
-      const box = document.getElementById('replay-typo-review-box');
-      if (!box) return;
-      const isHidden = box.style.display === 'none' || !box.style.display;
-      box.style.display = isHidden ? 'block' : 'none';
-      if (isHidden) {
-        renderTypoReviewList();
+      const chap = getCurrentReplayChapter();
+      const typoCount = (chap?.scriptLines || []).filter((l) => l && l.typoInfo && l.typoInfo.wrongWord).length;
+      const statusEl = document.getElementById('replay-script-status-bar');
+      if (!_scriptTypoOnlyFilter && typoCount === 0) {
+        if (statusEl) statusEl.textContent = '当前章节没有待核对的疑似错字句子';
+        return;
+      }
+      _scriptTypoOnlyFilter = !_scriptTypoOnlyFilter;
+      renderReplayScriptEditor();
+      if (statusEl) {
+        statusEl.textContent = _scriptTypoOnlyFilter
+          ? `已筛选显示本章 ${typoCount} 句含有疑似错字的完整台词，再次点击错字按钮可恢复显示全部句子`
+          : '已恢复显示本章全部剧本台词';
       }
     }
 
@@ -19479,45 +19526,16 @@ CG_MARK: L起始行号-L结束行号|插图简短剧情画面说明|在场角色
     }
 
     function renderTypoReviewList() {
-      const listEl = document.getElementById('replay-typo-list-items');
       const typoBtn = document.getElementById('replay-typo-btn');
       const chap = getCurrentReplayChapter();
-      if (!chap || !Array.isArray(chap.scriptLines)) {
-        if (listEl) listEl.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">当前章节暂无错字记录</div>';
-        if (typoBtn) typoBtn.textContent = '错字';
-        return;
+      const typoCount = (chap?.scriptLines || []).filter((l) => l && l.typoInfo && l.typoInfo.wrongWord).length;
+      if (typoCount === 0 && _scriptTypoOnlyFilter) {
+        _scriptTypoOnlyFilter = false;
       }
-      const typoItems = [];
-      chap.scriptLines.forEach((l, idx) => {
-        if (l.typoInfo && l.typoInfo.wrongWord) {
-          typoItems.push({ idx, line: l, typo: l.typoInfo });
-        }
-      });
       if (typoBtn) {
         typoBtn.textContent = '错字';
+        typoBtn.classList.toggle('secondary', !_scriptTypoOnlyFilter);
       }
-      if (!listEl) return;
-      if (typoItems.length === 0) {
-        listEl.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">当前章节没有待处理的疑似错字</div>';
-        return;
-      }
-      listEl.innerHTML = '';
-      typoItems.forEach((item) => {
-        const row = document.createElement('div');
-        row.className = 'setting-item';
-        row.innerHTML = `
-          <div class="setting-item-left" style="width:48px;flex-shrink:0;font-size:11px;font-weight:800;color:var(--accent-color);">#${item.idx + 1}</div>
-          <div class="setting-item-center">
-            <div class="setting-item-title">疑似错字：「${item.typo.wrongWord}」 建议改为：「${item.typo.suggestWord}」</div>
-            <div class="setting-item-sub">${item.line.speaker}：${item.line.text}</div>
-          </div>
-          <div class="setting-item-right">
-            <button type="button" class="moe-btn" onclick="acceptLineTypoFix(${item.idx})">采纳</button>
-            <button type="button" class="moe-btn secondary" onclick="ignoreLineTypoFix(${item.idx})">忽略</button>
-          </div>
-        `;
-        listEl.appendChild(row);
-      });
     }
 
     async function acceptLineTypoFix(lineIdx) {
@@ -20042,7 +20060,7 @@ ${numberedChapterPreview}`;
               [
                 {
                   role: 'system',
-                  content: '你是日本视觉小说声优台本翻译总监。请结合整章上下文与每位角色的性格人设语气，一次性将以下角色对话翻译为地道、自然的日语配音台词。旁白绝不翻译。绝对禁止在日语台词前加角色人名！严禁使用任何括号，严格按 L行号|纯日语台词 格式输出。'
+                  content: '你是日本视觉小说声优台本翻译总监。请结合整章上下文与每位角色的性格人设语气，一次性将以下角色对话翻译为接地气、口语化、像现实中真人自然聊天的日语配音台词，该短就短，该长就长，不要写成书面化文学长句。容易混淆的多音字与人名必须用假名写出：德川愿的愿必须写作ねがい即徳川ねがい，奇迹必须写作ダイヤ，所有小什么的称呼都必须译为什么什么ちゃん。旁白绝不翻译。绝对禁止在日语台词前加角色人名！严禁使用任何括号，严格按 L行号|纯日语台词 格式输出。'
                 },
                 {
                   role: 'user',
@@ -21078,14 +21096,126 @@ ${numberedLines}`;
       }, 80);
     }
 
+    function onChangeScriptSpeakerFilter(val) {
+      _scriptSpeakerFilter = String(val || '');
+      renderReplayScriptEditor();
+      const statusEl = document.getElementById('replay-script-status-bar');
+      if (statusEl) {
+        statusEl.textContent = _scriptSpeakerFilter
+          ? `当前仅显示说话人「${_scriptSpeakerFilter}」的台词，可在右侧选择已导入的角色点击替换一键归并人名与立绘`
+          : '已显示当前章节全部说话人的台词';
+      }
+    }
+
+    async function mergeFilteredSpeakerToTargetChar() {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      const filterSel = document.getElementById('replay-script-speaker-filter-select');
+      const targetSel = document.getElementById('replay-script-speaker-merge-target-select');
+      const statusEl = document.getElementById('replay-script-status-bar');
+      const sourceName = String(_scriptSpeakerFilter || filterSel?.value || '').trim();
+      const targetName = String(targetSel?.value || '').trim();
+      if (!proj || !chap || !Array.isArray(chap.scriptLines)) return;
+      if (!sourceName) {
+        if (statusEl) statusEl.textContent = '请先在左侧下拉框选中需要替换的说话人名字';
+        return;
+      }
+      if (!targetName) {
+        if (statusEl) statusEl.textContent = '请在右侧下拉框选中要替换成的已导入角色';
+        return;
+      }
+      if (sourceName === targetName) {
+        if (statusEl) statusEl.textContent = '选中的说话人与目标角色名字已经一致';
+        return;
+      }
+
+      let replacedCount = 0;
+      const allChaps = Array.isArray(proj.chapters) ? proj.chapters : [chap];
+      allChaps.forEach((ch) => {
+        if (!ch || !Array.isArray(ch.scriptLines)) return;
+        let chapModified = false;
+        ch.scriptLines.forEach((l) => {
+          if (!l) return;
+          if ((l.speaker || '旁白') === sourceName) {
+            l.speaker = targetName;
+            l.type = targetName === '旁白' ? 'narration' : 'dialogue';
+            replacedCount += 1;
+            chapModified = true;
+          }
+          if (Array.isArray(l.presentSpeakers)) {
+            const pIdx = l.presentSpeakers.indexOf(sourceName);
+            if (pIdx >= 0) {
+              if (targetName === '旁白') {
+                l.presentSpeakers.splice(pIdx, 1);
+              } else if (!l.presentSpeakers.includes(targetName)) {
+                l.presentSpeakers[pIdx] = targetName;
+              } else {
+                l.presentSpeakers.splice(pIdx, 1);
+              }
+              chapModified = true;
+            }
+          }
+        });
+        if (Array.isArray(ch.cgNodes)) {
+          ch.cgNodes.forEach((cg) => {
+            if (cg && Array.isArray(cg.presentNames)) {
+              const cIdx = cg.presentNames.indexOf(sourceName);
+              if (cIdx >= 0) {
+                if (targetName === '旁白') {
+                  cg.presentNames.splice(cIdx, 1);
+                } else if (!cg.presentNames.includes(targetName)) {
+                  cg.presentNames[cIdx] = targetName;
+                } else {
+                  cg.presentNames.splice(cIdx, 1);
+                }
+              }
+            }
+          });
+        }
+        if (chapModified) {
+          computeChapterStageSlots(ch.scriptLines);
+        }
+      });
+
+      if (Array.isArray(proj.extractedSpeakers)) {
+        const targetChar = (appState.characters || []).find((c) => c && c.name === targetName);
+        proj.extractedSpeakers.forEach((sp) => {
+          if (!sp) return;
+          if (sp.name === sourceName || sp.trueName === sourceName) {
+            sp.name = targetName;
+            sp.trueName = targetName;
+            if (targetChar) sp.charId = targetChar.id;
+          }
+        });
+      }
+
+      _scriptSpeakerFilter = targetName;
+      await saveReplayProjectToDB(proj);
+      renderExtractedSpeakersList();
+      renderReplayScriptEditor();
+      if (typeof renderReplayStageFxStudio === 'function') renderReplayStageFxStudio();
+      if (typeof renderReplayVoiceStudio === 'function') renderReplayVoiceStudio();
+      renderReplayCgStudio();
+      if (statusEl) {
+        statusEl.textContent = `已将「${sourceName}」的 ${replacedCount} 句台词一键替换为「${targetName}」，并已自动关联该角色的立绘差分与配音`;
+      }
+    }
+
     // 清晰分条的文游剧本列表：已将配音与日译去重收敛至「配音」专属分页，此处专注台本文字、说话人、立绘差分与插行删行
     function renderReplayScriptEditor() {
       const box = document.getElementById('replay-script-lines-container');
       if (!box) return;
+      const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
       renderTypoReviewList();
       renderReplayDanmakuList();
+
+      const filterSel = document.getElementById('replay-script-speaker-filter-select');
+      const mergeSel = document.getElementById('replay-script-speaker-merge-target-select');
+
       if (!chap || !Array.isArray(chap.scriptLines) || chap.scriptLines.length === 0) {
+        if (filterSel) filterSel.innerHTML = '<option value="">全部说话人台词</option>';
+        if (mergeSel) mergeSel.innerHTML = '<option value="">选择替换成的角色</option>';
         box.innerHTML = `
           <div class="moe-card" style="text-align:center;color:var(--text-secondary);font-size:12px;">
             当前章节尚未生成视觉小说剧本，请点击上方整理按钮生成
@@ -21094,10 +21224,62 @@ ${numberedLines}`;
         return;
       }
 
-      const baseSpeakerList = ['旁白', ...(appState.characters || []).filter((c) => c.id !== 'narrator_kp' && c.name !== '旁白').map((c) => c.name)];
+      const speakerCountsMap = new Map();
+      chap.scriptLines.forEach((l) => {
+        if (!l) return;
+        const spk = l.speaker || '旁白';
+        speakerCountsMap.set(spk, (speakerCountsMap.get(spk) || 0) + 1);
+      });
+      if (_scriptSpeakerFilter && !speakerCountsMap.has(_scriptSpeakerFilter)) {
+        _scriptSpeakerFilter = '';
+      }
+      if (filterSel) {
+        const spkOpts = [`<option value="" ${!_scriptSpeakerFilter ? 'selected' : ''}>全部说话人台词 · 共${chap.scriptLines.length}句</option>`];
+        speakerCountsMap.forEach((cnt, spkName) => {
+          const isMatchedChar = spkName === '旁白' || (appState.characters || []).some((c) => c && c.name === spkName);
+          const tagSuffix = isMatchedChar ? '' : ' · 未关联立绘';
+          spkOpts.push(`<option value="${spkName.replace(/"/g, '&quot;')}" ${_scriptSpeakerFilter === spkName ? 'selected' : ''}>只看：${spkName} · ${cnt}句${tagSuffix}</option>`);
+        });
+        filterSel.innerHTML = spkOpts.join('');
+      }
+
+      const importedRosterNames = [];
+      const seenRoster = new Set();
+      (proj?.extractedSpeakers || []).forEach((s) => {
+        const n = s && (s.trueName || s.name);
+        if (n && n !== '旁白' && !seenRoster.has(n)) {
+          seenRoster.add(n);
+          importedRosterNames.push(n);
+        }
+      });
+      (appState.characters || []).forEach((c) => {
+        if (c && c.id !== 'narrator_kp' && c.name && c.name !== '旁白' && !seenRoster.has(c.name)) {
+          seenRoster.add(c.name);
+          importedRosterNames.push(c.name);
+        }
+      });
+      if (mergeSel) {
+        const prevMergeVal = mergeSel.value || '';
+        const mergeOpts = [`<option value="">选择替换成的角色</option>`];
+        importedRosterNames.forEach((rName) => {
+          const cObj = (appState.characters || []).find((c) => c && c.name === rName);
+          const hasTachie = Boolean(cObj && (cObj.tachieBase || cObj.chibiImg || (cObj.tachieExpressions && Object.keys(cObj.tachieExpressions).length > 0)));
+          mergeOpts.push(`<option value="${rName.replace(/"/g, '&quot;')}" ${prevMergeVal === rName ? 'selected' : ''}>替换为：${rName}${hasTachie ? ' · 有立绘' : ''}</option>`);
+        });
+        mergeOpts.push(`<option value="旁白" ${prevMergeVal === '旁白' ? 'selected' : ''}>替换为：旁白</option>`);
+        mergeSel.innerHTML = mergeOpts.join('');
+      }
+
+      const baseSpeakerList = ['旁白', ...importedRosterNames];
 
       box.innerHTML = '';
+      let renderedCount = 0;
       chap.scriptLines.forEach((line, idx) => {
+        const hasTypo = Boolean(line.typoInfo && line.typoInfo.wrongWord);
+        if (_scriptTypoOnlyFilter && !hasTypo) return;
+        if (_scriptSpeakerFilter && (line.speaker || '旁白') !== _scriptSpeakerFilter) return;
+        renderedCount += 1;
+
         const activeCgObj = (chap.cgNodes || []).find((g) => {
           const s = g.startLineIdx ?? g.lineIdx ?? 0;
           const e = g.endLineIdx ?? s;
@@ -21111,7 +21293,6 @@ ${numberedLines}`;
           return cl.id === line.clueId || (idx >= s && idx <= e);
         }) || null;
         const hasClue = Boolean(activeClueObj);
-        const hasTypo = Boolean(line.typoInfo && line.typoInfo.wrongWord);
         const isNarration = line.type === 'narration' || line.speaker === '旁白';
 
         const speakerNames = [...baseSpeakerList];
@@ -21211,6 +21392,13 @@ ${numberedLines}`;
         `;
         box.appendChild(card);
       });
+      if (renderedCount === 0) {
+        box.innerHTML = `
+          <div class="moe-card" style="text-align:center;color:var(--text-secondary);font-size:12px;">
+            当前筛选条件下没有匹配的剧本句子
+          </div>
+        `;
+      }
     }
 
     function syncChapterSceneLineRangesFromLines(chap) {
@@ -26187,19 +26375,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           saveCurrentSessionNavState();
           renderReplayProjectSelectors();
           renderTheaterSelectorLobby();
-          const nextChap = proj.chapters[nextChapIdx];
-          const blackoutLayer = document.getElementById('vn-theater-blackout-layer');
-          const blackoutText = document.getElementById('vn-theater-blackout-text');
-          if (blackoutLayer && blackoutText) {
-            blackoutText.textContent = `进入下一章 · ${nextChap?.title || ('第' + (nextChapIdx + 1) + '章')}`;
-            blackoutLayer.classList.add('active');
-            setTimeout(() => {
-              blackoutLayer.classList.remove('active');
-              renderTheaterCurrentLine();
-            }, 1500);
-          } else {
-            renderTheaterCurrentLine();
-          }
+          renderTheaterCurrentLine();
         } else {
           stopTheaterAutoAndSkip();
           openTheaterSelectorLobby();
