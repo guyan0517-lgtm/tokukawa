@@ -2388,6 +2388,7 @@
         <button type="button" class="sub-tab-btn" data-sub="replay-sub-script" onclick="switchSubPage('screen-replay', 'replay-sub-script')">剧本</button>
         <button type="button" class="sub-tab-btn" data-sub="replay-sub-voice" onclick="switchSubPage('screen-replay', 'replay-sub-voice');renderReplayVoiceStudio();">配音</button>
         <button type="button" class="sub-tab-btn" data-sub="replay-sub-cg" onclick="switchSubPage('screen-replay', 'replay-sub-cg')">生图</button>
+        <button type="button" class="sub-tab-btn" data-sub="replay-sub-workshop" onclick="switchSubPage('screen-replay', 'replay-sub-workshop');renderReplayWorkshop();">工坊</button>
       </div>
 
       <!-- 子页0：傻瓜式四步教程指引与全部按键说明 -->
@@ -2620,11 +2621,12 @@
             <select id="replay-script-chapter-select" class="moe-input" onchange="onSelectReplayChapter(this.value)"></select>
           </div>
 
-          <div class="script-top-btn-grid" style="grid-template-columns:repeat(4, 1fr);">
+          <div class="script-top-btn-grid" style="grid-template-columns:repeat(3, 1fr);">
             <button type="button" class="moe-btn" id="replay-gen-script-btn" onclick="generateCurrentChapterScriptViaAi()">整理</button>
             <button type="button" class="moe-btn secondary" id="replay-ai-bgm-btn" onclick="aiMatchCurrentChapterBgm()">配乐</button>
             <button type="button" class="moe-btn secondary" id="replay-ai-exp-btn" onclick="aiMatchCurrentChapterExpressions()">差分</button>
             <button type="button" class="moe-btn secondary" id="replay-ai-cg-opt-btn" onclick="aiOptimizeCurrentChapterCgNodes()">插图</button>
+            <button type="button" class="moe-btn secondary" id="replay-ai-clue-btn" onclick="aiExtractCurrentChapterClues()">线索</button>
             <button type="button" class="moe-btn secondary" id="replay-danmaku-btn" onclick="toggleDanmakuReviewPanel()">弹幕</button>
             <button type="button" class="moe-btn secondary" id="replay-typo-btn" onclick="toggleTypoReviewPanel()">错字</button>
             <button type="button" class="moe-btn secondary" onclick="toggleScriptPromptEditor()">提示</button>
@@ -2765,10 +2767,10 @@
 
         <div class="moe-card">
           <div class="moe-card-header">
-            <span class="moe-card-title">二、 本章场所背景图</span>
-            <button type="button" class="moe-btn secondary" onclick="addManualSceneBgNode()">新增</button>
+            <span class="moe-card-title">二、 本章线索道具列表</span>
+            <button type="button" class="moe-btn secondary" onclick="addManualClueNodeAtEnd()">新增</button>
           </div>
-          <div id="replay-scene-bg-list-container" style="display:flex;flex-direction:column;gap:8px;"></div>
+          <div id="replay-clue-nodes-list-container" style="display:flex;flex-direction:column;gap:8px;"></div>
         </div>
 
         <div class="moe-card">
@@ -2777,6 +2779,43 @@
             <button type="button" class="moe-btn secondary" onclick="addManualCgNodeAtEnd()">新增</button>
           </div>
           <div id="replay-cg-nodes-list-container" style="display:flex;flex-direction:column;gap:10px;"></div>
+        </div>
+      </div>
+
+      <!-- 子页5：线上剧本工坊（单章上传、覆盖老章、搜索下载与一键追更） -->
+      <div id="replay-sub-workshop" class="app-subpage">
+        <div class="moe-card">
+          <div class="moe-card-header">
+            <span class="moe-card-title">一、 我的剧本分章上传与覆盖更新</span>
+            <button type="button" class="moe-btn" id="workshop-upload-chap-btn" onclick="uploadReplayChapterToWorkshop()">上传</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:8px;margin-bottom:8px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label>选择要上传或覆盖的章节</label>
+              <select id="workshop-upload-chapter-select" class="moe-input" onchange="onSelectReplayChapter(this.value)"></select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label>署名作者</label>
+              <input type="text" id="workshop-author-input" class="moe-input" placeholder="输入作者昵称" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:6px;">
+            <label>剧本简介</label>
+            <input type="text" id="workshop-desc-input" class="moe-input" placeholder="一句话介绍剧本背景或更新说明" />
+          </div>
+          <div id="workshop-upload-status" style="font-size:11px;color:var(--text-secondary);">可一章一章上传当前剧本及配套立绘、场所、插图、线索、音乐与配音；若该章已上传过，再次上传会自动覆盖旧章节</div>
+        </div>
+
+        <div class="moe-card">
+          <div class="moe-card-header">
+            <span class="moe-card-title">二、 线上工坊剧本搜索与追更</span>
+            <button type="button" class="moe-btn secondary" onclick="renderReplayWorkshop()">刷新</button>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;">
+            <input type="text" id="workshop-search-input" class="moe-input" style="flex:1;" placeholder="输入剧本名称或作者搜索..." oninput="renderReplayWorkshopList()" />
+            <button type="button" class="moe-btn" onclick="renderReplayWorkshop()">搜索</button>
+          </div>
+          <div id="workshop-projects-list-container" style="display:flex;flex-direction:column;gap:8px;"></div>
         </div>
       </div>
     </section>
@@ -2793,6 +2832,16 @@
         <!-- 第3层：全屏剧情CG插画层 仅当该节点已生成CG图片时显示 -->
         <div class="vn-cg-layer" id="vn-theater-cg-layer" onclick="handleTheaterDockClick()">
           <img id="vn-theater-cg-img" src="" alt="剧情CG" title="点击进入下一句，连续点击三下下载CG" onclick="event.stopPropagation(); handleTheaterCgClick(event); handleTheaterDockClick();" />
+        </div>
+
+        <!-- 第3.2层：画面中央浮现线索道具卡片层 -->
+        <div class="vn-clue-card-layer" id="vn-theater-clue-layer">
+          <div class="vn-clue-card" onclick="event.stopPropagation(); handleTheaterDockClick();">
+            <div class="vn-clue-card-img-wrap">
+              <img id="vn-theater-clue-img" src="" alt="线索道具" />
+            </div>
+            <div class="vn-clue-card-name" id="vn-theater-clue-name"></div>
+          </div>
         </div>
 
         <!-- 第3.5层：全屏暗角呼吸氛围层 -->
@@ -10095,13 +10144,13 @@ ZH: 修改后的纯客观中文服装配饰清单`
         charObj.customActionList.forEach((customAct) => {
           if (!customAct || !customAct.name) return;
           if (customAct.name === '难过' || customAct.name === '流泪') return;
-          if (isMinorNpc && TACHIE_25_EXPRESSIONS.includes(customAct.name) && !MINOR_NPC_8_EXPRESSIONS.includes(customAct.name)) return;
-          if (isMinorNpc) return;
+          if (isMinorNpc && !customAct.userCustom && TACHIE_25_EXPRESSIONS.includes(customAct.name) && !MINOR_NPC_8_EXPRESSIONS.includes(customAct.name)) return;
           if (!merged.some((m) => m.name === customAct.name)) {
             merged.push({
               name: customAct.name,
               zhDesc: customAct.zhDesc || '自定义情绪动作',
-              enTags: stripMultiHeadAndSpriteSheetTags(customAct.enTags || '')
+              enTags: stripMultiHeadAndSpriteSheetTags(customAct.enTags || ''),
+              userCustom: Boolean(customAct.userCustom)
             });
           }
         });
@@ -10247,11 +10296,17 @@ ZH: 修改后的纯客观中文服装配饰清单`
       const tagsEl = document.getElementById('tachie-new-act-tags');
       const name = nameEl.value.trim();
       const enTags = tagsEl.value.trim();
-      if (!name || !enTags) return;
+      if (!name) return;
       const charObj = appState.characters.find((c) => c.id === appState.selectedTachieCharId);
       if (!charObj) return;
       const actions = getCharActionList(charObj);
-      actions.push({ name, zhDesc: '自定义情绪动作', enTags });
+      const existingAct = actions.find((a) => a.name === name);
+      if (existingAct) {
+        if (enTags) existingAct.enTags = enTags;
+        existingAct.userCustom = true;
+      } else {
+        actions.push({ name, zhDesc: '自定义情绪动作', enTags: enTags || '', userCustom: true });
+      }
       charObj.customActionList = actions;
       await db.characters.put(charObj);
       nameEl.value = '';
@@ -17206,11 +17261,9 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
             existing.trpgType = spk.trpgType;
             existing.trpgRoleType = spk.trpgType;
             const baseList = buildPersonaMatchedActions(existing);
-            const userAdded = spk.trpgType === '次要NPC'
-              ? []
-              : (Array.isArray(existing.customActionList)
-                  ? existing.customActionList.filter((a) => a && a.name && !TACHIE_25_EXPRESSIONS.includes(a.name) && !MINOR_NPC_8_EXPRESSIONS.includes(a.name))
-                  : []);
+            const userAdded = Array.isArray(existing.customActionList)
+              ? existing.customActionList.filter((a) => a && a.name && (a.userCustom || (!TACHIE_25_EXPRESSIONS.includes(a.name) && !MINOR_NPC_8_EXPRESSIONS.includes(a.name))))
+              : [];
             existing.customActionList = [...baseList, ...userAdded];
           }
           if (existing.isUniversal) {
@@ -18652,9 +18705,6 @@ CG_MARK: L起始行号-L结束行号|插图简短剧情画面说明|在场角色
       const baseDefaults = isMinorNpc
         ? (typeof MINOR_NPC_8_EXPRESSIONS !== 'undefined' && Array.isArray(MINOR_NPC_8_EXPRESSIONS) ? MINOR_NPC_8_EXPRESSIONS : ['默认', '开心', '惊讶', '愤怒', '伤心', '害羞', '慌乱', '疯狂', '拿起武器', '冷漠', '轻伤', '重伤'])
         : (typeof TACHIE_25_EXPRESSIONS !== 'undefined' && Array.isArray(TACHIE_25_EXPRESSIONS) ? TACHIE_25_EXPRESSIONS : ['默认', '微笑']);
-      if (isMinorNpc) {
-        return [...baseDefaults];
-      }
       const pool = [...baseDefaults];
       if (charObj) {
         if (Array.isArray(charObj.customActionList)) {
@@ -19846,6 +19896,142 @@ ${scriptText}`;
       renderReplayScriptEditor();
     }
 
+    function syncChapterClueLineBindings(chap) {
+      if (!chap || !Array.isArray(chap.scriptLines)) return;
+      chap.scriptLines.forEach((l) => { l.clueId = ''; });
+      if (!Array.isArray(chap.clueNodes)) chap.clueNodes = [];
+      chap.clueNodes.forEach((cl) => {
+        if (!cl) return;
+        const s = Math.max(0, Math.min(chap.scriptLines.length - 1, Number(cl.startLineIdx ?? cl.lineIdx ?? 0)));
+        const e = Math.max(s, Math.min(chap.scriptLines.length - 1, Number(cl.endLineIdx ?? s)));
+        cl.startLineIdx = s;
+        cl.lineIdx = s;
+        cl.endLineIdx = e;
+        for (let k = s; k <= e; k++) {
+          if (chap.scriptLines[k]) chap.scriptLines[k].clueId = cl.id;
+        }
+      });
+    }
+
+    async function aiExtractCurrentChapterClues() {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      if (!proj || !chap || !Array.isArray(chap.scriptLines) || chap.scriptLines.length === 0) {
+        alert('请先点击整理生成当前章节的剧本台词');
+        return;
+      }
+      const btn = document.getElementById('replay-ai-clue-btn');
+      const statusEl = document.getElementById('replay-script-status-bar');
+      if (btn) { btn.textContent = '分析中'; btn.disabled = true; }
+      if (statusEl) statusEl.textContent = `正在分析 ${chap.title} 中调查员获得道具、信件、钥匙或证物的线索节点...`;
+
+      try {
+        const numberedLines = chap.scriptLines.map((l, i) => `${i + 1}|${l.speaker || '旁白'}|${l.text || ''}`).join('\n');
+        const prompt = `你是跑团视觉小说导演。请通读以下当前章节的剧本台词，找出剧情中获得关键道具、发现重要证物、拾取钥匙信件日记或展示关键物品线索的节点，每章精选 1 到 6 个最关键的道具线索节点即可。
+每条输出格式严格为：
+CLUE|起始句号|结束句号|道具短名称|纯物品特写NovelAI英文生图提示词
+
+规则：
+1. 起始句号与结束句号为从1开始的句子编号，通常持续 1 到 3 句。
+2. 道具短名称控制在 2 到 8 个中文字以内，例如：染血的怀表、古旧黄铜钥匙、残缺的日记页。
+3. 英文提示词只画该道具物品本身的精致特写，严禁出现人物，必须以 no humans, still life, object focus, item close-up, centered composition, detailed game icon prop illustration 开头。
+4. 只输出 CLUE|... 行，严禁输出任何解释。
+
+当前章节剧本台词：
+${numberedLines}`;
+
+        const raw = await callLlmCompletion(
+          [{ role: 'user', content: prompt }],
+          null,
+          { caller: `跑团章节道具线索提取·${chap.title}`, preferSubApi: false }
+        );
+        const lines = String(raw || '').split('\n').map((s) => s.trim()).filter((s) => s.startsWith('CLUE|'));
+        if (!Array.isArray(chap.clueNodes)) chap.clueNodes = [];
+        let addedCount = 0;
+        lines.forEach((row, idx) => {
+          const parts = row.split('|').map((x) => x.trim());
+          if (parts.length < 4) return;
+          const sNum = Math.max(1, Math.min(chap.scriptLines.length, parseInt(parts[1], 10) || 1)) - 1;
+          const eNum = Math.max(sNum, Math.min(chap.scriptLines.length - 1, (parseInt(parts[2], 10) || (sNum + 1)) - 1));
+          const clueName = parts[3] || `线索道具${idx + 1}`;
+          const enPrompt = parts[4] || 'no humans, still life, object focus, item close-up, centered composition, detailed visual novel prop illustration, masterpiece, best quality';
+          const existing = chap.clueNodes.find((c) => Number(c.startLineIdx ?? c.lineIdx) === sNum || c.name === clueName);
+          if (existing) {
+            existing.startLineIdx = sNum;
+            existing.lineIdx = sNum;
+            existing.endLineIdx = eNum;
+            existing.name = clueName;
+            if (!existing.prompt) existing.prompt = enPrompt;
+          } else {
+            chap.clueNodes.push({
+              id: `clue_${Date.now()}_${idx}`,
+              name: clueName,
+              startLineIdx: sNum,
+              lineIdx: sNum,
+              endLineIdx: eNum,
+              lineText: chap.scriptLines[sNum]?.text || '',
+              prompt: enPrompt,
+              imageUrl: ''
+            });
+            addedCount++;
+          }
+        });
+        syncChapterClueLineBindings(chap);
+        await saveReplayProjectToDB(proj);
+        renderReplayScriptEditor();
+        renderReplayCgStudio();
+        if (statusEl) {
+          statusEl.textContent = `已完成线索分析，本章共标记 ${chap.clueNodes.length} 个道具线索，可前往生图页绘制道具图片`;
+        }
+      } catch (err) {
+        alert('AI提取线索失败：' + err.message);
+      } finally {
+        if (btn) { btn.textContent = '线索'; btn.disabled = false; }
+      }
+    }
+
+    async function addManualClueForScriptLine(lineIdx) {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      if (!proj || !chap || !Array.isArray(chap.scriptLines) || !chap.scriptLines[lineIdx]) return;
+      if (!Array.isArray(chap.clueNodes)) chap.clueNodes = [];
+      const existingIdx = chap.clueNodes.findIndex((c) => {
+        const s = Number(c.startLineIdx ?? c.lineIdx ?? 0);
+        const e = Number(c.endLineIdx ?? s);
+        return c.id === chap.scriptLines[lineIdx].clueId || (lineIdx >= s && lineIdx <= e);
+      });
+      if (existingIdx >= 0) {
+        chap.clueNodes.splice(existingIdx, 1);
+      } else {
+        const lineObj = chap.scriptLines[lineIdx];
+        chap.clueNodes.push({
+          id: 'clue_' + Date.now() + '_' + lineIdx,
+          name: '新获线索道具',
+          startLineIdx: lineIdx,
+          lineIdx: lineIdx,
+          endLineIdx: lineIdx,
+          lineText: lineObj.text || '',
+          prompt: 'no humans, still life, object focus, item close-up, centered composition, detailed visual novel clue item illustration, masterpiece, best quality',
+          imageUrl: ''
+        });
+      }
+      syncChapterClueLineBindings(chap);
+      await saveReplayProjectToDB(proj);
+      renderReplayScriptEditor();
+      renderReplayCgStudio();
+    }
+
+    function jumpToClueNodeFromScriptLine(clueId) {
+      switchSubPage('screen-replay', 'replay-sub-cg');
+      renderReplayCgStudio();
+      setTimeout(() => {
+        const el = document.getElementById('clue-card-' + clueId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 80);
+    }
+
     let _expandedConsoleLineIdx = -1;
 
     function toggleConsoleRowExpand(idx) {
@@ -19917,6 +20103,12 @@ ${scriptText}`;
         }) || null;
         const hasCg = Boolean(activeCgObj);
         const cgObj = activeCgObj;
+        const activeClueObj = (chap.clueNodes || []).find((cl) => {
+          const s = cl.startLineIdx ?? cl.lineIdx ?? 0;
+          const e = cl.endLineIdx ?? s;
+          return cl.id === line.clueId || (idx >= s && idx <= e);
+        }) || null;
+        const hasClue = Boolean(activeClueObj);
         const hasTypo = Boolean(line.typoInfo && line.typoInfo.wrongWord);
         const isNarration = line.type === 'narration' || line.speaker === '旁白';
 
@@ -19945,6 +20137,9 @@ ${scriptText}`;
           const cgE = (cgObj.endLineIdx ?? cgObj.startLineIdx ?? cgObj.lineIdx ?? idx) + 1;
           const rangeLabel = cgS === cgE ? `第${cgS}句` : `第${cgS}-${cgE}句`;
           badges.push(`<span class="vn-console-badge accent">插图${cgObj.imageUrl ? '已绘' : ''}·${rangeLabel}</span>`);
+        }
+        if (hasClue && activeClueObj) {
+          badges.push(`<span class="vn-console-badge accent">线索${activeClueObj.imageUrl ? '已绘' : ''}·${activeClueObj.name || '道具'}</span>`);
         }
         if (hasTypo) {
           badges.push(`<span class="vn-console-badge accent">错字·${line.typoInfo.wrongWord}</span>`);
@@ -19995,6 +20190,8 @@ ${scriptText}`;
               <button type="button" class="moe-btn secondary vn-play-tri-btn" title="下移一句" ${idx === chap.scriptLines.length - 1 ? 'disabled' : ''} onmousedown="event.stopPropagation()" onclick="moveScriptLineOrder(${idx}, 1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
               <button type="button" class="moe-btn ${hasCg ? '' : 'secondary'}" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" id="line-add-cg-btn-${idx}" onmousedown="event.stopPropagation()" onclick="addManualCgForScriptLine(${idx})">${hasCg ? '撤图' : '插图'}</button>
               ${hasCg && cgObj ? `<button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="jumpToCgNodeFromScriptLine('${cgObj.id}')">调图</button>` : ''}
+              <button type="button" class="moe-btn ${hasClue ? '' : 'secondary'}" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="addManualClueForScriptLine(${idx})">${hasClue ? '撤索' : '线索'}</button>
+              ${hasClue && activeClueObj ? `<button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="jumpToClueNodeFromScriptLine('${activeClueObj.id}')">调索</button>` : ''}
               <button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="insertScriptLineAfter(${idx})">插行</button>
               <button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="deleteScriptLineByIdx(${idx})">删行</button>
             </div>
@@ -20349,16 +20546,16 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       }
     }
 
-    // 场景背景与剧情CG生图工作台
+    // 线索道具与剧情CG生图工作台
     function renderReplayCgStudio() {
       const cabBox = document.getElementById('replay-char-base-cabinet');
-      const bgBox = document.getElementById('replay-scene-bg-list-container');
+      const clueBox = document.getElementById('replay-clue-nodes-list-container');
       const cgBox = document.getElementById('replay-cg-nodes-list-container');
-      if (!bgBox || !cgBox) return;
+      if (!cgBox) return;
       const chap = getCurrentReplayChapter();
       if (!chap) {
         if (cabBox) cabBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">请先选择章节并整理剧本</div>';
-        bgBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">请先选择章节并整理剧本</div>';
+        if (clueBox) clueBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">请先选择章节并整理剧本</div>';
         cgBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">请先选择章节并整理剧本</div>';
         return;
       }
@@ -20396,64 +20593,55 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         }
       }
 
-      const scenes = chap.scenes || [];
-      if (scenes.length === 0) {
-        bgBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">本章暂无场景背景节点，可点右上角新增</div>';
-      } else {
-        bgBox.innerHTML = '';
-        const totalScriptLinesForScene = Array.isArray(chap.scriptLines) ? chap.scriptLines.length : 0;
-        scenes.forEach((sc, sIdx) => {
-          const baseOptionsHtml = [
-            `<option value="">独立新场景</option>`,
-            ...scenes
-              .filter((other) => other.id !== sc.id)
-              .map((other) => `<option value="${other.id}" ${sc.baseSceneId === other.id ? 'selected' : ''}>同地点差分自 ${other.id} ${other.name}</option>`)
-          ].join('');
+      // 2. 渲染本章线索道具列表
+      if (clueBox) {
+        const clueNodes = chap.clueNodes || [];
+        const totalLinesForClue = Array.isArray(chap.scriptLines) ? chap.scriptLines.length : 0;
+        if (clueNodes.length === 0) {
+          clueBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">本章暂无线索道具节点，可在剧本页点顶部线索按钮自动分析提取，或在任意台词行右侧点线索</div>';
+        } else {
+          clueBox.innerHTML = '';
+          clueNodes.forEach((cl, clIdx) => {
+            const clStartIdx = Math.max(0, Math.min(Math.max(0, totalLinesForClue - 1), Number(cl.startLineIdx ?? cl.lineIdx ?? 0)));
+            const clEndIdx = Math.max(clStartIdx, Math.min(Math.max(0, totalLinesForClue - 1), Number(cl.endLineIdx ?? clStartIdx)));
+            const clStartOptions = totalLinesForClue > 0
+              ? chap.scriptLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === clStartIdx ? 'selected' : ''}>从第 ${lIdx + 1} 句：${(l.speaker || '旁白')}·${String(l.text || '').slice(0, 14)}</option>`).join('')
+              : `<option value="0">第 1 句</option>`;
+            const clEndOptions = totalLinesForClue > 0
+              ? chap.scriptLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === clEndIdx ? 'selected' : ''}>到第 ${lIdx + 1} 句：${(l.speaker || '旁白')}·${String(l.text || '').slice(0, 14)}</option>`).join('')
+              : `<option value="0">第 1 句</option>`;
 
-          const scStart = sc.startLineIdx !== undefined ? Math.max(0, Math.min(Math.max(0, totalScriptLinesForScene - 1), Number(sc.startLineIdx) || 0)) : -1;
-          const scEnd = sc.endLineIdx !== undefined ? Math.max(Math.max(0, scStart), Math.min(Math.max(0, totalScriptLinesForScene - 1), Number(sc.endLineIdx) || 0)) : -1;
-          const scStartOptions = `<option value="-1" ${scStart < 0 ? 'selected' : ''}>起始句：按剧本标记自动</option>` + (
-            totalScriptLinesForScene > 0
-              ? chap.scriptLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === scStart ? 'selected' : ''}>从第 ${lIdx + 1} 句：${(l.speaker || '旁白')}·${String(l.text || '').slice(0, 12)}</option>`).join('')
-              : ''
-          );
-          const scEndOptions = `<option value="-1" ${scEnd < 0 ? 'selected' : ''}>结束句：按剧本标记自动</option>` + (
-            totalScriptLinesForScene > 0
-              ? chap.scriptLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === scEnd ? 'selected' : ''}>到第 ${lIdx + 1} 句：${(l.speaker || '旁白')}·${String(l.text || '').slice(0, 12)}</option>`).join('')
-              : ''
-          );
-
-          const card = document.createElement('div');
-          card.className = 'setting-item';
-          card.style.flexDirection = 'column';
-          card.style.alignItems = 'stretch';
-          card.style.gap = '8px';
-          card.innerHTML = `
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-              <span style="font-size:12px;font-weight:800;color:var(--accent-color);flex-shrink:0;">${sc.id}</span>
-              <input type="text" class="moe-input" value="${(sc.name || '').replace(/"/g, '&quot;')}" style="height:32px;min-height:32px;font-size:12px;font-weight:700;flex:1;min-width:120px;" onchange="updateReplaySceneNodeField(${sIdx}, 'name', this.value)" />
-              <select class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplaySceneNodeField(${sIdx}, 'baseSceneId', this.value)">
-                ${baseOptionsHtml}
-              </select>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-              <select class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplaySceneNodeField(${sIdx}, 'startLineIdx', this.value)">
-                ${scStartOptions}
-              </select>
-              <select class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplaySceneNodeField(${sIdx}, 'endLineIdx', this.value)">
-                ${scEndOptions}
-              </select>
-            </div>
-            <textarea class="moe-input" style="min-height:52px;font-size:11px;" onchange="updateReplaySceneNodeField(${sIdx}, 'prompt', this.value)">${sc.prompt || ''}</textarea>
-            <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;">
-              <button type="button" class="moe-btn" id="scene-gen-btn-${sIdx}" onclick="generateSingleReplaySceneBg(${sIdx})">${sc.imageUrl ? '重绘' : '生图'}</button>
-              <button type="button" class="moe-btn secondary" onclick="document.getElementById('scene-upload-input-${sIdx}').click()">传图</button>
-              <input type="file" id="scene-upload-input-${sIdx}" accept="image/*" style="display:none;" onchange="handleReplaySceneBgUpload(event, ${sIdx})" />
-            </div>
-            ${sc.imageUrl ? `<img src="${toFastDisplayUrl(sc.imageUrl)}" decoding="async" loading="lazy" alt="${sc.name}" style="width:100%;height:130px;object-fit:cover;border-radius:8px;border:1px solid var(--border-color);cursor:pointer;" title="连续点击三下下载背景图" onclick="handleStageImgTripleClick(event, '场景_${sc.name}')" />` : ''}
-          `;
-          bgBox.appendChild(card);
-        });
+            const card = document.createElement('div');
+            card.id = 'clue-card-' + cl.id;
+            card.className = 'setting-item';
+            card.style.flexDirection = 'column';
+            card.style.alignItems = 'stretch';
+            card.style.gap = '6px';
+            card.innerHTML = `
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                <input type="text" class="moe-input" value="${(cl.name || '').replace(/"/g, '&quot;')}" placeholder="线索道具名称" style="max-width:190px;height:30px;min-height:30px;font-weight:700;font-size:12px;" onchange="updateReplayClueNodeField(${clIdx}, 'name', this.value)" />
+                <span style="font-size:11px;color:var(--text-secondary);">浮现于第 ${clStartIdx + 1} 至第 ${clEndIdx + 1} 句</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <select class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplayClueNodeField(${clIdx}, 'startLineIdx', this.value)">
+                  ${clStartOptions}
+                </select>
+                <select class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplayClueNodeField(${clIdx}, 'endLineIdx', this.value)">
+                  ${clEndOptions}
+                </select>
+              </div>
+              <textarea class="moe-input" style="min-height:52px;font-size:11px;" placeholder="线索道具纯物品特写英文提示词" onchange="updateReplayClueNodeField(${clIdx}, 'prompt', this.value)">${cl.prompt || ''}</textarea>
+              <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;">
+                <button type="button" class="moe-btn" id="clue-gen-btn-${clIdx}" onclick="generateSingleReplayClueImg(${clIdx})">${cl.imageUrl ? '重绘' : '生图'}</button>
+                <button type="button" class="moe-btn secondary" onclick="document.getElementById('clue-upload-input-${clIdx}').click()">传图</button>
+                <input type="file" id="clue-upload-input-${clIdx}" accept="image/*" style="display:none;" onchange="handleReplayClueImgUpload(event, ${clIdx})" />
+                <button type="button" class="moe-btn secondary" onclick="deleteReplayClueNode(${clIdx})">删除</button>
+              </div>
+              ${cl.imageUrl ? `<img src="${toFastDisplayUrl(cl.imageUrl)}" decoding="async" loading="lazy" alt="${cl.name}" style="width:120px;height:120px;object-fit:cover;border-radius:10px;border:1.5px solid var(--border-color);align-self:center;cursor:pointer;" title="连续点击三下下载线索图" onclick="handleStageImgTripleClick(event, '线索_${cl.name}')" />` : ''}
+            `;
+            clueBox.appendChild(card);
+          });
+        }
       }
 
       const cgNodes = chap.cgNodes || [];
@@ -20863,12 +21051,12 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       if (startBtn) { startBtn.textContent = '排队中'; startBtn.disabled = true; }
 
       try {
-        const scenes = chap.scenes || [];
-        for (let i = 0; i < scenes.length; i++) {
+        const clues = chap.clueNodes || [];
+        for (let i = 0; i < clues.length; i++) {
           if (!appState.replayCgQueueRunning) break;
-          if (!scenes[i].imageUrl) {
-            if (statusEl) statusEl.textContent = `正在排队生成场所背景 ${i + 1}/${scenes.length}：${scenes[i].name}`;
-            await generateSingleReplaySceneBg(i);
+          if (!clues[i].imageUrl) {
+            if (statusEl) statusEl.textContent = `正在排队生成线索道具 ${i + 1}/${clues.length}：${clues[i].name}`;
+            await generateSingleReplayClueImg(i);
           }
         }
         const cgs = chap.cgNodes || [];
@@ -20881,7 +21069,7 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
         }
         if (statusEl) {
           statusEl.textContent = appState.replayCgQueueRunning
-            ? '本章所有待生成场景背景与剧情CG已全部生成完毕！'
+            ? '本章所有待生成线索道具与剧情CG已全部生成完毕！'
             : '已暂停生图队列，下次点击排队可继续生成剩余图片';
         }
       } catch (_) {
@@ -20896,6 +21084,400 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
       appState.replayCgQueueRunning = false;
       const statusEl = document.getElementById('replay-cg-queue-status');
       if (statusEl) statusEl.textContent = '正在暂停队列，当前单张图片完成后将停止...';
+    }
+
+    async function addManualClueNodeAtEnd() {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      if (!proj || !chap) return;
+      if (!Array.isArray(chap.clueNodes)) chap.clueNodes = [];
+      const lastIdx = Math.max(0, (chap.scriptLines?.length || 1) - 1);
+      chap.clueNodes.push({
+        id: 'clue_' + Date.now() + '_' + chap.clueNodes.length,
+        name: `线索道具 ${chap.clueNodes.length + 1}`,
+        startLineIdx: lastIdx,
+        lineIdx: lastIdx,
+        endLineIdx: lastIdx,
+        lineText: chap.scriptLines?.[lastIdx]?.text || '',
+        prompt: 'no humans, still life, object focus, item close-up, centered composition, detailed visual novel clue prop illustration, masterpiece, best quality',
+        imageUrl: ''
+      });
+      syncChapterClueLineBindings(chap);
+      await saveReplayProjectToDB(proj);
+      renderReplayScriptEditor();
+      renderReplayCgStudio();
+    }
+
+    async function updateReplayClueNodeField(clIdx, field, val) {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      if (!proj || !chap || !chap.clueNodes || !chap.clueNodes[clIdx]) return;
+      const cl = chap.clueNodes[clIdx];
+      if (field === 'startLineIdx' || field === 'endLineIdx') {
+        const num = Math.max(0, parseInt(val, 10) || 0);
+        if (field === 'startLineIdx') {
+          cl.startLineIdx = num;
+          cl.lineIdx = num;
+          if ((cl.endLineIdx ?? num) < num) cl.endLineIdx = num;
+        } else {
+          cl.endLineIdx = num;
+          if ((cl.startLineIdx ?? cl.lineIdx ?? 0) > num) {
+            cl.startLineIdx = num;
+            cl.lineIdx = num;
+          }
+        }
+        syncChapterClueLineBindings(chap);
+        await saveReplayProjectToDB(proj);
+        renderReplayScriptEditor();
+        renderReplayCgStudio();
+        return;
+      }
+      cl[field] = val;
+      await saveReplayProjectToDB(proj);
+      renderReplayScriptEditor();
+    }
+
+    async function deleteReplayClueNode(clIdx) {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      if (!proj || !chap || !chap.clueNodes || !chap.clueNodes[clIdx]) return;
+      chap.clueNodes.splice(clIdx, 1);
+      syncChapterClueLineBindings(chap);
+      await saveReplayProjectToDB(proj);
+      renderReplayScriptEditor();
+      renderReplayCgStudio();
+    }
+
+    async function generateSingleReplayClueImg(clIdx) {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      if (!proj || !chap || !chap.clueNodes || !chap.clueNodes[clIdx]) return;
+      const cl = chap.clueNodes[clIdx];
+      const btn = document.getElementById(`clue-gen-btn-${clIdx}`);
+      if (btn) { btn.textContent = '生图中'; btn.disabled = true; }
+      try {
+        if (!cl.prompt || !cl.prompt.trim()) {
+          cl.prompt = `no humans, still life, object focus, item close-up, centered composition, detailed visual novel prop illustration, masterpiece, best quality`;
+        }
+        const neg = (getNovelAISettings().default_negative || '') + ', 1girl, 1boy, people, character, hands, fingers, text, watermark, signature';
+        const { dataUrl } = await callNovelAiDirect(cl.prompt, {
+          resolution: '1024x1024',
+          seed: -1,
+          negativePrompt: neg,
+          vibeImages: appState.styleRefList || [],
+          charRefImage: null,
+          caller: `跑团线索道具生图·${cl.name}`
+        });
+        const safeProj = (proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
+        const savedClueUrl = await saveAssetToLocalBridge(`projects/${safeProj}/clues/${cl.id}.png`, dataUrl);
+        cl.imageUrl = savedClueUrl;
+        await saveReplayProjectToDB(proj);
+        renderReplayCgStudio();
+        renderReplayScriptEditor();
+      } catch (err) {
+        alert('线索道具生图失败：' + err.message);
+      } finally {
+        if (btn) { btn.textContent = cl.imageUrl ? '重绘' : '生图'; btn.disabled = false; }
+      }
+    }
+
+    function handleReplayClueImgUpload(event, clIdx) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const proj = getCurrentReplayProject();
+        const chap = getCurrentReplayChapter();
+        if (!proj || !chap || !chap.clueNodes || !chap.clueNodes[clIdx]) return;
+        const safeProj = (proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
+        const savedClueUrl = await saveAssetToLocalBridge(`projects/${safeProj}/clues/${chap.clueNodes[clIdx].id}.png`, e.target.result);
+        chap.clueNodes[clIdx].imageUrl = savedClueUrl;
+        await saveReplayProjectToDB(proj);
+        renderReplayCgStudio();
+        renderReplayScriptEditor();
+      };
+      reader.readAsDataURL(file);
+      event.target.value = '';
+    }
+
+    // ==================== 线上剧本工坊前端交互逻辑 ====================
+    let _workshopItemsCache = [];
+
+    async function renderReplayWorkshop() {
+      const proj = getCurrentReplayProject();
+      const chapSelect = document.getElementById('workshop-upload-chapter-select');
+      const authorInput = document.getElementById('workshop-author-input');
+      const descInput = document.getElementById('workshop-desc-input');
+      if (chapSelect && proj && Array.isArray(proj.chapters)) {
+        chapSelect.innerHTML = proj.chapters.map((c, idx) => `<option value="${idx}" ${idx === appState.currentReplayChapterIdx ? 'selected' : ''}>第 ${idx + 1} 章：${c.title || '未命名章节'}</option>`).join('');
+      }
+      if (authorInput && !authorInput.value) {
+        authorInput.value = localStorage.getItem('workshop-author-name') || '跑团KP';
+      }
+      if (descInput && proj && !descInput.value) {
+        descInput.value = proj.workshopDesc || '';
+      }
+
+      const q = document.getElementById('workshop-search-input')?.value?.trim() || '';
+      try {
+        const res = await fetch(`/api/workshop/list?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        if (data && Array.isArray(data.items)) {
+          _workshopItemsCache = data.items;
+        }
+      } catch (err) {
+        console.warn('获取工坊列表失败:', err);
+      }
+      renderReplayWorkshopList();
+    }
+
+    function renderReplayWorkshopList() {
+      const box = document.getElementById('workshop-projects-list-container');
+      if (!box) return;
+      const q = (document.getElementById('workshop-search-input')?.value || '').trim().toLowerCase();
+      const filtered = q
+        ? _workshopItemsCache.filter((item) =>
+            String(item.title || '').toLowerCase().includes(q) ||
+            String(item.author || '').toLowerCase().includes(q) ||
+            String(item.desc || '').toLowerCase().includes(q)
+          )
+        : _workshopItemsCache;
+
+      if (filtered.length === 0) {
+        box.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);text-align:center;padding:14px 0;">工坊暂无匹配的剧本，可在上方选择章节并点上传发布第一个剧本章节</div>';
+        return;
+      }
+
+      box.innerHTML = '';
+      filtered.forEach((item) => {
+        const localProj = (appState.replayProjects || []).find((p) => p.id === item.id);
+        const localChapCount = localProj && Array.isArray(localProj.chapters) ? localProj.chapters.length : 0;
+        const hasNewUpdate = localProj && ((item.updatedAt || 0) > (localProj.workshopSyncedAt || 0) || (item.chapterCount || 0) > localChapCount);
+        const chapBadges = (item.chaptersMeta || []).map((cm, idx) => `<span style="font-size:10px;padding:2px 6px;border-radius:6px;background:var(--secondary-bg);border:1px solid var(--border-color);color:var(--text-secondary);">${cm.title || ('第' + (idx + 1) + '章')} v${cm.version || 1}</span>`).join('');
+        const timeStr = item.updatedAt ? new Date(item.updatedAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+
+        const row = document.createElement('div');
+        row.className = 'setting-item';
+        row.style.flexDirection = 'column';
+        row.style.alignItems = 'stretch';
+        row.style.gap = '6px';
+        row.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <div class="setting-item-center" style="min-width:0;">
+              <div class="setting-item-title" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                <span>${item.title || '未命名剧本'}</span>
+                <span style="font-size:11px;color:var(--accent-color);font-weight:600;">作者：${item.author || '匿名KP'}</span>
+                <span style="font-size:11px;color:var(--text-secondary);">共 ${item.chapterCount || 0} 章 · 更新于 ${timeStr}</span>
+              </div>
+              <div class="setting-item-sub" style="white-space:normal;">${item.desc || '包含全套角色立绘、场所地图、剧情CG、道具线索、音乐与配音'}</div>
+            </div>
+            <div class="setting-item-right" style="flex-shrink:0;">
+              <button type="button" class="moe-btn ${hasNewUpdate ? '' : (localProj ? 'secondary' : '')}" id="workshop-dl-btn-${item.id}" onclick="downloadOrUpdateWorkshopProject('${item.id}')">${localProj ? (hasNewUpdate ? '追更' : '同步') : '保存'}</button>
+            </div>
+          </div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;">${chapBadges}</div>
+        `;
+        box.appendChild(row);
+      });
+    }
+
+    async function uploadReplayChapterToWorkshop() {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      if (!proj || !chap) {
+        alert('请先选择要上传的剧本与章节');
+        return;
+      }
+      const btn = document.getElementById('workshop-upload-chap-btn');
+      const statusEl = document.getElementById('workshop-upload-status');
+      const author = (document.getElementById('workshop-author-input')?.value || '').trim() || '跑团KP';
+      const desc = (document.getElementById('workshop-desc-input')?.value || '').trim();
+      localStorage.setItem('workshop-author-name', author);
+      proj.workshopDesc = desc;
+
+      if (btn) { btn.textContent = '上传中'; btn.disabled = true; }
+      if (statusEl) statusEl.textContent = `正在打包并上传「${proj.title} · ${chap.title}」的剧本、立绘、场景、CG、线索、配音与音乐...`;
+
+      try {
+        // 收集本剧本相关的角色档案
+        const speakerNameSet = new Set();
+        (proj.extractedSpeakers || []).forEach((s) => {
+          if (s.name) speakerNameSet.add(s.name);
+          if (s.trueName) speakerNameSet.add(s.trueName);
+        });
+        (chap.scriptLines || []).forEach((l) => {
+          if (l.speaker && l.speaker !== '旁白') speakerNameSet.add(l.speaker);
+        });
+        const relatedChars = (appState.characters || []).filter((c) => c.moduleId === proj.id || speakerNameSet.has(c.name));
+
+        // 收集本章已生成的配音缓存
+        const chapterTtsList = [];
+        if (Array.isArray(chap.scriptLines)) {
+          for (let i = 0; i < chap.scriptLines.length; i++) {
+            const l = chap.scriptLines[i];
+            if (l && l.ttsKey) {
+              const ttsRec = await db.ttsCache.get(l.ttsKey);
+              if (ttsRec && ttsRec.audioData) {
+                chapterTtsList.push(ttsRec);
+              }
+            }
+          }
+        }
+
+        const payload = {
+          projectId: proj.id,
+          title: proj.title || '未命名跑团剧本',
+          author,
+          desc,
+          uiTheme: proj.uiTheme || localStorage.getItem('vn-theater-stage-style') || 'ark_grad',
+          globalScenes: proj.globalScenes || [],
+          extractedSpeakers: proj.extractedSpeakers || [],
+          characters: relatedChars,
+          bgmTracks: appState.bgmTracks || [],
+          chapterIndex: appState.currentReplayChapterIdx,
+          chapterData: {
+            ...chap,
+            order: appState.currentReplayChapterIdx
+          },
+          chapterTtsList
+        };
+
+        const res = await fetch('/api/workshop/upload-chapter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          throw new Error(data.error || '上传工坊失败');
+        }
+        proj.workshopSyncedAt = Date.now();
+        await saveReplayProjectToDB(proj);
+        if (statusEl) {
+          statusEl.textContent = data.isOverwrite
+            ? `已成功覆盖更新工坊中的「${chap.title}」第 ${data.chapterVersion} 版，其他章节保持原样`
+            : `已成功发布「${chap.title}」到工坊，当前剧本在工坊共有 ${data.chapterCount} 章`;
+        }
+        await renderReplayWorkshop();
+      } catch (err) {
+        alert('上传工坊失败：' + err.message);
+        if (statusEl) statusEl.textContent = '上传失败：' + err.message;
+      } finally {
+        if (btn) { btn.textContent = '上传'; btn.disabled = false; }
+      }
+    }
+
+    async function downloadOrUpdateWorkshopProject(projectId) {
+      const btn = document.getElementById(`workshop-dl-btn-${projectId}`);
+      if (btn) { btn.textContent = '同步中'; btn.disabled = true; }
+      try {
+        const res = await fetch(`/api/workshop/project/${encodeURIComponent(projectId)}`);
+        const data = await res.json();
+        if (!res.ok || !data.ok || !data.project) {
+          throw new Error(data.error || '拉取工坊剧本失败');
+        }
+        const remoteProj = data.project;
+
+        // 1. 同步关联角色与立绘差分到本地
+        if (Array.isArray(remoteProj.characters)) {
+          for (const rc of remoteProj.characters) {
+            if (!rc || !rc.id) continue;
+            const localIdx = appState.characters.findIndex((c) => c.id === rc.id || c.name === rc.name);
+            if (localIdx >= 0) {
+              appState.characters[localIdx] = { ...appState.characters[localIdx], ...rc };
+              await db.characters.put(appState.characters[localIdx]);
+            } else {
+              appState.characters.push(rc);
+              await db.characters.put(rc);
+            }
+          }
+        }
+
+        // 2. 同步关联音乐库到本地
+        if (Array.isArray(remoteProj.bgmTracks)) {
+          for (const rb of remoteProj.bgmTracks) {
+            if (!rb || (!rb.id && !rb.name)) continue;
+            const exists = (appState.bgmTracks || []).some((b) => (rb.id && b.id === rb.id) || (rb.name && b.name === rb.name));
+            if (!exists) {
+              const trackObj = { ...rb, id: rb.id || ('bgm_ws_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)) };
+              appState.bgmTracks.push(trackObj);
+              await db.bgmTracks.put(trackObj);
+            }
+          }
+        }
+
+        // 3. 同步所有章节的配音音频到本地 ttsCache
+        if (remoteProj.ttsByChapter && typeof remoteProj.ttsByChapter === 'object') {
+          for (const chapKey of Object.keys(remoteProj.ttsByChapter)) {
+            const ttsArr = remoteProj.ttsByChapter[chapKey];
+            if (Array.isArray(ttsArr)) {
+              for (const rec of ttsArr) {
+                if (rec && rec.id && rec.audioData) {
+                  await db.ttsCache.put(rec);
+                }
+              }
+            }
+          }
+        }
+
+        // 4. 合并或新建本地跑团剧本项目（按章节覆盖更新以支持追更）
+        let localProj = (appState.replayProjects || []).find((p) => p.id === remoteProj.id);
+        if (!localProj) {
+          localProj = {
+            id: remoteProj.id,
+            title: remoteProj.title || '工坊剧本',
+            rawLog: '',
+            uiTheme: remoteProj.uiTheme || 'ark_grad',
+            globalScenes: remoteProj.globalScenes || [],
+            extractedSpeakers: remoteProj.extractedSpeakers || [],
+            chapters: Array.isArray(remoteProj.chapters) ? remoteProj.chapters : [],
+            workshopDesc: remoteProj.desc || '',
+            workshopSyncedAt: remoteProj.updatedAt || Date.now(),
+            updatedAt: Date.now()
+          };
+          appState.replayProjects.unshift(localProj);
+        } else {
+          localProj.title = remoteProj.title || localProj.title;
+          if (remoteProj.uiTheme) localProj.uiTheme = remoteProj.uiTheme;
+          if (Array.isArray(remoteProj.globalScenes) && remoteProj.globalScenes.length > 0) {
+            localProj.globalScenes = remoteProj.globalScenes;
+          }
+          if (Array.isArray(remoteProj.extractedSpeakers) && remoteProj.extractedSpeakers.length > 0) {
+            localProj.extractedSpeakers = remoteProj.extractedSpeakers;
+          }
+          if (!Array.isArray(localProj.chapters)) localProj.chapters = [];
+          (remoteProj.chapters || []).forEach((rChap, rIdx) => {
+            const targetOrder = Number(rChap.order ?? rIdx);
+            const cIdx = localProj.chapters.findIndex((c) => (rChap.id && c.id === rChap.id) || Number(c.order ?? -1) === targetOrder);
+            if (cIdx >= 0) {
+              localProj.chapters[cIdx] = { ...rChap, order: targetOrder };
+            } else {
+              localProj.chapters.push({ ...rChap, order: targetOrder });
+            }
+          });
+          localProj.chapters.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
+          localProj.workshopSyncedAt = remoteProj.updatedAt || Date.now();
+          localProj.updatedAt = Date.now();
+        }
+
+        await saveReplayProjectToDB(localProj);
+        appState.currentReplayProjectId = localProj.id;
+        appState.currentReplayChapterIdx = 0;
+        populateCharacterSelects();
+        renderReplayProjectSelectors();
+        renderReplayChaptersList();
+        renderReplayScriptEditor();
+        renderReplayCgStudio();
+        renderReplayWorkshopList();
+        const statusEl = document.getElementById('workshop-upload-status');
+        if (statusEl) {
+          statusEl.textContent = `已将「${localProj.title}」全套章节、立绘、场景、CG、线索、配音与音乐同步到本地，可直接点右上角剧本进入观看`;
+        }
+      } catch (err) {
+        alert('同步工坊剧本失败：' + err.message);
+      } finally {
+        if (btn) { btn.textContent = '已存'; btn.disabled = false; }
+      }
     }
 
     // MiniMax 语音合成与 IndexedDB 永久缓存 + BGM自动闪避压低
@@ -22500,6 +23082,34 @@ CG_PROMPT: CG序号数字如0|修改后的中文画面说明|在场角色姓名�
           cgLayer.classList.add('active');
         } else {
           cgLayer.classList.remove('active');
+        }
+      }
+
+      // 4.5 判断当前行是否处于某张线索道具小卡片的起止展示范围内
+      const clueLayer = document.getElementById('vn-theater-clue-layer');
+      const clueImg = document.getElementById('vn-theater-clue-img');
+      const clueNameEl = document.getElementById('vn-theater-clue-name');
+      const clueObj = (chap.clueNodes || []).find((cl) => {
+        if (!cl) return false;
+        const s = Number(cl.startLineIdx ?? cl.lineIdx ?? 0);
+        const e = Number(cl.endLineIdx ?? s);
+        return (line.clueId && cl.id === line.clueId) || (idx >= s && idx <= e);
+      }) || null;
+      if (clueLayer && clueImg && clueNameEl) {
+        if (clueObj && (clueObj.imageUrl || clueObj.name)) {
+          if (clueObj.imageUrl) {
+            const fastClueUrl = toFastDisplayUrl(clueObj.imageUrl);
+            if (clueImg.getAttribute('src') !== fastClueUrl) {
+              clueImg.src = fastClueUrl;
+            }
+            clueImg.style.display = 'block';
+          } else {
+            clueImg.style.display = 'none';
+          }
+          clueNameEl.textContent = clueObj.name || '关键线索';
+          clueLayer.classList.add('active');
+        } else {
+          clueLayer.classList.remove('active');
         }
       }
 

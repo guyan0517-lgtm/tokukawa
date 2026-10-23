@@ -1131,6 +1131,223 @@ app.get('/api/peer/poll', (req, res) => {
   pollers.add(entry);
 });
 
+// ==================== 线上剧本工坊 (分章上传、覆盖老章、搜索与追更下载) ====================
+const WORKSHOP_DIR = path.join(__dirname, '.workshop-store');
+const WORKSHOP_INDEX_FILE = path.join(WORKSHOP_DIR, 'workshop-index.json');
+if (!fs.existsSync(WORKSHOP_DIR)) {
+  fs.mkdirSync(WORKSHOP_DIR, { recursive: true });
+}
+
+function readWorkshopIndex() {
+  try {
+    if (!fs.existsSync(WORKSHOP_INDEX_FILE)) return [];
+    const raw = fs.readFileSync(WORKSHOP_INDEX_FILE, 'utf-8');
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.warn('[Workshop] Read index error:', err.message);
+    return [];
+  }
+}
+
+function writeWorkshopIndex(list) {
+  try {
+    fs.writeFileSync(WORKSHOP_INDEX_FILE, JSON.stringify(list, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('[Workshop] Write index error:', err.message);
+  }
+}
+
+function readWorkshopProjectData(projectId) {
+  const safeId = String(projectId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const projFile = path.join(WORKSHOP_DIR, `${safeId}.json`);
+  if (!fs.existsSync(projFile)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(projFile, 'utf-8'));
+  } catch (err) {
+    return null;
+  }
+}
+
+function writeWorkshopProjectData(projectId, data) {
+  const safeId = String(projectId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const projFile = path.join(WORKSHOP_DIR, `${safeId}.json`);
+  fs.writeFileSync(projFile, JSON.stringify(data), 'utf-8');
+}
+
+app.get('/api/workshop/list', (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim().toLowerCase();
+    const list = readWorkshopIndex();
+    const filtered = q
+      ? list.filter((item) =>
+          String(item.title || '').toLowerCase().includes(q) ||
+          String(item.author || '').toLowerCase().includes(q) ||
+          String(item.desc || '').toLowerCase().includes(q)
+        )
+      : list;
+    filtered.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    res.json({ ok: true, items: filtered });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/workshop/upload-chapter', (req, res) => {
+  try {
+    const {
+      projectId,
+      title,
+      author,
+      desc,
+      uiTheme,
+      globalScenes,
+      extractedSpeakers,
+      characters,
+      bgmTracks,
+      chapterIndex,
+      chapterData,
+      chapterTtsList
+    } = req.body || {};
+
+    if (!projectId || !chapterData) {
+      return res.status(400).json({ error: '缺少剧本ID或章节数据' });
+    }
+
+    const now = Date.now();
+    let storedProj = readWorkshopProjectData(projectId);
+    if (!storedProj) {
+      storedProj = {
+        id: projectId,
+        title: title || '未命名跑团剧本',
+        author: author || '匿名KP',
+        desc: desc || '',
+        uiTheme: uiTheme || 'default',
+        globalScenes: Array.isArray(globalScenes) ? globalScenes : [],
+        extractedSpeakers: Array.isArray(extractedSpeakers) ? extractedSpeakers : [],
+        characters: Array.isArray(characters) ? characters : [],
+        bgmTracks: Array.isArray(bgmTracks) ? bgmTracks : [],
+        chapters: [],
+        ttsByChapter: {},
+        createdAt: now,
+        updatedAt: now
+      };
+    }
+
+    storedProj.title = title || storedProj.title || '未命名跑团剧本';
+    storedProj.author = author || storedProj.author || '匿名KP';
+    if (typeof desc === 'string') storedProj.desc = desc;
+    if (uiTheme) storedProj.uiTheme = uiTheme;
+    if (Array.isArray(globalScenes) && globalScenes.length > 0) {
+      storedProj.globalScenes = globalScenes;
+    }
+    if (Array.isArray(extractedSpeakers) && extractedSpeakers.length > 0) {
+      storedProj.extractedSpeakers = extractedSpeakers;
+    }
+    if (Array.isArray(characters) && characters.length > 0) {
+      const charMap = new Map();
+      (storedProj.characters || []).forEach((c) => {
+        if (c && c.id) charMap.set(c.id, c);
+      });
+      characters.forEach((c) => {
+        if (c && c.id) charMap.set(c.id, c);
+      });
+      storedProj.characters = Array.from(charMap.values());
+    }
+    if (Array.isArray(bgmTracks) && bgmTracks.length > 0) {
+      const bgmMap = new Map();
+      (storedProj.bgmTracks || []).forEach((b) => {
+        if (b && (b.id || b.name)) bgmMap.set(b.id || b.name, b);
+      });
+      bgmTracks.forEach((b) => {
+        if (b && (b.id || b.name)) bgmMap.set(b.id || b.name, b);
+      });
+      storedProj.bgmTracks = Array.from(bgmMap.values());
+    }
+
+    if (!Array.isArray(storedProj.chapters)) storedProj.chapters = [];
+    const targetChapOrder = Number(chapterIndex ?? chapterData.order ?? 0);
+    const chapRecord = {
+      ...chapterData,
+      order: targetChapOrder,
+      version: ((storedProj.chapters.find((c) => Number(c.order) === targetChapOrder || c.id === chapterData.id)?.version) || 0) + 1,
+      updatedAt: now
+    };
+
+    const existingIdx = storedProj.chapters.findIndex(
+      (c) => (chapterData.id && c.id === chapterData.id) || Number(c.order) === targetChapOrder
+    );
+    const isOverwrite = existingIdx >= 0;
+    if (existingIdx >= 0) {
+      storedProj.chapters[existingIdx] = chapRecord;
+    } else {
+      storedProj.chapters.push(chapRecord);
+      storedProj.chapters.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
+    }
+
+    if (!storedProj.ttsByChapter || typeof storedProj.ttsByChapter !== 'object') {
+      storedProj.ttsByChapter = {};
+    }
+    const ttsKey = String(chapRecord.id || `chap_${targetChapOrder}`);
+    if (Array.isArray(chapterTtsList)) {
+      storedProj.ttsByChapter[ttsKey] = chapterTtsList;
+    }
+
+    storedProj.updatedAt = now;
+    writeWorkshopProjectData(projectId, storedProj);
+
+    const indexList = readWorkshopIndex();
+    const summaryItem = {
+      id: storedProj.id,
+      title: storedProj.title,
+      author: storedProj.author,
+      desc: storedProj.desc || '',
+      uiTheme: storedProj.uiTheme || 'default',
+      chapterCount: storedProj.chapters.length,
+      chaptersMeta: storedProj.chapters.map((c, idx) => ({
+        id: c.id || `chap_${idx}`,
+        order: Number(c.order ?? idx),
+        title: c.title || `第${idx + 1}章`,
+        lineCount: Array.isArray(c.scriptLines) ? c.scriptLines.length : 0,
+        version: c.version || 1,
+        updatedAt: c.updatedAt || now
+      })),
+      updatedAt: now
+    };
+    const sumIdx = indexList.findIndex((x) => x.id === storedProj.id);
+    if (sumIdx >= 0) {
+      indexList[sumIdx] = summaryItem;
+    } else {
+      indexList.unshift(summaryItem);
+    }
+    writeWorkshopIndex(indexList);
+
+    res.json({
+      ok: true,
+      isOverwrite,
+      chapterVersion: chapRecord.version,
+      chapterCount: storedProj.chapters.length,
+      summary: summaryItem
+    });
+  } catch (err) {
+    console.error('[Workshop Upload Error]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/workshop/project/:id', (req, res) => {
+  try {
+    const projectId = req.params.id;
+    const storedProj = readWorkshopProjectData(projectId);
+    if (!storedProj) {
+      return res.status(404).json({ error: '工坊中未找到该剧本' });
+    }
+    res.json({ ok: true, project: storedProj });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.use(express.static(__dirname));
 
 // Client-side fallback to index.html
