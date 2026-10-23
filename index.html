@@ -2502,8 +2502,6 @@
               <button type="button" class="moe-btn secondary" onclick="document.getElementById('replay-log-file-input').click()">上传</button>
               <input type="file" id="replay-log-file-input" accept=".txt,.log,.md,.json" style="display:none;" onchange="handleReplayLogFileUpload(event)" />
               <button type="button" class="moe-btn secondary" onclick="toggleSplitPromptEditor()">提示</button>
-              <button type="button" class="moe-btn secondary" id="replay-delimiter-split-btn" onclick="splitReplayLogByDelimiters()">按符</button>
-              <button type="button" class="moe-btn" id="replay-ai-split-btn" onclick="aiSmartSplitFullLogWithDelimiters()">分章</button>
             </div>
           </div>
           <div id="replay-split-prompt-box" style="display:none;margin-bottom:8px;padding:10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
@@ -2511,7 +2509,7 @@
               <span style="font-size:12px;font-weight:800;color:var(--text-primary);">分章与人物识别默认提示词 可直接修改保存</span>
               <div style="display:flex;gap:6px;">
                 <button type="button" class="moe-btn secondary" onclick="resetCustomSplitPrompt()">恢复</button>
-                <button type="button" class="moe-btn" onclick="saveCustomSplitPrompt()">保存</button>
+                <button type="button" class="moe-btn" onclick="saveCustomSplitPrompt(this)">保存</button>
               </div>
             </div>
             <textarea id="replay-split-prompt-textarea" class="moe-input" style="min-height:130px;font-size:11px;line-height:1.5;"></textarea>
@@ -2519,7 +2517,7 @@
           <div class="form-group" style="margin-bottom:6px;">
             <textarea id="replay-raw-log-input" class="moe-input" style="min-height:175px;font-size:12px;" placeholder="在此一次性粘贴整篇跑团日志，支持几十万至上百万字长文，或点击上方上传按钮导入txt文件..."></textarea>
           </div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
             <div class="form-group" style="width:136px;flex-shrink:0;margin-bottom:0;">
               <label>长文分卷 分批调用AI</label>
               <select id="replay-volume-count-select" class="moe-input">
@@ -2535,13 +2533,17 @@
                 <option value="10">十卷</option>
               </select>
             </div>
-            <div class="form-group" style="flex:1;min-width:160px;margin-bottom:0;">
-              <label>单章建议字数 AI会在该字数附近的自然剧情转折处插入分隔符</label>
+            <div class="form-group" style="flex:1;min-width:150px;margin-bottom:0;">
+              <label>单章建议字数</label>
               <input type="number" id="replay-chapter-char-limit" class="moe-input" value="20000" min="1000" max="100000" />
             </div>
-            <div id="replay-split-status-bar" style="font-size:11px;color:var(--accent-color);font-weight:700;padding-top:14px;">
-              等待导入整篇日志并选择卷数后点击分章
+            <div style="display:flex;gap:6px;flex-shrink:0;">
+              <button type="button" class="moe-btn secondary" id="replay-delimiter-split-btn" onclick="splitReplayLogByDelimiters()">按符</button>
+              <button type="button" class="moe-btn" id="replay-ai-split-btn" onclick="aiSmartSplitFullLogWithDelimiters()">分章</button>
             </div>
+          </div>
+          <div id="replay-split-status-bar" style="font-size:11px;color:var(--accent-color);font-weight:700;margin-top:8px;">
+            等待导入整篇日志并选择卷数后点击分章
           </div>
         </div>
 
@@ -2704,10 +2706,10 @@
           <div class="moe-card-header">
             <span class="moe-card-title">本章舞台演出控制台</span>
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button type="button" class="moe-btn secondary" id="replay-stagefx-filter-btn" onclick="toggleStageFxFilterOnly()">特效</button>
               <button type="button" class="moe-btn secondary" onclick="toggleStageFxPromptEditor()">提示</button>
               <button type="button" class="moe-btn" id="replay-stagefx-ai-btn" onclick="aiDirectorConfigureChapterStageFx()">智能</button>
               <button type="button" class="moe-btn secondary" onclick="clearAllChapterStageFx()">清除</button>
-              <button type="button" class="moe-btn" onclick="manualSaveCurrentReplayProject(this)">保存</button>
             </div>
           </div>
           <div id="replay-stagefx-prompt-box" style="display:none;margin-bottom:8px;padding:10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
@@ -2715,7 +2717,7 @@
               <span style="font-size:12px;font-weight:800;color:var(--text-primary);">舞台演出智能编排提示词 可直接修改保存</span>
               <div style="display:flex;gap:6px;">
                 <button type="button" class="moe-btn secondary" onclick="resetCustomStageFxPrompt()">恢复</button>
-                <button type="button" class="moe-btn" onclick="saveCustomStageFxPrompt()">保存</button>
+                <button type="button" class="moe-btn" onclick="saveCustomStageFxPrompt(false, this)">保存</button>
               </div>
             </div>
             <textarea id="replay-stagefx-prompt-textarea" class="moe-input" style="min-height:120px;font-size:11px;line-height:1.5;"></textarea>
@@ -2739,7 +2741,7 @@
             </div>
           </div>
           <div id="replay-stagefx-status-bar" style="font-size:11px;color:var(--accent-color);font-weight:700;margin-top:8px;">
-            点智能可在不改动任何台词与配音的前提下，自动为本章配置场景延续、氛围、转场、叫喊与背叛震撼字效、神秘人匿影及情绪贴纸；点清除可一键清空全部特效
+            点智能可在不改动任何台词与配音的前提下，自动为本章配置场景延续、氛围、转场、叫喊与背叛震撼字效、神秘人匿影及情绪贴纸；点特效只看含特效句；点清除可一键清空全部特效
           </div>
         </div>
         <div id="replay-stagefx-lines-container" style="display:flex;flex-direction:column;gap:8px;"></div>
@@ -2748,29 +2750,7 @@
       <!-- 子页3.5：专属角色配音工作台 -->
       <div id="replay-sub-voice" class="app-subpage">
         <div class="moe-card">
-          <div class="moe-card-header" style="justify-content:flex-end;">
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button type="button" class="moe-btn secondary" onclick="resetChapterVoiceParamsToDefault()">默认</button>
-              <button type="button" class="moe-btn secondary" onclick="toggleVoiceSystemPromptEditor()">提示</button>
-              <button type="button" class="moe-btn secondary" id="replay-voice-jp-btn" onclick="translateCurrentChapterToJapanese()">日译</button>
-              <button type="button" class="moe-btn" id="replay-voice-ai-gen-btn" onclick="aiConfigureAndSynthesizeChapterVoice()">生成</button>
-            </div>
-          </div>
-          <div id="replay-voice-sys-prompt-box" style="display:none;margin-bottom:8px;padding:10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-              <span style="font-size:12px;font-weight:800;color:var(--text-primary);">配音与日译默认提示词 可直接修改保存</span>
-              <div style="display:flex;gap:6px;">
-                <button type="button" class="moe-btn secondary" onclick="resetCustomVoiceSystemPrompt()">恢复</button>
-                <button type="button" class="moe-btn" onclick="saveCustomVoiceSystemPrompt()">保存</button>
-              </div>
-            </div>
-            <textarea id="replay-voice-sys-prompt-textarea" class="moe-input" style="min-height:130px;font-size:11px;line-height:1.5;"></textarea>
-          </div>
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-            <button type="button" class="moe-btn" id="replay-voice-mode-normal-btn" style="flex:1;" onclick="setReplayVoiceStudioMode('normal')">普通</button>
-            <button type="button" class="moe-btn secondary" id="replay-voice-mode-adv-btn" style="flex:1;" onclick="setReplayVoiceStudioMode('advanced')">高级</button>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;">
             <div class="form-group" style="flex:1;margin-bottom:0;">
               <label>当前章节</label>
               <select id="replay-voice-chapter-select" class="moe-input" onchange="onSelectReplayChapter(this.value);renderReplayVoiceStudio();"></select>
@@ -2782,6 +2762,24 @@
                 <option value="zh">中文配音</option>
               </select>
             </div>
+          </div>
+          <div class="script-top-btn-grid" style="grid-template-columns:repeat(3, 1fr);">
+            <button type="button" class="moe-btn" id="replay-voice-mode-normal-btn" onclick="setReplayVoiceStudioMode('normal')">普通</button>
+            <button type="button" class="moe-btn secondary" id="replay-voice-mode-adv-btn" onclick="setReplayVoiceStudioMode('advanced')">高级</button>
+            <button type="button" class="moe-btn secondary" id="replay-voice-jp-btn" onclick="translateCurrentChapterToJapanese()">日译</button>
+            <button type="button" class="moe-btn" id="replay-voice-ai-gen-btn" onclick="aiConfigureAndSynthesizeChapterVoice()">生成</button>
+            <button type="button" class="moe-btn secondary" onclick="resetChapterVoiceParamsToDefault()">默认</button>
+            <button type="button" class="moe-btn secondary" onclick="toggleVoiceSystemPromptEditor()">提示</button>
+          </div>
+          <div id="replay-voice-sys-prompt-box" style="display:none;margin-top:8px;padding:10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <span style="font-size:12px;font-weight:800;color:var(--text-primary);">配音与日译默认提示词 可直接修改保存</span>
+              <div style="display:flex;gap:6px;">
+                <button type="button" class="moe-btn secondary" onclick="resetCustomVoiceSystemPrompt()">恢复</button>
+                <button type="button" class="moe-btn" onclick="saveCustomVoiceSystemPrompt(this)">保存</button>
+              </div>
+            </div>
+            <textarea id="replay-voice-sys-prompt-textarea" class="moe-input" style="min-height:130px;font-size:11px;line-height:1.5;"></textarea>
           </div>
           <div id="replay-voice-status-bar" style="font-size:11px;color:var(--accent-color);font-weight:700;margin-top:8px;">
             普通模式下日译仅翻译日语台词，使用角色默认语速与默认语调且不附带情绪提示词；切换高级模式可生成并逐句调整情绪、语速与语调
@@ -2814,7 +2812,7 @@
                 <span style="font-size:12px;font-weight:800;color:var(--text-primary);">CG写词默认提示词 可直接修改保存</span>
                 <div style="display:flex;gap:6px;">
                   <button type="button" class="moe-btn secondary" onclick="resetCustomCgSystemPrompt()">恢复</button>
-                  <button type="button" class="moe-btn" onclick="saveCustomCgSystemPrompt()">保存</button>
+                  <button type="button" class="moe-btn" onclick="saveCustomCgSystemPrompt(false, this)">保存</button>
                 </div>
               </div>
               <textarea id="replay-cg-sys-prompt-textarea" class="moe-input" style="min-height:130px;font-size:11px;line-height:1.5;" oninput="saveCustomCgSystemPrompt(true)" onchange="saveCustomCgSystemPrompt(false)"></textarea>
@@ -2829,7 +2827,11 @@
           <div class="moe-card">
             <div class="moe-card-header">
               <span class="moe-card-title">本章场景地图与起止句范围</span>
-              <button type="button" class="moe-btn secondary" onclick="addManualSceneBgNode()">新增</button>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button type="button" class="moe-btn" id="replay-scene-queue-start-btn" onclick="startReplaySceneBgQueue()">排队</button>
+                <button type="button" class="moe-btn secondary" onclick="stopReplayCgQueue()">暂停</button>
+                <button type="button" class="moe-btn secondary" onclick="addManualSceneBgNode()">新增</button>
+              </div>
             </div>
             <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;">点上方写词会自动修复并规划每张地图与每张插图从哪一句播放到哪一句；场景地图一经切换会持续显示，直到下一次切换新地图为止</div>
             <div id="replay-scene-nodes-list-container" style="display:flex;flex-direction:column;gap:10px;"></div>
@@ -3046,16 +3048,18 @@
           <!-- 舞台可视化编辑面板：与播放舞台同款界面，直接切换说话人、25态差分、场景、CG、文字、音效与音乐起止 -->
           <div class="vn-stage-edit-panel" id="vn-theater-stage-edit-panel" onclick="event.stopPropagation()">
             <div class="vn-stage-edit-row">
-              <select id="vn-stage-edit-type" class="moe-input" style="width:78px;flex-shrink:0;" onchange="onStageEditFieldChange('type', this.value)">
+              <select id="vn-stage-edit-type" class="moe-input" style="flex:1;min-width:74px;" onchange="onStageEditFieldChange('type', this.value)">
                 <option value="dialogue">对话</option>
                 <option value="narration">旁白</option>
                 <option value="ooc">弹幕</option>
                 <option value="dice">检定</option>
               </select>
-              <select id="vn-stage-edit-speaker" class="moe-input" style="width:108px;flex-shrink:0;" onchange="onStageEditFieldChange('speaker', this.value)"></select>
-              <select id="vn-stage-edit-exp" class="moe-input" style="width:96px;flex-shrink:0;" onchange="onStageEditFieldChange('exp', this.value)"></select>
-              <select id="vn-stage-edit-scene" class="moe-input" style="width:116px;flex-shrink:0;" onchange="onStageEditFieldChange('sceneId', this.value)"></select>
-              <select id="vn-stage-edit-sfx" class="moe-input" style="width:92px;flex-shrink:0;" onchange="onStageEditFieldChange('sfxTag', this.value)">
+              <select id="vn-stage-edit-speaker" class="moe-input" style="flex:1;min-width:96px;" onchange="onStageEditFieldChange('speaker', this.value)"></select>
+              <select id="vn-stage-edit-exp" class="moe-input" style="flex:1;min-width:86px;" onchange="onStageEditFieldChange('exp', this.value)"></select>
+              <select id="vn-stage-edit-scene" class="moe-input" style="flex:1;min-width:100px;" onchange="onStageEditFieldChange('sceneId', this.value)"></select>
+            </div>
+            <div class="vn-stage-edit-row">
+              <select id="vn-stage-edit-sfx" class="moe-input" style="flex:1;min-width:84px;" onchange="onStageEditFieldChange('sfxTag', this.value)">
                 <option value="">无音效</option>
                 <option value="敲门">敲门</option>
                 <option value="脚步">脚步</option>
@@ -3068,9 +3072,9 @@
                 <option value="钟声">钟声</option>
                 <option value="风雨">风雨</option>
               </select>
-              <input type="text" id="vn-stage-edit-bgm" class="moe-input" placeholder="歌名或填停止" style="width:108px;height:32px;min-height:32px;font-size:11px;" onchange="onStageEditFieldChange('bgmTag', this.value)" />
-              <button type="button" class="moe-btn secondary" style="height:28px;min-height:28px;padding:0 8px;font-size:11px;" onclick="onStageEditFieldChange('bgmTag', '停止')">停乐</button>
-              <button type="button" class="moe-btn secondary" id="vn-stage-edit-cg-btn" style="height:28px;min-height:28px;padding:0 8px;font-size:11px;" onclick="toggleCurrentStageLineCgMark()">插图</button>
+              <input type="text" id="vn-stage-edit-bgm" class="moe-input" placeholder="歌名或填停止" style="flex:1;min-width:96px;height:32px;min-height:32px;font-size:11px;" onchange="onStageEditFieldChange('bgmTag', this.value)" />
+              <button type="button" class="moe-btn secondary" style="height:32px;min-height:32px;padding:0 10px;font-size:11px;flex-shrink:0;" onclick="onStageEditFieldChange('bgmTag', '停止')">停乐</button>
+              <button type="button" class="moe-btn secondary" id="vn-stage-edit-cg-btn" style="height:32px;min-height:32px;padding:0 10px;font-size:11px;flex-shrink:0;" onclick="toggleCurrentStageLineCgMark()">插图</button>
             </div>
             <div class="vn-stage-edit-row">
               <input type="text" id="vn-stage-edit-text" class="moe-input" style="flex:1;height:32px;min-height:32px;font-size:12px;" placeholder="直接修改当前句中文台词或旁白正文" onchange="onStageEditFieldChange('text', this.value)" />
@@ -16907,11 +16911,15 @@ CHAR_MAP: 原账号名或NPC名|跑团角色真名|调查员或主要NPC或次�
 CHAP_TITLE: 本卷内章节序号数字如1|章节标题`;
 
     function getCustomOrDefaultSplitPrompt() {
-      const saved = localStorage.getItem('replay-custom-split-prompt');
-      if (saved && !saved.includes('身高厘米整数')) {
-        return DEFAULT_REPLAY_SPLIT_PROMPT;
+      const proj = getCurrentReplayProject();
+      if (proj && typeof proj.customSplitPrompt === 'string' && proj.customSplitPrompt.trim()) {
+        return proj.customSplitPrompt.trim();
       }
-      return saved || DEFAULT_REPLAY_SPLIT_PROMPT;
+      const saved = localStorage.getItem('replay-custom-split-prompt');
+      if (saved && saved.trim()) {
+        return saved.trim();
+      }
+      return DEFAULT_REPLAY_SPLIT_PROMPT;
     }
 
     function toggleSplitPromptEditor() {
@@ -16925,21 +16933,42 @@ CHAP_TITLE: 本卷内章节序号数字如1|章节标题`;
       }
     }
 
-    function saveCustomSplitPrompt() {
+    async function saveCustomSplitPrompt(btnEl = null) {
       const ta = document.getElementById('replay-split-prompt-textarea');
       if (!ta) return;
       const val = ta.value.trim();
+      const proj = getCurrentReplayProject();
       if (val) {
         localStorage.setItem('replay-custom-split-prompt', val);
+        if (proj) {
+          proj.customSplitPrompt = val;
+          await saveReplayProjectToDB(proj);
+        }
       } else {
         localStorage.removeItem('replay-custom-split-prompt');
+        if (proj) {
+          delete proj.customSplitPrompt;
+          await saveReplayProjectToDB(proj);
+        }
       }
       const statusEl = document.getElementById('replay-split-status-bar');
       if (statusEl) statusEl.textContent = '已保存分章与人物识别自定义提示词';
+      if (btnEl && typeof btnEl === 'object') {
+        const orig = btnEl.textContent || '保存';
+        btnEl.textContent = '已存';
+        setTimeout(() => {
+          if (btnEl) btnEl.textContent = orig === '已存' ? '保存' : orig;
+        }, 1200);
+      }
     }
 
-    function resetCustomSplitPrompt() {
+    async function resetCustomSplitPrompt() {
       localStorage.removeItem('replay-custom-split-prompt');
+      const proj = getCurrentReplayProject();
+      if (proj && proj.customSplitPrompt) {
+        delete proj.customSplitPrompt;
+        await saveReplayProjectToDB(proj);
+      }
       const ta = document.getElementById('replay-split-prompt-textarea');
       if (ta) ta.value = DEFAULT_REPLAY_SPLIT_PROMPT;
       const statusEl = document.getElementById('replay-split-status-bar');
@@ -18714,6 +18743,11 @@ JP_VOICE: L行号|emotion英文值|speed数字|pitch数字|润色后的纯日语
 JP_VOICE: L行号|润色后的纯日语配音台词`;
 
     function getCustomOrDefaultVoiceSystemPrompt(isAdvancedMode = false) {
+      const proj = getCurrentReplayProject();
+      const projField = isAdvancedMode ? 'customVoicePromptAdv' : 'customVoicePromptNormal';
+      if (proj && typeof proj[projField] === 'string' && proj[projField].trim()) {
+        return proj[projField].trim();
+      }
       const storageKey = isAdvancedMode ? 'replay-custom-voice-sys-prompt-adv' : 'replay-custom-voice-sys-prompt-normal';
       const saved = localStorage.getItem(storageKey);
       if (saved && saved.trim()) return saved.trim();
@@ -18734,25 +18768,48 @@ JP_VOICE: L行号|润色后的纯日语配音台词`;
       }
     }
 
-    function saveCustomVoiceSystemPrompt() {
+    async function saveCustomVoiceSystemPrompt(btnEl = null) {
       const textarea = document.getElementById('replay-voice-sys-prompt-textarea');
       if (!textarea) return;
       const isAdv = getReplayVoiceStudioMode() === 'advanced';
       const storageKey = isAdv ? 'replay-custom-voice-sys-prompt-adv' : 'replay-custom-voice-sys-prompt-normal';
+      const projField = isAdv ? 'customVoicePromptAdv' : 'customVoicePromptNormal';
+      const proj = getCurrentReplayProject();
       const val = textarea.value.trim();
       if (val) {
         localStorage.setItem(storageKey, val);
+        if (proj) {
+          proj[projField] = val;
+          await saveReplayProjectToDB(proj);
+        }
       } else {
         localStorage.removeItem(storageKey);
+        if (proj) {
+          delete proj[projField];
+          await saveReplayProjectToDB(proj);
+        }
       }
       const statusEl = document.getElementById('replay-voice-status-bar');
       if (statusEl) statusEl.textContent = '已保存配音与日译提示词';
+      if (btnEl && typeof btnEl === 'object') {
+        const orig = btnEl.textContent || '保存';
+        btnEl.textContent = '已存';
+        setTimeout(() => {
+          if (btnEl) btnEl.textContent = orig === '已存' ? '保存' : orig;
+        }, 1200);
+      }
     }
 
-    function resetCustomVoiceSystemPrompt() {
+    async function resetCustomVoiceSystemPrompt() {
       const isAdv = getReplayVoiceStudioMode() === 'advanced';
       const storageKey = isAdv ? 'replay-custom-voice-sys-prompt-adv' : 'replay-custom-voice-sys-prompt-normal';
+      const projField = isAdv ? 'customVoicePromptAdv' : 'customVoicePromptNormal';
       localStorage.removeItem(storageKey);
+      const proj = getCurrentReplayProject();
+      if (proj && proj[projField]) {
+        delete proj[projField];
+        await saveReplayProjectToDB(proj);
+      }
       const textarea = document.getElementById('replay-voice-sys-prompt-textarea');
       if (textarea) {
         textarea.value = isAdv ? DEFAULT_REPLAY_VOICE_PROMPT_ADV : DEFAULT_REPLAY_VOICE_PROMPT_NORMAL;
@@ -20746,7 +20803,23 @@ ${scriptText}`;
       await insertScriptLineAfter(chap.scriptLines.length - 1);
     }
 
-    async function deleteScriptLineByIdx(lineIdx) {
+    async function deleteScriptLineByIdx(lineIdx, btnEl = null) {
+      if (btnEl && btnEl.dataset.confirming !== '1') {
+        btnEl.dataset.confirming = '1';
+        const origText = btnEl.textContent || '删行';
+        btnEl.textContent = '确认';
+        btnEl.style.background = 'var(--accent-color)';
+        btnEl.style.color = 'var(--card-bg)';
+        setTimeout(() => {
+          if (btnEl && btnEl.isConnected && btnEl.dataset.confirming === '1') {
+            btnEl.dataset.confirming = '0';
+            btnEl.textContent = origText;
+            btnEl.style.background = '';
+            btnEl.style.color = '';
+          }
+        }, 3000);
+        return;
+      }
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
       if (!proj || !chap || !Array.isArray(chap.scriptLines) || !chap.scriptLines[lineIdx]) return;
@@ -21376,7 +21449,7 @@ ${numberedLines}`;
               <button type="button" class="moe-btn ${hasClue ? '' : 'secondary'}" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="addManualClueForScriptLine(${idx})">${hasClue ? '撤索' : '线索'}</button>
               ${hasClue && activeClueObj ? `<button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="jumpToClueNodeFromScriptLine('${activeClueObj.id}')">调索</button>` : ''}
               <button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="insertScriptLineAfter(${idx})">插行</button>
-              <button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="deleteScriptLineByIdx(${idx})">删行</button>
+              <button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="deleteScriptLineByIdx(${idx}, this)">删行</button>
             </div>
           </div>
           ${hasTypo ? `
@@ -21591,6 +21664,10 @@ SCENE_RANGE: 场景序号数字如0|起始行号数字|结束行号数字|完整
 CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面构图说明|在场角色姓名用顿号分隔|完整NovelAI英文提示词`;
 
     function getCustomOrDefaultCgSystemPrompt() {
+      const proj = getCurrentReplayProject();
+      if (proj && typeof proj.customCgPrompt === 'string' && proj.customCgPrompt.trim()) {
+        return proj.customCgPrompt.trim();
+      }
       const saved = localStorage.getItem('replay-custom-cg-sys-prompt');
       return (saved && saved.trim()) ? saved.trim() : DEFAULT_REPLAY_CG_PROMPT;
     }
@@ -21606,23 +21683,44 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
       }
     }
 
-    function saveCustomCgSystemPrompt(silent = false) {
+    async function saveCustomCgSystemPrompt(silent = false, btnEl = null) {
       const ta = document.getElementById('replay-cg-sys-prompt-textarea');
       if (!ta) return;
       const val = ta.value.trim();
+      const proj = getCurrentReplayProject();
       if (val) {
         localStorage.setItem('replay-custom-cg-sys-prompt', val);
+        if (proj) {
+          proj.customCgPrompt = val;
+          await saveReplayProjectToDB(proj);
+        }
       } else {
         localStorage.removeItem('replay-custom-cg-sys-prompt');
+        if (proj) {
+          delete proj.customCgPrompt;
+          await saveReplayProjectToDB(proj);
+        }
       }
       if (!silent) {
         const statusEl = document.getElementById('replay-cg-queue-status');
         if (statusEl) statusEl.textContent = '已保存CG写词默认提示词';
       }
+      if (btnEl && typeof btnEl === 'object') {
+        const orig = btnEl.textContent || '保存';
+        btnEl.textContent = '已存';
+        setTimeout(() => {
+          if (btnEl) btnEl.textContent = orig === '已存' ? '保存' : orig;
+        }, 1200);
+      }
     }
 
-    function resetCustomCgSystemPrompt() {
+    async function resetCustomCgSystemPrompt() {
       localStorage.removeItem('replay-custom-cg-sys-prompt');
+      const proj = getCurrentReplayProject();
+      if (proj && proj.customCgPrompt) {
+        delete proj.customCgPrompt;
+        await saveReplayProjectToDB(proj);
+      }
       const ta = document.getElementById('replay-cg-sys-prompt-textarea');
       if (ta) ta.value = DEFAULT_REPLAY_CG_PROMPT;
       const statusEl = document.getElementById('replay-cg-queue-status');
@@ -22238,7 +22336,13 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
 CHAP_AMBIENT: 氛围代号
 STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker值`;
 
+    let _stageFxOnlyFilter = false;
+
     function getCustomOrDefaultStageFxPrompt() {
+      const proj = getCurrentReplayProject();
+      if (proj && typeof proj.customStageFxPrompt === 'string' && proj.customStageFxPrompt.trim()) {
+        return proj.customStageFxPrompt.trim();
+      }
       const saved = localStorage.getItem('replay-custom-stagefx-sys-prompt');
       return (saved && saved.trim()) ? saved.trim() : DEFAULT_STAGE_FX_DIRECTOR_PROMPT;
     }
@@ -22254,37 +22358,73 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
     }
 
-    function saveCustomStageFxPrompt(silent = false) {
+    async function saveCustomStageFxPrompt(silent = false, btnEl = null) {
       const ta = document.getElementById('replay-stagefx-prompt-textarea');
       if (!ta) return;
       const val = ta.value.trim();
+      const proj = getCurrentReplayProject();
       if (val) {
         localStorage.setItem('replay-custom-stagefx-sys-prompt', val);
+        if (proj) {
+          proj.customStageFxPrompt = val;
+          await saveReplayProjectToDB(proj);
+        }
       } else {
         localStorage.removeItem('replay-custom-stagefx-sys-prompt');
+        if (proj) {
+          delete proj.customStageFxPrompt;
+          await saveReplayProjectToDB(proj);
+        }
       }
       if (!silent) {
-        const st = document.getElementById('replay-stagefx-status');
+        const st = document.getElementById('replay-stagefx-status-bar');
         if (st) st.textContent = '已保存演出导演默认提示词';
+      }
+      if (btnEl && typeof btnEl === 'object') {
+        const orig = btnEl.textContent || '保存';
+        btnEl.textContent = '已存';
+        setTimeout(() => {
+          if (btnEl) btnEl.textContent = orig === '已存' ? '保存' : orig;
+        }, 1200);
       }
     }
 
-    function resetCustomStageFxPrompt() {
+    async function resetCustomStageFxPrompt() {
       localStorage.removeItem('replay-custom-stagefx-sys-prompt');
+      const proj = getCurrentReplayProject();
+      if (proj && proj.customStageFxPrompt) {
+        delete proj.customStageFxPrompt;
+        await saveReplayProjectToDB(proj);
+      }
       const ta = document.getElementById('replay-stagefx-prompt-textarea');
       if (ta) ta.value = DEFAULT_STAGE_FX_DIRECTOR_PROMPT;
-      const st = document.getElementById('replay-stagefx-status');
+      const st = document.getElementById('replay-stagefx-status-bar');
       if (st) st.textContent = '已恢复演出导演默认提示词';
     }
 
-    async function onStageFxDefaultAmbientChange(val) {
+    async function onChangeChapterDefaultAmbient(val) {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
       if (!proj || !chap) return;
       chap.defaultAmbient = val || 'none';
       await saveReplayProjectToDB(proj);
-      const st = document.getElementById('replay-stagefx-status');
+      const st = document.getElementById('replay-stagefx-status-bar');
       if (st) st.textContent = '已更新本章默认环境氛围';
+    }
+
+    async function onStageFxDefaultAmbientChange(val) {
+      return await onChangeChapterDefaultAmbient(val);
+    }
+
+    function toggleStageFxFilterOnly() {
+      _stageFxOnlyFilter = !_stageFxOnlyFilter;
+      renderReplayStageFxStudio();
+      const st = document.getElementById('replay-stagefx-status-bar');
+      if (st) {
+        st.textContent = _stageFxOnlyFilter
+          ? '已开启特效筛选：当前仅显示含转场、氛围、字效、匿影、贴纸或切换地图的句子，再次点击特效恢复全部'
+          : '已恢复显示当前章节全部演出句子';
+      }
     }
 
     async function updateLineStageFxField(lineIdx, field, val) {
@@ -22319,7 +22459,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
       await saveReplayProjectToDB(proj);
       renderReplayStageFxStudio();
-      const st = document.getElementById('replay-stagefx-status');
+      const st = document.getElementById('replay-stagefx-status-bar');
       if (st) st.textContent = `已清除第 ${lineIdx + 1} 句的舞台演出特效`;
     }
 
@@ -22339,10 +22479,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           line.effect = 'none';
         }
       });
+      _stageFxOnlyFilter = false;
       await saveReplayProjectToDB(proj);
       renderReplayStageFxStudio();
       renderReplayScriptEditor();
-      const st = document.getElementById('replay-stagefx-status');
+      const st = document.getElementById('replay-stagefx-status-bar');
       if (st) st.textContent = '已一键清除本章全部转场、氛围、文字动效、神秘人匿影与贴纸特效';
     }
 
@@ -22354,7 +22495,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         return;
       }
       const btn = document.getElementById('replay-stagefx-ai-btn');
-      const st = document.getElementById('replay-stagefx-status');
+      const st = document.getElementById('replay-stagefx-status-bar');
       if (btn) { btn.textContent = '编排中'; btn.disabled = true; }
       if (st) st.textContent = '正在阅读本章剧情并智能编排环境氛围、转场、分级叫喊、背叛红字、神秘人匿影与情绪贴纸...';
 
@@ -22420,7 +22561,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
     function renderReplayStageFxStudio() {
       const box = document.getElementById('replay-stagefx-lines-container');
-      const ambSel = document.getElementById('replay-stagefx-default-ambient');
+      const ambSel = document.getElementById('replay-stagefx-chapter-ambient');
+      const filterBtn = document.getElementById('replay-stagefx-filter-btn');
+      if (filterBtn) {
+        filterBtn.classList.toggle('secondary', !_stageFxOnlyFilter);
+      }
       if (!box) return;
       const chap = getCurrentReplayChapter();
       if (!chap || !Array.isArray(chap.scriptLines) || chap.scriptLines.length === 0) {
@@ -22488,6 +22633,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       };
 
       box.innerHTML = '';
+      let renderedCount = 0;
       chap.scriptLines.forEach((line, idx) => {
         const curSc = line.sceneId || sceneOptionsList[0]?.id || 'cg_only';
         const prevSc = idx > 0 ? (chap.scriptLines[idx - 1]?.sceneId || '') : '';
@@ -22497,6 +22643,17 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         const curTextFx = line.textFx || 'normal';
         const curMystery = line.mysteryMode || 'none';
         const curSticker = line.sticker || 'none';
+        const hasAnyStageFx = (isSceneSwitch && curSc !== 'cg_only')
+          || curTrans !== 'none'
+          || (curAmb !== 'inherit' && curAmb !== 'none')
+          || curTextFx !== 'normal'
+          || curMystery !== 'none'
+          || curSticker !== 'none';
+
+        if (_stageFxOnlyFilter && !hasAnyStageFx) {
+          return;
+        }
+        renderedCount += 1;
 
         const badges = [];
         if (isSceneSwitch && curSc !== 'cg_only') {
@@ -22545,6 +22702,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         `;
         box.appendChild(row);
       });
+      if (renderedCount === 0) {
+        box.innerHTML = '<div class="moe-card" style="text-align:center;color:var(--text-secondary);font-size:12px;">当前章节暂无带演出特效的句子，可点顶部智能自动编排，或再次点击特效恢复显示全部句子</div>';
+      }
     }
 
     async function deleteReplayCgNode(cIdx) {
@@ -22600,6 +22760,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         renderReplayCgStudio();
       } catch (err) {
         alert('场景背景生图失败：' + err.message);
+        throw err;
       } finally {
         if (btn) { btn.textContent = sc.imageUrl ? '重绘' : '生图'; btn.disabled = false; }
       }
@@ -22686,6 +22847,37 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       };
       reader.readAsDataURL(file);
       event.target.value = '';
+    }
+
+    async function startReplaySceneBgQueue() {
+      const chap = getCurrentReplayChapter();
+      if (!chap) return;
+      if (appState.replayCgQueueRunning) return;
+      appState.replayCgQueueRunning = true;
+      const statusEl = document.getElementById('replay-cg-queue-status');
+      const startBtn = document.getElementById('replay-scene-queue-start-btn');
+      if (startBtn) { startBtn.textContent = '排队中'; startBtn.disabled = true; }
+
+      try {
+        const scenes = chap.scenes || [];
+        for (let i = 0; i < scenes.length; i++) {
+          if (!appState.replayCgQueueRunning) break;
+          if (!scenes[i].imageUrl) {
+            if (statusEl) statusEl.textContent = `正在排队生成场景地图 ${i + 1}/${scenes.length}：${scenes[i].name}`;
+            await generateSingleReplaySceneBg(i);
+          }
+        }
+        if (statusEl) {
+          statusEl.textContent = appState.replayCgQueueRunning
+            ? '本章所有待生成场景地图已全部生成完毕！'
+            : '已暂停场景地图生图队列，下次点击排队可继续生成剩余地图';
+        }
+      } catch (_) {
+        if (statusEl) statusEl.textContent = '队列因生图报错已暂停，请检查NovelAI设置后继续';
+      } finally {
+        appState.replayCgQueueRunning = false;
+        if (startBtn) { startBtn.textContent = '排队'; startBtn.disabled = false; }
+      }
     }
 
     async function startReplayCgQueue() {
