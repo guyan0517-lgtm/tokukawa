@@ -2955,19 +2955,19 @@
     <section id="screen-theater" class="screen">
       <div class="vn-theater-wrapper" id="vn-theater-stage-root" data-stage-style="ark_grad" oncontextmenu="if(!event.target.closest('input,textarea'))event.preventDefault();">
         <!-- 第1层：当前场所背景层 -->
-        <div class="vn-bg-layer" id="vn-theater-bg-layer" onclick="handleTheaterDockClick()"></div>
+        <div class="vn-bg-layer" id="vn-theater-bg-layer"></div>
 
         <!-- 第2层：多角色真实身高比例对齐全身立绘层 -->
         <div class="vn-tachie-layer" id="vn-theater-tachie-layer"></div>
 
         <!-- 第3层：全屏剧情CG插画层 仅当该节点已生成CG图片时显示 -->
-        <div class="vn-cg-layer" id="vn-theater-cg-layer" onclick="handleTheaterCgClick(event); handleTheaterDockClick();">
+        <div class="vn-cg-layer" id="vn-theater-cg-layer" onclick="handleTheaterCgClick(event)">
           <img id="vn-theater-cg-img" src="" alt="剧情CG" draggable="false" />
         </div>
 
         <!-- 第3.2层：画面中央浮现线索道具卡片层 -->
         <div class="vn-clue-card-layer" id="vn-theater-clue-layer">
-          <div class="vn-clue-card" onclick="event.stopPropagation(); handleTheaterDockClick();">
+          <div class="vn-clue-card">
             <div class="vn-clue-card-img-wrap">
               <img id="vn-theater-clue-img" src="" alt="线索道具" draggable="false" />
             </div>
@@ -2989,7 +2989,7 @@
         <div class="vn-transition-layer" id="vn-theater-transition-layer"></div>
 
         <!-- 第5.5层：高级文游全屏黑幕缓慢浮现文字转场层 -->
-        <div class="vn-blackout-overlay" id="vn-theater-blackout-layer" onclick="dismissBlackoutOrNextLine()">
+        <div class="vn-blackout-overlay" id="vn-theater-blackout-layer">
           <div class="vn-blackout-text" id="vn-theater-blackout-text"></div>
           <div class="vn-blackout-sub">点击屏幕继续</div>
         </div>
@@ -3031,7 +3031,7 @@
         </div>
 
         <!-- 第7层：视觉小说多款式高级底部对话框 -->
-        <div class="vn-bottom-dock" id="vn-theater-bottom-dock" onclick="handleTheaterDockClick()">
+        <div class="vn-bottom-dock" id="vn-theater-bottom-dock">
           <div class="vn-dock-main-row">
             <div class="vn-stage-side-bust empty" id="vn-stage-side-bust">
               <img id="vn-stage-side-bust-img" src="" alt="角色头像" />
@@ -5808,6 +5808,9 @@
         const bgVal = localStorage.getItem(`custom-bg-${bgKey}`) || '';
         if (bgVal) collectUrl(bgVal);
       });
+      const customFontVal = localStorage.getItem('user-custom-font-url') || '';
+      if (customFontVal) collectUrl(customFontVal, 'fonts/custom_user_font.ttf');
+      activePaths.add('fonts/custom_user_font');
 
       const activePathsArr = Array.from(activePaths);
       let diskRemovedCount = 0;
@@ -25880,6 +25883,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       window.addEventListener('pointercancel', handleRelease);
       window.addEventListener('touchend', handleRelease);
       window.addEventListener('touchcancel', handleRelease);
+
+      stageRoot.addEventListener('click', (ev) => {
+        if (isIgnoredStageTarget(ev.target)) return;
+        handleTheaterDockClick();
+      });
     }
 
     function getBuiltinStageStickerSvg(stickerType) {
@@ -25916,8 +25924,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       if (bgmSlider) bgmSlider.value = appState.theaterBgmVolume;
       if (document.getElementById('theater-tts-vol-val')) document.getElementById('theater-tts-vol-val').textContent = appState.theaterTtsVolume;
       if (document.getElementById('theater-bgm-vol-val')) document.getElementById('theater-bgm-vol-val').textContent = appState.theaterBgmVolume;
-      const dmBtn = document.getElementById('vn-bottom-danmaku-btn');
-      if (dmBtn) dmBtn.classList.toggle('active', Boolean(appState.theaterShowDanmaku));
+      ['vn-bottom-danmaku-btn', 'vn-ctrl-danmaku-text-btn'].forEach((id) => {
+        const dmBtn = document.getElementById(id);
+        if (dmBtn) dmBtn.classList.toggle('active', Boolean(appState.theaterShowDanmaku));
+      });
       const lobby = document.getElementById('vn-theater-selector-lobby');
       if (lobby && lobby.classList.contains('active')) {
         stopAllTheaterStageAudio();
@@ -26099,12 +26109,12 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         _theaterIsTyping = false;
         const textEl = document.getElementById('vn-theater-text');
         if (textEl) textEl.textContent = _theaterFullLineText;
-        if (appState.theaterAutoPlay === true) {
+        if (appState.theaterAutoPlay === true && !_activeReplayTtsAudio) {
           if (_theaterStepTimer) clearTimeout(_theaterStepTimer);
           const curSeq = _theaterRenderSeq;
           _theaterStepTimer = setTimeout(() => {
             if (curSeq === _theaterRenderSeq && appState.theaterAutoPlay === true && !_theaterIsTyping) nextTheaterLine();
-          }, 1600);
+          }, 1200);
         }
         return;
       }
@@ -26112,12 +26122,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     }
 
     function dismissBlackoutOrNextLine() {
-      const blackoutEl = document.getElementById('vn-theater-blackout-layer');
-      if (blackoutEl && blackoutEl.classList.contains('active')) {
-        blackoutEl.classList.remove('active');
-        return;
-      }
-      nextTheaterLine();
+      handleTheaterDockClick();
     }
 
     function inferNaturalLineEffect(line, idx) {
@@ -26309,7 +26314,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
 
       let typewriterDone = false;
-      let voiceDone = true;
+      const shouldAttemptLineVoice = Boolean(canPlayStageAudio && !appState.theaterSkipPlay && !appState.theaterEditMode && isDialogueLine);
+      let voiceDone = !shouldAttemptLineVoice;
 
       const scheduleAutoAdvanceIfReady = () => {
         if (myRenderSeq !== _theaterRenderSeq || appState.theaterLineIdx !== idx) return;
@@ -26375,44 +26381,43 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                   }
                 }
               }
-              if (!playUrl || myRenderSeq !== _theaterRenderSeq) return;
+              if (!playUrl || myRenderSeq !== _theaterRenderSeq) {
+                voiceDone = true;
+                scheduleAutoAdvanceIfReady();
+                return;
+              }
               voiceDone = false;
               await new Promise((resolve) => {
                 if (myRenderSeq !== _theaterRenderSeq) {
                   resolve(false);
                   return;
                 }
+                let settled = false;
+                const finishAudio = (ok) => {
+                  if (settled) return;
+                  settled = true;
+                  if (safetyTimer) clearTimeout(safetyTimer);
+                  if (_activeReplayTtsAudio === audio) {
+                    _activeReplayTtsAudio = null;
+                    setBgmDuckingActive(false);
+                  }
+                  resolve(ok);
+                };
                 const audio = new Audio(playUrl);
                 _activeReplayTtsAudio = audio;
                 audio.volume = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
                 setBgmDuckingActive(true);
-                audio.onended = () => {
-                  if (_activeReplayTtsAudio === audio) {
-                    _activeReplayTtsAudio = null;
-                    setBgmDuckingActive(false);
-                  }
-                  resolve(true);
-                };
-                audio.onerror = () => {
-                  if (_activeReplayTtsAudio === audio) {
-                    _activeReplayTtsAudio = null;
-                    setBgmDuckingActive(false);
-                  }
-                  resolve(false);
-                };
-                audio.play().catch(() => {
-                  if (_activeReplayTtsAudio === audio) {
-                    _activeReplayTtsAudio = null;
-                    setBgmDuckingActive(false);
-                  }
-                  resolve(false);
-                });
+                const safetyTimer = setTimeout(() => finishAudio(false), 20000);
+                audio.onended = () => finishAudio(true);
+                audio.onerror = () => finishAudio(false);
+                audio.play().catch(() => finishAudio(false));
               });
               if (myRenderSeq !== _theaterRenderSeq) return;
               voiceDone = true;
               scheduleAutoAdvanceIfReady();
             } catch (_) {
               voiceDone = true;
+              scheduleAutoAdvanceIfReady();
             }
           })();
         }
@@ -26823,26 +26828,36 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         clearTimeout(_theaterStepTimer);
         _theaterStepTimer = null;
       }
-      const autoBtn = document.getElementById('vn-bottom-auto-btn');
+      ['vn-bottom-auto-btn', 'vn-ctrl-auto-text-btn'].forEach((id) => {
+        const autoBtn = document.getElementById(id);
+        if (autoBtn) autoBtn.classList.remove('active');
+      });
       const skipBtn = document.getElementById('theater-skip-btn');
-      if (autoBtn) {
-        autoBtn.classList.remove('active');
-      }
       if (skipBtn) skipBtn.classList.remove('accent-sticker');
     }
 
     function toggleTheaterAutoPlay() {
+      unlockBgmAudioPlayerOnUserGesture();
       appState.theaterAutoPlay = !appState.theaterAutoPlay;
       if (appState.theaterAutoPlay) appState.theaterSkipPlay = false;
-      const autoBtn = document.getElementById('vn-bottom-auto-btn');
+      ['vn-bottom-auto-btn', 'vn-ctrl-auto-text-btn'].forEach((id) => {
+        const autoBtn = document.getElementById(id);
+        if (autoBtn) autoBtn.classList.toggle('active', Boolean(appState.theaterAutoPlay));
+      });
       const skipBtn = document.getElementById('theater-skip-btn');
-      if (autoBtn) {
-        autoBtn.classList.toggle('active', Boolean(appState.theaterAutoPlay));
-      }
       if (skipBtn) skipBtn.classList.remove('accent-sticker');
       if (appState.theaterAutoPlay) {
-        if (!_theaterIsTyping) {
-          nextTheaterLine();
+        if (_theaterStepTimer) {
+          clearTimeout(_theaterStepTimer);
+          _theaterStepTimer = null;
+        }
+        if (!_theaterIsTyping && !_activeReplayTtsAudio) {
+          const curSeq = _theaterRenderSeq;
+          _theaterStepTimer = setTimeout(() => {
+            if (curSeq === _theaterRenderSeq && appState.theaterAutoPlay === true && !_theaterIsTyping) {
+              nextTheaterLine();
+            }
+          }, 550);
         }
       } else if (_theaterStepTimer) {
         clearTimeout(_theaterStepTimer);
@@ -26851,14 +26866,15 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     }
 
     function toggleTheaterSkipPlay() {
+      unlockBgmAudioPlayerOnUserGesture();
       appState.theaterSkipPlay = !appState.theaterSkipPlay;
       if (appState.theaterSkipPlay) appState.theaterAutoPlay = false;
-      const autoBtn = document.getElementById('vn-bottom-auto-btn');
+      ['vn-bottom-auto-btn', 'vn-ctrl-auto-text-btn'].forEach((id) => {
+        const autoBtn = document.getElementById(id);
+        if (autoBtn) autoBtn.classList.remove('active');
+      });
       const skipBtn = document.getElementById('theater-skip-btn');
       if (skipBtn) skipBtn.classList.toggle('accent-sticker', appState.theaterSkipPlay);
-      if (autoBtn) {
-        autoBtn.classList.remove('active');
-      }
       if (appState.theaterSkipPlay) {
         nextTheaterLine();
       } else if (_theaterStepTimer) {
@@ -26869,10 +26885,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
     function toggleTheaterDanmaku() {
       appState.theaterShowDanmaku = !appState.theaterShowDanmaku;
-      const btn = document.getElementById('vn-bottom-danmaku-btn');
-      if (btn) {
-        btn.classList.toggle('active', Boolean(appState.theaterShowDanmaku));
-      }
+      ['vn-bottom-danmaku-btn', 'vn-ctrl-danmaku-text-btn'].forEach((id) => {
+        const btn = document.getElementById(id);
+        if (btn) btn.classList.toggle('active', Boolean(appState.theaterShowDanmaku));
+      });
       const layer = document.getElementById('vn-theater-ooc-layer');
       if (layer && !appState.theaterShowDanmaku) layer.innerHTML = '';
     }
@@ -27594,7 +27610,76 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       event.target.value = '';
     }
 
-    function injectCustomFontStyle(fontUrl) {
+    let _customFontActiveBlobUrl = '';
+
+    async function resolvePlayableCustomFontUrl(rawUrl) {
+      const clean = String(rawUrl || '').trim();
+      if (!clean) return '';
+      if (clean.startsWith('data:') || clean.startsWith('blob:')) return clean;
+
+      const tryConvertDataOrBlob = async (candidateUrl) => {
+        if (!candidateUrl) return '';
+        try {
+          const res = await fetch(candidateUrl);
+          if (res && res.ok) {
+            const blob = await res.blob();
+            if (blob && blob.size > 0) {
+              if (_customFontActiveBlobUrl) {
+                try { URL.revokeObjectURL(_customFontActiveBlobUrl); } catch (_) {}
+              }
+              _customFontActiveBlobUrl = URL.createObjectURL(blob);
+              return _customFontActiveBlobUrl;
+            }
+          }
+        } catch (_) {}
+        return '';
+      };
+
+      const relPath = typeof extractLocalAssetRelativePath === 'function' ? extractLocalAssetRelativePath(clean) : '';
+      if (relPath) {
+        if (typeof isLocalBridgeEnabled === 'function' && isLocalBridgeEnabled() && typeof getLocalBridgeBaseUrl === 'function') {
+          const bridgeHit = await tryConvertDataOrBlob(`${getLocalBridgeBaseUrl()}/${relPath}`);
+          if (bridgeHit) return bridgeHit;
+        }
+        const mirrorDataUrl = typeof getLocalAssetMirrorDataUrl === 'function'
+          ? (await getLocalAssetMirrorDataUrl(relPath) || await getLocalAssetMirrorDataUrl('fonts/custom_user_font'))
+          : '';
+        if (mirrorDataUrl) {
+          const mirrorHit = await tryConvertDataOrBlob(mirrorDataUrl);
+          if (mirrorHit) return mirrorHit;
+          return mirrorDataUrl;
+        }
+      }
+
+      if (!/^https?:\/\//i.test(clean) && !clean.startsWith('/')) {
+        const cleanRel = clean.replace(/^\.?\//, '');
+        const candidatePaths = cleanRel.startsWith('fonts/') ? [cleanRel] : [`fonts/${cleanRel}`, cleanRel];
+        for (const p of candidatePaths) {
+          if (typeof isLocalBridgeEnabled === 'function' && isLocalBridgeEnabled() && typeof getLocalBridgeBaseUrl === 'function') {
+            const hit = await tryConvertDataOrBlob(`${getLocalBridgeBaseUrl()}/${p}`);
+            if (hit) return hit;
+          }
+          const localHit = await tryConvertDataOrBlob(`/local-assets/${p}`);
+          if (localHit) return localHit;
+          if (typeof getLocalAssetMirrorDataUrl === 'function') {
+            const mUrl = await getLocalAssetMirrorDataUrl(p);
+            if (mUrl) return mUrl;
+          }
+        }
+      }
+
+      if (clean === '__LOCAL_CUSTOM_FONT__' && typeof getLocalAssetMirrorDataUrl === 'function') {
+        const mUrl = await getLocalAssetMirrorDataUrl('fonts/custom_user_font');
+        if (mUrl) {
+          const mirrorHit = await tryConvertDataOrBlob(mUrl);
+          return mirrorHit || mUrl;
+        }
+      }
+
+      return clean;
+    }
+
+    async function injectCustomFontStyle(fontUrl) {
       let styleEl = document.getElementById('user-custom-font-style');
       if (!styleEl) {
         styleEl = document.createElement('style');
@@ -27607,10 +27692,19 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         document.documentElement.style.removeProperty('--custom-user-font');
         return;
       }
+      const resolvedUrl = await resolvePlayableCustomFontUrl(cleanUrl);
+      if (!resolvedUrl) return;
+      if (typeof FontFace !== 'undefined' && document.fonts && typeof document.fonts.add === 'function') {
+        try {
+          const face = new FontFace('UserCustomGlobalFont', `url("${resolvedUrl}")`);
+          const loadedFace = await face.load();
+          document.fonts.add(loadedFace);
+        } catch (_) {}
+      }
       styleEl.textContent = `
         @font-face {
           font-family: 'UserCustomGlobalFont';
-          src: url('${cleanUrl}');
+          src: url('${resolvedUrl}');
           font-display: swap;
         }
         :root {
@@ -27626,7 +27720,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     function applyCustomFontUrl() {
       const input = document.getElementById('custom-font-url-input');
       const url = (input?.value || '').trim();
-      localStorage.setItem('user-custom-font-url', url);
+      try {
+        localStorage.setItem('user-custom-font-url', url);
+      } catch (_) {}
       injectCustomFontStyle(url);
     }
 
@@ -27634,12 +27730,31 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const file = event.target.files?.[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         const dataUrl = e.target.result;
+        const safeName = String(file.name || 'custom_font.ttf').replace(/[^a-zA-Z0-9._-\u4e00-\u9fa5]/g, '_');
+        const relPath = `fonts/${safeName}`;
+        if (typeof putLocalAssetMirrorDataUrl === 'function') {
+          await putLocalAssetMirrorDataUrl('fonts/custom_user_font', dataUrl);
+          await putLocalAssetMirrorDataUrl(relPath, dataUrl);
+        }
+        let savedUrl = `/local-assets/${relPath}`;
+        if (typeof saveAssetToLocalBridge === 'function') {
+          const bridgeRes = await saveAssetToLocalBridge(relPath, dataUrl);
+          if (bridgeRes && !String(bridgeRes).startsWith('data:')) {
+            savedUrl = bridgeRes;
+          }
+        }
         const input = document.getElementById('custom-font-url-input');
-        if (input) input.value = dataUrl;
-        localStorage.setItem('user-custom-font-url', dataUrl);
-        injectCustomFontStyle(dataUrl);
+        if (input) input.value = savedUrl;
+        try {
+          localStorage.setItem('user-custom-font-url', savedUrl);
+        } catch (_) {
+          try {
+            localStorage.setItem('user-custom-font-url', '__LOCAL_CUSTOM_FONT__');
+          } catch (_e) {}
+        }
+        await injectCustomFontStyle(savedUrl);
       };
       reader.readAsDataURL(file);
       event.target.value = '';
@@ -27649,6 +27764,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const input = document.getElementById('custom-font-url-input');
       if (input) input.value = '';
       localStorage.removeItem('user-custom-font-url');
+      if (typeof deleteLocalAssetMirrorDataUrl === 'function') {
+        deleteLocalAssetMirrorDataUrl('fonts/custom_user_font').catch(() => {});
+      }
       injectCustomFontStyle('');
     }
 
@@ -27665,7 +27783,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     function initCustomFontAndDanmakuSettings() {
       const savedFont = localStorage.getItem('user-custom-font-url') || '';
       const fontInput = document.getElementById('custom-font-url-input');
-      if (fontInput) fontInput.value = savedFont;
+      if (fontInput) fontInput.value = savedFont === '__LOCAL_CUSTOM_FONT__' ? '/local-assets/fonts/custom_user_font' : savedFont;
       if (savedFont) injectCustomFontStyle(savedFont);
 
       const savedOpacity = localStorage.getItem('user-danmaku-opacity') || '85';
