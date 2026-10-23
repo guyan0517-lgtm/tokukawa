@@ -2821,7 +2821,7 @@
         <div class="app-header-actions"></div>
       </div>
 
-      <div id="replay-sub-workshop" class="app-subpage active" style="display:block;">
+      <div id="replay-sub-workshop" class="app-subpage active">
         <div class="moe-card">
           <div class="moe-card-header">
             <span class="moe-card-title">一、 我的模组增量去重上传</span>
@@ -3681,8 +3681,14 @@
           if (subtabsEl) subtabsEl.style.display = 'flex';
           if (headerActsEl) headerActsEl.style.display = 'flex';
           if (headerTitleEl) headerTitleEl.textContent = '模组';
+          const replayScreenEl = document.getElementById('screen-replay');
+          if (replayScreenEl && !replayScreenEl.querySelector('.app-subpage.active')) {
+            switchSubPage('screen-replay', 'replay-sub-import');
+          }
           renderReplayStudioUI();
         } else if (normalizedApp === 'workshop') {
+          const wsPage = document.getElementById('replay-sub-workshop');
+          if (wsPage) wsPage.classList.add('active');
           renderReplayWorkshop();
         }
       }
@@ -3753,14 +3759,21 @@
     }
 
     function switchSubPage(screenId, subPageId) {
+      if (subPageId === 'replay-sub-workshop') {
+        openAppScreen('workshop');
+        return;
+      }
       const realScreenId = screenId === 'screen-chibi' ? 'screen-tachie' : screenId;
       const screenEl = document.getElementById(realScreenId);
       if (!screenEl) return;
-      screenEl.querySelectorAll('.app-subpage').forEach((p) => {
-        p.classList.toggle('active', p.id === subPageId);
+      const subpages = Array.from(screenEl.querySelectorAll('.app-subpage'));
+      const hasTarget = subpages.some((p) => p.id === subPageId);
+      const effectiveSubId = hasTarget ? subPageId : (subpages[0]?.id || subPageId);
+      subpages.forEach((p) => {
+        p.classList.toggle('active', p.id === effectiveSubId);
       });
       screenEl.querySelectorAll('.sub-tab-btn').forEach((b) => {
-        b.classList.toggle('active', b.dataset.sub === subPageId);
+        b.classList.toggle('active', b.dataset.sub === effectiveSubId);
       });
       saveCurrentSessionNavState();
     }
@@ -20898,9 +20911,7 @@ ${numberedLines}`;
     }
 
     function openWorkshopFromHome() {
-      openAppScreen('replay');
-      switchSubPage('screen-replay', 'replay-sub-workshop');
-      renderReplayWorkshop();
+      openAppScreen('workshop');
     }
 
     function jumpToClueNodeFromScriptLine(clueId) {
@@ -26558,7 +26569,7 @@ CG_PROMPT: CG序号数字如0|中文画面构图说明|在场角色姓名用顿�
         if ('caches' in window) {
           caches.keys().then((keys) => {
             keys.forEach((k) => {
-              if (k !== 'ephone-tuk-cache-v27') caches.delete(k);
+              if (k !== 'ephone-tuk-cache-v30') caches.delete(k);
             });
           }).catch(() => {});
         }
