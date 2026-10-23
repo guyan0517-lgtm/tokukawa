@@ -576,12 +576,33 @@
         <div id="persona-char-grid"></div>
       </div>
 
+      <!-- 角色搜图找回立绘弹窗 -->
+      <div id="modal-char-image-scan" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:440px;width:92%;display:flex;flex-direction:column;gap:10px;">
+          <div class="moe-card-header" style="padding-bottom:6px;border-bottom:1px solid var(--border-color);margin-bottom:0;">
+            <span class="moe-card-title">搜图找回立绘</span>
+            <button type="button" class="moe-btn secondary" style="min-width:32px;padding:4px 8px;" onclick="closeScanCharacterImagesModal()">关闭</button>
+          </div>
+          <div style="font-size:11px;color:var(--text-secondary);">输入要搜寻的角色名字，系统将在手机Termux及本地存储中扫描属于该角色的全部立绘与差分图片并自动导入恢复：</div>
+          <div class="form-group" style="margin-bottom:4px;">
+            <label>角色名字</label>
+            <input type="text" id="scan-char-name-input" class="moe-input" placeholder="输入要搜图恢复的角色名" />
+          </div>
+          <div id="scan-char-img-status" style="font-size:11px;color:var(--accent-color);font-weight:700;min-height:18px;"></div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:6px;border-top:1px solid var(--border-color);">
+            <button type="button" class="moe-btn secondary" onclick="closeScanCharacterImagesModal()">取消</button>
+            <button type="button" class="moe-btn" id="start-scan-char-img-btn" onclick="executeScanAndRecoverCharacterImages()">搜图</button>
+          </div>
+        </div>
+      </div>
+
       <!-- 子页2：角色卡片编辑 -->
       <div id="persona-basic" class="app-subpage">
         <div class="moe-card">
           <div class="moe-card-header">
             <span class="moe-card-title" id="persona-editing-title">角色档案</span>
             <div style="display:flex;gap:6px;">
+              <button type="button" class="moe-btn secondary" onclick="openScanCharacterImagesModal(appState.selectedPersonaId)">搜图</button>
               <button type="button" class="moe-btn secondary" onclick="exportSingleCharacterPack(appState.selectedPersonaId)">导出</button>
               <button type="button" class="moe-btn secondary" onclick="deleteCurrentPersonaCharacter()">删除</button>
             </div>
@@ -12961,6 +12982,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
             </div>
             <div class="setting-item-right">
               <button type="button" class="moe-btn" onclick="event.stopPropagation();selectPersonaForEdit('${c.id}');switchSubPage('screen-persona', 'persona-basic')">编辑</button>
+              <button type="button" class="moe-btn secondary" onclick="event.stopPropagation();openScanCharacterImagesModal('${c.id}')">搜图</button>
               <button type="button" class="moe-btn secondary" onclick="event.stopPropagation();exportSingleCharacterPack('${c.id}')">导出</button>
               <button type="button" class="moe-btn ${isUniv ? '' : 'secondary'}" onclick="event.stopPropagation();toggleCharacterUniversalStatus('${c.id}')">通用</button>
             </div>
@@ -16390,6 +16412,202 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
 
       if (showToast) {
         alert(`角色排查完成：已拆分 ${separatedCount} 个同名角色，已恢复 ${recoveredCount} 项角色数据与立绘`);
+      }
+    }
+
+    let _scanTargetCharId = null;
+
+    function openScanCharacterImagesModal(charId = null) {
+      _scanTargetCharId = charId || appState.selectedPersonaId || null;
+      let targetChar = appState.characters.find((c) => c.id === _scanTargetCharId);
+      if (!targetChar && appState.characters.length > 0) {
+        targetChar = appState.characters[0];
+        _scanTargetCharId = targetChar.id;
+      }
+
+      const modal = document.getElementById('modal-char-image-scan');
+      const input = document.getElementById('scan-char-name-input');
+      const statusEl = document.getElementById('scan-char-img-status');
+      if (!modal) return;
+
+      if (input) {
+        input.value = targetChar?.name || '';
+      }
+      if (statusEl) {
+        statusEl.textContent = '请输入角色名字并点击搜图开始本地扫描';
+      }
+
+      modal.style.display = 'flex';
+    }
+
+    function closeScanCharacterImagesModal() {
+      const modal = document.getElementById('modal-char-image-scan');
+      if (modal) modal.style.display = 'none';
+      _scanTargetCharId = null;
+    }
+
+    function testImageUrl(url) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        const tid = setTimeout(() => { img.src = ''; resolve(false); }, 1500);
+        img.onload = () => { clearTimeout(tid); resolve(true); };
+        img.onerror = () => { clearTimeout(tid); resolve(false); };
+        img.src = url;
+      });
+    }
+
+    async function executeScanAndRecoverCharacterImages() {
+      const input = document.getElementById('scan-char-name-input');
+      const statusEl = document.getElementById('scan-char-img-status');
+      const btn = document.getElementById('start-scan-char-img-btn');
+      const targetName = (input?.value || '').trim();
+      if (!targetName) {
+        alert('请先输入需要搜寻立绘的角色名字');
+        return;
+      }
+
+      if (btn) { btn.disabled = true; btn.textContent = '扫描中'; }
+      if (statusEl) statusEl.textContent = `正在手机本地私密目录中扫描 ${targetName} 的全部立绘与差分...`;
+
+      let charObj = appState.characters.find((c) => (c.id === _scanTargetCharId) || (c.name === targetName));
+      if (!charObj) {
+        charObj = {
+          id: 'oc_' + Date.now(),
+          name: targetName,
+          age: '',
+          trpgType: '调查员',
+          isUniversal: true,
+          moduleId: '',
+          moduleTitle: '',
+          region: 'alta_kilig',
+          role: '',
+          heightCm: 172,
+          earHatCm: 0,
+          body: '',
+          quirk: '',
+          voiceId: '',
+          surface: '',
+          weapon: '防身小刀、调查笔记本',
+          secret: '',
+          cot: '',
+          quotes: '',
+          chapters: '',
+          naiTags: 'solo, single character, full body, standing, anime style, white background',
+          chibiImg: '',
+          tachieBase: '',
+          tachieExpressions: {},
+          isFriend: true
+        };
+        charObj.customActionList = buildPersonaMatchedActions(charObj);
+        appState.characters.push(charObj);
+      }
+
+      if (!charObj.tachieExpressions || typeof charObj.tachieExpressions !== 'object') {
+        charObj.tachieExpressions = {};
+      }
+
+      const termuxBase = getLocalBridgeBaseUrl();
+      const bases = [termuxBase, '/local-assets'];
+
+      const probeItems = [
+        { file: 'base.png', exp: '默认', isBase: true },
+        { file: '默认.png', exp: '默认', isBase: true },
+        { file: 'stand.png', exp: '默认', isBase: true },
+        { file: 'tachie.png', exp: '默认', isBase: true },
+        { file: 'body.png', exp: '默认', isBase: true },
+        { file: 'avatar.png', exp: 'avatar', isAvatar: true },
+        { file: 'profile.png', exp: 'avatar', isAvatar: true },
+        { file: 'chibi.png', exp: 'chibi', isChibi: true },
+        { file: 'raw_base.png', exp: '默认', isBase: true },
+        { file: 'raw_默认.png', exp: '默认', isBase: true }
+      ];
+
+      const allExpList = [
+        '微笑', '开心', '大笑', '得意', '苦笑', '哭泣', '伤心', '害羞', '脸红',
+        '惊讶', '震惊', '疑惑', '思考', '认真', '严肃', '生气', '愤怒', '慌乱',
+        '恐惧', '阴沉', '黑化', '疯狂', '无语', '白眼', '拿起武器', '冷漠', '轻伤', '重伤'
+      ];
+      allExpList.forEach((e) => {
+        probeItems.push({ file: `${e}.png`, exp: e, isBase: false });
+        probeItems.push({ file: `raw_${e}.png`, exp: e, isBase: false });
+      });
+
+      let foundCount = 0;
+      const safeName = normalizeSpeakerName(targetName) || targetName;
+      const testedPaths = new Set();
+
+      for (let i = 0; i < probeItems.length; i++) {
+        const item = probeItems[i];
+        if (testedPaths.has(item.file)) continue;
+        testedPaths.add(item.file);
+
+        let validUrl = '';
+        for (const b of bases) {
+          const u = `${b}/characters/${encodeURIComponent(safeName)}/${encodeURIComponent(item.file)}?t=${Date.now()}`;
+          const ok = await testImageUrl(u);
+          if (ok) {
+            validUrl = u;
+            break;
+          }
+        }
+
+        if (!validUrl && safeName !== targetName) {
+          for (const b of bases) {
+            const u = `${b}/characters/${encodeURIComponent(targetName)}/${encodeURIComponent(item.file)}?t=${Date.now()}`;
+            const ok = await testImageUrl(u);
+            if (ok) {
+              validUrl = u;
+              break;
+            }
+          }
+        }
+
+        if (validUrl) {
+          foundCount++;
+          if (item.isBase) {
+            charObj.tachieBase = validUrl;
+            charObj.tachieExpressions['默认'] = validUrl;
+          } else if (item.isAvatar) {
+            charObj.profileAvatar = validUrl;
+          } else if (item.isChibi) {
+            charObj.chibiImg = validUrl;
+          } else if (item.exp) {
+            charObj.tachieExpressions[item.exp] = validUrl;
+            if (!charObj.tachieBase) charObj.tachieBase = validUrl;
+          }
+        }
+      }
+
+      if (!charObj.tachieBase && Object.keys(charObj.tachieExpressions).length > 0) {
+        const firstExp = Object.keys(charObj.tachieExpressions)[0];
+        charObj.tachieBase = charObj.tachieExpressions[firstExp];
+      }
+      if (!charObj.profileAvatar && charObj.tachieBase) {
+        charObj.profileAvatar = charObj.tachieBase;
+      }
+
+      charObj.isUniversal = true;
+      await db.characters.put(charObj);
+      appState.characters = await db.characters.toArray();
+      selectPersonaForEdit(charObj.id);
+      renderPersonaGrid();
+      populateCharacterSelects();
+      if (typeof renderHeightStage === 'function') renderHeightStage();
+
+      const avatarPrev = document.getElementById('oc-profile-avatar-preview');
+      if (avatarPrev && charObj.profileAvatar) {
+        avatarPrev.src = charObj.profileAvatar;
+      }
+
+      if (btn) { btn.disabled = false; btn.textContent = '搜图'; }
+      if (statusEl) {
+        statusEl.textContent = foundCount > 0
+          ? `已成功搜寻并找回 ${foundCount} 张属于该角色的立绘与差分图片！`
+          : `未在手机私密目录中扫描到以 ${targetName} 命名的立绘图片，请确认名字拼写是否一致`;
+      }
+      if (foundCount > 0) {
+        alert(`搜图成功：已为角色 ${targetName} 找回并导入 ${foundCount} 张立绘与差分图片`);
+        closeScanCharacterImagesModal();
       }
     }
 
