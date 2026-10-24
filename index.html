@@ -2588,10 +2588,11 @@
             <select id="replay-script-chapter-select" class="moe-input" onchange="onSelectReplayChapter(this.value)"></select>
           </div>
 
-          <div class="script-top-btn-grid" style="grid-template-columns:repeat(4, 1fr);">
+          <div class="script-top-btn-grid" style="grid-template-columns:repeat(3, 1fr);">
             <button type="button" class="moe-btn" id="replay-gen-script-btn" onclick="generateCurrentChapterScriptViaAi()">整理</button>
             <button type="button" class="moe-btn secondary" id="replay-ai-bgm-btn" onclick="aiMatchCurrentChapterBgm()">配乐</button>
             <button type="button" class="moe-btn secondary" id="replay-ai-exp-btn" onclick="aiMatchCurrentChapterExpressions()">差分</button>
+            <button type="button" class="moe-btn secondary" id="replay-ai-map-btn" onclick="aiMatchCurrentChapterSceneMaps()">地图</button>
             <button type="button" class="moe-btn secondary" id="replay-ai-cg-opt-btn" onclick="aiOptimizeCurrentChapterCgNodes()">插图</button>
             <button type="button" class="moe-btn secondary" id="replay-ai-clue-btn" onclick="aiExtractCurrentChapterClues()">线索</button>
             <button type="button" class="moe-btn secondary" id="replay-danmaku-btn" onclick="toggleDanmakuReviewPanel()">弹幕</button>
@@ -19132,8 +19133,22 @@ SCENE_ITEM: 场景编号如scene_1|2到5字简短场景中文名|纯景物2D视�
         }
 
         proj.globalScenes = extracted;
-        proj.chapters.forEach((ch) => {
-          ch.scenes = extracted.map((s) => ({ ...s }));
+        (proj.chapters || []).forEach((ch) => {
+          if (!ch) return;
+          if (Array.isArray(ch.scriptLines) && ch.scriptLines.length > 0 && typeof rebuildHolderScenesFromLines === 'function') {
+            rebuildHolderScenesFromLines(ch, proj, ch);
+          } else if (!Array.isArray(ch.scenes) || ch.scenes.length === 0) {
+            ch.scenes = extracted[0] ? [{ ...extracted[0], startLineIdx: 0, endLineIdx: 0 }] : [];
+          } else {
+            ch.scenes.forEach((sc) => {
+              const matched = extracted.find((x) => x.id === sc.id || x.name === sc.name);
+              if (matched) {
+                sc.name = matched.name;
+                sc.prompt = matched.prompt;
+                if (matched.imageUrl) sc.imageUrl = matched.imageUrl;
+              }
+            });
+          }
         });
         await saveReplayProjectToDB(proj);
         renderExtractedModuleScenesList();
@@ -19207,10 +19222,6 @@ SCENE_ITEM: 场景编号|2到5字简短场景名|NovelAI英文提示词|基底�
                   imageUrl: ''
                 };
                 proj.globalScenes.push(newSc);
-                (proj.chapters || []).forEach((ch) => {
-                  if (!Array.isArray(ch.scenes)) ch.scenes = [];
-                  ch.scenes.push({ ...newSc });
-                });
                 addedCount += 1;
               }
             }
@@ -19246,10 +19257,6 @@ SCENE_ITEM: 场景编号|2到5字简短场景名|NovelAI英文提示词|基底�
         imageUrl: ''
       };
       proj.globalScenes.push(newSc);
-      (proj.chapters || []).forEach((ch) => {
-        if (!Array.isArray(ch.scenes)) ch.scenes = [];
-        ch.scenes.push({ ...newSc });
-      });
       if (extraReqEl && customName.length <= 8) extraReqEl.value = '';
       await saveReplayProjectToDB(proj);
       renderExtractedModuleScenesList();
@@ -20377,9 +20384,23 @@ ${numberedChapterPreview}`;
         // 运行 1人 / 2人 / 3人 动态自适应槽位锁定算法
         computeChapterStageSlots(filteredStoryLines);
 
+        if (!Array.isArray(proj.globalScenes)) proj.globalScenes = [];
+        scenes.forEach((sc) => {
+          if (!sc || !sc.id) return;
+          const existingGlobal = proj.globalScenes.find((g) => g && (g.id === sc.id || (sc.name && g.name === sc.name)));
+          if (!existingGlobal) {
+            proj.globalScenes.push({ ...sc });
+          } else {
+            if (!existingGlobal.imageUrl && sc.imageUrl) existingGlobal.imageUrl = sc.imageUrl;
+            if (!existingGlobal.prompt && sc.prompt) existingGlobal.prompt = sc.prompt;
+          }
+        });
         chap.scenes = scenes;
         chap.cgNodes = cgNodes;
         chap.scriptLines = filteredStoryLines;
+        if (typeof rebuildHolderScenesFromLines === 'function') {
+          rebuildHolderScenesFromLines(chap, proj, chap);
+        }
         if (!Array.isArray(chap.clueNodes)) chap.clueNodes = [];
         syncChapterClueLineBindings(chap);
         await saveReplayProjectToDB(proj);
@@ -20537,7 +20558,7 @@ BGM_STOP: L行号`;
       }
     }
 
-    // 点击剧本顶栏「差分」按钮：AI重读整章剧本，并查看系统默认差分池与每个角色当前的单独差分池（包含后续新增的自定义差分），以适中自然的节奏优化各句差分
+    // 点击剧本顶栏「差分」按钮：AI重读整章剧本，并查看系统默认差分池与每个角色当前的单独差分池，以适中自然的节奏优化各句差分
     async function aiMatchCurrentChapterExpressions() {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
@@ -20623,6 +20644,207 @@ ${scriptPreview}`;
         alert('匹配章节差分失败：' + err.message);
       } finally {
         if (btn) { btn.textContent = '差分'; btn.disabled = false; }
+      }
+    }
+
+    // 点击剧本顶栏「地图」按钮：AI全自动判断本章及所属小群每一句对应的场景地点，自动划分每段场景底图从哪句开始到哪句结束，只修改地图不改动其他内容
+    async function aiMatchCurrentChapterSceneMaps() {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      if (!proj || !chap || !Array.isArray(chap.scriptLines) || chap.scriptLines.length === 0) {
+        alert('请先选择已生成剧本的章节');
+        return;
+      }
+
+      const btn = document.getElementById('replay-ai-map-btn');
+      const statusEl = document.getElementById('replay-script-status-bar');
+      if (btn) { btn.textContent = '匹配中'; btn.disabled = true; }
+      if (statusEl) statusEl.textContent = `正在调用AI通读 ${chap.title} 与小群台词，全自动识别每段剧情所在地点并设定底图起始句与结束句...`;
+
+      try {
+        const curChapIdx = Number(appState.currentReplayChapterIdx) || 0;
+        const chapSubGroups = ensureProjectSubGroupsArray(proj).filter(
+          (sg) => sg && Number(sg.targetChapterIdx) === curChapIdx && Array.isArray(sg.scriptLines) && sg.scriptLines.length > 0
+        );
+
+        const pool = getAllModuleScenesPool(proj, chap);
+        const sceneListDesc = pool.length > 0
+          ? pool.map((s) => `${s.id}|${s.name}`).join('\n')
+          : '暂无预设场景，请通过 NEW_SCENE 定义本章出现的场景';
+
+        const scriptRows = [];
+        const maxMainIdx = Math.max(0, chap.scriptLines.length - 1);
+        chapSubGroups.forEach((sg, sgIdx) => {
+          if (Number(sg.insertAfterLineIdx) < 0) {
+            scriptRows.push(`--- 以下为小群 SG${sgIdx} 标题：${sg.title || '小群'} 共${sg.scriptLines.length}句 行号SG${sgIdx}_L0至SG${sgIdx}_L${sg.scriptLines.length - 1} ---`);
+            sg.scriptLines.forEach((sl, sLineIdx) => {
+              scriptRows.push(`SG${sgIdx}_L${sLineIdx}|${sl.speaker || '旁白'}|${sl.text || ''}`);
+            });
+            scriptRows.push(`--- 小群 SG${sgIdx} 结束 ---`);
+          }
+        });
+        chap.scriptLines.forEach((l, idx) => {
+          scriptRows.push(`L${idx}|${l.speaker || '旁白'}|${l.text || ''}`);
+          chapSubGroups.forEach((sg, sgIdx) => {
+            const targetPos = Math.min(maxMainIdx, Math.max(0, Number(sg.insertAfterLineIdx) || 0));
+            if (Number(sg.insertAfterLineIdx) >= 0 && targetPos === idx) {
+              scriptRows.push(`--- 以下为小群 SG${sgIdx} 标题：${sg.title || '小群'} 共${sg.scriptLines.length}句 行号SG${sgIdx}_L0至SG${sgIdx}_L${sg.scriptLines.length - 1} ---`);
+              sg.scriptLines.forEach((sl, sLineIdx) => {
+                scriptRows.push(`SG${sgIdx}_L${sLineIdx}|${sl.speaker || '旁白'}|${sl.text || ''}`);
+              });
+              scriptRows.push(`--- 小群 SG${sgIdx} 结束 ---`);
+            }
+          });
+        });
+
+        const sysPrompt = `你是专业跑团Replay与视觉小说场景底图导演。请通读当前章节全部主线台词以及小群台词，结合本模组已有场景地图列表，判断每一句台词所在的地点在哪，并按地点切换划分每一段场景底图从哪一句开始、到哪一句结束。
+严格遵守以下铁律：
+1. 只负责规划与修复场景底图的起止行号区间，绝对不要输出或改动任何台词文本、说话人、立绘差分、配乐、插图或线索。
+2. 按连续起止区间规划：只要角色还在同一个场所活动或交谈，就合并为一个连续的起止区间，只需要设定起始行号和结束行号，严禁一句一换！只有当旁白或对话明确发生地点转移、走进新房间、前往新区域或切换场景状态时，才开启下一段起止区间。
+3. 全程无缝覆盖：
+   - 主线章节必须从 L0 开始一直连续覆盖到最后一句 L${maxMainIdx}，前一段的结束行号加1就是下一段的起始行号，严禁留空档。
+   - 每个小群也必须从各自的 SG序号_L0 开始连续覆盖到该小群最后一句 SG序号_L最大行号，只需设置起始句与结束句。
+4. 优先选用下方已有场景列表中的场景编号或场所名称；如果某段剧情所在的地点确实不在已有场景列表中，请先输出一行 NEW_SCENE 定义该场所的2到5字简短中文名与纯景无人NovelAI英文提示词，再在 MAP_RANGE 中引用。
+5. 从头到尾严禁使用任何圆括号或方括号，严格按以下行格式逐条输出：
+NEW_SCENE: 场景编号如scene_new_1|2到5字简短场所中文名|no humans, nobody, scenery, masterpiece, best quality, anime visual novel background art, 2d painted illustration, flat background art, wide angle 16:9 composition, 英文场景环境细节
+MAP_RANGE: L起始行号-L结束行号|场景编号或场所中文名
+MAP_RANGE: SG小群序号_L起始行号-SG小群序号_L结束行号|场景编号或场所中文名`;
+
+        const userPrompt = `本模组已有可用场景地图列表：
+${sceneListDesc}
+
+当前章节「${chap.title}」主线 L0 至 L${maxMainIdx} 及所属小群完整台词：
+${scriptRows.join('\n')}`;
+
+        const reply = await callLlmCompletion(
+          [
+            { role: 'system', content: sysPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          null,
+          { caller: `AI全自动匹配章节与小群场景地图起止范围·${chap.title}`, preferSubApi: false }
+        );
+
+        if (!Array.isArray(proj.globalScenes)) proj.globalScenes = [];
+        const resolveOrAddScene = (targetRaw) => {
+          const cleanTarget = String(targetRaw || '').replace(/[()（）\[\]【】]/g, '').trim();
+          if (!cleanTarget || /^cg|cg_only|纯cg|无背景$/i.test(cleanTarget)) {
+            return { id: 'cg_only', name: '无背景' };
+          }
+          const latestPool = getAllModuleScenesPool(proj, chap);
+          let matched = latestPool.find((s) => s.id === cleanTarget || s.name === cleanTarget);
+          if (!matched) {
+            matched = latestPool.find((s) => (s.name && cleanTarget.includes(s.name)) || (s.name && s.name.includes(cleanTarget)));
+          }
+          if (matched) return matched;
+          const newId = `scene_${proj.globalScenes.length + 1}_${Date.now().toString().slice(-3)}`;
+          const shortName = cleanTarget.replace(/^scene_\w+\s*/i, '').slice(0, 8) || `场景${proj.globalScenes.length + 1}`;
+          const created = {
+            id: newId,
+            name: shortName,
+            prompt: 'no humans, nobody, scenery, masterpiece, best quality, anime visual novel background art, 2d painted illustration, flat background art, wide angle 16:9 composition, detailed background, atmospheric lighting',
+            baseSceneId: '',
+            imageUrl: ''
+          };
+          proj.globalScenes.push(created);
+          return created;
+        };
+
+        let mainRangeCount = 0;
+        let sgRangeCount = 0;
+
+        if (reply) {
+          reply.split('\n').forEach((rawLine) => {
+            const line = rawLine.trim();
+            if (line.startsWith('NEW_SCENE:') || line.startsWith('SCENE_BG:') || line.startsWith('SCENE_ITEM:')) {
+              const parts = line.replace(/^(?:NEW_SCENE|SCENE_BG|SCENE_ITEM):\s*/i, '').split('|').map((s) => s.trim());
+              if (parts.length >= 2) {
+                const rawId = parts[0] || `scene_${proj.globalScenes.length + 1}`;
+                const rawName = (parts[1] || rawId).replace(/[()（）]/g, '').trim();
+                const rawPrompt = parts.slice(2).join(', ').trim();
+                const existing = proj.globalScenes.find((g) => g && (g.id === rawId || g.name === rawName));
+                if (!existing && rawName) {
+                  const nextId = /^scene_/i.test(rawId) && !proj.globalScenes.some((g) => g.id === rawId)
+                    ? rawId
+                    : `scene_${proj.globalScenes.length + 1}`;
+                  proj.globalScenes.push({
+                    id: nextId,
+                    name: rawName,
+                    prompt: rawPrompt
+                      ? (rawPrompt.includes('no humans') ? rawPrompt : `no humans, nobody, scenery, masterpiece, best quality, anime visual novel background art, 2d painted illustration, flat background art, wide angle 16:9 composition, ${rawPrompt}`)
+                      : 'no humans, nobody, scenery, masterpiece, best quality, anime visual novel background art, 2d painted illustration, flat background art, wide angle 16:9 composition, detailed interior, atmospheric lighting',
+                    baseSceneId: '',
+                    imageUrl: ''
+                  });
+                }
+              }
+            }
+          });
+
+          reply.split('\n').forEach((rawLine) => {
+            const line = rawLine.trim();
+            if (line.startsWith('MAP_RANGE:') || line.startsWith('SCENE_RANGE:')) {
+              const parts = line.replace(/^(?:MAP_RANGE|SCENE_RANGE):\s*/i, '').split('|').map((s) => s.trim());
+              if (parts.length < 2) return;
+              const rangePart = parts[0];
+              const sceneTarget = parts[1];
+              const resolvedSc = resolveOrAddScene(sceneTarget);
+
+              const sgMatch = rangePart.match(/SG(\d+)_[LS]?(\d+)\s*(?:[-~至]\s*(?:SG\d+_)?[LS]?(\d+))?/i);
+              if (sgMatch) {
+                const sgIdx = parseInt(sgMatch[1], 10);
+                const sgObj = chapSubGroups[sgIdx];
+                if (!sgObj || !Array.isArray(sgObj.scriptLines) || sgObj.scriptLines.length === 0) return;
+                const maxSg = sgObj.scriptLines.length - 1;
+                const r1 = parseInt(sgMatch[2], 10) || 0;
+                const r2 = sgMatch[3] !== undefined ? parseInt(sgMatch[3], 10) : r1;
+                const sIdx = Math.max(0, Math.min(maxSg, Math.min(r1, r2)));
+                const eIdx = Math.max(sIdx, Math.min(maxSg, Math.max(r1, r2)));
+                for (let k = sIdx; k <= eIdx; k++) {
+                  if (sgObj.scriptLines[k]) {
+                    sgObj.scriptLines[k].sceneId = resolvedSc.id;
+                  }
+                }
+                sgRangeCount += 1;
+                return;
+              }
+
+              const mainMatch = rangePart.match(/[LS]?(\d+)\s*(?:[-~至]\s*[LS]?(\d+))?/i);
+              if (mainMatch) {
+                const r1 = parseInt(mainMatch[1], 10) || 0;
+                const r2 = mainMatch[2] !== undefined ? parseInt(mainMatch[2], 10) : r1;
+                const sIdx = Math.max(0, Math.min(maxMainIdx, Math.min(r1, r2)));
+                const eIdx = Math.max(sIdx, Math.min(maxMainIdx, Math.max(r1, r2)));
+                for (let k = sIdx; k <= eIdx; k++) {
+                  if (chap.scriptLines[k]) {
+                    chap.scriptLines[k].sceneId = resolvedSc.id;
+                    chap.scriptLines[k]._explicitNoBg = (resolvedSc.id === 'cg_only');
+                  }
+                }
+                mainRangeCount += 1;
+              }
+            }
+          });
+        }
+
+        rebuildHolderScenesFromLines(chap, proj, chap);
+        chapSubGroups.forEach((sg) => {
+          rebuildHolderScenesFromLines(sg, proj, chap);
+        });
+
+        await saveReplayProjectToDB(proj);
+        renderExtractedModuleScenesList();
+        renderReplayScriptEditor();
+        renderReplaySubGroupStudio();
+        renderReplayCgStudio();
+        if (typeof renderReplayStageFxStudio === 'function') renderReplayStageFxStudio();
+        if (statusEl) {
+          statusEl.textContent = `已完成本章与小群场景地图自动匹配：主线共划分 ${chap.scenes?.length || mainRangeCount} 段地图区间，小群共划分 ${sgRangeCount} 段地图区间`;
+        }
+      } catch (err) {
+        alert('自动匹配场景地图失败：' + err.message);
+      } finally {
+        if (btn) { btn.textContent = '地图'; btn.disabled = false; }
       }
     }
 
@@ -21656,19 +21878,10 @@ ${numberedLines}`;
           badges.push(`<span class="vn-console-badge accent">线索${activeClueObj.imageUrl ? '已绘' : ''}·${activeClueObj.name || '道具'}</span>`);
         }
 
-        const sceneOptionsList = [];
-        const seenSceneIds = new Set();
-        (targetChap?.scenes || []).forEach((s) => {
-          if (s && s.id && !seenSceneIds.has(s.id)) {
-            seenSceneIds.add(s.id);
-            sceneOptionsList.push({ id: s.id, label: s.name || s.id });
-          }
-        });
-        if (line.sceneId && line.sceneId !== 'cg_only' && !seenSceneIds.has(line.sceneId)) {
-          sceneOptionsList.push({ id: line.sceneId, label: line.sceneId });
+        const sgScBadge = getLineActiveSceneBadgeInfo(sg, lIdx, proj, targetChap);
+        if (sgScBadge && sgScBadge.label) {
+          badges.unshift(`<span class="vn-console-badge">地图·${sgScBadge.label}${sgScBadge.rangeText ? '·' + sgScBadge.rangeText : ''}</span>`);
         }
-        sceneOptionsList.push({ id: 'cg_only', label: '无背景' });
-        const curSceneVal = line.sceneId || (targetChap?.scenes && targetChap.scenes[0]?.id) || 'scene_1';
 
         const hasBgmMark = Boolean(line.bgmTag && String(line.bgmTag).trim());
         const flushText = String(line.text || '').replace(/^[\s\u3000]+/gm, '');
@@ -21690,9 +21903,6 @@ ${numberedLines}`;
                   ${expList.map((e) => `<option value="${e}" ${(line.exp || '默认') === e ? 'selected' : ''}>${e}</option>`).join('')}
                 </select>
               ` : ''}
-              <select class="moe-input" style="width:auto;min-width:96px;max-width:150px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:12px;" title="切换当前台词显示的背景场景" onchange="updateSubGroupScriptLineField('${sg.id}', ${lIdx}, 'sceneId', this.value)">
-                ${sceneOptionsList.map((sc) => `<option value="${sc.id.replace(/"/g, '&quot;')}" ${sc.id === curSceneVal ? 'selected' : ''}>${sc.label}</option>`).join('')}
-              </select>
               ${hasBgmMark ? `
                 <input type="text" class="moe-input" value="${(line.bgmTag || '').replace(/"/g, '&quot;')}" placeholder="音乐标记" title="填入歌名或停止，清空即可移除音乐标记" style="width:108px;height:30px;min-height:30px;padding:0 8px;font-size:11px;" onchange="updateSubGroupScriptLineField('${sg.id}', ${lIdx}, 'bgmTag', this.value)" />
               ` : ''}
@@ -21819,20 +22029,10 @@ ${numberedLines}`;
         if (hasTypo) {
           badges.push(`<span class="vn-console-badge accent">错字·${line.typoInfo.wrongWord}</span>`);
         }
-
-        const sceneOptionsList = [];
-        const seenSceneIds = new Set();
-        (chap.scenes || []).forEach((s) => {
-          if (s && s.id && !seenSceneIds.has(s.id)) {
-            seenSceneIds.add(s.id);
-            sceneOptionsList.push({ id: s.id, label: s.name || s.id });
-          }
-        });
-        if (line.sceneId && line.sceneId !== 'cg_only' && !seenSceneIds.has(line.sceneId)) {
-          sceneOptionsList.push({ id: line.sceneId, label: line.sceneId });
+        const scBadge = getLineActiveSceneBadgeInfo(chap, idx, proj, chap);
+        if (scBadge && scBadge.label) {
+          badges.unshift(`<span class="vn-console-badge">地图·${scBadge.label}${scBadge.rangeText ? '·' + scBadge.rangeText : ''}</span>`);
         }
-        sceneOptionsList.push({ id: 'cg_only', label: '无背景' });
-        const curSceneVal = line.sceneId || (chap.scenes && chap.scenes[0]?.id) || 'scene_1';
 
         const hasBgmMark = Boolean(line.bgmTag && String(line.bgmTag).trim());
         const flushText = String(line.text || '').replace(/^[\s\u3000]+/gm, '');
@@ -21853,9 +22053,6 @@ ${numberedLines}`;
                   ${expList.map((e) => `<option value="${e}" ${(line.exp || '默认') === e ? 'selected' : ''}>${e}</option>`).join('')}
                 </select>
               ` : ''}
-              <select class="moe-input" style="width:auto;min-width:96px;max-width:150px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:12px;" title="切换当前台词显示的背景场景" onchange="updateReplayScriptLineField(${idx}, 'sceneId', this.value)">
-                ${sceneOptionsList.map((sc) => `<option value="${sc.id.replace(/"/g, '&quot;')}" ${sc.id === curSceneVal ? 'selected' : ''}>${sc.label}</option>`).join('')}
-              </select>
               ${hasBgmMark ? `
                 <input type="text" class="moe-input" value="${(line.bgmTag || '').replace(/"/g, '&quot;')}" placeholder="音乐标记" title="填入歌名或停止，清空即可移除音乐标记" style="width:108px;height:30px;min-height:30px;padding:0 8px;font-size:11px;" onchange="updateReplayScriptLineField(${idx}, 'bgmTag', this.value)" />
               ` : ''}
@@ -22848,6 +23045,7 @@ ${numberedSubGroupLines}`;
 
         computeChapterStageSlots(filteredLines);
         sg.scriptLines = filteredLines;
+        rebuildHolderScenesFromLines(sg, proj, chap);
         syncSubGroupCgLineBindings(sg);
         syncSubGroupClueLineBindings(sg);
         await saveReplayProjectToDB(proj);
@@ -23107,6 +23305,13 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
       } else {
         sg.scriptLines.splice(safeIdx + 1, 0, newLine);
       }
+      if (Array.isArray(sg.scenes)) {
+        sg.scenes.forEach((sc) => {
+          if (!sc) return;
+          if ((sc.startLineIdx ?? 0) > safeIdx) sc.startLineIdx += 1;
+          if ((sc.endLineIdx ?? 0) >= safeIdx) sc.endLineIdx += 1;
+        });
+      }
       if (Array.isArray(sg.cgNodes)) {
         sg.cgNodes.forEach((cg) => {
           if (!cg) return;
@@ -23156,6 +23361,23 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
       if (!sg || !Array.isArray(sg.scriptLines) || !sg.scriptLines[lineIdx]) return;
       sg.scriptLines.splice(lineIdx, 1);
       const maxRemainingIdx = Math.max(0, sg.scriptLines.length - 1);
+      if (Array.isArray(sg.scenes)) {
+        sg.scenes = sg.scenes.filter((sc) => {
+          if (!sc) return false;
+          if (sg.scriptLines.length === 0) return false;
+          let s = sc.startLineIdx ?? 0;
+          let e = sc.endLineIdx ?? s;
+          if (lineIdx < s) {
+            s = Math.max(0, s - 1);
+            e = Math.max(s, e - 1);
+          } else if (lineIdx <= e) {
+            e = Math.max(s, e - 1);
+          }
+          sc.startLineIdx = Math.min(maxRemainingIdx, s);
+          sc.endLineIdx = Math.min(maxRemainingIdx, Math.max(sc.startLineIdx, e));
+          return true;
+        });
+      }
       if (Array.isArray(sg.cgNodes)) {
         sg.cgNodes = sg.cgNodes.filter((cg) => {
           if (!cg) return false;
@@ -23242,10 +23464,11 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
       box.innerHTML = '';
       subGroups.forEach((sg, sgIdx) => {
         if (!sg) return;
-        syncSubGroupCgLineBindings(sg);
-        syncSubGroupClueLineBindings(sg);
         const tChapIdx = Math.max(0, Math.min(Math.max(0, chaps.length - 1), Number(sg.targetChapterIdx) || 0));
         const targetChap = chaps[tChapIdx] || null;
+        ensureContinuousHolderScenes(sg, proj, targetChap);
+        syncSubGroupCgLineBindings(sg);
+        syncSubGroupClueLineBindings(sg);
         const chapLines = Array.isArray(targetChap?.scriptLines) ? targetChap.scriptLines : [];
         const lineCount = Array.isArray(sg.scriptLines) ? sg.scriptLines.length : 0;
         const posLabel = sg.inserted
@@ -23268,8 +23491,46 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
           linePosOptions.push(`<option value="${lIdx}" ${selAttr}>#${lIdx + 1} ${(cl?.speaker || '旁白').replace(/</g, '&lt;')}：${shortTxt.replace(/</g, '&lt;')}</option>`);
         });
 
+        let sgScenesBoxHtml = '';
         let linesHtml = '';
         if (!sg.collapsed) {
+          if (lineCount > 0) {
+            const scenePool = getAllModuleScenesPool(proj, targetChap);
+            const sgScenes = Array.isArray(sg.scenes) ? sg.scenes : [];
+            const sgSegmentsHtml = sgScenes.map((sc, segIdx) => {
+              const sStart = Math.max(0, Math.min(lineCount - 1, Number(sc.startLineIdx ?? 0)));
+              const sEnd = Math.max(sStart, Math.min(lineCount - 1, Number(sc.endLineIdx ?? sStart)));
+              const poolOpts = scenePool.map((p) => `<option value="${p.id.replace(/"/g, '&quot;')}" ${(p.id === sc.id || p.name === sc.name) ? 'selected' : ''}>${(p.name || p.id).replace(/</g, '&lt;')}</option>`).join('');
+              const startOpts = sg.scriptLines.map((l, idx) => `<option value="${idx}" ${idx === sStart ? 'selected' : ''}>从第 ${idx + 1} 句：${(l.speaker || '旁白').replace(/</g, '&lt;')}·${String(l.text || '').slice(0, 12).replace(/</g, '&lt;')}</option>`).join('');
+              const endOpts = sg.scriptLines.map((l, idx) => `<option value="${idx}" ${idx === sEnd ? 'selected' : ''}>到第 ${idx + 1} 句：${(l.speaker || '旁白').replace(/</g, '&lt;')}·${String(l.text || '').slice(0, 12).replace(/</g, '&lt;')}</option>`).join('');
+              return `
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 8px;border-radius:8px;background:var(--card-bg);border:1px solid var(--border-color);">
+                  <select class="moe-input" style="flex:1;min-width:110px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;font-weight:700;" onchange="updateSubGroupSceneSegmentField('${sg.id}', ${segIdx}, 'sceneId', this.value)">
+                    ${poolOpts}
+                    <option value="cg_only" ${sc.id === 'cg_only' ? 'selected' : ''}>无背景</option>
+                  </select>
+                  <select class="moe-input" style="flex:1.2;min-width:130px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateSubGroupSceneSegmentField('${sg.id}', ${segIdx}, 'startLineIdx', this.value)">
+                    ${startOpts}
+                  </select>
+                  <select class="moe-input" style="flex:1.2;min-width:130px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateSubGroupSceneSegmentField('${sg.id}', ${segIdx}, 'endLineIdx', this.value)">
+                    ${endOpts}
+                  </select>
+                  <button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;flex-shrink:0;" onclick="deleteSubGroupSceneSegment('${sg.id}', ${segIdx})">删除</button>
+                </div>
+              `;
+            }).join('');
+
+            sgScenesBoxHtml = `
+              <div style="display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                  <span style="font-size:11px;font-weight:800;color:var(--text-primary);">小群地图起止范围</span>
+                  <button type="button" class="moe-btn secondary" style="height:28px;min-height:28px;padding:0 10px;font-size:11px;" onclick="addManualSubGroupSceneSegment('${sg.id}')">新增</button>
+                </div>
+                ${sgSegmentsHtml || '<div style="font-size:11px;color:var(--text-secondary);">暂无地图范围，可点击右上角新增或在剧本页点击地图按钮自动匹配</div>'}
+              </div>
+            `;
+          }
+
           if (lineCount === 0) {
             linesHtml = `
               <div style="text-align:center;color:var(--text-secondary);font-size:12px;padding:10px 0;">
@@ -23302,6 +23563,10 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
               }
 
               const badges = [];
+              const sgScBadge = getLineActiveSceneBadgeInfo(sg, lIdx, proj, targetChap);
+              if (sgScBadge && sgScBadge.label) {
+                badges.push(`<span class="vn-console-badge">地图·${sgScBadge.label}${sgScBadge.rangeText ? '·' + sgScBadge.rangeText : ''}</span>`);
+              }
               if (Array.isArray(line.hudEvents) && line.hudEvents.length > 0) {
                 badges.push(`<span class="vn-console-badge">检定·${line.hudEvents.length}</span>`);
               }
@@ -23320,20 +23585,6 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
                 badges.push(`<span class="vn-console-badge accent">线索${activeClueObj.imageUrl ? '已绘' : ''}·${activeClueObj.name || '道具'}</span>`);
               }
 
-              const sceneOptionsList = [];
-              const seenSceneIds = new Set();
-              (targetChap?.scenes || []).forEach((s) => {
-                if (s && s.id && !seenSceneIds.has(s.id)) {
-                  seenSceneIds.add(s.id);
-                  sceneOptionsList.push({ id: s.id, label: s.name || s.id });
-                }
-              });
-              if (line.sceneId && line.sceneId !== 'cg_only' && !seenSceneIds.has(line.sceneId)) {
-                sceneOptionsList.push({ id: line.sceneId, label: line.sceneId });
-              }
-              sceneOptionsList.push({ id: 'cg_only', label: '无背景' });
-              const curSceneVal = line.sceneId || (targetChap?.scenes && targetChap.scenes[0]?.id) || 'scene_1';
-
               const flushText = String(line.text || '').replace(/^[\s\u3000]+/gm, '');
               return `
                 <div class="vn-script-card">
@@ -23348,9 +23599,6 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
                           ${expList.map((e) => `<option value="${e}" ${(line.exp || '默认') === e ? 'selected' : ''}>${e}</option>`).join('')}
                         </select>
                       ` : ''}
-                      <select class="moe-input" style="width:auto;min-width:96px;max-width:150px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:12px;" onchange="updateSubGroupScriptLineField('${sg.id}', ${lIdx}, 'sceneId', this.value)">
-                        ${sceneOptionsList.map((sc) => `<option value="${sc.id.replace(/"/g, '&quot;')}" ${sc.id === curSceneVal ? 'selected' : ''}>${sc.label}</option>`).join('')}
-                      </select>
                       <input type="text" class="moe-input" value="${(line.bgmTag || '').replace(/"/g, '&quot;')}" placeholder="音乐或填停止" style="width:108px;height:32px;min-height:32px;padding:0 8px;font-size:11px;" onchange="updateSubGroupScriptLineField('${sg.id}', ${lIdx}, 'bgmTag', this.value)" />
                       <div class="vn-console-badges">${badges.join('')}</div>
                     </div>
@@ -23408,6 +23656,7 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
                 <button type="button" class="moe-btn" style="height:34px;min-height:34px;padding:0 12px;flex-shrink:0;" onclick="insertOrUpdateSubGroupIntoChapter('${sg.id}', this)">插入</button>
                 ${sg.inserted ? `<button type="button" class="moe-btn secondary" style="height:34px;min-height:34px;padding:0 12px;flex-shrink:0;" onclick="withdrawSubGroupFromChapter('${sg.id}')">撤回</button>` : ''}
               </div>
+              ${sgScenesBoxHtml}
               <div style="display:flex;flex-direction:column;gap:8px;">
                 ${linesHtml}
               </div>
@@ -23418,44 +23667,233 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
       });
     }
 
-    function syncChapterSceneLineRangesFromLines(chap) {
-      if (!chap || !Array.isArray(chap.scenes) || !Array.isArray(chap.scriptLines) || chap.scriptLines.length === 0) return;
-      const rangeMap = new Map();
-      chap.scriptLines.forEach((l, idx) => {
-        const sid = l?.sceneId;
+    function getAllModuleScenesPool(proj, fallbackChap = null) {
+      const targetProj = proj || getCurrentReplayProject();
+      const pool = [];
+      const seenIds = new Set();
+      const seenNames = new Set();
+      const registerScene = (sc) => {
+        if (!sc || (!sc.id && !sc.name)) return;
+        const sid = String(sc.id || sc.name).trim();
+        const sname = String(sc.name || sc.id).trim();
         if (!sid || sid === 'cg_only') return;
-        if (!rangeMap.has(sid)) {
-          rangeMap.set(sid, { start: idx, end: idx });
+        const existing = pool.find((x) => x.id === sid || (sname && x.name === sname));
+        if (existing) {
+          if (!existing.imageUrl && sc.imageUrl) existing.imageUrl = sc.imageUrl;
+          if ((!existing.prompt || existing.prompt.length < 20) && sc.prompt) existing.prompt = sc.prompt;
+          if (!existing.baseSceneId && sc.baseSceneId) existing.baseSceneId = sc.baseSceneId;
+          return;
+        }
+        seenIds.add(sid);
+        if (sname) seenNames.add(sname);
+        pool.push({
+          id: sid,
+          name: sname || sid,
+          prompt: sc.prompt || 'no humans, nobody, scenery, masterpiece, best quality, anime visual novel background art, wide angle 16:9 interior, atmospheric lighting',
+          imageUrl: sc.imageUrl || '',
+          baseSceneId: sc.baseSceneId || ''
+        });
+      };
+      if (targetProj) {
+        (targetProj.globalScenes || []).forEach(registerScene);
+        (targetProj.chapters || []).forEach((ch) => {
+          (ch?.scenes || []).forEach(registerScene);
+        });
+        (targetProj.subGroups || []).forEach((sg) => {
+          (sg?.scenes || []).forEach(registerScene);
+        });
+      }
+      if (fallbackChap) {
+        (fallbackChap.scenes || []).forEach(registerScene);
+      }
+      if (pool.length === 0) {
+        pool.push({
+          id: 'scene_1',
+          name: '默认跑团舞台',
+          prompt: 'no humans, nobody, scenery, masterpiece, best quality, anime visual novel background art, mysterious room, cinematic lighting, 16:9 wide shot',
+          imageUrl: '',
+          baseSceneId: ''
+        });
+      }
+      if (targetProj && (!Array.isArray(targetProj.globalScenes) || targetProj.globalScenes.length === 0)) {
+        targetProj.globalScenes = pool.map((s) => ({ ...s }));
+      } else if (targetProj && Array.isArray(targetProj.globalScenes)) {
+        pool.forEach((p) => {
+          const gf = targetProj.globalScenes.find((g) => g && (g.id === p.id || g.name === p.name));
+          if (!gf) {
+            targetProj.globalScenes.push({ ...p });
+          } else {
+            if (!gf.imageUrl && p.imageUrl) gf.imageUrl = p.imageUrl;
+            if (!gf.prompt && p.prompt) gf.prompt = p.prompt;
+          }
+        });
+      }
+      return pool;
+    }
+
+    function rebuildHolderScenesFromLines(holder, proj = null, fallbackChap = null) {
+      if (!holder || !Array.isArray(holder.scriptLines) || holder.scriptLines.length === 0) return;
+      const targetProj = proj || getCurrentReplayProject();
+      const pool = getAllModuleScenesPool(targetProj, fallbackChap || holder);
+      const fallbackScene = pool[0] || {
+        id: 'scene_1',
+        name: '默认跑团舞台',
+        prompt: 'no humans, nobody, scenery, masterpiece, best quality, anime visual novel background art, mysterious room, cinematic lighting, 16:9 wide shot',
+        imageUrl: ''
+      };
+
+      const oldScenes = Array.isArray(holder.scenes) ? holder.scenes : [];
+      const findSceneMeta = (sid) => {
+        if (sid === 'cg_only') {
+          return {
+            id: 'cg_only',
+            name: '无背景',
+            prompt: '',
+            imageUrl: '',
+            baseSceneId: ''
+          };
+        }
+        const fromOld = oldScenes.find((x) => x && (x.id === sid || x.name === sid));
+        const fromPool = pool.find((x) => x && (x.id === sid || x.name === sid));
+        const base = fromPool || fromOld || fallbackScene;
+        return {
+          id: base.id || sid || fallbackScene.id,
+          name: fromOld?.name || base.name || sid || fallbackScene.name,
+          prompt: fromOld?.prompt || base.prompt || fallbackScene.prompt,
+          imageUrl: fromOld?.imageUrl || base.imageUrl || '',
+          baseSceneId: fromOld?.baseSceneId || base.baseSceneId || ''
+        };
+      };
+
+      let runningSceneId = '';
+      const segments = [];
+      for (let i = 0; i < holder.scriptLines.length; i++) {
+        const line = holder.scriptLines[i];
+        if (!line) continue;
+        let sid = line.sceneId || '';
+        if (sid === 'cg_only' && !line._explicitNoBg) {
+          sid = runningSceneId || fallbackScene.id;
+        }
+        if (!sid) {
+          sid = runningSceneId || fallbackScene.id;
+        }
+        const resolvedMeta = findSceneMeta(sid);
+        const canonicalId = resolvedMeta.id;
+        line.sceneId = canonicalId;
+        runningSceneId = canonicalId;
+
+        const prevSeg = segments[segments.length - 1];
+        if (prevSeg && prevSeg.id === canonicalId) {
+          prevSeg.endLineIdx = i;
         } else {
-          rangeMap.get(sid).end = idx;
+          segments.push({
+            id: canonicalId,
+            name: resolvedMeta.name,
+            prompt: resolvedMeta.prompt,
+            imageUrl: resolvedMeta.imageUrl,
+            baseSceneId: resolvedMeta.baseSceneId || '',
+            startLineIdx: i,
+            endLineIdx: i,
+            _isRangeSegment: true
+          });
         }
-      });
-      chap.scenes.forEach((sc) => {
+      }
+      holder.scenes = segments;
+    }
+
+    function applyHolderSceneSegmentsToLines(holder, proj = null, fallbackChap = null, prioritySegIdx = -1) {
+      if (!holder || !Array.isArray(holder.scriptLines) || holder.scriptLines.length === 0) return;
+      if (!Array.isArray(holder.scenes) || holder.scenes.length === 0) {
+        rebuildHolderScenesFromLines(holder, proj, fallbackChap);
+        return;
+      }
+      const maxIdx = holder.scriptLines.length - 1;
+      const pool = getAllModuleScenesPool(proj || getCurrentReplayProject(), fallbackChap || holder);
+      const fallbackId = pool[0]?.id || 'scene_1';
+
+      const order = holder.scenes.map((_, idx) => idx);
+      if (prioritySegIdx >= 0 && prioritySegIdx < holder.scenes.length) {
+        const pIdx = order.indexOf(prioritySegIdx);
+        if (pIdx >= 0) {
+          order.splice(pIdx, 1);
+          order.push(prioritySegIdx);
+        }
+      }
+
+      const assigned = new Array(holder.scriptLines.length).fill('');
+      order.forEach((sIdx) => {
+        const sc = holder.scenes[sIdx];
         if (!sc || !sc.id) return;
-        const r = rangeMap.get(sc.id);
-        if (r) {
-          if (sc.startLineIdx === undefined) sc.startLineIdx = r.start;
-          if (sc.endLineIdx === undefined) sc.endLineIdx = r.end;
+        const s = Math.max(0, Math.min(maxIdx, Number(sc.startLineIdx ?? 0)));
+        const e = Math.max(s, Math.min(maxIdx, Number(sc.endLineIdx ?? s)));
+        sc.startLineIdx = s;
+        sc.endLineIdx = e;
+        sc._isRangeSegment = true;
+        for (let k = s; k <= e; k++) {
+          assigned[k] = sc.id;
         }
       });
+
+      let runningId = assigned.find(Boolean) || fallbackId;
+      for (let i = 0; i < holder.scriptLines.length; i++) {
+        const line = holder.scriptLines[i];
+        if (!line) continue;
+        const sid = assigned[i] || runningId || fallbackId;
+        runningId = sid;
+        line.sceneId = sid;
+        line._explicitNoBg = (sid === 'cg_only');
+      }
+    }
+
+    function ensureContinuousHolderScenes(holder, proj = null, fallbackChap = null) {
+      if (!holder || !Array.isArray(holder.scriptLines) || holder.scriptLines.length === 0) return;
+      const scenes = Array.isArray(holder.scenes) ? holder.scenes : [];
+      const hasLegacyUnbounded = scenes.length === 0 || scenes.some((sc) => !sc || !sc._isRangeSegment || sc.startLineIdx === undefined || sc.endLineIdx === undefined);
+      if (hasLegacyUnbounded) {
+        rebuildHolderScenesFromLines(holder, proj, fallbackChap);
+      } else {
+        applyHolderSceneSegmentsToLines(holder, proj, fallbackChap);
+      }
+    }
+
+    function getLineActiveSceneBadgeInfo(holder, lineIdx, proj = null, fallbackChap = null) {
+      if (!holder || !Array.isArray(holder.scriptLines) || !holder.scriptLines[lineIdx]) return null;
+      ensureContinuousHolderScenes(holder, proj, fallbackChap);
+      const scenes = Array.isArray(holder.scenes) ? holder.scenes : [];
+      let matchedSeg = null;
+      for (let i = scenes.length - 1; i >= 0; i--) {
+        const sc = scenes[i];
+        if (!sc) continue;
+        const s = Number(sc.startLineIdx ?? 0);
+        const e = Number(sc.endLineIdx ?? s);
+        if (lineIdx >= s && lineIdx <= e) {
+          matchedSeg = sc;
+          break;
+        }
+      }
+      if (!matchedSeg) {
+        const line = holder.scriptLines[lineIdx];
+        const pool = getAllModuleScenesPool(proj || getCurrentReplayProject(), fallbackChap || holder);
+        const found = pool.find((x) => x.id === line.sceneId || x.name === line.sceneId) || pool[0];
+        return found ? { id: found.id, label: found.name || found.id, rangeText: '' } : null;
+      }
+      const sNum = Number(matchedSeg.startLineIdx ?? 0) + 1;
+      const eNum = Number(matchedSeg.endLineIdx ?? matchedSeg.startLineIdx ?? 0) + 1;
+      return {
+        id: matchedSeg.id,
+        label: matchedSeg.name || matchedSeg.id,
+        rangeText: sNum === eNum ? `第${sNum}句` : `第${sNum}-${eNum}句`
+      };
+    }
+
+    function syncChapterSceneLineRangesFromLines(chap) {
+      if (!chap) return;
+      ensureContinuousHolderScenes(chap, getCurrentReplayProject(), chap);
     }
 
     function ensureContinuousChapterScenes(chap) {
       if (!chap || !Array.isArray(chap.scriptLines) || chap.scriptLines.length === 0) return;
-      const fallbackSceneId = (Array.isArray(chap.scenes) && chap.scenes[0]?.id) ? chap.scenes[0].id : '';
-      let activeSceneId = '';
-      for (let i = 0; i < chap.scriptLines.length; i++) {
-        const line = chap.scriptLines[i];
-        if (!line) continue;
-        if (line.sceneId && line.sceneId !== 'cg_only') {
-          activeSceneId = line.sceneId;
-        } else if (line.sceneId === 'cg_only' && !line._explicitNoBg) {
-          line.sceneId = activeSceneId || fallbackSceneId || 'cg_only';
-        } else if (!line.sceneId) {
-          line.sceneId = activeSceneId || fallbackSceneId || '';
-        }
-      }
-      syncChapterSceneLineRangesFromLines(chap);
+      ensureContinuousHolderScenes(chap, getCurrentReplayProject(), chap);
     }
 
     function propagateSceneSwitchFromLine(chap, lineIdx, newSceneId) {
@@ -23475,19 +23913,154 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
           break;
         }
       }
-      if (Array.isArray(chap.scenes)) {
-        const targetSc = chap.scenes.find((s) => s && s.id === newSceneId);
-        if (targetSc) {
-          let endIdx = lineIdx;
-          for (let k = lineIdx; k < chap.scriptLines.length; k++) {
-            if (chap.scriptLines[k]?.sceneId === newSceneId) endIdx = k;
-            else if (k > lineIdx) break;
+      rebuildHolderScenesFromLines(chap, getCurrentReplayProject(), chap);
+    }
+
+    async function updateSubGroupSceneSegmentField(sgId, segIdx, field, val) {
+      const proj = getCurrentReplayProject();
+      if (!proj) return;
+      const sg = ensureProjectSubGroupsArray(proj).find((x) => x && x.id === sgId);
+      if (!sg || !Array.isArray(sg.scriptLines) || sg.scriptLines.length === 0) return;
+      const chaps = Array.isArray(proj.chapters) ? proj.chapters : [];
+      const tChapIdx = Math.max(0, Math.min(Math.max(0, chaps.length - 1), Number(sg.targetChapterIdx) || 0));
+      const targetChap = chaps[tChapIdx] || null;
+      ensureContinuousHolderScenes(sg, proj, targetChap);
+      if (!Array.isArray(sg.scenes) || !sg.scenes[segIdx]) return;
+      const seg = sg.scenes[segIdx];
+      const maxIdx = Math.max(0, sg.scriptLines.length - 1);
+
+      if (field === 'sceneId') {
+        if (val === 'cg_only') {
+          seg.id = 'cg_only';
+          seg.name = '无背景';
+          seg.prompt = '';
+          seg.imageUrl = '';
+        } else {
+          const pool = getAllModuleScenesPool(proj, targetChap);
+          const matched = pool.find((x) => x.id === val || x.name === val);
+          if (matched) {
+            seg.id = matched.id;
+            seg.name = matched.name;
+            seg.prompt = matched.prompt || seg.prompt || '';
+            seg.imageUrl = matched.imageUrl || seg.imageUrl || '';
+            seg.baseSceneId = matched.baseSceneId || '';
+          } else {
+            seg.id = val;
           }
-          targetSc.startLineIdx = lineIdx;
-          targetSc.endLineIdx = endIdx;
+        }
+      } else if (field === 'startLineIdx' || field === 'endLineIdx') {
+        const clamped = Math.max(0, Math.min(maxIdx, parseInt(val, 10) || 0));
+        seg[field] = clamped;
+        if (field === 'startLineIdx' && (seg.endLineIdx ?? clamped) < clamped) {
+          seg.endLineIdx = clamped;
+        } else if (field === 'endLineIdx' && (seg.startLineIdx ?? 0) > clamped) {
+          seg.startLineIdx = clamped;
         }
       }
-      syncChapterSceneLineRangesFromLines(chap);
+      seg._isRangeSegment = true;
+      applyHolderSceneSegmentsToLines(sg, proj, targetChap, segIdx);
+      computeChapterStageSlots(sg.scriptLines);
+      await saveReplayProjectToDB(proj);
+      renderReplaySubGroupStudio();
+      renderReplayScriptEditor();
+      renderReplayCgStudio();
+    }
+
+    async function addManualSubGroupSceneSegment(sgId) {
+      const proj = getCurrentReplayProject();
+      if (!proj) return;
+      const sg = ensureProjectSubGroupsArray(proj).find((x) => x && x.id === sgId);
+      if (!sg || !Array.isArray(sg.scriptLines) || sg.scriptLines.length === 0) {
+        alert('请先点击整理生成该小群的台词');
+        return;
+      }
+      const chaps = Array.isArray(proj.chapters) ? proj.chapters : [];
+      const tChapIdx = Math.max(0, Math.min(Math.max(0, chaps.length - 1), Number(sg.targetChapterIdx) || 0));
+      const targetChap = chaps[tChapIdx] || null;
+      ensureContinuousHolderScenes(sg, proj, targetChap);
+      if (!Array.isArray(sg.scenes)) sg.scenes = [];
+      const pool = getAllModuleScenesPool(proj, targetChap);
+      const chosen = pool[sg.scenes.length % pool.length] || pool[0];
+      const maxIdx = Math.max(0, sg.scriptLines.length - 1);
+      const prevEnd = sg.scenes.length > 0 ? Number(sg.scenes[sg.scenes.length - 1].endLineIdx ?? 0) : -1;
+      const startLineIdx = prevEnd >= 0 && prevEnd < maxIdx ? prevEnd + 1 : 0;
+      sg.scenes.push({
+        id: chosen.id,
+        name: chosen.name,
+        prompt: chosen.prompt || 'no humans, nobody, scenery, masterpiece, best quality, anime visual novel background art, wide angle 16:9 interior, atmospheric lighting',
+        imageUrl: chosen.imageUrl || '',
+        baseSceneId: chosen.baseSceneId || '',
+        startLineIdx,
+        endLineIdx: maxIdx,
+        _isRangeSegment: true
+      });
+      applyHolderSceneSegmentsToLines(sg, proj, targetChap, sg.scenes.length - 1);
+      computeChapterStageSlots(sg.scriptLines);
+      await saveReplayProjectToDB(proj);
+      renderReplaySubGroupStudio();
+      renderReplayScriptEditor();
+      renderReplayCgStudio();
+    }
+
+    async function deleteSubGroupSceneSegment(sgId, segIdx) {
+      const proj = getCurrentReplayProject();
+      if (!proj) return;
+      const sg = ensureProjectSubGroupsArray(proj).find((x) => x && x.id === sgId);
+      if (!sg || !Array.isArray(sg.scenes) || !sg.scenes[segIdx]) return;
+      const chaps = Array.isArray(proj.chapters) ? proj.chapters : [];
+      const tChapIdx = Math.max(0, Math.min(Math.max(0, chaps.length - 1), Number(sg.targetChapterIdx) || 0));
+      const targetChap = chaps[tChapIdx] || null;
+      sg.scenes.splice(segIdx, 1);
+      if (sg.scenes.length === 0) {
+        rebuildHolderScenesFromLines(sg, proj, targetChap);
+      } else {
+        applyHolderSceneSegmentsToLines(sg, proj, targetChap);
+      }
+      computeChapterStageSlots(sg.scriptLines);
+      await saveReplayProjectToDB(proj);
+      renderReplaySubGroupStudio();
+      renderReplayScriptEditor();
+      renderReplayCgStudio();
+    }
+
+    function getCombinedChapterSceneEntries(proj, chap) {
+      const targetProj = proj || getCurrentReplayProject();
+      const targetChap = chap || getCurrentReplayChapter();
+      if (!targetChap) return [];
+      ensureContinuousHolderScenes(targetChap, targetProj, targetChap);
+      const entries = [];
+      (targetChap.scenes || []).forEach((node, idx) => {
+        if (!node) return;
+        entries.push({
+          ownerType: 'chapter',
+          ownerId: targetChap.id,
+          ownerLabel: '主线',
+          holder: targetChap,
+          localIdx: idx,
+          node,
+          lines: targetChap.scriptLines || []
+        });
+      });
+      const cIdx = (targetProj?.chapters || []).indexOf(targetChap);
+      const chapOrder = cIdx >= 0 ? cIdx : (Number(appState.currentReplayChapterIdx) || 0);
+      const chapSubGroups = getSubGroupsForChapter(targetProj, chapOrder);
+      chapSubGroups.forEach((sg) => {
+        ensureContinuousHolderScenes(sg, targetProj, targetChap);
+        (sg.scenes || []).forEach((node, idx) => {
+          if (!node) return;
+          entries.push({
+            ownerType: 'subgroup',
+            ownerId: sg.id,
+            ownerLabel: `小群·${sg.title || '记录'}`,
+            holder: sg,
+            sg,
+            localIdx: idx,
+            node,
+            lines: sg.scriptLines || []
+          });
+        });
+      });
+      return entries;
     }
 
     async function updateReplayScriptLineField(lineIdx, field, val) {
@@ -24026,10 +24599,32 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
       }
     }
 
+    function syncSceneMetaAcrossProject(proj, sceneId, sceneName, patch = {}) {
+      if (!proj) return;
+      const matchFn = (s) => s && ((sceneId && s.id === sceneId) || (sceneName && s.name === sceneName));
+      (proj.globalScenes || []).forEach((s) => {
+        if (matchFn(s)) Object.assign(s, patch);
+      });
+      (proj.chapters || []).forEach((ch) => {
+        (ch?.scenes || []).forEach((s) => {
+          if (matchFn(s)) Object.assign(s, patch);
+        });
+      });
+      (proj.subGroups || []).forEach((sg) => {
+        (sg?.scenes || []).forEach((s) => {
+          if (matchFn(s)) Object.assign(s, patch);
+        });
+      });
+    }
+
     async function saveSingleSceneNodePrompt(sIdx, btnEl) {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
-      if (!proj || !chap || !chap.scenes || !chap.scenes[sIdx]) return;
+      if (!proj || !chap) return;
+      const entry = getCombinedChapterSceneEntries(proj, chap)[sIdx];
+      if (!entry || !entry.node) return;
+      const sc = entry.node;
+      syncSceneMetaAcrossProject(proj, sc.id, sc.name, { name: sc.name, prompt: sc.prompt });
       await saveReplayProjectToDB(proj);
       if (btnEl) {
         btnEl.textContent = '已存';
@@ -24042,20 +24637,19 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
     async function deleteReplaySceneNode(sIdx) {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
-      if (!proj || !chap || !Array.isArray(chap.scenes) || !chap.scenes[sIdx]) return;
-      const removed = chap.scenes.splice(sIdx, 1)[0];
-      const fallbackId = chap.scenes[0]?.id || '';
-      if (removed && Array.isArray(chap.scriptLines)) {
-        chap.scriptLines.forEach((l) => {
-          if (l && l.sceneId === removed.id) {
-            l.sceneId = fallbackId;
-          }
-        });
+      if (!proj || !chap) return;
+      const entry = getCombinedChapterSceneEntries(proj, chap)[sIdx];
+      if (!entry || !entry.holder || !Array.isArray(entry.holder.scenes)) return;
+      entry.holder.scenes.splice(entry.localIdx, 1);
+      if (entry.holder.scenes.length === 0) {
+        rebuildHolderScenesFromLines(entry.holder, proj, chap);
+      } else {
+        applyHolderSceneSegmentsToLines(entry.holder, proj, chap);
       }
-      ensureContinuousChapterScenes(chap);
       await saveReplayProjectToDB(proj);
       renderExtractedModuleScenesList();
       renderReplayScriptEditor();
+      renderReplaySubGroupStudio();
       if (typeof renderReplayStageFxStudio === 'function') renderReplayStageFxStudio();
       renderReplayCgStudio();
     }
@@ -24076,35 +24670,46 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
       }
 
       ensureContinuousChapterScenes(chap);
-      const totalScriptLines = Array.isArray(chap.scriptLines) ? chap.scriptLines.length : 0;
 
-      // 0. 渲染本章场景地图与起止句范围列表
+      // 0. 渲染本章及内嵌小群的场景地图与起止句范围列表
       if (sceneBox) {
-        const scenes = chap.scenes || [];
-        if (scenes.length === 0) {
-          sceneBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">本章暂无场景地图，整理剧本时将自动提取，也可点右上角新增</div>';
+        const sceneEntries = getCombinedChapterSceneEntries(proj, chap);
+        const scenePool = getAllModuleScenesPool(proj, chap);
+        if (sceneEntries.length === 0) {
+          sceneBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">本章暂无场景地图，可在剧本页点击顶部地图按钮全自动匹配，或点右上角新增</div>';
         } else {
           sceneBox.innerHTML = '';
-          scenes.forEach((sc, sIdx) => {
-            const scStartIdx = Math.max(0, Math.min(Math.max(0, totalScriptLines - 1), Number(sc.startLineIdx ?? 0)));
-            const scEndIdx = Math.max(scStartIdx, Math.min(Math.max(0, totalScriptLines - 1), Number(sc.endLineIdx ?? Math.max(0, totalScriptLines - 1))));
-            const scStartOptions = totalScriptLines > 0
-              ? chap.scriptLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === scStartIdx ? 'selected' : ''}>从第 ${lIdx + 1} 句：${(l.speaker || '旁白')}·${String(l.text || '').slice(0, 14)}</option>`).join('')
+          sceneEntries.forEach((entry, sIdx) => {
+            const sc = entry.node;
+            const targetLines = entry.lines || [];
+            const totalLinesForSc = targetLines.length;
+            const scStartIdx = Math.max(0, Math.min(Math.max(0, totalLinesForSc - 1), Number(sc.startLineIdx ?? 0)));
+            const scEndIdx = Math.max(scStartIdx, Math.min(Math.max(0, totalLinesForSc - 1), Number(sc.endLineIdx ?? scStartIdx)));
+            const scStartOptions = totalLinesForSc > 0
+              ? targetLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === scStartIdx ? 'selected' : ''}>从第 ${lIdx + 1} 句：${(l.speaker || '旁白').replace(/</g, '&lt;')}·${String(l.text || '').slice(0, 14).replace(/</g, '&lt;')}</option>`).join('')
               : `<option value="0">第 1 句</option>`;
-            const scEndOptions = totalScriptLines > 0
-              ? chap.scriptLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === scEndIdx ? 'selected' : ''}>到第 ${lIdx + 1} 句：${(l.speaker || '旁白')}·${String(l.text || '').slice(0, 14)}</option>`).join('')
+            const scEndOptions = totalLinesForSc > 0
+              ? targetLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === scEndIdx ? 'selected' : ''}>到第 ${lIdx + 1} 句：${(l.speaker || '旁白').replace(/</g, '&lt;')}·${String(l.text || '').slice(0, 14).replace(/</g, '&lt;')}</option>`).join('')
               : `<option value="0">第 1 句</option>`;
+            const poolSelectOptions = scenePool.map((p) => `<option value="${p.id.replace(/"/g, '&quot;')}" ${(p.id === sc.id || p.name === sc.name) ? 'selected' : ''}>切换地点：${(p.name || p.id).replace(/</g, '&lt;')}</option>`).join('');
 
             const card = document.createElement('div');
-            card.id = 'scene-card-' + sc.id;
+            card.id = 'scene-card-' + sc.id + '-' + sIdx;
             card.className = 'setting-item';
             card.style.flexDirection = 'column';
             card.style.alignItems = 'stretch';
             card.style.gap = '6px';
             card.innerHTML = `
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-                <input type="text" class="moe-input" value="${(sc.name || '').replace(/"/g, '&quot;')}" placeholder="场景地图名称" style="max-width:190px;height:30px;min-height:30px;font-weight:700;font-size:12px;" oninput="updateReplaySceneNodeField(${sIdx}, 'name', this.value)" onchange="updateReplaySceneNodeField(${sIdx}, 'name', this.value)" />
-                <span style="font-size:11px;font-weight:700;color:var(--accent-color);">地图 #${sIdx + 1} · 持续第 ${scStartIdx + 1} 至第 ${scEndIdx + 1} 句</span>
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:1;min-width:180px;">
+                  ${entry.ownerType === 'subgroup' ? `<span class="vn-console-badge accent">${entry.ownerLabel.replace(/</g, '&lt;')}</span>` : `<span class="vn-console-badge">主线</span>`}
+                  <select class="moe-input" style="width:auto;min-width:130px;height:30px;min-height:30px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;font-weight:700;" onchange="updateReplaySceneNodeField(${sIdx}, 'sceneId', this.value)">
+                    ${poolSelectOptions}
+                    <option value="cg_only" ${sc.id === 'cg_only' ? 'selected' : ''}>无背景</option>
+                  </select>
+                  <input type="text" class="moe-input" value="${(sc.name || '').replace(/"/g, '&quot;')}" placeholder="场景地图名称" style="max-width:155px;height:30px;min-height:30px;font-weight:700;font-size:12px;" oninput="updateReplaySceneNodeField(${sIdx}, 'name', this.value)" onchange="updateReplaySceneNodeField(${sIdx}, 'name', this.value)" />
+                </div>
+                <span style="font-size:11px;font-weight:700;color:var(--accent-color);">${entry.ownerLabel} · 持续第 ${scStartIdx + 1} 至第 ${scEndIdx + 1} 句</span>
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                 <select class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplaySceneNodeField(${sIdx}, 'startLineIdx', this.value)">
@@ -24294,12 +24899,46 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
     async function updateReplaySceneNodeField(sIdx, field, val) {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
-      if (!proj || !chap || !chap.scenes || !chap.scenes[sIdx]) return;
-      const sc = chap.scenes[sIdx];
+      if (!proj || !chap) return;
+      const entry = getCombinedChapterSceneEntries(proj, chap)[sIdx];
+      if (!entry || !entry.node || !entry.holder) return;
+      const sc = entry.node;
+      const holder = entry.holder;
+      const targetLines = entry.lines || [];
+
+      if (field === 'sceneId') {
+        if (val === 'cg_only') {
+          sc.id = 'cg_only';
+          sc.name = '无背景';
+          sc.prompt = '';
+          sc.imageUrl = '';
+        } else {
+          const pool = getAllModuleScenesPool(proj, chap);
+          const matched = pool.find((x) => x.id === val || x.name === val);
+          if (matched) {
+            sc.id = matched.id;
+            sc.name = matched.name;
+            sc.prompt = matched.prompt || sc.prompt || '';
+            sc.imageUrl = matched.imageUrl || sc.imageUrl || '';
+            sc.baseSceneId = matched.baseSceneId || '';
+          } else {
+            sc.id = val;
+          }
+        }
+        sc._isRangeSegment = true;
+        applyHolderSceneSegmentsToLines(holder, proj, chap, entry.localIdx);
+        await saveReplayProjectToDB(proj);
+        renderReplayScriptEditor();
+        renderReplaySubGroupStudio();
+        if (typeof renderReplayStageFxStudio === 'function') renderReplayStageFxStudio();
+        renderReplayCgStudio();
+        return;
+      }
+
       if (field === 'startLineIdx' || field === 'endLineIdx') {
         const parsed = parseInt(val, 10);
         if (!isNaN(parsed) && parsed >= 0) {
-          const maxIdx = Math.max(0, (chap.scriptLines?.length || 1) - 1);
+          const maxIdx = Math.max(0, (targetLines.length || 1) - 1);
           const clamped = Math.max(0, Math.min(maxIdx, parsed));
           sc[field] = clamped;
           if (field === 'startLineIdx' && (sc.endLineIdx === undefined || sc.endLineIdx < clamped)) {
@@ -24307,28 +24946,23 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
           } else if (field === 'endLineIdx' && (sc.startLineIdx === undefined || sc.startLineIdx > clamped)) {
             sc.startLineIdx = clamped;
           }
-          if (Array.isArray(chap.scriptLines)) {
-            const sLine = sc.startLineIdx ?? 0;
-            const eLine = sc.endLineIdx ?? sLine;
-            for (let k = sLine; k <= eLine; k++) {
-              if (chap.scriptLines[k]) {
-                chap.scriptLines[k].sceneId = sc.id;
-                chap.scriptLines[k]._explicitNoBg = false;
-                if (k === sLine) chap.scriptLines[k]._sceneSwitchAnchor = true;
-              }
-            }
-          }
+          sc._isRangeSegment = true;
+          applyHolderSceneSegmentsToLines(holder, proj, chap, entry.localIdx);
         }
         await saveReplayProjectToDB(proj);
         renderReplayScriptEditor();
+        renderReplaySubGroupStudio();
         if (typeof renderReplayStageFxStudio === 'function') renderReplayStageFxStudio();
         renderReplayCgStudio();
         return;
       }
+
+      const oldName = sc.name;
       sc[field] = val;
       if (field === 'name') {
-        const gFound = (proj.globalScenes || []).find((x) => x.id === sc.id);
-        if (gFound) gFound.name = val;
+        syncSceneMetaAcrossProject(proj, sc.id, oldName, { name: val });
+      } else if (field === 'prompt') {
+        syncSceneMetaAcrossProject(proj, sc.id, sc.name, { prompt: val });
       }
       await saveReplayProjectToDB(proj);
     }
@@ -24375,18 +25009,28 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
       if (!proj || !chap) return;
+      ensureContinuousChapterScenes(chap);
       if (!Array.isArray(chap.scenes)) chap.scenes = [];
       const idx = chap.scenes.length + 1;
       const lastLineIdx = Math.max(0, (chap.scriptLines?.length || 1) - 1);
-      chap.scenes.push({
+      const prevEnd = chap.scenes.length > 0 ? Number(chap.scenes[chap.scenes.length - 1].endLineIdx ?? 0) : -1;
+      const startLineIdx = prevEnd >= 0 && prevEnd < lastLineIdx ? prevEnd + 1 : 0;
+      const newSc = {
         id: `scene_${Date.now()}_${idx}`,
         name: `新增场所 ${idx}`,
-        startLineIdx: 0,
+        startLineIdx,
         endLineIdx: lastLineIdx,
         prompt: 'no humans, nobody, scenery, masterpiece, best quality, anime visual novel background art, wide angle 16:9 interior, atmospheric lighting',
-        imageUrl: ''
-      });
+        imageUrl: '',
+        _isRangeSegment: true
+      };
+      chap.scenes.push(newSc);
+      if (!Array.isArray(proj.globalScenes)) proj.globalScenes = [];
+      proj.globalScenes.push({ ...newSc });
+      applyHolderSceneSegmentsToLines(chap, proj, chap, chap.scenes.length - 1);
       await saveReplayProjectToDB(proj);
+      renderExtractedModuleScenesList();
+      renderReplayScriptEditor();
       renderReplayCgStudio();
     }
 
@@ -24820,15 +25464,18 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     async function generateSingleReplaySceneBg(sIdx) {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
-      if (!proj || !chap || !chap.scenes || !chap.scenes[sIdx]) return;
-      const sc = chap.scenes[sIdx];
+      if (!proj || !chap) return;
+      const entries = getCombinedChapterSceneEntries(proj, chap);
+      const entry = entries[sIdx];
+      if (!entry || !entry.node) return;
+      const sc = entry.node;
       const btn = document.getElementById(`scene-gen-btn-${sIdx}`);
       if (btn) { btn.textContent = '生图中'; btn.disabled = true; }
       try {
         let baseImgDataUrl = null;
         if (sc.baseSceneId) {
-          const baseSc = (chap.scenes || []).find((x) => x.id === sc.baseSceneId)
-            || (proj.globalScenes || []).find((x) => x.id === sc.baseSceneId);
+          const pool = getAllModuleScenesPool(proj, chap);
+          const baseSc = pool.find((x) => x.id === sc.baseSceneId);
           if (baseSc && baseSc.imageUrl) {
             baseImgDataUrl = baseSc.imageUrl;
           }
@@ -24847,8 +25494,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         const safeProj = (proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
         const savedScUrl = await saveAssetToLocalBridge(`projects/${safeProj}/scenes/${sc.id}.png`, dataUrl);
         sc.imageUrl = savedScUrl;
-        const gFound = (proj.globalScenes || []).find((x) => x.id === sc.id || x.name === sc.name);
-        if (gFound) gFound.imageUrl = savedScUrl;
+        syncSceneMetaAcrossProject(proj, sc.id, sc.name, { imageUrl: savedScUrl });
         await saveReplayProjectToDB(proj);
         renderExtractedModuleScenesList();
         renderReplayCgStudio();
@@ -24867,11 +25513,16 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       reader.onload = async (e) => {
         const proj = getCurrentReplayProject();
         const chap = getCurrentReplayChapter();
-        if (!proj || !chap || !chap.scenes || !chap.scenes[sIdx]) return;
+        if (!proj || !chap) return;
+        const entry = getCombinedChapterSceneEntries(proj, chap)[sIdx];
+        if (!entry || !entry.node) return;
+        const sc = entry.node;
         const safeProj = (proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
-        const savedScUrl = await saveAssetToLocalBridge(`projects/${safeProj}/scenes/${chap.scenes[sIdx].id}.png`, e.target.result);
-        chap.scenes[sIdx].imageUrl = savedScUrl;
+        const savedScUrl = await saveAssetToLocalBridge(`projects/${safeProj}/scenes/${sc.id}.png`, e.target.result);
+        sc.imageUrl = savedScUrl;
+        syncSceneMetaAcrossProject(proj, sc.id, sc.name, { imageUrl: savedScUrl });
         await saveReplayProjectToDB(proj);
+        renderExtractedModuleScenesList();
         renderReplayCgStudio();
       };
       reader.readAsDataURL(file);
@@ -24952,8 +25603,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     }
 
     async function startReplaySceneBgQueue() {
+      const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
-      if (!chap) return;
+      if (!proj || !chap) return;
       if (appState.replayCgQueueRunning) return;
       appState.replayCgQueueRunning = true;
       const statusEl = document.getElementById('replay-cg-queue-status');
@@ -24961,11 +25613,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       if (startBtn) { startBtn.textContent = '排队中'; startBtn.disabled = true; }
 
       try {
-        const scenes = chap.scenes || [];
-        for (let i = 0; i < scenes.length; i++) {
+        const entries = getCombinedChapterSceneEntries(proj, chap);
+        for (let i = 0; i < entries.length; i++) {
           if (!appState.replayCgQueueRunning) break;
-          if (!scenes[i].imageUrl) {
-            if (statusEl) statusEl.textContent = `正在排队生成场景地图 ${i + 1}/${scenes.length}：${scenes[i].name}`;
+          if (!entries[i].node.imageUrl && entries[i].node.id !== 'cg_only') {
+            if (statusEl) statusEl.textContent = `正在排队生成场景地图 ${i + 1}/${entries.length}：${entries[i].node.name}`;
             await generateSingleReplaySceneBg(i);
           }
         }
@@ -28776,9 +29428,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const proj = getCurrentReplayProject();
       const mainChap = getCurrentReplayChapter();
       if (!mainChap) return null;
+      ensureContinuousHolderScenes(mainChap, proj, mainChap);
       if (appState.activeTheaterSubGroupId && proj && Array.isArray(proj.subGroups)) {
         const sg = proj.subGroups.find((x) => x && x.id === appState.activeTheaterSubGroupId);
         if (sg && Array.isArray(sg.scriptLines) && sg.scriptLines.length > 0) {
+          ensureContinuousHolderScenes(sg, proj, mainChap);
           sg.scriptLines.forEach((l, i) => {
             if (l) {
               delete l._origHolder;
@@ -28793,7 +29447,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             title: sg.title || '小群',
             scriptLines: sg.scriptLines,
             danmakuList: sg.danmakuList || [],
-            scenes: mainChap?.scenes || proj.globalScenes || [],
+            scenes: getAllModuleScenesPool(proj, mainChap),
             cgNodes: sg.cgNodes || [],
             clueNodes: sg.clueNodes || [],
             _isSubGroup: true
@@ -28825,6 +29479,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const mainLines = Array.isArray(mainChap.scriptLines) ? mainChap.scriptLines : [];
 
       const appendSubGroupLines = (sg) => {
+        ensureContinuousHolderScenes(sg, proj, mainChap);
         const sgOffset = mergedLines.length;
         (sg.scriptLines || []).forEach((l, sIdx) => {
           if (!l) return;
@@ -28929,6 +29584,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
       return {
         ...mainChap,
+        scenes: getAllModuleScenesPool(proj, mainChap),
         scriptLines: mergedLines,
         danmakuList: mergedDanmaku,
         cgNodes: mergedCgNodes,
@@ -29062,7 +29718,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         return;
       }
 
-      ensureContinuousChapterScenes(chap);
+      if (!chap._isMergedPlayable && !chap._isSubGroup) {
+        ensureContinuousChapterScenes(chap);
+      }
       let idx = Math.max(0, Math.min(chap.scriptLines.length - 1, appState.theaterLineIdx || 0));
       const oocToSpawn = [];
       if (!appState.theaterEditMode) {
@@ -29443,7 +30101,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         if (activeSceneId === 'cg_only' && line._explicitNoBg) {
           bgLayer.style.backgroundImage = 'none';
         } else {
-          const allScenes = [...(chap.scenes || []), ...(curProj?.globalScenes || [])];
+          const allScenes = getAllModuleScenesPool(curProj, chap);
           const sceneObj = allScenes.find((s) => s && (s.id === activeSceneId || s.name === activeSceneId))
             || allScenes.find((s) => s && s.imageUrl)
             || allScenes[0];
