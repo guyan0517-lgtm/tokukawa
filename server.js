@@ -274,6 +274,47 @@ app.post('/api/local-assets/save', async (req, res) => {
   }
 });
 
+app.post('/api/local-assets/save-batch', async (req, res) => {
+  try {
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    const rootAbs = path.resolve(LOCAL_ASSETS_ROOT);
+    ensureNoMediaInDirSync(LOCAL_ASSETS_ROOT);
+    let savedCount = 0;
+    const savedDirs = new Set();
+
+    await Promise.all(
+      items.map(async (item) => {
+        try {
+          const rawRel = String(item?.path || item?.relPath || '').split('?')[0].replace(/^\/+/, '').replace(/\.\./g, '_');
+          const dataUrl = String(item?.dataUrl || '');
+          if (!rawRel || !dataUrl) return;
+          const plainTarget = path.resolve(rootAbs, rawRel);
+          if (!plainTarget.startsWith(rootAbs)) return;
+          const targetPath = toVaultDiskPath(plainTarget);
+          const targetDir = path.dirname(targetPath);
+          if (!savedDirs.has(targetDir)) {
+            await fs.promises.mkdir(targetDir, { recursive: true });
+            ensureNoMediaInDirSync(targetDir);
+            savedDirs.add(targetDir);
+          }
+          const base64Part = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+          const fileBuf = base64Part ? Buffer.from(base64Part, 'base64') : Buffer.alloc(0);
+          await fs.promises.writeFile(targetPath, fileBuf);
+          savedCount += 1;
+        } catch (_) {}
+      })
+    );
+
+    res.json({
+      ok: true,
+      savedCount,
+      root: LOCAL_ASSETS_ROOT
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 app.post('/api/local-assets/cleanup', async (req, res) => {
   try {
     for (const legacyDir of LEGACY_PUBLIC_DIRS) {

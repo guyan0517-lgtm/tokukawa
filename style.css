@@ -1606,14 +1606,19 @@ body.landscape-game-active #screen-theater.active {
   font-family: var(--custom-user-font, var(--font-sans)) !important;
 }
 
+#phone-screen,
+#phone-screen *,
+#phone-screen *:active,
+#phone-screen *:focus,
+#phone-screen *:focus-visible,
 .vn-theater-wrapper *,
 .vn-theater-wrapper *:active,
-.vn-theater-wrapper *:focus {
+.vn-theater-wrapper *:focus,
+.vn-theater-wrapper *:focus-visible {
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0) !important;
   outline: none !important;
 }
 
-#phone-screen:active,
 #screen-theater:active,
 #vn-theater-stage-root:active,
 #vn-theater-stage-root:focus,
@@ -1624,7 +1629,6 @@ body.landscape-game-active #screen-theater.active {
   filter: none !important;
   opacity: 1 !important;
   outline: none !important;
-  background-color: var(--text-primary);
 }
 
 .vn-theater-wrapper img {
