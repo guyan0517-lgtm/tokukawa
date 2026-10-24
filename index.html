@@ -22121,22 +22121,35 @@ BGM_STOP: S行号`;
       renderReplayCgStudio();
     }
 
+    function getSubGroupsForChapter(proj = getCurrentReplayProject(), chapIdx = appState.currentReplayChapterIdx) {
+      if (!proj) return [];
+      const cIdx = Number(chapIdx) || 0;
+      return ensureProjectSubGroupsArray(proj).filter(
+        (sg) => sg && sg.inserted && Number(sg.targetChapterIdx) === cIdx
+      );
+    }
+
+    function findSubGroupById(sgId, proj = getCurrentReplayProject()) {
+      if (!proj || !sgId) return null;
+      return ensureProjectSubGroupsArray(proj).find((sg) => sg && sg.id === sgId) || null;
+    }
+
     function jumpToSubGroupCgNode(sgId, cgId) {
       switchSubPage('screen-replay', 'replay-sub-cg');
-      switchCgStudioSubTab('cg');
+      switchReplayCgSubCategory('cg');
       renderReplayCgStudio();
       setTimeout(() => {
-        const el = document.getElementById(`cg-studio-card-${cgId}`);
+        const el = document.getElementById(`cg-studio-card-${cgId}`) || document.getElementById(`cg-card-${cgId}`);
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 80);
     }
 
     function jumpToSubGroupClueNode(sgId, clueId) {
       switchSubPage('screen-replay', 'replay-sub-cg');
-      switchCgStudioSubTab('clue');
+      switchReplayCgSubCategory('clue');
       renderReplayCgStudio();
       setTimeout(() => {
-        const el = document.getElementById(`clue-studio-card-${clueId}`);
+        const el = document.getElementById(`clue-studio-card-${clueId}`) || document.getElementById(`clue-card-${clueId}`);
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 80);
     }
@@ -23654,17 +23667,23 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
       if (statusEl) statusEl.textContent = '已恢复CG写词默认提示词';
     }
 
-    function getCombinedChapterCgEntries(proj = getCurrentReplayProject(), chap = getCurrentReplayChapter()) {
+    function getCombinedChapterCgEntries(a, b) {
+      const proj = (a && Array.isArray(a.chapters)) ? a : ((b && Array.isArray(b.chapters)) ? b : getCurrentReplayProject());
+      const chap = (a && !Array.isArray(a.chapters) && a.id) ? a : ((b && !Array.isArray(b.chapters) && b.id) ? b : getCurrentReplayChapter());
       const entries = [];
       if (!proj || !chap) return entries;
-      const curChapIdx = Number(appState.currentReplayChapterIdx) || 0;
+      const foundChapIdx = Array.isArray(proj.chapters) ? proj.chapters.indexOf(chap) : -1;
+      const curChapIdx = foundChapIdx >= 0 ? foundChapIdx : (Number(appState.currentReplayChapterIdx) || 0);
       const chapLines = Array.isArray(chap.scriptLines) ? chap.scriptLines : [];
       (chap.cgNodes || []).forEach((cg, idx) => {
         if (!cg) return;
         entries.push({
           node: cg,
+          cg,
           ownerType: 'chapter',
+          isSubGroup: false,
           sg: null,
+          subGroup: null,
           localIdx: idx,
           lines: chapLines,
           ownerLabel: '主线'
@@ -23680,8 +23699,11 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
           if (!cg) return;
           entries.push({
             node: cg,
+            cg,
             ownerType: 'subgroup',
+            isSubGroup: true,
             sg,
+            subGroup: sg,
             localIdx: idx,
             lines: sgLines,
             ownerLabel: `小群·${sg.title || '小群'}`
@@ -23691,17 +23713,23 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
       return entries;
     }
 
-    function getCombinedChapterClueEntries(proj = getCurrentReplayProject(), chap = getCurrentReplayChapter()) {
+    function getCombinedChapterClueEntries(a, b) {
+      const proj = (a && Array.isArray(a.chapters)) ? a : ((b && Array.isArray(b.chapters)) ? b : getCurrentReplayProject());
+      const chap = (a && !Array.isArray(a.chapters) && a.id) ? a : ((b && !Array.isArray(b.chapters) && b.id) ? b : getCurrentReplayChapter());
       const entries = [];
       if (!proj || !chap) return entries;
-      const curChapIdx = Number(appState.currentReplayChapterIdx) || 0;
+      const foundChapIdx = Array.isArray(proj.chapters) ? proj.chapters.indexOf(chap) : -1;
+      const curChapIdx = foundChapIdx >= 0 ? foundChapIdx : (Number(appState.currentReplayChapterIdx) || 0);
       const chapLines = Array.isArray(chap.scriptLines) ? chap.scriptLines : [];
       (chap.clueNodes || []).forEach((cl, idx) => {
         if (!cl) return;
         entries.push({
           node: cl,
+          clue: cl,
           ownerType: 'chapter',
+          isSubGroup: false,
           sg: null,
+          subGroup: null,
           localIdx: idx,
           lines: chapLines,
           ownerLabel: '主线'
@@ -23717,8 +23745,11 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
           if (!cl) return;
           entries.push({
             node: cl,
+            clue: cl,
             ownerType: 'subgroup',
+            isSubGroup: true,
             sg,
+            subGroup: sg,
             localIdx: idx,
             lines: sgLines,
             ownerLabel: `小群·${sg.title || '小群'}`
@@ -27934,7 +27965,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const idx = Math.max(0, Math.min(chap.scriptLines.length - 1, appState.theaterLineIdx || 0));
       const line = chap.scriptLines[idx];
       if (!line) return;
-      const origHolder = line._origHolder || getCurrentReplayChapter();
+      const origHolder = (line._isSubGroupLine && line._subGroupId)
+        ? findSubGroupById(line._subGroupId, proj)
+        : getCurrentReplayChapter();
       const origIdx = typeof line._origIdx === 'number' ? line._origIdx : idx;
 
       if (field === 'sceneId') {
@@ -28703,8 +28736,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         if (sg && Array.isArray(sg.scriptLines) && sg.scriptLines.length > 0) {
           sg.scriptLines.forEach((l, i) => {
             if (l) {
+              delete l._origHolder;
               l._ttsHolderId = sg.id;
-              l._origHolder = sg;
               l._origIdx = i;
               l._isSubGroupLine = true;
               l._subGroupId = sg.id;
@@ -28729,8 +28762,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       if (insertedSgs.length === 0) {
         (mainChap.scriptLines || []).forEach((l, i) => {
           if (l) {
+            delete l._origHolder;
             l._ttsHolderId = mainChap.id;
-            l._origHolder = mainChap;
             l._origIdx = i;
             l._isSubGroupLine = false;
             l._subGroupId = '';
@@ -28750,8 +28783,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         const sgOffset = mergedLines.length;
         (sg.scriptLines || []).forEach((l, sIdx) => {
           if (!l) return;
+          delete l._origHolder;
           l._ttsHolderId = sg.id;
-          l._origHolder = sg;
           l._origIdx = sIdx;
           l._isSubGroupLine = true;
           l._subGroupId = sg.id;
@@ -28793,8 +28826,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
       mainLines.forEach((l, mIdx) => {
         if (l) {
+          delete l._origHolder;
           l._ttsHolderId = mainChap.id;
-          l._origHolder = mainChap;
           l._origIdx = mIdx;
           l._isSubGroupLine = false;
           l._subGroupId = '';
