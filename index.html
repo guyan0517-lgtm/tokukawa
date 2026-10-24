@@ -2887,7 +2887,7 @@
             <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:8px;margin-bottom:6px;">
               <div class="form-group" style="margin-bottom:0;">
                 <label>GitHub仓库 用户名/仓库名</label>
-                <input type="text" id="workshop-gh-repo-input" class="moe-input" placeholder="例如 username/repo" />
+                <input type="text" id="workshop-gh-repo-input" class="moe-input" value="guyan0517-lgtm/the-inn-predator" placeholder="guyan0517-lgtm/the-inn-predator" />
               </div>
               <div class="form-group" style="margin-bottom:0;">
                 <label>GitHub令牌 选填用于上传</label>
@@ -15796,24 +15796,21 @@ ${BUILTIN_CSS_TEMPLATE}`;
     const CLOUD_DEV_BACKEND_BASE_URL = 'https://ais-dev-njj6idqio4cncsbkjjmlvu-643613065540.asia-southeast1.run.app';
     const _localWorkshopAssetUrlMap = new Map();
 
+    const DEFAULT_WORKSHOP_GITHUB_REPO = 'guyan0517-lgtm/the-inn-predator';
+
     function detectDefaultGithubRepoFromLocation() {
-      try {
-        if (typeof window === 'undefined' || !window.location) return '';
-        const host = String(window.location.hostname || '').toLowerCase();
-        if (host.endsWith('.github.io')) {
-          const owner = host.slice(0, -('.github.io'.length));
-          const segs = String(window.location.pathname || '').split('/').filter(Boolean);
-          const repo = segs[0] || `${owner}.github.io`;
-          if (owner && repo) return `${owner}/${repo}`;
-        }
-      } catch (_) {}
-      return '';
+      return DEFAULT_WORKSHOP_GITHUB_REPO;
     }
 
     function getWorkshopSyncConfig() {
+      try {
+        if (!localStorage.getItem('workshop-gh-repo-migrated-inn-predator')) {
+          localStorage.setItem('workshop-github-repo', DEFAULT_WORKSHOP_GITHUB_REPO);
+          localStorage.setItem('workshop-gh-repo-migrated-inn-predator', '1');
+        }
+      } catch (_) {}
       const savedRepo = (localStorage.getItem('workshop-github-repo') || '').trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/i, '').replace(/^\/+|\/+$/g, '');
-      const autoRepo = detectDefaultGithubRepoFromLocation();
-      const githubRepo = savedRepo || autoRepo;
+      const githubRepo = savedRepo || DEFAULT_WORKSHOP_GITHUB_REPO;
       const githubToken = (localStorage.getItem('workshop-github-token') || '').trim();
       const customBackend = (localStorage.getItem('custom-workshop-backend-url') || '').trim().replace(/\/+$/, '');
       return { githubRepo, githubToken, customBackend };
@@ -15829,7 +15826,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
         const repoInp = document.getElementById('workshop-gh-repo-input');
         const tokInp = document.getElementById('workshop-gh-token-input');
         const urlInp = document.getElementById('workshop-custom-backend-input');
-        if (repoInp) repoInp.value = cfg.githubRepo || '';
+        if (repoInp) repoInp.value = cfg.githubRepo || DEFAULT_WORKSHOP_GITHUB_REPO;
         if (tokInp) tokInp.value = cfg.githubToken || '';
         if (urlInp) urlInp.value = cfg.customBackend || '';
       }
@@ -15839,7 +15836,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
       const repoInp = document.getElementById('workshop-gh-repo-input');
       const tokInp = document.getElementById('workshop-gh-token-input');
       const urlInp = document.getElementById('workshop-custom-backend-input');
-      const cleanRepo = (repoInp ? repoInp.value : '').trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/i, '').replace(/^\/+|\/+$/g, '');
+      const cleanRepo = (repoInp ? repoInp.value : '').trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/i, '').replace(/^\/+|\/+$/g, '') || DEFAULT_WORKSHOP_GITHUB_REPO;
       const cleanToken = (tokInp ? tokInp.value : '').trim();
       const cleanUrl = (urlInp ? urlInp.value : '').trim().replace(/\/+$/, '');
       localStorage.setItem('workshop-github-repo', cleanRepo);
@@ -15854,14 +15851,14 @@ ${BUILTIN_CSS_TEMPLATE}`;
     }
 
     function resetWorkshopSyncConfig() {
-      localStorage.removeItem('workshop-github-repo');
+      localStorage.setItem('workshop-github-repo', DEFAULT_WORKSHOP_GITHUB_REPO);
       localStorage.removeItem('workshop-github-token');
       localStorage.removeItem('custom-workshop-backend-url');
       const cfg = getWorkshopSyncConfig();
       const repoInp = document.getElementById('workshop-gh-repo-input');
       const tokInp = document.getElementById('workshop-gh-token-input');
       const urlInp = document.getElementById('workshop-custom-backend-input');
-      if (repoInp) repoInp.value = cfg.githubRepo || '';
+      if (repoInp) repoInp.value = cfg.githubRepo || DEFAULT_WORKSHOP_GITHUB_REPO;
       if (tokInp) tokInp.value = '';
       if (urlInp) urlInp.value = '';
     }
@@ -15870,10 +15867,6 @@ ${BUILTIN_CSS_TEMPLATE}`;
       const cleanRel = String(relPath || '').replace(/^\/+/, '');
       const { githubRepo, githubToken } = getWorkshopSyncConfig();
       const urlsToTry = [];
-      const host = (typeof window !== 'undefined' && window.location && window.location.hostname) ? window.location.hostname : '';
-      if (host && host.includes('github.io')) {
-        urlsToTry.push(`./workshop-store/${cleanRel}?t=${Date.now()}`);
-      }
       if (githubRepo && githubRepo.includes('/')) {
         urlsToTry.push(`https://raw.githubusercontent.com/${githubRepo}/main/workshop-store/${cleanRel}?t=${Date.now()}`);
         urlsToTry.push(`https://raw.githubusercontent.com/${githubRepo}/master/workshop-store/${cleanRel}?t=${Date.now()}`);
@@ -15922,14 +15915,17 @@ ${BUILTIN_CSS_TEMPLATE}`;
         Authorization: `Bearer ${githubToken}`,
         'Content-Type': 'application/json'
       };
+      const isImmutableAsset = cleanRel.startsWith('packs/') || cleanRel.startsWith('assets/');
       let existingSha = '';
-      try {
-        const getRes = await fetch(apiUrl, { headers });
-        if (getRes.ok) {
-          const getJson = await getRes.json();
-          if (getJson && getJson.sha) existingSha = getJson.sha;
-        }
-      } catch (_) {}
+      if (!isImmutableAsset) {
+        try {
+          const getRes = await fetch(apiUrl, { headers });
+          if (getRes.ok) {
+            const getJson = await getRes.json();
+            if (getJson && getJson.sha) existingSha = getJson.sha;
+          }
+        } catch (_) {}
+      }
       const utf8Bytes = new TextEncoder().encode(String(contentString || ''));
       let binary = '';
       const chunkSize = 0x8000;
@@ -15947,7 +15943,26 @@ ${BUILTIN_CSS_TEMPLATE}`;
         headers,
         body: JSON.stringify(bodyObj)
       });
-      return putRes.ok;
+      if (putRes.ok) return true;
+      if (putRes.status === 422 || putRes.status === 409) {
+        try {
+          const getRes = await fetch(apiUrl, { headers });
+          if (getRes.ok) {
+            const getJson = await getRes.json();
+            if (getJson && getJson.sha) {
+              if (isImmutableAsset) return true;
+              bodyObj.sha = getJson.sha;
+              const retryRes = await fetch(apiUrl, {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify(bodyObj)
+              });
+              return retryRes.ok;
+            }
+          }
+        } catch (_) {}
+      }
+      return false;
     }
 
     function resolveBackendApiUrl(apiPath) {
@@ -26434,6 +26449,73 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     }
 
     const _playableUrlRamCache = new Map();
+    const _workshopAssetPackIndexMap = new Map();
+    const _fetchingWorkshopPackPromises = new Map();
+
+    function registerRemoteProjectPackIndex(projObj) {
+      if (!projObj || !projObj.assetPackIndex || typeof projObj.assetPackIndex !== 'object') return;
+      Object.entries(projObj.assetPackIndex).forEach(([hash, packPath]) => {
+        if (hash && packPath && typeof packPath === 'string') {
+          _workshopAssetPackIndexMap.set(hash, packPath);
+        }
+      });
+    }
+
+    function getSavedGithubAssetPackIndex(repo) {
+      try {
+        const key = 'workshop-gh-pack-index-v1-' + String(repo || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const raw = localStorage.getItem(key);
+        const obj = raw ? JSON.parse(raw) : {};
+        return (obj && typeof obj === 'object') ? obj : {};
+      } catch (_) {
+        return {};
+      }
+    }
+
+    function saveGithubAssetPackIndex(repo, mapObj) {
+      try {
+        const key = 'workshop-gh-pack-index-v1-' + String(repo || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');
+        localStorage.setItem(key, JSON.stringify(mapObj || {}));
+      } catch (_) {}
+    }
+
+    async function fetchAndUnpackWorkshopAssetPack(packRelPath) {
+      if (!packRelPath || typeof packRelPath !== 'string') return null;
+      const cleanPack = packRelPath.replace(/^\/+/, '');
+      if (_fetchingWorkshopPackPromises.has(cleanPack)) {
+        return await _fetchingWorkshopPackPromises.get(cleanPack);
+      }
+      const p = (async () => {
+        try {
+          const packJson = await fetchGithubWorkshopJson(cleanPack);
+          if (packJson && packJson.assets && typeof packJson.assets === 'object') {
+            const entries = Object.entries(packJson.assets);
+            for (const [h, val] of entries) {
+              if (!h || !val) continue;
+              const dUrl = typeof val === 'string'
+                ? val
+                : (val.dataUrl || (val.base64 ? `data:${val.mime || 'application/octet-stream'};base64,${val.base64}` : ''));
+              if (dUrl && dUrl.startsWith('data:')) {
+                const ref = `/api/workshop/asset/${h}`;
+                if (typeof _localWorkshopAssetUrlMap === 'object') {
+                  _localWorkshopAssetUrlMap.set(ref, dUrl);
+                  _localWorkshopAssetUrlMap.set(h, dUrl);
+                }
+                await putLocalAssetMirrorDataUrl(`workshop_assets/${h}`, dUrl);
+              }
+            }
+            return packJson.assets;
+          }
+        } catch (_) {}
+        return null;
+      })();
+      _fetchingWorkshopPackPromises.set(cleanPack, p);
+      try {
+        return await p;
+      } finally {
+        _fetchingWorkshopPackPromises.delete(cleanPack);
+      }
+    }
 
     async function resolveTheaterPlayableUrl(rawUrl, fallbackMime = 'image/png') {
       if (!rawUrl || typeof rawUrl !== 'string') return '';
@@ -26509,6 +26591,18 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           }
         } catch (_) {}
         if (assetHash) {
+          const packPath = _workshopAssetPackIndexMap.get(assetHash);
+          if (packPath) {
+            await fetchAndUnpackWorkshopAssetPack(packPath);
+            if (typeof _localWorkshopAssetUrlMap === 'object' && _localWorkshopAssetUrlMap.has(rawUrl)) {
+              const unpackedUrl = _localWorkshopAssetUrlMap.get(rawUrl);
+              if (unpackedUrl && unpackedUrl.startsWith('data:')) {
+                const fastPackUrl = toFastDisplayUrl(unpackedUrl);
+                _playableUrlRamCache.set(rawUrl, fastPackUrl);
+                return fastPackUrl;
+              }
+            }
+          }
           try {
             const ghAsset = await fetchGithubWorkshopJson(`assets/${assetHash}.json`);
             if (ghAsset && (ghAsset.base64 || ghAsset.dataUrl)) {
@@ -26860,7 +26954,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               if (clueCnt > 0) metaParts.push(`线索 ${clueCnt}`);
               metaParts.push(`第 ${cm.version || 1} 版`);
               const chapRightBtns = isLocalOwner
-                ? `<button type="button" class="moe-btn" onclick="openWorkshopModuleInTheater('${item.id}', ${cOrder})">观看</button>`
+                ? `<button type="button" class="moe-btn secondary" onclick="downloadOrUpdateWorkshopProject('${item.id}', ${cOrder})">单章</button>
+                   <button type="button" class="moe-btn" onclick="openWorkshopModuleInTheater('${item.id}', ${cOrder})">观看</button>`
                 : `<button type="button" class="moe-btn secondary" onclick="downloadOrUpdateWorkshopProject('${item.id}', ${cOrder})">单章</button>
                    <button type="button" class="moe-btn" onclick="openWorkshopOnlineStream('${item.id}', ${cOrder})">在线</button>`;
               return `
@@ -26879,7 +26974,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           : '<div style="font-size:11px;color:var(--text-secondary);padding:6px 0;">暂无章节明细</div>';
 
         const topActionBtnsHtml = isLocalOwner
-          ? `<button type="button" class="moe-btn" onclick="openWorkshopModuleInTheater('${item.id}', 0)">观看</button>`
+          ? `<button type="button" class="moe-btn secondary" id="workshop-dl-btn-${item.id}" onclick="downloadOrUpdateWorkshopProject('${item.id}', -1)">下载</button>
+             <button type="button" class="moe-btn" onclick="openWorkshopModuleInTheater('${item.id}', 0)">观看</button>`
           : `<button type="button" class="moe-btn secondary" id="workshop-dl-btn-${item.id}" onclick="downloadOrUpdateWorkshopProject('${item.id}', -1)">${hasNewUpdateForMounted ? '追更' : '下载'}</button>
              <button type="button" class="moe-btn" onclick="openWorkshopOnlineStream('${item.id}', 0)">在线</button>`;
 
@@ -27067,7 +27163,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       };
 
       if (btn) { btn.textContent = '上传中'; btn.disabled = true; }
-      setProgress(4, `正在扫描「${proj.title}」的立绘、场所、插图、线索与配音指纹...`);
+      setProgress(4, `正在高速扫描「${proj.title}」的立绘、场所、插图、线索与配音指纹...`);
 
       try {
         const speakerNameSet = new Set();
@@ -27083,17 +27179,22 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
         const rawRelatedChars = (appState.characters || []).filter((c) => c.moduleId === proj.id || speakerNameSet.has(c.name));
 
-        // 收集所有素材的哈希指纹表，准备比对去重
+        // 收集所有素材的哈希指纹表，并对相同的原始地址做内存级瞬时复用
         const assetMapByHash = new Map();
+        const rawUrlToAssetRefCache = new Map();
         let totalAssetBytes = 0;
 
         const registerAssetForDedup = async (rawUrl, label) => {
           if (!rawUrl || typeof rawUrl !== 'string') return '';
           if (rawUrl.startsWith('/api/workshop/asset/')) return rawUrl;
+          if (rawUrlToAssetRefCache.has(rawUrl)) {
+            return rawUrlToAssetRefCache.get(rawUrl);
+          }
           const portable = await packAssetUrlToPortableDataUrl(rawUrl);
           if (!portable || !portable.startsWith('data:')) return portable;
           const hash = computeFastAssetFingerprint(portable);
           const assetRef = `/api/workshop/asset/${hash}`;
+          rawUrlToAssetRefCache.set(rawUrl, assetRef);
           if (typeof _localWorkshopAssetUrlMap === 'object') {
             _localWorkshopAssetUrlMap.set(assetRef, rawUrl);
             _localWorkshopAssetUrlMap.set(hash, rawUrl);
@@ -27105,6 +27206,22 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           }
           return assetRef;
         };
+
+        // 一次性将语音库预读入内存字典，避免逐行逐句查询数据库造成卡顿
+        const ttsCachePreloadMap = new Map();
+        try {
+          if (db && db.ttsCache) {
+            const ttsTableCount = await db.ttsCache.count();
+            if (ttsTableCount > 0) {
+              const allTtsRows = await db.ttsCache.toArray();
+              for (const row of allTtsRows) {
+                if (row && row.id && (row.audioDataUrl || row.audioData)) {
+                  ttsCachePreloadMap.set(row.id, row);
+                }
+              }
+            }
+          }
+        } catch (_) {}
 
         const packedAvatarRef = proj.avatarUrl ? await registerAssetForDedup(proj.avatarUrl, '模组封面头像') : '';
 
@@ -27182,7 +27299,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
           const chapTtsArr = [];
           const seenTtsKeys = new Set();
-          if (Array.isArray(chapCopy.scriptLines)) {
+          if (ttsCachePreloadMap.size > 0 && Array.isArray(chapCopy.scriptLines)) {
             for (const l of chapCopy.scriptLines) {
               if (!l) continue;
               const keysToTry = [
@@ -27192,7 +27309,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               ].filter(Boolean);
               for (const k of keysToTry) {
                 if (seenTtsKeys.has(k)) continue;
-                const ttsRec = await db.ttsCache.get(k);
+                const ttsRec = ttsCachePreloadMap.get(k);
                 if (ttsRec && (ttsRec.audioDataUrl || ttsRec.audioData)) {
                   seenTtsKeys.add(k);
                   const audioRef = await registerAssetForDedup(ttsRec.audioDataUrl || ttsRec.audioData, `${chapCopy.title || '章节'} · 语音`);
@@ -27240,7 +27357,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           }
           const sgTtsArr = [];
           const seenSgTtsKeys = new Set();
-          if (Array.isArray(sgCopy.scriptLines)) {
+          if (ttsCachePreloadMap.size > 0 && Array.isArray(sgCopy.scriptLines)) {
             for (const l of sgCopy.scriptLines) {
               if (!l) continue;
               const keysToTry = [
@@ -27250,7 +27367,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               ].filter(Boolean);
               for (const k of keysToTry) {
                 if (seenSgTtsKeys.has(k)) continue;
-                const ttsRec = await db.ttsCache.get(k);
+                const ttsRec = ttsCachePreloadMap.get(k);
                 if (ttsRec && (ttsRec.audioDataUrl || ttsRec.audioData)) {
                   seenSgTtsKeys.add(k);
                   const audioRef = await registerAssetForDedup(ttsRec.audioDataUrl || ttsRec.audioData, `${sgCopy.title || '小群'} · 语音`);
@@ -27270,7 +27387,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
 
         const allHashes = Array.from(assetMapByHash.keys());
-        setProgress(18, `共扫描到 ${allHashes.length} 个立绘场景配音素材，正在比对去重...`);
+        setProgress(16, `共扫描到 ${allHashes.length} 个立绘场景配音素材，正在比对去重并聚合打包...`);
 
         const localUploadedSet = getWorkshopUploadedHashSet();
         let cloudMissingHashes = allHashes.filter((h) => !localUploadedSet.has(h));
@@ -27295,57 +27412,160 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         const ghCfg = getWorkshopSyncConfig();
         const canSyncGithub = Boolean(ghCfg.githubRepo && ghCfg.githubRepo.includes('/') && ghCfg.githubToken);
         const ghUploadedSet = canSyncGithub ? getGithubWorkshopUploadedHashSet(ghCfg.githubRepo) : new Set();
+        const ghPackIndexObj = canSyncGithub ? getSavedGithubAssetPackIndex(ghCfg.githubRepo) : {};
         let githubSynced = false;
+
+        // 继承已有模组里的打包索引
+        const projectAssetPackIndex = { ...ghPackIndexObj };
+        try {
+          if (db && db.workshopProjects) {
+            const oldRec = await db.workshopProjects.get(proj.id);
+            if (oldRec && oldRec.assetPackIndex && typeof oldRec.assetPackIndex === 'object') {
+              Object.assign(projectAssetPackIndex, oldRec.assetPackIndex);
+            }
+          }
+        } catch (_) {}
 
         const cloudMissingSet = new Set(cloudMissingHashes);
         const unionUploadHashes = allHashes.filter((h) => {
           const needCloud = cloudReachable && cloudMissingSet.has(h);
-          const needGh = canSyncGithub && !ghUploadedSet.has(h);
+          const needGh = canSyncGithub && (!ghUploadedSet.has(h) || !projectAssetPackIndex[h]);
           const needLocal = !cloudReachable && !canSyncGithub && !localUploadedSet.has(h);
           return needCloud || needGh || needLocal;
         });
 
         const skippedCount = Math.max(0, allHashes.length - unionUploadHashes.length);
 
-        for (let i = 0; i < unionUploadHashes.length; i++) {
-          const h = unionUploadHashes[i];
+        // 将待上传的图片与语音按每包最多 35 个或约 5.5MB 聚合成压缩批次包，彻底告别单张排队
+        const MAX_ITEMS_PER_PACK = 35;
+        const MAX_BYTES_PER_PACK = 5.5 * 1024 * 1024;
+        const assetBatches = [];
+        let currentBatch = [];
+        let currentBatchBytes = 0;
+
+        for (const h of unionUploadHashes) {
           const item = assetMapByHash.get(h);
           if (!item) continue;
-          const pct = 22 + ((i + 1) / Math.max(1, unionUploadHashes.length)) * 58;
-          setProgress(pct, `正在上传图片与语音素材 ${i + 1} / ${unionUploadHashes.length}：${item.label}，已跳过 ${skippedCount} 个未改动素材`);
-          if (cloudReachable && cloudMissingSet.has(h)) {
-            try {
-              const uploadUrl = resolveBackendApiUrl('/api/workshop/upload-asset');
-              await sendWorkshopPayloadWithProgress(uploadUrl, JSON.stringify({ hash: item.hash, dataUrl: item.dataUrl }), null);
-            } catch (_) {
-              cloudReachable = false;
-            }
+          if (currentBatch.length > 0 && (currentBatch.length >= MAX_ITEMS_PER_PACK || (currentBatchBytes + item.byteLen) > MAX_BYTES_PER_PACK)) {
+            assetBatches.push(currentBatch);
+            currentBatch = [];
+            currentBatchBytes = 0;
           }
-          if (canSyncGithub && !ghUploadedSet.has(h)) {
-            try {
-              const str = String(item.dataUrl || '');
-              const commaIdx = str.indexOf(',');
-              const header = commaIdx !== -1 ? str.slice(0, commaIdx) : '';
-              const base64 = commaIdx !== -1 ? str.slice(commaIdx + 1) : '';
-              const mimeMatch = header.match(/^data:([^;]+)/i);
-              const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
-              const assetRecord = { hash: item.hash, mime, base64, sizeBytes: item.byteLen, updatedAt: Date.now() };
-              const okAsset = await putGithubWorkshopFile(`assets/${item.hash}.json`, JSON.stringify(assetRecord), `Upload workshop asset ${item.hash}`);
-              if (okAsset) {
-                ghUploadedSet.add(h);
-              }
-            } catch (_) {}
-          }
-          await putLocalAssetMirrorDataUrl(`workshop_assets/${h}`, item.dataUrl);
-          localUploadedSet.add(h);
+          currentBatch.push(item);
+          currentBatchBytes += item.byteLen;
         }
+        if (currentBatch.length > 0) {
+          assetBatches.push(currentBatch);
+        }
+
+        // 为每个批次生成稳定 packHash，并建立 hash -> packHash 映射
+        const packTasks = assetBatches.map((batchItems, idx) => {
+          const combinedHashes = batchItems.map((it) => it.hash).sort().join('_');
+          const packHash = computeFastAssetFingerprint(combinedHashes);
+          batchItems.forEach((it) => {
+            projectAssetPackIndex[it.hash] = packHash;
+            _workshopAssetPackIndexMap.set(it.hash, packHash);
+          });
+          return { packIndex: idx, packHash, items: batchItems };
+        });
+
+        let completedAssets = 0;
+        let completedPacks = 0;
+        const totalPacks = packTasks.length;
+        const UPLOAD_CONCURRENCY = 4;
+        let nextPackCursor = 0;
+
+        const runPackWorker = async () => {
+          while (nextPackCursor < totalPacks) {
+            const myIdx = nextPackCursor++;
+            const task = packTasks[myIdx];
+            if (!task) continue;
+
+            // 1. 批量同步至云端工坊服务器
+            if (cloudReachable) {
+              const cloudItems = task.items
+                .filter((it) => cloudMissingSet.has(it.hash))
+                .map((it) => ({ hash: it.hash, dataUrl: it.dataUrl }));
+              if (cloudItems.length > 0) {
+                try {
+                  const batchUploadUrl = resolveBackendApiUrl('/api/workshop/upload-assets-batch');
+                  await sendWorkshopPayloadWithProgress(batchUploadUrl, JSON.stringify({ items: cloudItems }), null);
+                } catch (_) {
+                  // 若远端未支持批量路由，自动降级为组内并发单传
+                  await Promise.all(cloudItems.map(async (cIt) => {
+                    try {
+                      const singleUrl = resolveBackendApiUrl('/api/workshop/upload-asset');
+                      await sendWorkshopPayloadWithProgress(singleUrl, JSON.stringify(cIt), null);
+                    } catch (_e) {}
+                  }));
+                }
+              }
+            }
+
+            // 2. 聚合整包写入 GitHub 仓库 packs/pack_xxx.json，一次请求上传数十张图片与语音
+            if (canSyncGithub) {
+              const packMap = {};
+              for (const it of task.items) {
+                packMap[it.hash] = it.dataUrl;
+              }
+              const packRecord = {
+                packHash: task.packHash,
+                count: task.items.length,
+                updatedAt: Date.now(),
+                assets: packMap
+              };
+              const okPack = await putGithubWorkshopFile(
+                `packs/pack_${task.packHash}.json`,
+                JSON.stringify(packRecord),
+                `Upload workshop asset pack ${task.packHash}`
+              );
+              if (okPack) {
+                for (const it of task.items) {
+                  ghUploadedSet.add(it.hash);
+                }
+              }
+            }
+
+            // 3. 写入本机镜像缓存
+            for (const it of task.items) {
+              await putLocalAssetMirrorDataUrl(`workshop_assets/${it.hash}`, it.dataUrl);
+              localUploadedSet.add(it.hash);
+            }
+
+            completedAssets += task.items.length;
+            completedPacks += 1;
+            const pct = 18 + (completedPacks / Math.max(1, totalPacks)) * 64;
+            setProgress(
+              pct,
+              `正在多通道打包并发上传素材包 第 ${completedPacks} / ${totalPacks} 包，已传 ${completedAssets} / ${unionUploadHashes.length} 个素材，已跳过 ${skippedCount} 个未改动素材`
+            );
+          }
+        };
+
+        if (totalPacks > 0) {
+          const workers = [];
+          for (let w = 0; w < Math.min(UPLOAD_CONCURRENCY, totalPacks); w++) {
+            workers.push(runPackWorker());
+          }
+          await Promise.all(workers);
+        }
+
         allHashes.forEach((h) => localUploadedSet.add(h));
         saveWorkshopUploadedHashSet(localUploadedSet);
         if (canSyncGithub) {
           saveGithubWorkshopUploadedHashSet(ghCfg.githubRepo, ghUploadedSet);
+          saveGithubAssetPackIndex(ghCfg.githubRepo, projectAssetPackIndex);
         }
 
         assetMapByHash.clear();
+
+        // 仅保留当前模组涉及到的哈希分包映射
+        const finalAssetPackIndex = {};
+        for (const h of allHashes) {
+          if (projectAssetPackIndex[h]) {
+            finalAssetPackIndex[h] = projectAssetPackIndex[h];
+          }
+        }
 
         const singleChapObj = packedChapters[0];
         const singleTtsKey = String(singleChapObj?.id || `chap_${targetChapIdx}`);
@@ -27361,6 +27581,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           characters: relatedChars,
           bgmTracks: appState.bgmTracks || [],
           subGroups: packedSubGroups,
+          assetPackIndex: finalAssetPackIndex,
           mode: isFullModule ? 'full' : 'single',
           chapters: packedChapters,
           ttsByChapter,
@@ -27378,7 +27599,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         try {
           const primaryUrl = resolveBackendApiUrl('/api/workshop/upload-chapter');
           resultData = await sendWorkshopPayloadWithProgress(primaryUrl, finalJsonBody, (loaded, total) => {
-            const pct = 85 + (loaded / Math.max(1, total)) * 14;
+            const pct = 85 + (loaded / Math.max(1, total)) * 10;
             setProgress(pct, `正在写入工坊索引：${Math.round((loaded / Math.max(1, total)) * 100)}%`);
           });
           if (resultData && resultData.ok) {
@@ -27412,6 +27633,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               finalChapters = mergedChaps;
               finalTtsByChapter = { ...(existingRecord.ttsByChapter || {}), ...ttsByChapter };
             }
+            if (existingRecord && existingRecord.assetPackIndex && typeof existingRecord.assetPackIndex === 'object') {
+              Object.assign(finalAssetPackIndex, existingRecord.assetPackIndex);
+            }
           }
         } catch (_) {}
 
@@ -27437,6 +27661,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           characters: relatedChars,
           bgmTracks: appState.bgmTracks || [],
           subGroups: packedSubGroups,
+          assetPackIndex: finalAssetPackIndex,
           chapters: finalChapters,
           chaptersMeta,
           ttsByChapter: finalTtsByChapter,
@@ -27453,7 +27678,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
         if (canSyncGithub) {
           try {
-            setProgress(94, '正在同步模组至 GitHub 线上仓库...');
+            setProgress(95, '正在同步模组索引至 GitHub 线上仓库...');
             const okProj = await putGithubWorkshopFile(`projects/${proj.id}.json`, JSON.stringify(lightweightWorkshopRecord), `Sync workshop project ${proj.title}`);
             let currentGhIndex = await fetchGithubWorkshopJson('workshop-index.json');
             if (!Array.isArray(currentGhIndex)) currentGhIndex = [];
@@ -27504,7 +27729,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         if (statusEl) {
           if (isOnlinePublished) {
             if (isFullModule) {
-              statusEl.textContent = `已成功发布整部模组「${proj.title}」至${channelLabel}，共 ${resultData.chapterCount || finalChapters.length} 章 · 其他设备可直接搜索查看 · 总包约 ${sizeText}`;
+              statusEl.textContent = `已成功打包发布整部模组「${proj.title}」至${channelLabel}，共 ${resultData.chapterCount || finalChapters.length} 章 · 其他设备可直接搜索下载或在线观看 · 总包约 ${sizeText}`;
             } else {
               statusEl.textContent = resultData.isOverwrite
                 ? `已同步更新${channelLabel}中的「${singleChapObj.title}」第 ${resultData.chapterVersion} 版 · 其他设备可直接搜索追更`
@@ -27543,12 +27768,14 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       try {
         const { res, data } = await fetchBackendJsonSafe(`/api/workshop/project/${encodeURIComponent(projectId)}`);
         if (res && res.ok && data && data.ok && data.project) {
+          registerRemoteProjectPackIndex(data.project);
           return data.project;
         }
       } catch (_) {}
       try {
         const ghProj = await fetchGithubWorkshopJson(`projects/${projectId}.json`);
         if (ghProj && ghProj.id) {
+          registerRemoteProjectPackIndex(ghProj);
           return ghProj;
         }
       } catch (_) {}
@@ -27557,14 +27784,20 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           const tResp = await fetch(`${getTermuxUrl()}/file/${encodeURIComponent(`workshop/projects/${projectId}.json`)}`);
           if (tResp.ok) {
             const tProj = await tResp.json();
-            if (tProj && tProj.id) return tProj;
+            if (tProj && tProj.id) {
+              registerRemoteProjectPackIndex(tProj);
+              return tProj;
+            }
           }
         }
       } catch (_) {}
       try {
         if (db && db.workshopProjects) {
           const localRec = await db.workshopProjects.get(projectId);
-          if (localRec && localRec.id) return localRec;
+          if (localRec && localRec.id) {
+            registerRemoteProjectPackIndex(localRec);
+            return localRec;
+          }
         }
       } catch (_) {}
       const ownProj = (appState.replayProjects || []).find((p) => p.id === projectId);
@@ -27577,13 +27810,14 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       throw new Error('未找到该线上工坊模组数据');
     }
 
-    // 在线阅读：不下载任何素材到浏览器IndexedDB或本地磁盘，直接拉取轻量剧本清单并在舞台逐行流式加载
+    // 在线阅读：拉取轻量剧本清单并注册分包索引，在舞台按需流式解压加载
     async function openWorkshopOnlineStream(projectId, chapterOrder = 0) {
       unlockBgmAudioPlayerOnUserGesture();
       const statusEl = document.getElementById('workshop-upload-status');
       if (statusEl) statusEl.textContent = '正在连接线上工坊并开启按需流式阅读...';
       try {
         const remoteProj = await fetchWorkshopFullProjectById(projectId);
+        registerRemoteProjectPackIndex(remoteProj);
         const chaps = Array.isArray(remoteProj.chapters) ? remoteProj.chapters : [];
         chaps.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
 
@@ -27633,7 +27867,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
     }
 
-    // 下载与增量去重追更：将工坊模组打包为独立 .zip 文件直接下载到手机或电脑本地文件夹，绝不写入浏览器 IndexedDB
+    // 下载与增量去重追更：支持多通道整包并发拉取所有图片与语音，打包为本地 .zip 并写入浏览器缓存
     async function downloadOrUpdateWorkshopProject(projectId, onlyChapterOrder = -1) {
       const btn = document.getElementById(`workshop-dl-btn-${projectId}`);
       const statusEl = document.getElementById('workshop-upload-status');
@@ -27650,17 +27884,217 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       try {
         setDlProgress(5, '正在从云端工坊获取模组清单...');
         const remoteProj = await fetchWorkshopFullProjectById(projectId);
+        registerRemoteProjectPackIndex(remoteProj);
         if (typeof JSZip === 'undefined') {
           throw new Error('未加载压缩组件 JSZip');
         }
 
-        // 检查是否已在舞台挂载过旧版本本地包：若有则直接复用其 zip 实例与已有素材，实现本地包增量去重追更
         const existingBundle = _mountedExternalProjects.get(projectId);
         const isIncremental = Boolean(existingBundle && existingBundle.mode === 'zip' && existingBundle.zip);
         const zip = isIncremental ? existingBundle.zip : new JSZip();
         const existingAssetHashes = isIncremental && existingBundle.assetHashes instanceof Map
           ? existingBundle.assetHashes
           : new Map();
+
+        const remoteChaps = JSON.parse(JSON.stringify(remoteProj.chapters || []));
+        const targetChaps = (typeof onlyChapterOrder === 'number' && onlyChapterOrder >= 0)
+          ? remoteChaps.filter((c, idx) => Number(c.order ?? idx) === onlyChapterOrder)
+          : remoteChaps;
+
+        // 预先收集本次需要用到的所有工坊素材哈希，进行整包批量并发预拉取
+        const requiredWorkshopHashes = new Set();
+        const collectRefHash = (ref) => {
+          if (ref && typeof ref === 'string' && ref.startsWith('/api/workshop/asset/')) {
+            const h = ref.replace('/api/workshop/asset/', '').split('?')[0].trim();
+            if (h) requiredWorkshopHashes.add(h);
+          }
+        };
+
+        collectRefHash(remoteProj.avatarUrl);
+        (remoteProj.characters || []).forEach((c) => {
+          if (!c) return;
+          collectRefHash(c.profileAvatar);
+          collectRefHash(c.stageBustAvatar);
+          collectRefHash(c.tachieBase);
+          collectRefHash(c.chibiImg);
+          if (c.tachieExpressions && typeof c.tachieExpressions === 'object') {
+            Object.values(c.tachieExpressions).forEach(collectRefHash);
+          }
+        });
+        (remoteProj.globalScenes || []).forEach((g) => g && collectRefHash(g.imageUrl));
+        targetChaps.forEach((ch, idx) => {
+          if (!ch) return;
+          (ch.scenes || []).forEach((s) => s && collectRefHash(s.imageUrl));
+          (ch.cgNodes || []).forEach((g) => {
+            if (!g) return;
+            collectRefHash(g.imageUrl);
+            collectRefHash(g.customPadImg);
+          });
+          (ch.clueNodes || []).forEach((cl) => cl && collectRefHash(cl.imageUrl));
+          const ord = Number(ch.order ?? idx);
+          const ttsKey = String(ch.id || `chap_${ord}`);
+          const chapTts = (remoteProj.ttsByChapter && remoteProj.ttsByChapter[ttsKey]) || [];
+          chapTts.forEach((rec) => rec && collectRefHash(rec.audioDataUrl || rec.audioData));
+        });
+        (remoteProj.subGroups || []).forEach((sg, sgIdx) => {
+          if (!sg) return;
+          (sg.scenes || []).forEach((s) => s && collectRefHash(s.imageUrl));
+          (sg.cgNodes || []).forEach((g) => {
+            if (!g) return;
+            collectRefHash(g.imageUrl);
+            collectRefHash(g.customPadImg);
+          });
+          (sg.clueNodes || []).forEach((cl) => cl && collectRefHash(cl.imageUrl));
+          const sgId = sg.id || `sg_${sgIdx}`;
+          const sgTts = (remoteProj.ttsByChapter && remoteProj.ttsByChapter[String(sgId)]) || [];
+          sgTts.forEach((rec) => rec && collectRefHash(rec.audioDataUrl || rec.audioData));
+        });
+
+        // 筛选出本地尚未缓存的哈希
+        const missingHashesToFetch = [];
+        for (const h of requiredWorkshopHashes) {
+          const refKey = `/api/workshop/asset/${h}`;
+          if (typeof _localWorkshopAssetUrlMap === 'object' && _localWorkshopAssetUrlMap.has(refKey)) {
+            const cachedVal = _localWorkshopAssetUrlMap.get(refKey);
+            if (cachedVal && cachedVal.startsWith('data:')) continue;
+          }
+          const localMirror = await getLocalAssetMirrorDataUrl(`workshop_assets/${h}`);
+          if (localMirror && localMirror.startsWith('data:')) {
+            if (typeof _localWorkshopAssetUrlMap === 'object') {
+              _localWorkshopAssetUrlMap.set(refKey, localMirror);
+              _localWorkshopAssetUrlMap.set(h, localMirror);
+            }
+            continue;
+          }
+          missingHashesToFetch.push(h);
+        }
+
+        if (missingHashesToFetch.length > 0) {
+          setDlProgress(12, `发现 ${missingHashesToFetch.length} 个未缓存素材，正在启动多通道整包并发下载...`);
+          const stillMissingSet = new Set(missingHashesToFetch);
+
+          // 通道 A：优先向云端批量接口请求
+          const BATCH_PULL_SIZE = 40;
+          const batchChunks = [];
+          for (let i = 0; i < missingHashesToFetch.length; i += BATCH_PULL_SIZE) {
+            batchChunks.push(missingHashesToFetch.slice(i, i + BATCH_PULL_SIZE));
+          }
+          let chunkCursor = 0;
+          const runCloudBatchWorker = async () => {
+            while (chunkCursor < batchChunks.length) {
+              const cIdx = chunkCursor++;
+              const chunk = batchChunks[cIdx];
+              if (!chunk || chunk.length === 0) continue;
+              try {
+                const { res, data } = await fetchBackendJsonSafe('/api/workshop/get-assets-batch', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ hashes: chunk })
+                });
+                if (res && res.ok && data && data.ok && data.assets && typeof data.assets === 'object') {
+                  for (const [hKey, dUrl] of Object.entries(data.assets)) {
+                    if (typeof dUrl === 'string' && dUrl.startsWith('data:')) {
+                      stillMissingSet.delete(hKey);
+                      await putLocalAssetMirrorDataUrl(`workshop_assets/${hKey}`, dUrl);
+                      if (typeof _localWorkshopAssetUrlMap === 'object') {
+                        _localWorkshopAssetUrlMap.set(`/api/workshop/asset/${hKey}`, dUrl);
+                        _localWorkshopAssetUrlMap.set(hKey, dUrl);
+                      }
+                    }
+                  }
+                  const doneCnt = missingHashesToFetch.length - stillMissingSet.size;
+                  const pct = 12 + (doneCnt / Math.max(1, missingHashesToFetch.length)) * 55;
+                  setDlProgress(pct, `正在高速批量下载素材：已完成 ${doneCnt} / ${missingHashesToFetch.length}...`);
+                }
+              } catch (_) {}
+            }
+          };
+          const cloudWorkers = [];
+          for (let w = 0; w < Math.min(3, batchChunks.length); w++) {
+            cloudWorkers.push(runCloudBatchWorker());
+          }
+          await Promise.all(cloudWorkers);
+
+          // 通道 B：若仍有缺失且存在 GitHub 分包索引，按整包并发拉取并解压
+          if (stillMissingSet.size > 0) {
+            const neededPacks = new Set();
+            for (const h of stillMissingSet) {
+              const pHash = _workshopAssetPackIndexMap.get(h);
+              if (pHash) neededPacks.add(pHash);
+            }
+            const packList = Array.from(neededPacks);
+            if (packList.length > 0) {
+              let packCursor = 0;
+              let finishedPacks = 0;
+              const runGhPackPullWorker = async () => {
+                while (packCursor < packList.length) {
+                  const pIdx = packCursor++;
+                  const pHash = packList[pIdx];
+                  if (!pHash) continue;
+                  await fetchAndUnpackWorkshopAssetPack(pHash);
+                  for (const h of Array.from(stillMissingSet)) {
+                    if (_localWorkshopAssetUrlMap.has(`/api/workshop/asset/${h}`)) {
+                      stillMissingSet.delete(h);
+                    }
+                  }
+                  finishedPacks += 1;
+                  const doneCnt = missingHashesToFetch.length - stillMissingSet.size;
+                  const pct = 25 + (finishedPacks / Math.max(1, packList.length)) * 45;
+                  setDlProgress(pct, `正在并发拉取 GitHub 资源包 第 ${finishedPacks} / ${packList.length} 包，已就绪 ${doneCnt} 个素材...`);
+                }
+              };
+              const ghPackWorkers = [];
+              for (let w = 0; w < Math.min(4, packList.length); w++) {
+                ghPackWorkers.push(runGhPackPullWorker());
+              }
+              await Promise.all(ghPackWorkers);
+            }
+          }
+
+          // 通道 C：兼容旧版散装单文件素材，使用 6 路并发补齐剩余缺失项
+          if (stillMissingSet.size > 0) {
+            const remainList = Array.from(stillMissingSet);
+            let remCursor = 0;
+            const runRemainWorker = async () => {
+              while (remCursor < remainList.length) {
+                const rIdx = remCursor++;
+                const h = remainList[rIdx];
+                if (!h) continue;
+                let dUrl = '';
+                try {
+                  const { data } = await fetchBackendJsonSafe(`/api/workshop/asset/${h}?format=dataurl`);
+                  if (data && data.ok && data.dataUrl) dUrl = data.dataUrl;
+                } catch (_) {}
+                if (!dUrl) {
+                  try {
+                    const ghAsset = await fetchGithubWorkshopJson(`assets/${h}.json`);
+                    if (ghAsset && ghAsset.base64) {
+                      dUrl = `data:${ghAsset.mime || 'application/octet-stream'};base64,${ghAsset.base64}`;
+                    } else if (ghAsset && ghAsset.dataUrl) {
+                      dUrl = ghAsset.dataUrl;
+                    }
+                  } catch (_) {}
+                }
+                if (dUrl && dUrl.startsWith('data:')) {
+                  stillMissingSet.delete(h);
+                  await putLocalAssetMirrorDataUrl(`workshop_assets/${h}`, dUrl);
+                  if (typeof _localWorkshopAssetUrlMap === 'object') {
+                    _localWorkshopAssetUrlMap.set(`/api/workshop/asset/${h}`, dUrl);
+                    _localWorkshopAssetUrlMap.set(h, dUrl);
+                  }
+                }
+                const doneCnt = missingHashesToFetch.length - stillMissingSet.size;
+                const pct = 65 + (rIdx / Math.max(1, remainList.length)) * 20;
+                setDlProgress(pct, `正在并发下载剩余素材 ${doneCnt} / ${missingHashesToFetch.length}...`);
+              }
+            };
+            const remWorkers = [];
+            for (let w = 0; w < Math.min(6, remainList.length); w++) {
+              remWorkers.push(runRemainWorker());
+            }
+            await Promise.all(remWorkers);
+          }
+        }
 
         let fetchedAssets = 0;
         let reusedAssets = 0;
@@ -27691,23 +28125,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                 dataUrl = portableLocal;
               }
             }
-            if (!dataUrl.startsWith('data:')) {
-              try {
-                const { data } = await fetchBackendJsonSafe(`${refOrDataUrl}?format=dataurl`);
-                if (data && data.ok && data.dataUrl) {
-                  dataUrl = data.dataUrl;
-                }
-              } catch (_) {}
-            }
             if (!dataUrl.startsWith('data:') && assetHash) {
-              try {
-                const ghAsset = await fetchGithubWorkshopJson(`assets/${assetHash}.json`);
-                if (ghAsset && ghAsset.base64) {
-                  dataUrl = `data:${ghAsset.mime || 'application/octet-stream'};base64,${ghAsset.base64}`;
-                } else if (ghAsset && ghAsset.dataUrl) {
-                  dataUrl = ghAsset.dataUrl;
-                }
-              } catch (_) {}
+              const localMir = await getLocalAssetMirrorDataUrl(`workshop_assets/${assetHash}`);
+              if (localMir && localMir.startsWith('data:')) {
+                dataUrl = localMir;
+              }
             }
           } else if (!refOrDataUrl.startsWith('data:')) {
             const portable = await packAssetUrlToPortableDataUrl(refOrDataUrl);
@@ -27726,8 +28148,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               _localWorkshopAssetUrlMap.set(refOrDataUrl, dataUrl);
             }
             fetchedAssets += 1;
-            const pct = Math.min(88, 12 + fetchedAssets * 2);
-            setDlProgress(pct, `正在下载图片与语音素材 ${fetchedAssets} 个至本地与浏览器，已去重跳过 ${reusedAssets} 个已有素材...`);
             return `__ZIP_ASSET__:${zipPath}`;
           }
           return refOrDataUrl;
@@ -27755,11 +28175,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             gsc.imageUrl = await pullAssetIntoZip(gsc.imageUrl, `images/scenes/global_${gsc.id || gIdx}.png`);
           }
         }
-
-        const remoteChaps = JSON.parse(JSON.stringify(remoteProj.chapters || []));
-        const targetChaps = (typeof onlyChapterOrder === 'number' && onlyChapterOrder >= 0)
-          ? remoteChaps.filter((c, idx) => Number(c.order ?? idx) === onlyChapterOrder)
-          : remoteChaps;
 
         const mergedChaps = isIncremental && Array.isArray(existingBundle.project?.chapters)
           ? JSON.parse(JSON.stringify(existingBundle.project.chapters))
@@ -27806,6 +28221,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               const safeKey = String(rec.id).replace(/[^a-zA-Z0-9_-]/g, '_');
               const zRef = await pullAssetIntoZip(rec.audioDataUrl || rec.audioData, `audio/${safeKey}.mp3`);
               existingTtsMap.set(rec.id, { ...rec, audioDataUrl: zRef });
+              if (db && db.ttsCache) {
+                const resolvedAudio = _localWorkshopAssetUrlMap.get(rec.audioDataUrl || rec.audioData) || rec.audioDataUrl || rec.audioData;
+                await db.ttsCache.put({ ...rec, audioDataUrl: resolvedAudio, audioData: resolvedAudio });
+              }
             }
           }
 
@@ -27850,6 +28269,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               const safeKey = String(rec.id).replace(/[^a-zA-Z0-9_-]/g, '_');
               const zRef = await pullAssetIntoZip(rec.audioDataUrl || rec.audioData, `audio/${safeKey}.mp3`);
               existingTtsMap.set(rec.id, { ...rec, audioDataUrl: zRef });
+              if (db && db.ttsCache) {
+                const resolvedAudio = _localWorkshopAssetUrlMap.get(rec.audioDataUrl || rec.audioData) || rec.audioDataUrl || rec.audioData;
+                await db.ttsCache.put({ ...rec, audioDataUrl: resolvedAudio, audioData: resolvedAudio });
+              }
             }
           }
         }
@@ -27889,7 +28312,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         };
 
         zip.file('manifest.json', JSON.stringify(packManifest));
-        setDlProgress(94, '正在打包生成本地压缩包并缓存至浏览器...');
+        setDlProgress(92, '正在打包生成本地压缩包并缓存至浏览器...');
         const zipBlob = await zip.generateAsync({ type: 'blob' });
         const dlUrl = URL.createObjectURL(zipBlob);
         const a = document.createElement('a');
@@ -27934,7 +28357,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           }
         } catch (_) {}
 
-        setDlProgress(100, `已下载模组包并写入浏览器本地缓存，立绘、插图与语音均可直接读取 · 本次下载 ${fetchedAssets} 个素材`);
+        setDlProgress(100, `已下载模组包并写入浏览器本地缓存，立绘、插图与语音均可直接读取 · 本次打包 ${fetchedAssets} 个素材`);
         renderReplayWorkshopList();
         renderTheaterSelectorLobby();
         setTimeout(() => {

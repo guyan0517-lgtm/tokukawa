@@ -1391,6 +1391,47 @@ app.post('/api/workshop/upload-asset', (req, res) => {
   }
 });
 
+app.post('/api/workshop/upload-assets-batch', (req, res) => {
+  try {
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    const savedHashes = [];
+    let totalBytes = 0;
+    for (const item of items) {
+      if (!item || !item.dataUrl || typeof item.dataUrl !== 'string') continue;
+      const saved = saveWorkshopAssetToDisk(item.hash, item.dataUrl);
+      if (saved) {
+        savedHashes.push(saved.hash);
+        totalBytes += Number(saved.sizeBytes || 0);
+      }
+    }
+    res.json({ ok: true, count: savedHashes.length, hashes: savedHashes, sizeBytes: totalBytes });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/workshop/get-assets-batch', (req, res) => {
+  try {
+    const hashes = Array.isArray(req.body?.hashes) ? req.body.hashes : [];
+    const assets = {};
+    for (const rawH of hashes) {
+      const safeHash = sanitizeAssetHash(rawH);
+      if (!safeHash) continue;
+      const fp = getWorkshopAssetFilePath(safeHash);
+      if (!fp || !fs.existsSync(fp)) continue;
+      try {
+        const raw = JSON.parse(fs.readFileSync(fp, 'utf-8'));
+        if (raw && raw.base64) {
+          assets[safeHash] = `data:${raw.mime || 'application/octet-stream'};base64,${raw.base64}`;
+        }
+      } catch (_) {}
+    }
+    res.json({ ok: true, assets });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/workshop/asset/:hash', (req, res) => {
   try {
     const safeHash = sanitizeAssetHash(req.params.hash);
@@ -1448,6 +1489,8 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
       extractedSpeakers,
       characters,
       bgmTracks,
+      subGroups,
+      assetPackIndex,
       mode,
       chapters,
       ttsByChapter,
@@ -1475,6 +1518,8 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
         extractedSpeakers: [],
         characters: [],
         bgmTracks: [],
+        subGroups: [],
+        assetPackIndex: {},
         chapters: [],
         ttsByChapter: {},
         createdAt: now,
@@ -1495,6 +1540,12 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
     }
     if (Array.isArray(extractedSpeakers) && extractedSpeakers.length > 0) {
       storedProj.extractedSpeakers = extractedSpeakers;
+    }
+    if (Array.isArray(subGroups) && subGroups.length > 0) {
+      storedProj.subGroups = extractInlineDataUrlsInObject(subGroups, assetHashes);
+    }
+    if (assetPackIndex && typeof assetPackIndex === 'object') {
+      storedProj.assetPackIndex = { ...(storedProj.assetPackIndex || {}), ...assetPackIndex };
     }
     if (Array.isArray(characters) && characters.length > 0) {
       const cleanedChars = extractInlineDataUrlsInObject(characters, assetHashes);
