@@ -16125,7 +16125,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
       const cleanArtist = String(artist || '').trim();
       if (!cleanSong && !cleanArtist) return null;
 
-      const cacheKey = `${cleanSong.toLowerCase()}__${cleanArtist.toLowerCase()}__${String(tag || '日常').trim()}`;
+      const cacheKey = `v2_inst_${cleanSong.toLowerCase()}__${cleanArtist.toLowerCase()}__${String(tag || '日常').trim()}`;
       if (_bgmSearchMemCache.has(cacheKey)) {
         return _bgmSearchMemCache.get(cacheKey);
       }
@@ -16141,7 +16141,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
               source: 'all'
             })
           });
-          if (res.ok && data && data.best && data.best.url) {
+          if (res.ok && data && data.best && data.best.url && !data.best.hasVocals) {
             return data;
           }
         } catch (_) {}
@@ -16178,11 +16178,16 @@ ${BUILTIN_CSS_TEMPLATE}`;
               name: trackName,
               tag: tag || '日常',
               url: playUrl,
-              source: data.best.source || '音乐台'
+              source: data.best.source || '音乐台',
+              verifiedInstrumental: true
             };
             await db.bgmTracks.put(existing);
             appState.bgmTracks = await db.bgmTracks.toArray();
             renderReplayBgmList();
+          } else if (!existing.verifiedInstrumental) {
+            existing.verifiedInstrumental = true;
+            existing.url = playUrl;
+            await db.bgmTracks.put(existing);
           }
           data.best.url = playUrl;
           const finalOut = { best: data.best, candidates: data.candidates || [], savedTrack: existing };
@@ -16209,16 +16214,17 @@ ${BUILTIN_CSS_TEMPLATE}`;
           const moodKey = String(line.bgmMood || '').trim();
           if (moodKey && moodUrlMap.has(moodKey)) {
             const prev = moodUrlMap.get(moodKey);
-            if (line.bgmUrl !== prev.url || line.bgmTag !== prev.tag) {
+            if (line.bgmUrl !== prev.url || line.bgmTag !== prev.tag || !line._bgmLyricVerified) {
               line.bgmTag = prev.tag;
               line.bgmSong = prev.song;
               line.bgmArtist = prev.artist;
               line.bgmUrl = prev.url;
+              line._bgmLyricVerified = true;
               changed = true;
             }
             continue;
           }
-          if (line.bgmUrl && !line.bgmUrl.includes('id=139774.mp3') && !line.bgmUrl.includes('id=26113988.mp3') && !line.bgmUrl.includes('id=22707008.mp3')) {
+          if (line._bgmLyricVerified && line.bgmUrl && !line.bgmUrl.includes('id=139774.mp3') && !line.bgmUrl.includes('id=26113988.mp3') && !line.bgmUrl.includes('id=22707008.mp3')) {
             const normUrl = normalizeMusicTrackUrl(line.bgmUrl);
             if (moodKey && normUrl) {
               moodUrlMap.set(moodKey, { tag: tagStr, song: line.bgmSong || tagStr, artist: line.bgmArtist || '', url: normUrl });
@@ -16235,6 +16241,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
           const resolved = await searchAndResolveMusicByWeight(sName, aName, moodKey || '日常');
           if (resolved && resolved.best && resolved.best.url) {
             line.bgmUrl = normalizeMusicTrackUrl(resolved.best.url);
+            line._bgmLyricVerified = true;
             changed = true;
             if (moodKey) {
               moodUrlMap.set(moodKey, { tag: tagStr, song: sName, artist: aName, url: line.bgmUrl });
@@ -18939,9 +18946,12 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
         if (curSpk) {
           tryAddActorToSlots(curSpk, i, sceneKey);
         } else if (line.type === 'narration' && line.text && validActorNames.length > 0) {
+          let addedInNarr = 0;
           for (const vName of validActorNames) {
-            if (line.text.includes(vName) && (slots.includes(vName) || slots.length < 2)) {
+            if (line.text.includes(vName)) {
               tryAddActorToSlots(vName, i, sceneKey);
+              addedInNarr += 1;
+              if (addedInNarr >= 2) break;
             }
           }
         }
@@ -22980,19 +22990,25 @@ BGM_STOP: S行号`;
       }, 80);
     }
 
+    const _organizingSubGroupIds = new Set();
+
     async function organizeSubGroupViaAi(sgId) {
+      if (_organizingSubGroupIds.has(sgId)) return;
       const proj = getCurrentReplayProject();
       if (!proj) return;
       const sg = ensureProjectSubGroupsArray(proj).find((x) => x && x.id === sgId);
       if (!sg) return;
       const rawInputEl = document.getElementById(`subgroup-raw-input-${sgId}`);
-      if (rawInputEl) sg.rawText = rawInputEl.value;
+      if (rawInputEl && rawInputEl.value && rawInputEl.value.trim()) {
+        sg.rawText = rawInputEl.value;
+      }
       const cleanedRaw = cleanTrpgLogText(sg.rawText || '');
       if (!cleanedRaw) {
         alert('请先在小群框内粘贴或上传小群消息记录');
         return;
       }
       sg.rawText = cleanedRaw;
+      _organizingSubGroupIds.add(sgId);
 
       const btn = document.getElementById(`subgroup-gen-btn-${sgId}`);
       const statusEl = document.getElementById('replay-subgroup-status-bar');
@@ -23365,6 +23381,14 @@ ${numberedSubGroupLines}`;
           });
         }
 
+        // 立即持久化已整理完成的小群台词，防止后续日语补译或配乐网络波动导致整理结果丢失
+        computeChapterStageSlots(filteredLines);
+        sg.scriptLines = filteredLines;
+        rebuildHolderScenesFromLines(sg, proj, targetChap);
+        syncSubGroupCgLineBindings(sg);
+        syncSubGroupClueLineBindings(sg);
+        await saveReplayProjectToDB(proj);
+
         // 自动检测小群漏译台词并补齐日语翻译与配音情绪参数
         const untranslatedSubLines = [];
         filteredLines.forEach((l, fIdx) => {
@@ -23439,6 +23463,7 @@ ${numberedSubGroupLines}`;
             lineObj.bgmArtist = reused.artist;
             lineObj.bgmMood = moodKey;
             lineObj.bgmUrl = reused.url;
+            lineObj._bgmLyricVerified = true;
             continue;
           }
           const label = rec.artist ? `${rec.song} - ${rec.artist}` : rec.song;
@@ -23449,8 +23474,10 @@ ${numberedSubGroupLines}`;
           const resolved = await searchAndResolveMusicByWeight(rec.song, rec.artist || '', moodKey);
           if (resolved && resolved.best && resolved.best.url) {
             lineObj.bgmUrl = normalizeMusicTrackUrl(resolved.best.url);
+            lineObj._bgmLyricVerified = true;
           } else {
             lineObj.bgmUrl = getFallbackInstrumentalBgmUrl(moodKey || rec.song);
+            lineObj._bgmLyricVerified = true;
           }
           chapterMoodBgmMap.set(moodKey, {
             label,
@@ -23462,9 +23489,10 @@ ${numberedSubGroupLines}`;
 
         computeChapterStageSlots(filteredLines);
         sg.scriptLines = filteredLines;
-        rebuildHolderScenesFromLines(sg, proj, chap);
+        rebuildHolderScenesFromLines(sg, proj, targetChap);
         syncSubGroupCgLineBindings(sg);
         syncSubGroupClueLineBindings(sg);
+        if (targetChap) delete targetChap._cachedMergedPlayable;
         await saveReplayProjectToDB(proj);
         renderReplaySubGroupStudio();
         renderReplayScriptEditor();
@@ -23476,7 +23504,12 @@ ${numberedSubGroupLines}`;
       } catch (err) {
         alert('整理小群记录失败：' + err.message);
       } finally {
-        if (btn) { btn.textContent = '整理'; btn.disabled = false; }
+        _organizingSubGroupIds.delete(sgId);
+        const latestBtn = document.getElementById(`subgroup-gen-btn-${sgId}`) || btn;
+        if (latestBtn) {
+          latestBtn.textContent = '整理';
+          latestBtn.disabled = false;
+        }
       }
     }
 
@@ -24070,7 +24103,7 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
               <textarea id="subgroup-raw-input-${sg.id}" class="moe-input" style="min-height:110px;font-size:12px;" placeholder="粘贴小群聊天记录，或点击下方上传导入文本文件..." onchange="updateReplaySubGroupMeta('${sg.id}', 'rawText', this.value)">${(sg.rawText || '').replace(/</g, '&lt;')}</textarea>
               <div class="script-top-btn-grid" style="grid-template-columns:repeat(4, 1fr);">
                 <button type="button" class="moe-btn secondary" onclick="document.getElementById('subgroup-file-input-${sg.id}').click()">上传</button>
-                <button type="button" class="moe-btn" id="subgroup-gen-btn-${sg.id}" onclick="organizeSubGroupViaAi('${sg.id}')">整理</button>
+                <button type="button" class="moe-btn" id="subgroup-gen-btn-${sg.id}" ${_organizingSubGroupIds.has(sg.id) ? 'disabled' : ''} onclick="organizeSubGroupViaAi('${sg.id}')">${_organizingSubGroupIds.has(sg.id) ? '整理中' : '整理'}</button>
                 <button type="button" class="moe-btn secondary" id="subgroup-bgm-btn-${sg.id}" onclick="aiMatchSubGroupBgm('${sg.id}')">配乐</button>
                 <button type="button" class="moe-btn secondary" id="subgroup-exp-btn-${sg.id}" onclick="aiMatchSubGroupExpressions('${sg.id}')">差分</button>
               </div>
@@ -25605,11 +25638,11 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
       }, 40);
     }
 
-    // ==================== 独立「演出」工作台：转场、环境粒子氛围、分级叫喊、背叛黑底红字、神秘人？？？匿影、SVG贴纸 ====================
+    // ==================== 独立「演出」工作台：转场、环境粒子氛围、分级叫喊、背叛黑底红字、神秘人？？？匿影、SVG贴纸、环境音效 ====================
     const DEFAULT_STAGE_FX_DIRECTOR_PROMPT = `你是顶尖日乙与悬疑视觉小说舞台演出导演。请阅读本章剧本台词与场景列表，为关键剧情台词编排沉浸式舞台演出效果，并输出整章默认氛围与关键行的演出指令。
 可用参数说明：
 1. 章节默认氛围 CHAP_AMBIENT 可选值：none、rain、fog、ember、dust、snow、crimson
-2. 单句转场 transition 可选值：none、fade_black、flash_white、memory_sepia、eye_open、curtain_wipe
+2. 单句转场 transition 可选值：none、memory_sepia、eye_open、curtain_wipe
 3. 单句氛围 ambient 可选值：inherit、none、rain、fog、ember、dust、snow、crimson
 4. 文字动效 textFx 可选值：
    - normal 常规打字
@@ -25624,20 +25657,23 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
    - name_only 仅名字显示为？？？
    - full_shadow 名字显示为？？？且立绘与小头像变为纯黑剪影隐藏真容，适合某角色刚出场尚未自报姓名或隐藏身份时
 6. 情绪贴纸 sticker 可选值：none、sweat、anger、question、exclaim、music、sparkle、silence、heart
+7. 环境音效 sfxTag 可选值：none、敲门、脚步、开门、关门、翻书、雷声、雨声、风声、水滴、钟声、玻璃碎裂、剑击、枪声、心跳、倒水
 
 请只对真正需要演出的关键句输出指令，不必每句都加特效，保持克制精致的日乙演出节奏。从头到尾严禁使用任何括号，严格按以下格式逐行输出：
 CHAP_AMBIENT: 氛围代号
-STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker值`;
+STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker值|sfxTag值`;
 
     let _stageFxOnlyFilter = false;
 
     function getCustomOrDefaultStageFxPrompt() {
       const proj = getCurrentReplayProject();
       if (proj && typeof proj.customStageFxPrompt === 'string' && proj.customStageFxPrompt.trim()) {
-        return proj.customStageFxPrompt.trim();
+        return proj.customStageFxPrompt.trim().replace(/fade_black[、,]?\s*|flash_white[、,]?\s*/g, '');
       }
       const saved = localStorage.getItem('replay-custom-stagefx-sys-prompt');
-      return (saved && saved.trim()) ? saved.trim() : DEFAULT_STAGE_FX_DIRECTOR_PROMPT;
+      return (saved && saved.trim())
+        ? saved.trim().replace(/fade_black[、,]?\s*|flash_white[、,]?\s*/g, '')
+        : DEFAULT_STAGE_FX_DIRECTOR_PROMPT;
     }
 
     function toggleStageFxPromptEditor() {
@@ -25715,7 +25751,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const st = document.getElementById('replay-stagefx-status-bar');
       if (st) {
         st.textContent = _stageFxOnlyFilter
-          ? '已开启特效筛选：当前仅显示含转场、氛围、字效、匿影、贴纸或切换地图的句子，再次点击特效恢复全部'
+          ? '已开启特效筛选：当前仅显示含转场、氛围、字效、匿影、贴纸、音效或切换地图的句子，再次点击特效恢复全部'
           : '已恢复显示当前章节全部演出句子';
       }
     }
@@ -25747,6 +25783,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       line.textFx = 'normal';
       line.mysteryMode = 'none';
       line.sticker = 'none';
+      line.sfxTag = '';
       if (line.effect === 'shake_screen' || line.effect === 'blackout') {
         line.effect = 'none';
       }
@@ -25768,6 +25805,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         line.textFx = 'normal';
         line.mysteryMode = 'none';
         line.sticker = 'none';
+        line.sfxTag = '';
         if (line.effect && line.effect !== 'none') {
           line.effect = 'none';
         }
@@ -25777,7 +25815,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       renderReplayStageFxStudio();
       renderReplayScriptEditor();
       const st = document.getElementById('replay-stagefx-status-bar');
-      if (st) st.textContent = '已一键清除本章全部转场、氛围、文字动效、神秘人匿影与贴纸特效';
+      if (st) st.textContent = '已一键清除本章全部转场、氛围、文字动效、神秘人匿影、贴纸与环境音效';
     }
 
     async function aiDirectorConfigureChapterStageFx() {
@@ -25790,7 +25828,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const btn = document.getElementById('replay-stagefx-ai-btn');
       const st = document.getElementById('replay-stagefx-status-bar');
       if (btn) { btn.textContent = '编排中'; btn.disabled = true; }
-      if (st) st.textContent = '正在阅读本章剧情并智能编排环境氛围、转场、分级叫喊、背叛红字、神秘人匿影与情绪贴纸...';
+      if (st) st.textContent = '正在阅读本章剧情并智能编排环境氛围、转场、分级叫喊、背叛红字、神秘人匿影、情绪贴纸与环境音效...';
 
       try {
         const linesOverview = chap.scriptLines.slice(0, 260).map((l, idx) => `L${idx} ${l.speaker || '旁白'}:${l.text || ''}`).join('\n');
@@ -25803,6 +25841,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           { caller: `智能舞台演出导演编排·${chap.title}`, preferSubApi: false }
         );
 
+        const validSfxSet = new Set(['敲门', '脚步', '开门', '关门', '翻书', '雷声', '雨声', '风声', '水滴', '钟声', '玻璃碎裂', '剑击', '枪声', '心跳', '倒水']);
         let appliedCount = 0;
         if (reply) {
           reply.split('\n').forEach((raw) => {
@@ -25818,8 +25857,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                 const lIdx = parseInt(parts[0].replace(/\D/g, ''), 10);
                 if (lIdx >= 0 && lIdx < chap.scriptLines.length) {
                   const target = chap.scriptLines[lIdx];
-                  if (['none', 'fade_black', 'flash_white', 'memory_sepia', 'eye_open', 'curtain_wipe'].includes(parts[1])) {
+                  if (['none', 'memory_sepia', 'eye_open', 'curtain_wipe'].includes(parts[1])) {
                     target.transition = parts[1];
+                  } else {
+                    target.transition = 'none';
                   }
                   if (['inherit', 'none', 'rain', 'fog', 'ember', 'dust', 'snow', 'crimson'].includes(parts[2])) {
                     target.ambient = parts[2];
@@ -25832,6 +25873,13 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                   }
                   if (['none', 'sweat', 'anger', 'question', 'exclaim', 'music', 'sparkle', 'silence', 'heart'].includes(parts[5])) {
                     target.sticker = parts[5];
+                  }
+                  if (parts[6]) {
+                    if (parts[6] === 'none' || parts[6] === '无') {
+                      target.sfxTag = '';
+                    } else if (validSfxSet.has(parts[6])) {
+                      target.sfxTag = parts[6];
+                    }
                   }
                   appliedCount += 1;
                 }
@@ -25883,8 +25931,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
       const transMap = {
         none: '无转场',
-        fade_black: '黑场淡入',
-        flash_white: '白光闪切',
         memory_sepia: '旧忆泛黄',
         eye_open: '睁眼聚焦',
         curtain_wipe: '拉幕横切'
@@ -25924,10 +25970,32 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         silence: '省略',
         heart: '悸动'
       };
+      const sfxMap = {
+        '': '自动音效',
+        none: '静音无声',
+        敲门: '音效·敲门',
+        脚步: '音效·脚步',
+        开门: '音效·开门',
+        关门: '音效·关门',
+        翻书: '音效·翻书',
+        雷声: '音效·雷声',
+        雨声: '音效·雨声',
+        风声: '音效·风声',
+        水滴: '音效·水滴',
+        钟声: '音效·钟声',
+        玻璃碎裂: '音效·碎裂',
+        剑击: '音效·刀剑',
+        枪声: '音效·枪鸣',
+        心跳: '音效·心跳',
+        倒水: '音效·斟茶'
+      };
 
       box.innerHTML = '';
       let renderedCount = 0;
       chap.scriptLines.forEach((line, idx) => {
+        if (line.transition === 'fade_black' || line.transition === 'flash_white') {
+          line.transition = 'none';
+        }
         const curSc = line.sceneId || sceneOptionsList[0]?.id || 'cg_only';
         const prevSc = idx > 0 ? (chap.scriptLines[idx - 1]?.sceneId || '') : '';
         const isSceneSwitch = idx === 0 || curSc !== prevSc || Boolean(line._sceneSwitchAnchor);
@@ -25936,12 +26004,18 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         const curTextFx = line.textFx || 'normal';
         const curMystery = line.mysteryMode || 'none';
         const curSticker = line.sticker || 'none';
+        const curSfx = line.sfxTag || '';
+        const inferredSfx = (!curSfx && typeof inferNaturalStageSfxFromText === 'function')
+          ? inferNaturalStageSfxFromText(line.text)
+          : '';
         const hasAnyStageFx = (isSceneSwitch && curSc !== 'cg_only')
           || curTrans !== 'none'
           || (curAmb !== 'inherit' && curAmb !== 'none')
           || curTextFx !== 'normal'
           || curMystery !== 'none'
-          || curSticker !== 'none';
+          || curSticker !== 'none'
+          || (curSfx && curSfx !== 'none')
+          || Boolean(inferredSfx);
 
         if (_stageFxOnlyFilter && !hasAnyStageFx) {
           return;
@@ -25958,6 +26032,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         if (curTextFx !== 'normal') badges.push(`<span class="vn-console-badge accent">${textFxMap[curTextFx] || curTextFx}</span>`);
         if (curMystery !== 'none') badges.push(`<span class="vn-console-badge accent">${mysteryMap[curMystery] || curMystery}</span>`);
         if (curSticker !== 'none') badges.push(`<span class="vn-console-badge">贴纸·${stickerMap[curSticker] || curSticker}</span>`);
+        if (curSfx && curSfx !== 'none') {
+          badges.push(`<span class="vn-console-badge accent">音效·${curSfx}</span>`);
+        } else if (inferredSfx) {
+          badges.push(`<span class="vn-console-badge">感测·${inferredSfx}</span>`);
+        }
 
         const row = document.createElement('div');
         row.className = 'vn-console-row';
@@ -25972,23 +26051,26 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             <div class="vn-console-badges">${badges.join('')}</div>
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-            <select class="moe-input" style="flex:1;min-width:98px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="从此句起切换场景地图并持续到下次切换" onchange="updateLineStageFxField(${idx}, 'sceneId', this.value)">
+            <select class="moe-input" style="flex:1;min-width:94px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="从此句起切换场景地图并持续到下次切换" onchange="updateLineStageFxField(${idx}, 'sceneId', this.value)">
               ${sceneOptionsList.map((sc) => `<option value="${sc.id.replace(/"/g, '&quot;')}" ${sc.id === curSc ? 'selected' : ''}>地图·${sc.label}</option>`).join('')}
             </select>
-            <select class="moe-input" style="flex:1;min-width:92px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="镜头转场特效" onchange="updateLineStageFxField(${idx}, 'transition', this.value)">
+            <select class="moe-input" style="flex:1;min-width:86px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="镜头转场特效" onchange="updateLineStageFxField(${idx}, 'transition', this.value)">
               ${Object.entries(transMap).map(([k, v]) => `<option value="${k}" ${k === curTrans ? 'selected' : ''}>${v}</option>`).join('')}
             </select>
-            <select class="moe-input" style="flex:1;min-width:86px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="环境粒子氛围" onchange="updateLineStageFxField(${idx}, 'ambient', this.value)">
+            <select class="moe-input" style="flex:1;min-width:82px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="环境粒子氛围" onchange="updateLineStageFxField(${idx}, 'ambient', this.value)">
               ${Object.entries(ambMap).map(([k, v]) => `<option value="${k}" ${k === curAmb ? 'selected' : ''}>${v}</option>`).join('')}
             </select>
-            <select class="moe-input" style="flex:1;min-width:92px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="文字阅读与叫喊背叛动效" onchange="updateLineStageFxField(${idx}, 'textFx', this.value)">
+            <select class="moe-input" style="flex:1;min-width:88px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="文字阅读与叫喊背叛动效" onchange="updateLineStageFxField(${idx}, 'textFx', this.value)">
               ${Object.entries(textFxMap).map(([k, v]) => `<option value="${k}" ${k === curTextFx ? 'selected' : ''}>${v}</option>`).join('')}
             </select>
-            <select class="moe-input" style="flex:1;min-width:92px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="神秘人未知名？？？与剪影" onchange="updateLineStageFxField(${idx}, 'mysteryMode', this.value)">
+            <select class="moe-input" style="flex:1;min-width:88px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="神秘人未知名？？？与剪影" onchange="updateLineStageFxField(${idx}, 'mysteryMode', this.value)">
               ${Object.entries(mysteryMap).map(([k, v]) => `<option value="${k}" ${k === curMystery ? 'selected' : ''}>${v}</option>`).join('')}
             </select>
-            <select class="moe-input" style="flex:1;min-width:84px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="角色头顶SVG矢量情绪贴纸" onchange="updateLineStageFxField(${idx}, 'sticker', this.value)">
+            <select class="moe-input" style="flex:1;min-width:80px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="角色头顶SVG矢量情绪贴纸" onchange="updateLineStageFxField(${idx}, 'sticker', this.value)">
               ${Object.entries(stickerMap).map(([k, v]) => `<option value="${k}" ${k === curSticker ? 'selected' : ''}>${v}</option>`).join('')}
+            </select>
+            <select class="moe-input" style="flex:1;min-width:88px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="场景环境拟音音效" onchange="updateLineStageFxField(${idx}, 'sfxTag', this.value)">
+              ${Object.entries(sfxMap).map(([k, v]) => `<option value="${k}" ${k === curSfx ? 'selected' : ''}>${v}</option>`).join('')}
             </select>
             <button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;flex-shrink:0;" onclick="clearSingleLineStageFx(${idx})">清除</button>
           </div>
@@ -29915,10 +29997,50 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     let _theaterTypewriterTimer = null;
     let _theaterFullLineText = '';
     let _theaterIsTyping = false;
+    let _theaterLineVoicePending = false;
     let _sfxAudioCtx = null;
+    let _sfxNoiseBuffer = null;
+    let _lastPlayedSfxLineKey = '';
 
-    function playTheaterSfx(sfxName) {
-      if (!sfxName || sfxName === '无' || sfxName === 'none') return;
+    function inferNaturalStageSfxFromText(rawText) {
+      const txt = String(rawText || '').trim();
+      if (!txt) return '';
+      if (/敲门|叩门|敲了敲门|敲响了?房?门|咚咚咚?.*门|门外传来.*敲|叩响了?门/i.test(txt)) return '敲门';
+      if (/脚步声|走路声|走廊.*脚步|皮鞋声|高跟鞋.*声|缓步走|急促的脚步|脚步由远及近|脚步渐远|传来.*脚步/i.test(txt)) return '脚步';
+      if (/推开门|打开了?房?门|门吱呀|吱呀一声.*门|拧开门把手|房门被推开/i.test(txt)) return '开门';
+      if (/关上了?门|摔门|门被重重关上|反锁了?房?门|咔哒.*锁/i.test(txt)) return '关门';
+      if (/翻开.*书|翻页|书页|翻动纸张|展开信纸|翻阅.*卷宗|羊皮纸/i.test(txt)) return '翻书';
+      if (/惊雷|闷雷|雷声轰鸣|雷鸣|一道闪电劈|轰隆.*雷/i.test(txt)) return '雷声';
+      if (/玻璃碎裂|摔碎.*杯|镜子碎|哗啦.*碎/i.test(txt)) return '玻璃碎裂';
+      if (/钟声敲响|教堂.*钟声|古钟.*鸣|钟楼.*钟声/i.test(txt)) return '钟声';
+      if (/刀剑相交|剑刃.*碰撞|拔剑出鞘|金属交击|利刃出鞘/i.test(txt)) return '剑击';
+      if (/扣动扳机|枪声响起|砰的一声枪响|枪响/i.test(txt)) return '枪声';
+      if (/心跳加速|心脏剧烈跳动|扑通扑通.*心|心跳声如擂鼓/i.test(txt)) return '心跳';
+      if (/倒了一杯茶|斟茶|倒水声|茶水注入/i.test(txt)) return '倒水';
+      if (/水滴声|滴答.*水珠|阴暗.*滴水/i.test(txt)) return '水滴';
+      if (/寒风呼啸|狂风吹拂|夜风穿堂|风声呜咽/i.test(txt)) return '风声';
+      if (/暴雨倾盆|雨声淅沥|雨水拍打着窗/i.test(txt)) return '雨声';
+      return '';
+    }
+
+    function ensureSfxNoiseBuffer(ctx) {
+      if (_sfxNoiseBuffer && _sfxNoiseBuffer.sampleRate === ctx.sampleRate) {
+        return _sfxNoiseBuffer;
+      }
+      const len = ctx.sampleRate * 2;
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      _sfxNoiseBuffer = buf;
+      return buf;
+    }
+
+    function playTheaterSfx(sfxName, fallbackText = '') {
+      if (sfxName === 'none' || sfxName === '无') return;
+      const effSfx = (sfxName && sfxName !== '自动') ? sfxName : inferNaturalStageSfxFromText(fallbackText);
+      if (!effSfx || effSfx === '无' || effSfx === 'none') return;
       try {
         if (!_sfxAudioCtx) {
           const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -29926,50 +30048,110 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
         if (!_sfxAudioCtx) return;
         if (_sfxAudioCtx.state === 'suspended') _sfxAudioCtx.resume();
-        const now = _sfxAudioCtx.currentTime;
-        const osc = _sfxAudioCtx.createOscillator();
-        const gain = _sfxAudioCtx.createGain();
-        osc.connect(gain);
-        gain.connect(_sfxAudioCtx.destination);
+        const ctx = _sfxAudioCtx;
+        const now = ctx.currentTime;
+        const noiseBuf = ensureSfxNoiseBuffer(ctx);
 
-        if (sfxName === '敲门' || sfxName === '脚步') {
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(130, now);
-          osc.frequency.exponentialRampToValueAtTime(45, now + 0.12);
-          gain.gain.setValueAtTime(0.28, now);
-          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.14);
-          osc.start(now);
-          osc.stop(now + 0.15);
-        } else if (sfxName === '心跳') {
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(65, now);
-          gain.gain.setValueAtTime(0.35, now);
-          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
-          osc.start(now);
-          osc.stop(now + 0.24);
-        } else if (sfxName === '钟声') {
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(528, now);
-          gain.gain.setValueAtTime(0.22, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
-          osc.start(now);
-          osc.stop(now + 0.88);
-        } else if (sfxName === '剑击' || sfxName === '玻璃碎裂') {
-          osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(920, now);
-          osc.frequency.exponentialRampToValueAtTime(240, now + 0.18);
-          gain.gain.setValueAtTime(0.18, now);
-          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-          osc.start(now);
-          osc.stop(now + 0.22);
-        } else {
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(180, now);
-          osc.frequency.exponentialRampToValueAtTime(75, now + 0.25);
-          gain.gain.setValueAtTime(0.2, now);
-          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.26);
-          osc.start(now);
-          osc.stop(now + 0.28);
+        const triggerFilteredNoise = (startOffset, duration, filterType, freq, qVal, peakGain) => {
+          const src = ctx.createBufferSource();
+          src.buffer = noiseBuf;
+          const flt = ctx.createBiquadFilter();
+          flt.type = filterType;
+          flt.frequency.setValueAtTime(freq, now + startOffset);
+          flt.Q.setValueAtTime(qVal, now + startOffset);
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(0.001, now + startOffset);
+          g.gain.linearRampToValueAtTime(peakGain, now + startOffset + Math.min(0.015, duration * 0.2));
+          g.gain.exponentialRampToValueAtTime(0.001, now + startOffset + duration);
+          src.connect(flt);
+          flt.connect(g);
+          g.connect(ctx.destination);
+          src.start(now + startOffset, Math.random() * 0.5, duration + 0.02);
+          src.stop(now + startOffset + duration + 0.02);
+        };
+
+        const triggerToneBody = (startOffset, duration, oscType, startFreq, endFreq, peakGain) => {
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          osc.type = oscType;
+          osc.frequency.setValueAtTime(startFreq, now + startOffset);
+          if (endFreq && endFreq !== startFreq) {
+            osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), now + startOffset + duration);
+          }
+          g.gain.setValueAtTime(0.001, now + startOffset);
+          g.gain.linearRampToValueAtTime(peakGain, now + startOffset + 0.008);
+          g.gain.exponentialRampToValueAtTime(0.001, now + startOffset + duration);
+          osc.connect(g);
+          g.connect(ctx.destination);
+          osc.start(now + startOffset);
+          osc.stop(now + startOffset + duration + 0.01);
+        };
+
+        if (effSfx === '敲门') {
+          // 真实木门三连叩击：短促木质腔体共鸣 + 指关节瞬态
+          [0, 0.19, 0.39].forEach((offset, idx) => {
+            const wt = idx === 2 ? 1.15 : 0.95;
+            triggerToneBody(offset, 0.095, 'triangle', 155, 54, 0.28 * wt);
+            triggerToneBody(offset, 0.055, 'sine', 290, 110, 0.16 * wt);
+            triggerFilteredNoise(offset, 0.035, 'bandpass', 620, 3.2, 0.22 * wt);
+          });
+        } else if (effSfx === '脚步') {
+          // 走廊四步沉稳脚步声：鞋跟低频落地 + 鞋掌摩擦泛音
+          [0, 0.38, 0.76, 1.14].forEach((offset, idx) => {
+            const fade = 1 - idx * 0.14;
+            triggerToneBody(offset, 0.08, 'sine', 105, 42, 0.22 * fade);
+            triggerFilteredNoise(offset + 0.012, 0.065, 'bandpass', 880, 2.4, 0.16 * fade);
+          });
+        } else if (effSfx === '开门') {
+          // 门锁咔哒 + 木门缓缓推开吱呀声
+          triggerFilteredNoise(0, 0.04, 'bandpass', 1800, 4.0, 0.18);
+          triggerToneBody(0.08, 0.48, 'sawtooth', 210, 165, 0.07);
+          triggerFilteredNoise(0.08, 0.45, 'bandpass', 520, 6.0, 0.12);
+        } else if (effSfx === '关门') {
+          // 厚重木门合拢闷响 + 锁舌扣合
+          triggerToneBody(0, 0.16, 'triangle', 120, 38, 0.34);
+          triggerFilteredNoise(0, 0.08, 'lowpass', 420, 1.5, 0.25);
+          triggerFilteredNoise(0.11, 0.035, 'bandpass', 2100, 5.0, 0.15);
+        } else if (effSfx === '翻书') {
+          // 清脆纸张翻页摩挲声
+          triggerFilteredNoise(0, 0.18, 'bandpass', 2600, 1.8, 0.20);
+          triggerFilteredNoise(0.07, 0.14, 'bandpass', 1650, 2.2, 0.15);
+        } else if (effSfx === '雷声') {
+          // 远近交织的低频滚雷轰鸣
+          triggerFilteredNoise(0, 1.35, 'lowpass', 155, 0.9, 0.38);
+          triggerToneBody(0.04, 0.95, 'sawtooth', 72, 28, 0.18);
+        } else if (effSfx === '雨声') {
+          triggerFilteredNoise(0, 1.1, 'bandpass', 1350, 0.8, 0.16);
+        } else if (effSfx === '风声') {
+          triggerFilteredNoise(0, 1.2, 'bandpass', 440, 4.5, 0.18);
+        } else if (effSfx === '水滴') {
+          triggerToneBody(0, 0.075, 'sine', 620, 1480, 0.24);
+          triggerToneBody(0.45, 0.075, 'sine', 600, 1420, 0.16);
+        } else if (effSfx === '心跳') {
+          [0, 0.58].forEach((cycle) => {
+            triggerToneBody(cycle, 0.14, 'sine', 64, 38, 0.34);
+            triggerToneBody(cycle + 0.18, 0.12, 'sine', 54, 34, 0.24);
+          });
+        } else if (effSfx === '钟声') {
+          [528, 1056, 1380].forEach((freq, i) => {
+            triggerToneBody(0, 1.25 - i * 0.25, 'sine', freq, freq * 0.998, 0.18 / (i + 1));
+          });
+        } else if (effSfx === '玻璃碎裂') {
+          triggerFilteredNoise(0, 0.22, 'highpass', 2400, 1.5, 0.26);
+          [0.02, 0.07, 0.13, 0.19].forEach((off, i) => {
+            triggerToneBody(off, 0.09, 'sine', 3100 + i * 480, 1900 + i * 220, 0.12);
+          });
+        } else if (effSfx === '剑击') {
+          triggerFilteredNoise(0, 0.06, 'highpass', 2800, 2.0, 0.22);
+          triggerToneBody(0, 0.32, 'sawtooth', 1420, 860, 0.15);
+          triggerToneBody(0, 0.38, 'sine', 2840, 2120, 0.12);
+        } else if (effSfx === '枪声') {
+          triggerFilteredNoise(0, 0.26, 'lowpass', 680, 1.2, 0.38);
+          triggerToneBody(0, 0.14, 'triangle', 190, 42, 0.34);
+        } else if (effSfx === '倒水') {
+          [0, 0.12, 0.24, 0.36, 0.48].forEach((off, i) => {
+            triggerFilteredNoise(off, 0.14, 'bandpass', 950 + i * 140, 3.5, 0.14);
+          });
         }
       } catch (_) {}
     }
@@ -29996,6 +30178,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
     // 剧本语音内存预热池：将章节台词音频提前同步转为内存Blob并预解码Audio实例，彻底消除首次播放与本地读取的0.5秒延迟
     const _theaterTtsRamCache = new Map();
+    let _ttsPreloadSeq = 0;
+    let _spritePreloadSeq = 0;
 
     async function resolveInstantTtsPlayableUrl(cacheKey, rawUrl) {
       if (!rawUrl) return '';
@@ -30005,29 +30189,20 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
       const strUrl = String(rawUrl);
       if (strUrl.startsWith('blob:')) {
-        const preAudio = new Audio(strUrl);
-        preAudio.preload = 'auto';
-        try { preAudio.load(); } catch (_) {}
-        _theaterTtsRamCache.set(cacheKey, { src: rawUrl, blobUrl: strUrl, preAudio });
+        _theaterTtsRamCache.set(cacheKey, { src: rawUrl, blobUrl: strUrl });
         return strUrl;
       }
       if (strUrl.startsWith('data:')) {
         const fastBlobUrl = toFastDisplayUrl(strUrl);
         if (fastBlobUrl) {
-          const preAudio = new Audio(fastBlobUrl);
-          preAudio.preload = 'auto';
-          try { preAudio.load(); } catch (_) {}
-          _theaterTtsRamCache.set(cacheKey, { src: rawUrl, blobUrl: fastBlobUrl, preAudio });
+          _theaterTtsRamCache.set(cacheKey, { src: rawUrl, blobUrl: fastBlobUrl });
           return fastBlobUrl;
         }
       }
       try {
         const resolved = await resolveTheaterPlayableUrl(strUrl, 'audio/mpeg');
         if (resolved) {
-          const preAudio = new Audio(resolved);
-          preAudio.preload = 'auto';
-          try { preAudio.load(); } catch (_) {}
-          _theaterTtsRamCache.set(cacheKey, { src: rawUrl, blobUrl: resolved, preAudio });
+          _theaterTtsRamCache.set(cacheKey, { src: rawUrl, blobUrl: resolved });
           return resolved;
         }
       } catch (_) {}
@@ -30039,13 +30214,15 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         ? chap
         : (getActiveTheaterPlayableChapter() || chap);
       if (!playableChap || !Array.isArray(playableChap.scriptLines)) return;
+      const mySeq = ++_ttsPreloadSeq;
       const lang = appState.theaterTtsLang || 'jp';
       const altLang = lang === 'jp' ? 'zh' : 'jp';
       const begin = Math.max(0, Number(startIdx) || 0);
       const mountedBundle = typeof getActiveMountedBundle === 'function' ? getActiveMountedBundle() : null;
       (async () => {
         let dialoguePreloaded = 0;
-        for (let i = begin; i < playableChap.scriptLines.length && dialoguePreloaded < 18; i++) {
+        for (let i = begin; i < playableChap.scriptLines.length && dialoguePreloaded < 10; i++) {
+          if (mySeq !== _ttsPreloadSeq) return;
           const l = playableChap.scriptLines[i];
           if (!l || l.type === 'narration' || l.type === 'ooc' || l.type === 'dice' || !l.speaker || l.speaker === '旁白' || l.speaker === '检定') continue;
           dialoguePreloaded += 1;
@@ -30067,6 +30244,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               rec = await db.ttsCache.get(altCk);
               if (rec && rec.audioDataUrl) targetKey = altCk;
             }
+            if (mySeq !== _ttsPreloadSeq) return;
             if (rec && rec.audioDataUrl) {
               await resolveInstantTtsPlayableUrl(targetKey, rec.audioDataUrl);
             }
@@ -30075,23 +30253,27 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       })();
     }
 
+    const _decodedSpriteBitmapSet = new Set();
+
     function preloadChapterStageSprites(chap, startIdx = 0) {
       const playableChap = (chap && (chap._isMergedStream || chap._isMergedPlayable))
         ? chap
         : (getActiveTheaterPlayableChapter() || chap);
       if (!playableChap || !Array.isArray(playableChap.scriptLines)) return;
-      const curProj = typeof getCurrentReplayProject === 'function' ? getCurrentReplayProject() : null;
+      const mySeq = ++_spritePreloadSeq;
       const begin = Math.max(0, Number(startIdx) || 0);
-      const end = Math.min(playableChap.scriptLines.length - 1, begin + 25);
+      const end = Math.min(playableChap.scriptLines.length - 1, begin + 12);
       (async () => {
         const seenSprites = new Set();
         for (let i = begin; i <= end; i++) {
+          if (mySeq !== _spritePreloadSeq) return;
           const l = playableChap.scriptLines[i];
           if (!l) continue;
           const names = [];
           if (Array.isArray(l.presentSpeakers)) names.push(...l.presentSpeakers);
           if (l.speaker && l.speaker !== '旁白' && l.speaker !== '检定') names.push(l.speaker);
           for (const rawName of names) {
+            if (mySeq !== _spritePreloadSeq) return;
             const charObj = findTheaterCharacterByName(rawName);
             if (!charObj || charObj.trpgType === '旁白') continue;
             const expKey = l.exp || '默认';
@@ -30101,13 +30283,19 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               charObj.tachieBase,
               charObj.chibiImg
             ].filter((u) => u && !String(u).startsWith('data:image/svg+xml'));
-            for (const rawSprite of candidates) {
+            for (const rawSprite of candidates.slice(0, 2)) {
               if (seenSprites.has(rawSprite)) continue;
               seenSprites.add(rawSprite);
               try {
                 const playable = await resolveTheaterPlayableUrl(rawSprite, 'image/png');
-                if (playable && !_heightCroppedSpriteCache.has(playable)) {
-                  await getCroppedSpriteForHeightStage(playable);
+                if (mySeq !== _spritePreloadSeq) return;
+                if (playable && !_decodedSpriteBitmapSet.has(playable)) {
+                  _decodedSpriteBitmapSet.add(playable);
+                  const preImg = new Image();
+                  preImg.src = playable;
+                  if (typeof preImg.decode === 'function') {
+                    await preImg.decode().catch(() => {});
+                  }
                 }
               } catch (_) {}
             }
@@ -30826,7 +31014,32 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
     }
 
-    // 逐字打字机浮现台词：支持分级叫喊、欲言又止省略号先导、背叛黑底红字一字一顿重锤动效
+    function scheduleTheaterAutoAdvanceCheck(expectedSeq = _theaterRenderSeq, customDelayMs = null) {
+      if (expectedSeq !== _theaterRenderSeq) return;
+      if (appState.theaterEditMode) return;
+      if (appState.theaterSkipPlay === true) {
+        if (_theaterStepTimer) clearTimeout(_theaterStepTimer);
+        const skipSpeed = Math.max(1, Math.min(5, Number(appState.theaterSkipSpeed || localStorage.getItem('theater-skip-speed') || 2)));
+        const skipDelayMs = Math.max(85, Math.round(440 / skipSpeed));
+        _theaterStepTimer = setTimeout(() => {
+          if (expectedSeq === _theaterRenderSeq && appState.theaterSkipPlay === true) {
+            nextTheaterLine();
+          }
+        }, skipDelayMs);
+        return;
+      }
+      if (appState.theaterAutoPlay === true && !_theaterIsTyping && !_theaterLineVoicePending && !_activeReplayTtsAudio) {
+        if (_theaterStepTimer) clearTimeout(_theaterStepTimer);
+        const waitMs = customDelayMs !== null ? customDelayMs : 1100;
+        _theaterStepTimer = setTimeout(() => {
+          if (expectedSeq === _theaterRenderSeq && appState.theaterAutoPlay === true && !_theaterIsTyping && !_theaterLineVoicePending && !_activeReplayTtsAudio) {
+            nextTheaterLine();
+          }
+        }, waitMs);
+      }
+    }
+
+    // 逐字打字机浮现台词：采用真实时钟对齐算法，即使连续快点或后台加载也绝不掉速变慢
     function startTheaterTypewriter(textEl, fullText, onComplete, textFx = 'normal') {
       if (_theaterTypewriterTimer) {
         clearInterval(_theaterTypewriterTimer);
@@ -30842,7 +31055,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         if (typeof onComplete === 'function') onComplete();
         return;
       }
-      textEl.className = 'vn-dialogue-text' + (textFx && textFx !== 'normal' ? ` textfx-${textFx}` : '');
+      const nextTextClass = 'vn-dialogue-text' + (textFx && textFx !== 'normal' ? ` textfx-${textFx}` : '');
+      if (textEl.className !== nextTextClass) {
+        textEl.className = nextTextClass;
+      }
       textEl.scrollTop = 0;
       if (appState.theaterEditMode || appState.theaterSkipPlay || !_theaterFullLineText) {
         _theaterIsTyping = false;
@@ -30853,20 +31069,19 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       _theaterIsTyping = true;
       textEl.textContent = '';
 
+      const startTs = performance.now();
       if (textFx === 'hesitate') {
         const preDots = '…… ';
-        let dotIdx = 0;
-        let inBody = false;
-        let charIdx = 0;
+        const dotDurationMs = preDots.length * 70;
+        const bodyStepMs = 24;
         _theaterTypewriterTimer = setInterval(() => {
-          if (!inBody) {
-            dotIdx += 1;
-            textEl.textContent = preDots.slice(0, dotIdx);
-            if (dotIdx >= preDots.length) {
-              inBody = true;
-            }
+          const elapsed = Math.max(0, performance.now() - startTs);
+          if (elapsed < dotDurationMs) {
+            const dotCount = Math.max(1, Math.min(preDots.length, Math.floor(elapsed / 70) + 1));
+            textEl.textContent = preDots.slice(0, dotCount);
           } else {
-            charIdx += 2;
+            const bodyElapsed = elapsed - dotDurationMs;
+            const charIdx = Math.max(1, Math.floor(bodyElapsed / bodyStepMs));
             if (charIdx >= _theaterFullLineText.length) {
               textEl.textContent = _theaterFullLineText;
               _theaterIsTyping = false;
@@ -30877,24 +31092,26 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               textEl.textContent = _theaterFullLineText.slice(0, charIdx);
             }
           }
-        }, 72);
+        }, 20);
         return;
       }
 
-      const intervalMs = textFx === 'betrayal' ? 88 : (textFx === 'whisper' ? 42 : 28);
-      let charIdx = 0;
+      const stepMs = textFx === 'betrayal' ? 68 : (textFx === 'whisper' ? 34 : 22);
+      let lastRenderedIdx = 0;
       _theaterTypewriterTimer = setInterval(() => {
-        charIdx += 1;
-        if (charIdx >= _theaterFullLineText.length) {
+        const elapsed = Math.max(0, performance.now() - startTs);
+        const targetIdx = Math.max(lastRenderedIdx + 1, Math.floor(elapsed / stepMs));
+        lastRenderedIdx = targetIdx;
+        if (targetIdx >= _theaterFullLineText.length) {
           textEl.textContent = _theaterFullLineText;
           _theaterIsTyping = false;
           clearInterval(_theaterTypewriterTimer);
           _theaterTypewriterTimer = null;
           if (typeof onComplete === 'function') onComplete();
         } else {
-          textEl.textContent = _theaterFullLineText.slice(0, charIdx);
+          textEl.textContent = _theaterFullLineText.slice(0, targetIdx);
         }
-      }, intervalMs);
+      }, 20);
     }
 
     let _lastTheaterLineAdvanceAt = 0;
@@ -30907,7 +31124,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       if (appState.theaterEditMode) return;
       unlockBgmAudioPlayerOnUserGesture();
       const now = Date.now();
-      if (now - _lastTheaterDockClickAt < 180) return;
+      if (now - _lastTheaterDockClickAt < 140) return;
       _lastTheaterDockClickAt = now;
       if (_theaterIsTyping) {
         if (_theaterTypewriterTimer) {
@@ -30917,16 +31134,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         _theaterIsTyping = false;
         const textEl = document.getElementById('vn-theater-text');
         if (textEl) textEl.textContent = _theaterFullLineText;
-        if (appState.theaterAutoPlay === true && !_activeReplayTtsAudio) {
-          if (_theaterStepTimer) clearTimeout(_theaterStepTimer);
-          const curSeq = _theaterRenderSeq;
-          _theaterStepTimer = setTimeout(() => {
-            if (curSeq === _theaterRenderSeq && appState.theaterAutoPlay === true && !_theaterIsTyping) nextTheaterLine();
-          }, 1200);
-        }
+        scheduleTheaterAutoAdvanceCheck(_theaterRenderSeq, 950);
         return;
       }
-      if (now - _lastTheaterLineAdvanceAt < 160) return;
+      if (now - _lastTheaterLineAdvanceAt < 130) return;
       nextTheaterLine();
     }
 
@@ -30957,16 +31168,20 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               l._subGroupId = sg.id;
             }
           });
-          return {
-            id: sg.id,
-            title: sg.title || '小群',
-            scriptLines: sg.scriptLines,
-            danmakuList: sg.danmakuList || [],
-            scenes: getAllModuleScenesPool(proj, mainChap),
-            cgNodes: sg.cgNodes || [],
-            clueNodes: sg.clueNodes || [],
-            _isSubGroup: true
-          };
+          if (!sg._cachedSubGroupPlayable || sg._cachedSubGroupLen !== sg.scriptLines.length) {
+            sg._cachedSubGroupLen = sg.scriptLines.length;
+            sg._cachedSubGroupPlayable = {
+              id: sg.id,
+              title: sg.title || '小群',
+              scriptLines: sg.scriptLines,
+              danmakuList: sg.danmakuList || [],
+              scenes: getAllModuleScenesPool(proj, mainChap),
+              cgNodes: sg.cgNodes || [],
+              clueNodes: sg.clueNodes || [],
+              _isSubGroup: true
+            };
+          }
+          return sg._cachedSubGroupPlayable;
         }
       }
       const curChapIdx = Number(appState.currentReplayChapterIdx) || 0;
@@ -30984,6 +31199,12 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           }
         });
         return mainChap;
+      }
+
+      const mergeSig = insertedSgs.map((sg) => `${sg.id}:${sg.insertAfterLineIdx}:${sg.scriptLines?.length || 0}:${sg.cgNodes?.length || 0}:${sg.clueNodes?.length || 0}`).join('|')
+        + `__${mainChap.scriptLines?.length || 0}__${mainChap.cgNodes?.length || 0}__${mainChap.clueNodes?.length || 0}__${mainChap.scenes?.length || 0}`;
+      if (mainChap._cachedMergedPlayable && mainChap._cachedMergedSig === mergeSig) {
+        return mainChap._cachedMergedPlayable;
       }
 
       const mergedLines = [];
@@ -31097,7 +31318,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         });
       });
 
-      return {
+      const mergedPlayableObj = {
         ...mainChap,
         scenes: getAllModuleScenesPool(proj, mainChap),
         scriptLines: mergedLines,
@@ -31106,6 +31327,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         clueNodes: mergedClueNodes,
         _isMergedPlayable: true
       };
+      mainChap._cachedMergedSig = mergeSig;
+      mainChap._cachedMergedPlayable = mergedPlayableObj;
+      return mergedPlayableObj;
     }
 
     function enterTheaterSubGroup(sgId) {
@@ -31171,6 +31395,31 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       };
     }
 
+    function setActorSpriteWithoutWhiteFlash(imgEl, nextUrl) {
+      if (!imgEl || !nextUrl) return;
+      if (imgEl.getAttribute('data-sprite-src') === nextUrl && imgEl.getAttribute('src')) return;
+      imgEl.setAttribute('data-sprite-src', nextUrl);
+      if (!imgEl.getAttribute('src')) {
+        imgEl.src = nextUrl;
+        return;
+      }
+      const pre = new Image();
+      pre.src = nextUrl;
+      if (typeof pre.decode === 'function') {
+        pre.decode().then(() => {
+          if (imgEl.getAttribute('data-sprite-src') === nextUrl) {
+            imgEl.src = nextUrl;
+          }
+        }).catch(() => {
+          if (imgEl.getAttribute('data-sprite-src') === nextUrl) {
+            imgEl.src = nextUrl;
+          }
+        });
+      } else {
+        imgEl.src = nextUrl;
+      }
+    }
+
     async function renderTheaterCurrentLine() {
       _theaterRenderSeq += 1;
       const myRenderSeq = _theaterRenderSeq;
@@ -31222,6 +31471,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
 
       if (!chap || !Array.isArray(chap.scriptLines) || chap.scriptLines.length === 0) {
+        _theaterLineVoicePending = false;
         if (speakerEl) speakerEl.textContent = '提示';
         if (expEl) expEl.textContent = '未生成剧本';
         if (textEl) textEl.textContent = '当前章节尚未生成剧本，请点左上角列表图标选择其他已整理章节，或前往模组软件点击整理生成剧本。';
@@ -31305,7 +31555,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       if (jpEl) jpEl.textContent = '';
       saveCurrentSessionNavState();
 
-      // 渲染环境氛围层
+      // 渲染环境氛围层：仅在类名真正变化时赋值，防止浏览器重绘闪烁
       if (ambientLayer) {
         let effAmb = line.ambient || 'inherit';
         if (effAmb === 'inherit') {
@@ -31320,47 +31570,47 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         if (effAmb === 'inherit') {
           effAmb = chap.defaultAmbient || 'none';
         }
-        ambientLayer.className = 'vn-ambient-layer' + (effAmb && effAmb !== 'none' ? ` active amb-${effAmb}` : '');
+        const nextAmbClass = 'vn-ambient-layer' + (effAmb && effAmb !== 'none' ? ` active amb-${effAmb}` : '');
+        if (ambientLayer.className !== nextAmbClass) {
+          ambientLayer.className = nextAmbClass;
+        }
       }
 
+      // 渲染镜头转场层：移除黑场淡入与白光切入，仅保留旧忆泛黄、睁眼聚焦、拉幕横切
       if (transitionLayer && stageRoot) {
-        stageRoot.classList.remove('stage-memory-sepia');
-        transitionLayer.className = 'vn-transition-layer';
+        const rawTrans = line.transition || 'none';
+        const effTrans = (rawTrans === 'fade_black' || rawTrans === 'flash_white') ? 'none' : rawTrans;
+        stageRoot.classList.toggle('stage-memory-sepia', effTrans === 'memory_sepia');
+        const nextTransClass = (effTrans === 'eye_open' || effTrans === 'curtain_wipe')
+          ? `vn-transition-layer trans-${effTrans}`
+          : 'vn-transition-layer';
+        if (transitionLayer.className !== nextTransClass) {
+          transitionLayer.className = nextTransClass;
+        }
       }
 
-      let typewriterDone = false;
       const shouldAttemptLineVoice = Boolean(canPlayStageAudio && !appState.theaterSkipPlay && !appState.theaterEditMode && isDialogueLine);
-      let voiceDone = !shouldAttemptLineVoice;
-
-      const scheduleAutoAdvanceIfReady = () => {
-        if (myRenderSeq !== _theaterRenderSeq || appState.theaterLineIdx !== idx) return;
-        if (appState.theaterSkipPlay === true) {
-          if (_theaterStepTimer) clearTimeout(_theaterStepTimer);
-          const skipSpeed = Math.max(1, Math.min(5, Number(appState.theaterSkipSpeed || localStorage.getItem('theater-skip-speed') || 2)));
-          const skipDelayMs = Math.max(85, Math.round(440 / skipSpeed));
-          _theaterStepTimer = setTimeout(() => {
-            if (myRenderSeq === _theaterRenderSeq && appState.theaterSkipPlay === true) nextTheaterLine();
-          }, skipDelayMs);
-          return;
-        }
-        if (appState.theaterAutoPlay === true && typewriterDone && voiceDone) {
-          if (_theaterStepTimer) clearTimeout(_theaterStepTimer);
-          _theaterStepTimer = setTimeout(() => {
-            if (myRenderSeq === _theaterRenderSeq && appState.theaterAutoPlay === true && !_theaterIsTyping) nextTheaterLine();
-          }, 1200);
-        }
-      };
+      _theaterLineVoicePending = shouldAttemptLineVoice;
 
       startTheaterTypewriter(textEl, displayLineText, () => {
         if (myRenderSeq !== _theaterRenderSeq) return;
-        typewriterDone = true;
-        scheduleAutoAdvanceIfReady();
+        scheduleTheaterAutoAdvanceCheck(myRenderSeq);
       }, activeTextFx);
 
-      // 优先立即启动本句语音播放与后续台词内存预热，不等待下方立绘Canvas裁切，彻底消除0.5秒延迟
-      preloadChapterStageSprites(chap, idx + 1);
+      // 0. 场景环境拟音音效：在明确标记了 sfxTag 或台词文本出现敲门、走廊脚步、推门、翻书、惊雷等环境动作时自动触发真实拟音
+      if (canPlayStageAudio && !appState.theaterSkipPlay && !appState.theaterEditMode && _lastPlayedSfxLineKey !== curDmKey) {
+        _lastPlayedSfxLineKey = curDmKey;
+        playTheaterSfx(line.sfxTag || '', displayLineText);
+      }
+
+      // 节流预热后续立绘与语音：仅在初入章节或每跨越 5 句时触发单航道预热，杜绝快点时叠加阻塞主线程
+      if (idx === 0 || idx % 5 === 0) {
+        preloadChapterStageSprites(chap, idx + 1);
+      }
       if (canPlayStageAudio && !appState.theaterSkipPlay && !appState.theaterEditMode) {
-        preloadChapterTtsAudioPool(chap, idx + 1);
+        if (idx === 0 || idx % 5 === 0) {
+          preloadChapterTtsAudioPool(chap, idx + 1);
+        }
         if (isDialogueLine) {
           const holderId = line._ttsHolderId || chap.id;
           const cacheKey = `line_${holderId}_${line.id}_${appState.theaterTtsLang}`;
@@ -31396,17 +31646,19 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                 }
               }
               if (!playUrl || myRenderSeq !== _theaterRenderSeq) {
-                voiceDone = true;
-                scheduleAutoAdvanceIfReady();
+                if (myRenderSeq === _theaterRenderSeq) {
+                  _theaterLineVoicePending = false;
+                  scheduleTheaterAutoAdvanceCheck(myRenderSeq);
+                }
                 return;
               }
-              voiceDone = false;
               await new Promise((resolve) => {
                 if (myRenderSeq !== _theaterRenderSeq) {
                   resolve(false);
                   return;
                 }
                 let settled = false;
+                let safetyTimer = null;
                 const finishAudio = (ok) => {
                   if (settled) return;
                   settled = true;
@@ -31417,26 +31669,30 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                   }
                   resolve(ok);
                 };
-                const ramEntry = _theaterTtsRamCache.get(activeKey);
-                const audio = (ramEntry && ramEntry.preAudio) ? ramEntry.preAudio : new Audio(playUrl);
-                try {
-                  audio.pause();
-                  audio.currentTime = 0;
-                } catch (_) {}
+                const audio = new Audio(playUrl);
                 _activeReplayTtsAudio = audio;
                 audio.volume = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
                 setBgmDuckingActive(true);
-                const safetyTimer = setTimeout(() => finishAudio(false), 20000);
+                safetyTimer = setTimeout(() => finishAudio(false), 9500);
+                audio.onloadedmetadata = () => {
+                  if (!settled && Number.isFinite(audio.duration) && audio.duration > 0) {
+                    if (safetyTimer) clearTimeout(safetyTimer);
+                    const dynamicLimitMs = Math.min(16000, Math.max(2000, Math.ceil(audio.duration * 1000) + 650));
+                    safetyTimer = setTimeout(() => finishAudio(false), dynamicLimitMs);
+                  }
+                };
                 audio.onended = () => finishAudio(true);
                 audio.onerror = () => finishAudio(false);
                 audio.play().catch(() => finishAudio(false));
               });
               if (myRenderSeq !== _theaterRenderSeq) return;
-              voiceDone = true;
-              scheduleAutoAdvanceIfReady();
+              _theaterLineVoicePending = false;
+              scheduleTheaterAutoAdvanceCheck(myRenderSeq, 650);
             } catch (_) {
-              voiceDone = true;
-              scheduleAutoAdvanceIfReady();
+              if (myRenderSeq === _theaterRenderSeq) {
+                _theaterLineVoicePending = false;
+                scheduleTheaterAutoAdvanceCheck(myRenderSeq);
+              }
             }
           })();
         }
@@ -31492,14 +31748,14 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
       }
 
-      // 0. 切换下一句话时不播放咚咚咚音效，保持安静顺滑
-
       // 0.5 全屏震动效果，不显示任何黑幕大字转场或小群跳转按钮
       if (stageRoot) {
-        stageRoot.classList.remove('fx-shake-screen');
         if (activeEffect === 'shake_screen' || activeTextFx === 'shout_l' || activeTextFx === 'betrayal') {
+          stageRoot.classList.remove('fx-shake-screen');
           void stageRoot.offsetWidth;
           stageRoot.classList.add('fx-shake-screen');
+        } else if (stageRoot.classList.contains('fx-shake-screen')) {
+          stageRoot.classList.remove('fx-shake-screen');
         }
       }
       if (blackoutLayer) {
@@ -31533,7 +31789,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
       }
 
-      // 2. 自动检测当前行及章节音乐标记 bgmTag 并在进入剧本舞台时立即播放
+      // 2. 自动检测当前行及章节音乐标记 bgmTag 并在进入剧本舞台时立即播放经台词歌词验证的纯音乐
       if (canPlayStageAudio) {
         const activeBgmLine = findEffectiveChapterBgmLine(chap, idx);
         if (activeBgmLine) {
@@ -31560,25 +31816,28 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                 };
 
                 const resolveFreshBgmUrl = async (forceSearch = false) => {
-                  if (!forceSearch && activeBgmLine.bgmUrl && !activeBgmLine.bgmUrl.includes('id=139774.mp3') && !activeBgmLine.bgmUrl.includes('id=26113988.mp3') && !activeBgmLine.bgmUrl.includes('id=22707008.mp3')) {
+                  if (!forceSearch && activeBgmLine._bgmLyricVerified && activeBgmLine.bgmUrl && !activeBgmLine.bgmUrl.includes('id=139774.mp3') && !activeBgmLine.bgmUrl.includes('id=26113988.mp3') && !activeBgmLine.bgmUrl.includes('id=22707008.mp3')) {
                     return normalizeMusicTrackUrl(activeBgmLine.bgmUrl);
                   }
                   const { sName, aName } = parseSongAndArtist(activeBgmLine);
                   if (!forceSearch) {
-                    const matchedTrack = (appState.bgmTracks || []).find((t) => t && t.url && !LEGACY_SYSTEM_BGM_IDS.has(t.id) && (t.name === bgmTagStr || (sName && t.name && t.name.includes(sName))));
+                    const matchedTrack = (appState.bgmTracks || []).find((t) => t && t.url && t.verifiedInstrumental && !LEGACY_SYSTEM_BGM_IDS.has(t.id) && (t.name === bgmTagStr || (sName && t.name && t.name.includes(sName))));
                     if (matchedTrack && matchedTrack.url) {
                       activeBgmLine.bgmUrl = normalizeMusicTrackUrl(matchedTrack.url);
+                      activeBgmLine._bgmLyricVerified = true;
                       return activeBgmLine.bgmUrl;
                     }
                   }
                   const resolved = await searchAndResolveMusicByWeight(sName || bgmTagStr, aName, activeBgmLine.bgmMood || '日常');
                   if (resolved && resolved.best && resolved.best.url) {
                     activeBgmLine.bgmUrl = normalizeMusicTrackUrl(resolved.best.url);
+                    activeBgmLine._bgmLyricVerified = true;
                     if (curProj) saveReplayProjectToDB(curProj);
                     return activeBgmLine.bgmUrl;
                   }
                   const fbUrl = getFallbackInstrumentalBgmUrl(sName || bgmTagStr);
                   activeBgmLine.bgmUrl = fbUrl;
+                  activeBgmLine._bgmLyricVerified = true;
                   return fbUrl;
                 };
 
@@ -31597,6 +31856,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                   if (player && (player.paused || _currentReplayBgmUrl !== targetUrl || !player.src)) {
                     previewReplayBgmTrack(targetUrl, activeBgmLine.bgmMood || bgmTagStr, async () => {
                       activeBgmLine.bgmUrl = '';
+                      activeBgmLine._bgmLyricVerified = false;
                       const retryUrl = await resolveFreshBgmUrl(true);
                       if (retryUrl) {
                         previewReplayBgmTrack(retryUrl, activeBgmLine.bgmMood || bgmTagStr, null);
@@ -31612,13 +31872,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
       }
 
-      // 3~6 并行渲染：立绘层、背景层、CG层、线索层与小头像各自独立并行加载，绝不因背景或Canvas裁切阻塞立绘上台
-      const clueLayer = document.getElementById('vn-theater-clue-layer');
-      const clueImg = document.getElementById('vn-theater-clue-img');
-      const clueNameEl = document.getElementById('vn-theater-clue-name');
-
-      const renderTachiePromise = (async () => {
-        if (!tachieLayer) return;
+      // 3. 零延迟同步更新立绘槽位与焦点状态：先同步挂载DOM槽位与已缓存立绘，即使连续快点也绝不丢弃立绘更新
+      if (tachieLayer) {
         const allTheaterChars = getAllTheaterCharactersForCurrentProject();
         const spriteRosterSig = `${chap.scriptLines.length}_${allTheaterChars.filter((c) => c && (c.tachieBase || c.chibiImg || (c.tachieExpressions && Object.keys(c.tachieExpressions).length > 0))).map((c) => c.name).join(',')}`;
         if (chap._slotsComputedSig !== spriteRosterSig) {
@@ -31641,7 +31896,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           else presentNames[presentNames.length - 1] = currentCanonSpeaker;
         }
 
-        // 从本章第0句一直回溯到当前句，确保未说话角色始终保持他自己上一次开口时的表情
         const lastExpBySpeaker = {};
         for (let k = 0; k <= idx; k++) {
           const prevL = chap.scriptLines[k];
@@ -31656,7 +31910,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         const globalOffsetY = parseInt(localStorage.getItem('global-stage-tachie-offset-y') || '0', 10) || 0;
         const globalScalePct = Math.max(30, Math.min(250, parseInt(localStorage.getItem('global-stage-tachie-scale-pct') || '100', 10) || 100));
 
-        const resolvedSpecs = await Promise.all(presentNames.map(async (spkName) => {
+        const syncSpecs = presentNames.map((spkName) => {
           const charObj = findTheaterCharacterByName(spkName);
           if (!charObj || charObj.trpgType === '旁白') return null;
           const actorCanonName = resolveCanonicalTheaterSpeakerName(charObj.name, curProj) || charObj.name;
@@ -31676,12 +31930,15 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             || charObj.chibiImg;
           if (!rawSprite || String(rawSprite).startsWith('data:image/svg+xml')) return null;
 
-          const playableSprite = await resolveTheaterPlayableUrl(rawSprite, 'image/png');
-          if (!playableSprite || String(playableSprite).startsWith('data:image/svg+xml')) return null;
-
-          // 立即使用已缓存的裁切图或原图0毫秒直接上台展示，若尚未裁切则在后台异步裁切后原地无感替换
-          const cachedCropped = _heightCroppedSpriteCache.get(playableSprite) || '';
-          const immediateSprite = cachedCropped || playableSprite;
+          const strRaw = String(rawSprite);
+          let syncPlayable = _playableUrlRamCache.get(strRaw) || '';
+          if (!syncPlayable && (strRaw.startsWith('blob:') || strRaw.startsWith('http://') || strRaw.startsWith('https://') || strRaw.startsWith('/'))) {
+            syncPlayable = strRaw;
+          } else if (!syncPlayable && strRaw.startsWith('data:')) {
+            syncPlayable = toFastDisplayUrl(strRaw) || strRaw;
+            _playableUrlRamCache.set(strRaw, syncPlayable);
+          }
+          const syncCropped = syncPlayable ? (_heightCroppedSpriteCache.get(syncPlayable) || syncPlayable) : '';
 
           let fxClass = '';
           if (isCurrentSpeaker) {
@@ -31704,16 +31961,14 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             heightStr: heightPct + '%',
             bottomStr: finalBottomPx + 'px',
             stickerHtml,
-            playableSprite,
-            croppedSprite: immediateSprite,
-            needsAsyncCrop: !cachedCropped,
+            rawSprite: strRaw,
+            syncPlayable,
+            syncCropped,
             titleStr: `${activeMystery !== 'none' && isCurrentSpeaker ? '？？？' : charObj.name} · ${netCm}cm · ${expKey}`
           };
-        }));
+        }).filter(Boolean);
 
-        if (myRenderSeq !== _theaterRenderSeq) return;
-        const desiredActors = resolvedSpecs.filter(Boolean);
-        tachieLayer.setAttribute('data-actor-count', String(desiredActors.length));
+        tachieLayer.setAttribute('data-actor-count', String(syncSpecs.length));
 
         const existingMap = new Map();
         Array.from(tachieLayer.children).forEach((child) => {
@@ -31721,16 +31976,18 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           if (k) existingMap.set(k, child);
         });
 
-        const nextNodes = desiredActors.map((spec) => {
+        const nextNodes = syncSpecs.map((spec) => {
           let actorDiv = existingMap.get(spec.key);
           if (!actorDiv) {
             actorDiv = document.createElement('div');
             actorDiv.setAttribute('data-actor-key', spec.key);
-            actorDiv.innerHTML = `<div class="vn-actor-sticker-slot"></div><img decoding="async" style="height:100%;width:auto;max-width:none;" />`;
+            actorDiv.innerHTML = `<div class="vn-actor-sticker-slot"></div><img decoding="sync" style="height:100%;width:auto;max-width:none;" />`;
           } else {
             existingMap.delete(spec.key);
           }
-          actorDiv.className = spec.className;
+          if (actorDiv.className !== spec.className) {
+            actorDiv.className = spec.className;
+          }
           actorDiv.style.height = spec.heightStr;
           actorDiv.style.bottom = spec.bottomStr;
           let stickerSlot = actorDiv.querySelector('.vn-actor-sticker-slot');
@@ -31745,21 +32002,35 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           let imgEl = actorDiv.querySelector('img');
           if (!imgEl) {
             imgEl = document.createElement('img');
-            imgEl.setAttribute('decoding', 'async');
+            imgEl.setAttribute('decoding', 'sync');
             imgEl.style.cssText = 'height:100%;width:auto;max-width:none;';
             actorDiv.appendChild(imgEl);
           }
-          if (imgEl.getAttribute('data-sprite-src') !== spec.croppedSprite) {
-            imgEl.setAttribute('data-sprite-src', spec.croppedSprite);
-            imgEl.src = spec.croppedSprite;
-          }
           imgEl.alt = spec.charName;
           imgEl.title = spec.titleStr;
-          if (spec.needsAsyncCrop && spec.playableSprite) {
-            getCroppedSpriteForHeightStage(spec.playableSprite).then((croppedUrl) => {
-              if (croppedUrl && imgEl.isConnected && imgEl.getAttribute('data-sprite-src') === spec.playableSprite) {
-                imgEl.setAttribute('data-sprite-src', croppedUrl);
-                imgEl.src = croppedUrl;
+          actorDiv.setAttribute('data-target-raw-sprite', spec.rawSprite);
+
+          if (spec.syncCropped) {
+            setActorSpriteWithoutWhiteFlash(imgEl, spec.syncCropped);
+            if (spec.syncPlayable && !_heightCroppedSpriteCache.has(spec.syncPlayable)) {
+              getCroppedSpriteForHeightStage(spec.syncPlayable).then((croppedUrl) => {
+                if (croppedUrl && actorDiv.isConnected && actorDiv.getAttribute('data-target-raw-sprite') === spec.rawSprite) {
+                  setActorSpriteWithoutWhiteFlash(imgEl, croppedUrl);
+                }
+              }).catch(() => {});
+            }
+          } else {
+            resolveTheaterPlayableUrl(spec.rawSprite, 'image/png').then((resolvedPlayable) => {
+              if (!resolvedPlayable || String(resolvedPlayable).startsWith('data:image/svg+xml')) return;
+              if (!actorDiv.isConnected || actorDiv.getAttribute('data-target-raw-sprite') !== spec.rawSprite) return;
+              const immediate = _heightCroppedSpriteCache.get(resolvedPlayable) || resolvedPlayable;
+              setActorSpriteWithoutWhiteFlash(imgEl, immediate);
+              if (!_heightCroppedSpriteCache.has(resolvedPlayable)) {
+                getCroppedSpriteForHeightStage(resolvedPlayable).then((croppedUrl) => {
+                  if (croppedUrl && actorDiv.isConnected && actorDiv.getAttribute('data-target-raw-sprite') === spec.rawSprite) {
+                    setActorSpriteWithoutWhiteFlash(imgEl, croppedUrl);
+                  }
+                }).catch(() => {});
               }
             }).catch(() => {});
           }
@@ -31776,7 +32047,12 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             tachieLayer.insertBefore(node, tachieLayer.children[idxPos] || null);
           }
         });
-      })();
+      }
+
+      // 4~6 并行渲染背景层、CG层、线索层与小头像
+      const clueLayer = document.getElementById('vn-theater-clue-layer');
+      const clueImg = document.getElementById('vn-theater-clue-img');
+      const clueNameEl = document.getElementById('vn-theater-clue-name');
 
       const renderBgPromise = (async () => {
         if (!bgLayer) return;
@@ -31888,7 +32164,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       })();
 
       await Promise.all([
-        renderTachiePromise,
         renderBgPromise,
         renderCgPromise,
         renderCluePromise,
@@ -31907,6 +32182,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         _theaterTypewriterTimer = null;
       }
       _theaterIsTyping = false;
+      _theaterLineVoicePending = false;
       const proj = getCurrentReplayProject();
       const chap = getActiveTheaterPlayableChapter();
       if (!chap || !Array.isArray(chap.scriptLines) || chap.scriptLines.length === 0) return;
@@ -31986,14 +32262,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           clearTimeout(_theaterStepTimer);
           _theaterStepTimer = null;
         }
-        if (!_theaterIsTyping && !_activeReplayTtsAudio) {
-          const curSeq = _theaterRenderSeq;
-          _theaterStepTimer = setTimeout(() => {
-            if (curSeq === _theaterRenderSeq && appState.theaterAutoPlay === true && !_theaterIsTyping) {
-              nextTheaterLine();
-            }
-          }, 550);
-        }
+        scheduleTheaterAutoAdvanceCheck(_theaterRenderSeq, 450);
       } else if (_theaterStepTimer) {
         clearTimeout(_theaterStepTimer);
         _theaterStepTimer = null;

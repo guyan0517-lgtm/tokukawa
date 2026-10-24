@@ -1575,6 +1575,8 @@ body.landscape-game-active #screen-theater.active {
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0) !important;
 }
 
+#phone-screen,
+#phone-screen *,
 #screen-theater,
 #screen-theater *,
 #vn-theater-stage-root,
@@ -1598,6 +1600,9 @@ body.landscape-game-active #screen-theater.active {
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0) !important;
   outline: none;
   touch-action: manipulation;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
   font-family: var(--custom-user-font, var(--font-sans)) !important;
 }
 
@@ -1605,9 +1610,11 @@ body.landscape-game-active #screen-theater.active {
 .vn-theater-wrapper *:active,
 .vn-theater-wrapper *:focus {
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0) !important;
-  outline: none;
+  outline: none !important;
 }
 
+#phone-screen:active,
+#screen-theater:active,
 #vn-theater-stage-root:active,
 #vn-theater-stage-root:focus,
 .vn-theater-wrapper:active,
@@ -1617,6 +1624,7 @@ body.landscape-game-active #screen-theater.active {
   filter: none !important;
   opacity: 1 !important;
   outline: none !important;
+  background-color: var(--text-primary);
 }
 
 .vn-theater-wrapper img {
@@ -1624,6 +1632,8 @@ body.landscape-game-active #screen-theater.active {
   -webkit-user-select: none !important;
   user-select: none !important;
   -webkit-user-drag: none !important;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 html,
@@ -1646,6 +1656,9 @@ button {
   background-position: center;
   background-repeat: no-repeat;
   transition: transform 0.6s ease;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 .vn-vignette-layer {
@@ -1738,9 +1751,10 @@ button {
   justify-content: flex-end;
   flex-shrink: 0;
   min-width: 0;
-  transition: transform 0.36s cubic-bezier(0.16, 1, 0.3, 1), filter 0.32s ease, opacity 0.32s ease;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), filter 0.24s ease, opacity 0.24s ease;
   transform-origin: bottom center;
   pointer-events: none;
+  will-change: transform, filter;
 }
 
 .vn-stage-actor.speaking {

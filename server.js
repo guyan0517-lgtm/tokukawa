@@ -481,6 +481,82 @@ function normalizeMusicStr(s) {
   return String(s || '').toLowerCase().replace(/[\s\-_·.,，。！!？?'"“”‘’《》〈〉【】\[\]\/\\]/g, '').trim();
 }
 
+function analyzeLyricTextForInstrumental(rawLyric) {
+  const txt = String(rawLyric || '').trim();
+  if (!txt) {
+    return { isInstrumental: true, hasVocals: false };
+  }
+  if (/纯音乐\s*[，,、\s]*请欣赏|纯音乐\s*[，,、\s]*敬请欣赏|此歌曲为没有填词的纯音乐|没有填词的纯音乐|纯音乐无歌词|no\s*lyrics|instrumental\s*track/i.test(txt)) {
+    return { isInstrumental: true, hasVocals: false };
+  }
+  const lines = txt.split(/\r?\n/);
+  let sungLineCount = 0;
+  for (const rawLine of lines) {
+    const hasTimeTag = /\[\d{1,2}:\d{2}(?:[.:]\d{1,3})?\]/.test(rawLine);
+    const cleaned = rawLine.replace(/\[[^\]]*\]/g, '').trim();
+    if (!cleaned) continue;
+    if (/^(作词|作曲|编曲|制作人?|プロデューサー|录音|混音|母带|弦乐|吉他|钢琴|贝斯|鼓|提琴|长笛|竖琴|管弦|和声|配唱|出品|发行|企划|监制|统筹|原曲|翻唱|词|曲|编|唱|歌|演奏|指挥|乐团|录音棚|lyricist|lyrics?|composer|composed|arranger|arranged|producer|produced|mixed|mastered|vocal|instrument|bgm|ost|soundtrack|纯音乐|伴奏)\s*[:：\/｜|]/i.test(cleaned)) {
+      continue;
+    }
+    if (/^(纯音乐|伴奏|无人声|instrumental|inst\.?|ost)$/i.test(cleaned)) {
+      continue;
+    }
+    if (hasTimeTag && cleaned.length >= 2) {
+      sungLineCount += 1;
+    }
+  }
+  if (sungLineCount >= 3) {
+    return { isInstrumental: false, hasVocals: true, sungLineCount };
+  }
+  return { isInstrumental: true, hasVocals: false, sungLineCount };
+}
+
+async function inspectTrackLyricsForVocals(sourceCode, trackId) {
+  if (!trackId) return { isInstrumental: false, hasVocals: false };
+  if (sourceCode === 'netease' || sourceCode === 'netease_web') {
+    try {
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 1800);
+      const neLyricUrl = `https://music.163.com/api/song/lyric?id=${encodeURIComponent(trackId)}&lv=1&kv=1&tv=-1`;
+      const r = await fetch(neLyricUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+          'Referer': 'https://music.163.com/'
+        },
+        signal: ctrl.signal
+      });
+      clearTimeout(tid);
+      if (r.ok) {
+        const d = await r.json();
+        if (d && (d.nolyric === true || d.uncollected === true)) {
+          return { isInstrumental: true, hasVocals: false };
+        }
+        const rawLrc = d?.lrc?.lyric || '';
+        return analyzeLyricTextForInstrumental(rawLrc);
+      }
+    } catch (_) {}
+  }
+  if (sourceCode === 'netease' || sourceCode === 'tencent' || sourceCode === 'netease_web') {
+    const gdSrc = sourceCode === 'netease_web' ? 'netease' : sourceCode;
+    try {
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 1800);
+      const gdLyricUrl = `https://music-api.gdstudio.xyz/api.php?types=lyric&source=${gdSrc}&id=${encodeURIComponent(trackId)}`;
+      const r = await fetch(gdLyricUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        signal: ctrl.signal
+      });
+      clearTimeout(tid);
+      if (r.ok) {
+        const d = await r.json();
+        const rawLrc = d?.lyric || '';
+        return analyzeLyricTextForInstrumental(rawLrc);
+      }
+    } catch (_) {}
+  }
+  return { isInstrumental: false, hasVocals: false };
+}
+
 function calcMusicMatchScore(candidateTitle, candidateArtist, targetSong, targetArtist, hasDirectUrl) {
   const cTitle = normalizeMusicStr(candidateTitle);
   const cArtist = normalizeMusicStr(candidateArtist);
@@ -499,13 +575,13 @@ function calcMusicMatchScore(candidateTitle, candidateArtist, targetSong, target
   }
   const combinedMeta = `${candidateTitle || ''} ${candidateArtist || ''}`;
   if (/纯音乐|伴奏|无人声|instrumental|inst\b|ost|original soundtrack|soundtrack|bgm|piano|orchestra|string|violin|cello|flute|music box|オルゴール|サウンドトラック|アンサンブル|配乐|原声|日乙|乙女|otome|drama|抓马|galgame|visual novel|文字游戏/i.test(combinedMeta)) {
-    score += 38;
+    score += 45;
   }
   if (/泽野弘之|梶浦由记|神前晓|折户伸治|高梨康治|川井宪次|牛尾宪辅|光田康典|下村阳子|横山克|林友树|吉森信|天门|麻枝准|key sounds|falcom|type-moon|nitro|chiral|otomate|rejet|arisu|onoken|sakuzyo|久石让|坂本龙一/i.test(combinedMeta)) {
-    score += 28;
+    score += 30;
   }
-  if (/cover|翻唱|live|演唱会|现场版|remix|dj|夜店|慢摇|feat\.|合唱|人声|vocal|歌ってみた|karaoke|卡拉ok|抖音|热歌/i.test(combinedMeta)) {
-    score -= 48;
+  if (/cover|翻唱|live|演唱会|现场版|remix|dj|夜店|慢摇|feat\.|合唱|人声|vocal|歌ってみた|karaoke|卡拉ok|抖音|热歌|片头曲|片尾曲|主题曲|op\b|ed\b|角色歌/i.test(combinedMeta)) {
+    score -= 90;
   } else {
     score += 8;
   }
@@ -599,10 +675,10 @@ app.post('/api/music/search', async (req, res) => {
     if (!rawSong && !rawArtist) {
       return res.status(400).json({ error: 'Missing song or artist keyword' });
     }
-    const cleanArtistForQuery = rawArtist.replace(/纯音乐|OST|原声带|伴奏/gi, '').trim();
+    const cleanArtistForQuery = rawArtist.replace(/^(纯音乐|OST|原声带|伴奏)$/gi, '').trim();
     const baseKeyword = [rawSong, cleanArtistForQuery || rawArtist].filter(Boolean).join(' ').trim();
-    const hasInstHint = /纯音乐|ost|soundtrack|instrumental|bgm|原声/i.test(baseKeyword);
-    const queryKeyword = hasInstHint ? baseKeyword : `${baseKeyword} OST`;
+    const hasInstHint = /纯音乐|ost|soundtrack|instrumental|bgm|原声|伴奏/i.test(baseKeyword);
+    const queryKeyword = hasInstHint ? baseKeyword : `${baseKeyword} 纯音乐 OST`;
     const candidates = [];
 
     const tasks = [];
@@ -684,7 +760,7 @@ app.post('/api/music/search', async (req, res) => {
     // 3. iTunes High-Availability Anime/Game Soundtrack Stream Search
     const searchItunesTerms = [queryKeyword];
     if (rawSong && cleanArtistForQuery && baseKeyword !== rawSong) {
-      searchItunesTerms.push(`${rawSong} soundtrack`);
+      searchItunesTerms.push(`${rawSong} soundtrack instrumental`);
     } else if (rawSong && !hasInstHint) {
       searchItunesTerms.push(`${rawSong} instrumental`);
     }
@@ -704,6 +780,8 @@ app.post('/api/music/search', async (req, res) => {
               const artist = String(item.artistName || '');
               const collection = String(item.collectionName || '');
               const genre = String(item.primaryGenreName || '');
+              const combinedItunesMeta = `${title} ${collection} ${genre}`;
+              const isLikelyOst = /soundtrack|ost|instrumental|score|piano|orchestra|bgm|游戏|原声|配乐/i.test(combinedItunesMeta);
               candidates.push({
                 source: '动漫游戏原声台',
                 sourceCode: 'itunes',
@@ -712,7 +790,8 @@ app.post('/api/music/search', async (req, res) => {
                 artist,
                 url: `/api/music/stream?url=${encodeURIComponent(item.previewUrl)}`,
                 rawStreamUrl: item.previewUrl,
-                score: calcMusicMatchScore(`${title} ${collection} ${genre}`, artist, rawSong || term, cleanArtistForQuery || rawArtist, true) + 12
+                isPureInstrumental: isLikelyOst,
+                score: calcMusicMatchScore(combinedItunesMeta, artist, rawSong || term, cleanArtistForQuery || rawArtist, true) + (isLikelyOst ? 35 : -20)
               });
             }
           }
@@ -722,42 +801,61 @@ app.post('/api/music/search', async (req, res) => {
 
     await Promise.allSettled(tasks);
 
-    // Sort by weight descending
+    // Sort by initial weight descending
     candidates.sort((a, b) => b.score - a.score);
 
-    // Resolve and verify URLs for top candidates in parallel
-    const topCandidates = candidates.slice(0, 5);
+    // Resolve URLs AND inspect lyrics for top candidates in parallel to strictly filter out vocal songs
+    const topCandidates = candidates.slice(0, 8);
     await Promise.allSettled(topCandidates.map(async (cand) => {
-      if (!cand.url && cand.trackId) {
-        if (cand.sourceCode === 'netease' || cand.sourceCode === 'tencent') {
-          try {
-            const ctrl = new AbortController();
-            const tid = setTimeout(() => ctrl.abort(), 2200);
-            const uRes = await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${cand.sourceCode}&id=${encodeURIComponent(cand.trackId)}&br=320`, {
-              headers: { 'User-Agent': 'Mozilla/5.0' },
-              signal: ctrl.signal
-            });
-            clearTimeout(tid);
-            if (uRes.ok) {
-              const uData = await uRes.json();
-              if (uData && uData.url) {
-                cand.url = `/api/music/stream?url=${encodeURIComponent(uData.url)}`;
-                cand.score += 12;
+      const lyricPromise = (cand.sourceCode === 'netease' || cand.sourceCode === 'netease_web' || cand.sourceCode === 'tencent')
+        ? inspectTrackLyricsForVocals(cand.sourceCode, cand.trackId)
+        : Promise.resolve({ isInstrumental: Boolean(cand.isPureInstrumental), hasVocals: false });
+
+      const urlPromise = (async () => {
+        if (!cand.url && cand.trackId) {
+          if (cand.sourceCode === 'netease' || cand.sourceCode === 'tencent') {
+            try {
+              const ctrl = new AbortController();
+              const tid = setTimeout(() => ctrl.abort(), 2200);
+              const uRes = await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${cand.sourceCode}&id=${encodeURIComponent(cand.trackId)}&br=320`, {
+                headers: { 'User-Agent': 'Mozilla/5.0' },
+                signal: ctrl.signal
+              });
+              clearTimeout(tid);
+              if (uRes.ok) {
+                const uData = await uRes.json();
+                if (uData && uData.url) {
+                  cand.url = `/api/music/stream?url=${encodeURIComponent(uData.url)}`;
+                  cand.score += 12;
+                }
               }
-            }
-          } catch (_) {}
-        }
-        if (!cand.url && (cand.sourceCode === 'netease' || cand.sourceCode === 'netease_web')) {
-          const verifiedUrl = await checkNeteaseOuterPlayable(cand.trackId);
-          if (verifiedUrl) {
-            cand.url = verifiedUrl;
-            cand.score += 10;
+            } catch (_) {}
           }
+          if (!cand.url && (cand.sourceCode === 'netease' || cand.sourceCode === 'netease_web')) {
+            const verifiedUrl = await checkNeteaseOuterPlayable(cand.trackId);
+            if (verifiedUrl) {
+              cand.url = verifiedUrl;
+              cand.score += 10;
+            }
+          }
+        }
+      })();
+
+      const [lyricRes] = await Promise.all([lyricPromise, urlPromise]);
+      if (lyricRes) {
+        if (lyricRes.hasVocals) {
+          cand.hasVocals = true;
+          cand.isPureInstrumental = false;
+          cand.score -= 600;
+        } else if (lyricRes.isInstrumental) {
+          cand.isPureInstrumental = true;
+          cand.hasVocals = false;
+          cand.score += 95;
         }
       }
     }));
 
-    const playable = candidates.filter((c) => Boolean(c.url));
+    const playable = candidates.filter((c) => Boolean(c.url) && !c.hasVocals);
     playable.sort((a, b) => b.score - a.score);
 
     return res.json({
