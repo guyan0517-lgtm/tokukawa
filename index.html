@@ -2940,13 +2940,69 @@
         <div class="moe-card">
           <div class="moe-card-header">
             <span class="moe-card-title">二、 线上工坊模组列表与追更</span>
-            <button type="button" class="moe-btn secondary" onclick="refreshWorkshopAll()">刷新</button>
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="moe-btn" onclick="openWorkshopCloudRestoreModal()">恢复</button>
+              <button type="button" class="moe-btn secondary" onclick="refreshWorkshopAll()">刷新</button>
+            </div>
           </div>
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;">
             <input type="text" id="workshop-search-input" class="moe-input" style="flex:1;" placeholder="输入模组名称、作者或章节名精准锁定..." oninput="renderReplayWorkshopList()" />
             <button type="button" class="moe-btn" onclick="searchWorkshopByKeyword()">搜索</button>
           </div>
           <div id="workshop-projects-list-container" style="display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+
+        <div id="modal-workshop-cloud-restore" class="modal" style="display:none;">
+          <div class="modal-content" style="max-width:440px;width:92%;max-height:85vh;display:flex;flex-direction:column;gap:10px;">
+            <div class="moe-card-header" style="padding-bottom:6px;border-bottom:1px solid var(--border-color);margin-bottom:0;">
+              <span class="moe-card-title">从云端工坊恢复本地素材</span>
+              <button type="button" class="moe-btn secondary" style="min-width:32px;padding:4px 8px;" onclick="closeWorkshopCloudRestoreModal()">关闭</button>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label>选择要恢复的云端模组</label>
+              <select id="workshop-restore-project-select" class="moe-input"></select>
+            </div>
+            <div style="font-size:11px;color:var(--text-secondary);">勾选需要从云端拉回本地并写入私密空间的素材项，默认已全部勾选：</div>
+            <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:8px;padding:10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--text-primary);cursor:pointer;">
+                <input type="checkbox" id="ws-restore-chk-tachie" checked style="width:15px;height:15px;flex-shrink:0;margin:0;padding:0;" />
+                <span>立绘</span>
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--text-primary);cursor:pointer;">
+                <input type="checkbox" id="ws-restore-chk-scene" checked style="width:15px;height:15px;flex-shrink:0;margin:0;padding:0;" />
+                <span>地图</span>
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--text-primary);cursor:pointer;">
+                <input type="checkbox" id="ws-restore-chk-cg" checked style="width:15px;height:15px;flex-shrink:0;margin:0;padding:0;" />
+                <span>插图</span>
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--text-primary);cursor:pointer;">
+                <input type="checkbox" id="ws-restore-chk-clue" checked style="width:15px;height:15px;flex-shrink:0;margin:0;padding:0;" />
+                <span>线索</span>
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--text-primary);cursor:pointer;">
+                <input type="checkbox" id="ws-restore-chk-voice" checked style="width:15px;height:15px;flex-shrink:0;margin:0;padding:0;" />
+                <span>语音</span>
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--text-primary);cursor:pointer;">
+                <input type="checkbox" id="ws-restore-chk-bgm" checked style="width:15px;height:15px;flex-shrink:0;margin:0;padding:0;" />
+                <span>音乐</span>
+              </label>
+            </div>
+            <div id="workshop-restore-progress-wrap" style="display:none;height:6px;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:999px;overflow:hidden;">
+              <div id="workshop-restore-progress-bar" style="width:0%;height:100%;background:var(--accent-color);transition:width 0.2s ease;"></div>
+            </div>
+            <div id="workshop-restore-status" style="font-size:11px;color:var(--accent-color);font-weight:700;min-height:18px;">
+              点击下方确定即可把所选素材直接恢复回本机角色档案、章节与本地私密目录
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding-top:6px;border-top:1px solid var(--border-color);">
+              <button type="button" class="moe-btn secondary" onclick="toggleAllWorkshopRestoreChecks()">全选</button>
+              <div style="display:flex;gap:8px;">
+                <button type="button" class="moe-btn secondary" onclick="closeWorkshopCloudRestoreModal()">取消</button>
+                <button type="button" class="moe-btn" id="workshop-restore-confirm-btn" onclick="executeWorkshopCloudRestore()">确定</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -5717,12 +5773,13 @@
     }
 
     async function cleanupUnusedAssetsUI(silentMode = false) {
+      if (silentMode) return 0;
       const statusBox = document.getElementById('local-bridge-status-box');
       const baseUrl = getLocalBridgeBaseUrl();
       let dbCleanedCount = 0;
 
       if (!silentMode) {
-        if (statusBox) statusBox.textContent = '正在扫描并清理所有未启用、已淘汰、被替换的历史残留图片与冗余未抠底原图...';
+        if (statusBox) statusBox.textContent = '正在扫描并清理未启用的冗余未抠底原图，所有角色立绘、地图、CG与配音已永久锁定保护...';
         await syncAllAssetsToLocalBridgeUI(true).catch(() => {});
       }
 
@@ -5735,18 +5792,7 @@
         let changed = false;
         const validActNames = new Set((getCharActionList(c) || []).map((a) => a.name));
         validActNames.add('默认');
-        if (c.tachieExpressions && typeof c.tachieExpressions === 'object') {
-          for (const k of Object.keys(c.tachieExpressions)) {
-            if (!isRealNonSvgAsset(c.tachieExpressions[k])) {
-              evictAssetFromMemoryCaches(c.tachieExpressions[k]);
-              delete c.tachieExpressions[k];
-              changed = true;
-              dbCleanedCount += 1;
-            }
-          }
-        }
-        if (c.tachieExpressions && isRealNonSvgAsset(c.tachieExpressions['默认']) && c.tachieBase !== c.tachieExpressions['默认']) {
-          evictAssetFromMemoryCaches(c.tachieBase);
+        if (c.tachieExpressions && isRealNonSvgAsset(c.tachieExpressions['默认']) && !isRealNonSvgAsset(c.tachieBase)) {
           c.tachieBase = c.tachieExpressions['默认'];
           changed = true;
         }
@@ -6204,7 +6250,7 @@
         "                        if fn in ('.wt', '.nomedia'): continue",
         "                        full = os.path.join(dpath, fn)",
         "                        relp = strip_disk_suffix(os.path.relpath(full, root).replace('\\\\', '/'))",
-        "                        if relp not in act:",
+        "                        if not relp.startswith(('characters/', 'projects/', 'audio/', 'fonts/')) and relp not in act:",
         "                            try:",
         "                                os.remove(full)",
         "                                rm += 1",
@@ -17664,11 +17710,6 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
               if (primary.quirk && !secondary.quirk) secondary.quirk = primary.quirk;
               recoveredCount++;
             }
-            const suffix = secondary.moduleTitle ? `${secondary.moduleTitle}` : `${i + 1}`;
-            if (!secondary.name.includes(suffix)) {
-              secondary.name = `${name} ${suffix}`;
-              separatedCount++;
-            }
             await db.characters.put(secondary);
           }
         }
@@ -24551,6 +24592,515 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
       // 朋友点击观看：直接开启零内存占用的在线流式阅读
       await openWorkshopOnlineStream(projectId, chapterOrder);
+    }
+
+    async function openWorkshopCloudRestoreModal(preselectProjId = '') {
+      const modal = document.getElementById('modal-workshop-cloud-restore');
+      const sel = document.getElementById('workshop-restore-project-select');
+      const statusEl = document.getElementById('workshop-restore-status');
+      const progWrap = document.getElementById('workshop-restore-progress-wrap');
+      if (!modal) return;
+      if (progWrap) progWrap.style.display = 'none';
+      if (statusEl) {
+        statusEl.textContent = '正在读取云端工坊已上传的模组列表...';
+      }
+      ['tachie', 'scene', 'cg', 'clue', 'voice', 'bgm'].forEach((k) => {
+        const chk = document.getElementById(`ws-restore-chk-${k}`);
+        if (chk) chk.checked = true;
+      });
+      modal.style.display = 'flex';
+      modal.classList.add('active');
+
+      if (_workshopItemsCache.length === 0) {
+        try {
+          await renderReplayWorkshop();
+        } catch (_) {}
+      }
+
+      if (sel) {
+        const items = _workshopItemsCache || [];
+        if (items.length === 0) {
+          sel.innerHTML = '<option value="">云端工坊暂无已上传的模组</option>';
+          if (statusEl) statusEl.textContent = '未在工坊找到已上传的模组，请先点刷新检查网络连接';
+        } else {
+          const opts = [
+            `<option value="__ALL__">全部已上传模组 共 ${items.length} 部</option>`
+          ];
+          const curId = preselectProjId || appState.currentReplayProjectId || '';
+          items.forEach((it) => {
+            const isSel = curId && it.id === curId;
+            opts.push(`<option value="${it.id}" ${isSel ? 'selected' : ''}>${it.title || '未命名模组'} · 共 ${it.chapterCount || (it.chaptersMeta?.length || 0)} 章</option>`);
+          });
+          sel.innerHTML = opts.join('');
+          if (!curId || !items.some((x) => x.id === curId)) {
+            sel.value = '__ALL__';
+          }
+          if (statusEl) {
+            statusEl.textContent = '已默认全选立绘、地图、插图、线索、语音、音乐，点击确定即可恢复回本地';
+          }
+        }
+      }
+    }
+
+    function closeWorkshopCloudRestoreModal() {
+      const modal = document.getElementById('modal-workshop-cloud-restore');
+      if (modal) {
+        modal.classList.remove('active');
+        modal.style.display = 'none';
+      }
+    }
+
+    function toggleAllWorkshopRestoreChecks() {
+      const keys = ['tachie', 'scene', 'cg', 'clue', 'voice', 'bgm'];
+      const chks = keys.map((k) => document.getElementById(`ws-restore-chk-${k}`)).filter(Boolean);
+      const allChecked = chks.every((c) => c.checked);
+      chks.forEach((c) => {
+        c.checked = !allChecked;
+      });
+    }
+
+    async function fetchWorkshopAssetAsDataUrl(refOrUrl) {
+      if (!refOrUrl || typeof refOrUrl !== 'string') return '';
+      if (refOrUrl.startsWith('data:')) return refOrUrl;
+      if (typeof _localWorkshopAssetUrlMap === 'object' && _localWorkshopAssetUrlMap.has(refOrUrl)) {
+        const localMapped = _localWorkshopAssetUrlMap.get(refOrUrl);
+        if (localMapped && localMapped.startsWith('data:')) return localMapped;
+        const localResolved = await resolveImageToDataUrl(localMapped);
+        if (localResolved && localResolved.startsWith('data:')) return localResolved;
+      }
+      if (refOrUrl.startsWith('/api/workshop/asset/')) {
+        try {
+          const { data } = await fetchBackendJsonSafe(`${refOrUrl}?format=dataurl`);
+          if (data && data.ok && data.dataUrl && data.dataUrl.startsWith('data:')) {
+            return data.dataUrl;
+          }
+        } catch (_) {}
+        try {
+          const fullUrl = resolveBackendApiUrl(refOrUrl);
+          const resp = await fetch(fullUrl);
+          if (resp.ok) {
+            const blob = await resp.blob();
+            if (blob && blob.size > 0) {
+              const b64Url = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+                reader.onerror = () => resolve('');
+                reader.readAsDataURL(blob);
+              });
+              if (b64Url && b64Url.startsWith('data:')) return b64Url;
+            }
+          }
+        } catch (_) {}
+      }
+      const fallback = await resolveImageToDataUrl(refOrUrl);
+      if (fallback && fallback.startsWith('data:')) return fallback;
+      const portable = await packAssetUrlToPortableDataUrl(refOrUrl);
+      if (portable && portable.startsWith('data:')) return portable;
+      return '';
+    }
+
+    async function executeWorkshopCloudRestore() {
+      const sel = document.getElementById('workshop-restore-project-select');
+      const btn = document.getElementById('workshop-restore-confirm-btn');
+      const statusEl = document.getElementById('workshop-restore-status');
+      const progWrap = document.getElementById('workshop-restore-progress-wrap');
+      const progBar = document.getElementById('workshop-restore-progress-bar');
+
+      const wantTachie = Boolean(document.getElementById('ws-restore-chk-tachie')?.checked);
+      const wantScene = Boolean(document.getElementById('ws-restore-chk-scene')?.checked);
+      const wantCg = Boolean(document.getElementById('ws-restore-chk-cg')?.checked);
+      const wantClue = Boolean(document.getElementById('ws-restore-chk-clue')?.checked);
+      const wantVoice = Boolean(document.getElementById('ws-restore-chk-voice')?.checked);
+      const wantBgm = Boolean(document.getElementById('ws-restore-chk-bgm')?.checked);
+
+      if (!wantTachie && !wantScene && !wantCg && !wantClue && !wantVoice && !wantBgm) {
+        alert('请至少勾选一项要恢复的内容');
+        return;
+      }
+
+      const targetVal = sel ? sel.value : '__ALL__';
+      const targetIds = targetVal === '__ALL__'
+        ? (_workshopItemsCache || []).map((x) => x.id).filter(Boolean)
+        : (targetVal ? [targetVal] : []);
+
+      if (targetIds.length === 0) {
+        alert('云端工坊暂无可恢复的模组');
+        return;
+      }
+
+      const setProg = (pct, msg) => {
+        if (progWrap) progWrap.style.display = 'block';
+        if (progBar) progBar.style.width = `${Math.max(3, Math.min(100, Math.round(pct)))}%`;
+        if (statusEl && msg) statusEl.textContent = msg;
+      };
+
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = '恢复中';
+      }
+
+      let restoredCharImgs = 0;
+      let restoredSceneImgs = 0;
+      let restoredCgImgs = 0;
+      let restoredClueImgs = 0;
+      let restoredVoices = 0;
+      let restoredBgms = 0;
+
+      try {
+        setProg(5, '正在从云端拉取模组完整清单...');
+        if (db?.characters) appState.characters = await db.characters.toArray();
+        if (db?.replayProjects) appState.replayProjects = await db.replayProjects.toArray();
+
+        for (let pIdx = 0; pIdx < targetIds.length; pIdx++) {
+          const pid = targetIds[pIdx];
+          let remoteProj = null;
+          try {
+            remoteProj = await fetchWorkshopFullProjectById(pid);
+          } catch (_) {
+            continue;
+          }
+          if (!remoteProj) continue;
+
+          const basePct = 8 + Math.round((pIdx / Math.max(1, targetIds.length)) * 84);
+          setProg(basePct, `正在恢复模组 ${remoteProj.title || pid}...`);
+
+          // 1. 恢复角色立绘与全部表情差分
+          if (wantTachie && Array.isArray(remoteProj.characters)) {
+            const remoteChars = remoteProj.characters;
+            for (let cIdx = 0; cIdx < remoteChars.length; cIdx++) {
+              const rc = remoteChars[cIdx];
+              if (!rc || !rc.name || rc.name === '旁白') continue;
+              const normName = normalizeSpeakerName(rc.name);
+              let localChar = (appState.characters || []).find(
+                (lc) => lc.id === rc.id || normalizeSpeakerName(lc.name) === normName
+              );
+              if (!localChar) {
+                localChar = JSON.parse(JSON.stringify(rc));
+                if (!localChar.tachieExpressions || typeof localChar.tachieExpressions !== 'object') {
+                  localChar.tachieExpressions = {};
+                }
+                appState.characters.push(localChar);
+              } else {
+                if (!localChar.tachieExpressions || typeof localChar.tachieExpressions !== 'object') {
+                  localChar.tachieExpressions = {};
+                }
+                ['voiceId', 'voiceSpeedDefault', 'voicePitchDefault', 'naiTags', 'chibiNaiTags', 'body', 'quirk', 'surface', 'secret', 'weapon', 'role', 'age', 'heightCm', 'personaData'].forEach((fKey) => {
+                  if (!localChar[fKey] && rc[fKey]) {
+                    localChar[fKey] = rc[fKey];
+                  }
+                });
+                if (Array.isArray(rc.customActionList) && rc.customActionList.length > 0 && (!Array.isArray(localChar.customActionList) || localChar.customActionList.length === 0)) {
+                  localChar.customActionList = rc.customActionList;
+                }
+              }
+
+              const safeCharName = (localChar.name || rc.name || localChar.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
+
+              const pullAndSaveCharAsset = async (rawRef, relFile) => {
+                if (!rawRef) return '';
+                const dUrl = await fetchWorkshopAssetAsDataUrl(rawRef);
+                if (!dUrl || !dUrl.startsWith('data:')) return '';
+                const savedUrl = await saveAssetToLocalBridge(`characters/${safeCharName}/${relFile}`, dUrl);
+                restoredCharImgs += 1;
+                return savedUrl || dUrl;
+              };
+
+              if (rc.profileAvatar) {
+                const u = await pullAndSaveCharAsset(rc.profileAvatar, 'profile_avatar.png');
+                if (u) localChar.profileAvatar = u;
+              }
+              if (rc.stageBustAvatar) {
+                const u = await pullAndSaveCharAsset(rc.stageBustAvatar, 'stage_bust.png');
+                if (u) localChar.stageBustAvatar = u;
+              }
+              if (rc.tachieBase) {
+                const u = await pullAndSaveCharAsset(rc.tachieBase, 'base.png');
+                if (u) localChar.tachieBase = u;
+              }
+              if (rc.charLockImg) {
+                const u = await pullAndSaveCharAsset(rc.charLockImg, 'lock.png');
+                if (u) localChar.charLockImg = u;
+              }
+              if (rc.chibiImg) {
+                const u = await pullAndSaveCharAsset(rc.chibiImg, 'chibiImg.png');
+                if (u) localChar.chibiImg = u;
+              }
+              if (rc.tachieExpressions && typeof rc.tachieExpressions === 'object') {
+                const expEntries = Object.entries(rc.tachieExpressions);
+                for (let eIdx = 0; eIdx < expEntries.length; eIdx++) {
+                  const [expName, expRef] = expEntries[eIdx];
+                  if (!expRef) continue;
+                  const safeExp = String(expName).replace(/[\\/:*?"<>|]/g, '_');
+                  setProg(basePct + 4, `正在恢复角色 ${localChar.name} 立绘差分：${expName}...`);
+                  const u = await pullAndSaveCharAsset(expRef, `${safeExp}.png`);
+                  if (u) {
+                    localChar.tachieExpressions[expName] = u;
+                  }
+                }
+              }
+              if (!localChar.tachieBase && localChar.tachieExpressions['默认']) {
+                localChar.tachieBase = localChar.tachieExpressions['默认'];
+              }
+              if (localChar.tachieBase && !localChar.tachieExpressions['默认']) {
+                localChar.tachieExpressions['默认'] = localChar.tachieBase;
+              }
+              if (!localChar.profileAvatar && localChar.tachieBase) {
+                localChar.profileAvatar = localChar.tachieBase;
+              }
+              await db.characters.put(localChar);
+            }
+          }
+
+          // 查找或恢复本地模组工程
+          let localProj = (appState.replayProjects || []).find(
+            (lp) => lp.id === remoteProj.id || (lp.title && remoteProj.title && lp.title === remoteProj.title)
+          );
+          if (!localProj && (wantScene || wantCg || wantClue || wantVoice || wantBgm)) {
+            localProj = {
+              id: remoteProj.id,
+              title: remoteProj.title || '恢复模组',
+              avatarUrl: '',
+              uiTheme: remoteProj.uiTheme || 'ark_grad',
+              stageStylePreset: remoteProj.uiTheme || 'ark_grad',
+              globalScenes: JSON.parse(JSON.stringify(remoteProj.globalScenes || [])),
+              extractedSpeakers: JSON.parse(JSON.stringify(remoteProj.extractedSpeakers || [])),
+              chapters: JSON.parse(JSON.stringify(remoteProj.chapters || [])),
+              workshopDesc: remoteProj.desc || '',
+              updatedAt: Date.now()
+            };
+            appState.replayProjects.unshift(localProj);
+          }
+
+          if (localProj) {
+            const safeProj = (localProj.title || remoteProj.title || localProj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
+            if (remoteProj.avatarUrl) {
+              const avDataUrl = await fetchWorkshopAssetAsDataUrl(remoteProj.avatarUrl);
+              if (avDataUrl && avDataUrl.startsWith('data:')) {
+                localProj.avatarUrl = await saveAssetToLocalBridge(`projects/${safeProj}/avatar.jpg`, avDataUrl);
+              }
+            }
+
+            // 2. 恢复全局场景地图
+            if (wantScene && Array.isArray(remoteProj.globalScenes)) {
+              if (!Array.isArray(localProj.globalScenes)) localProj.globalScenes = [];
+              for (const rgSc of remoteProj.globalScenes) {
+                if (!rgSc) continue;
+                let locGsc = localProj.globalScenes.find((x) => x.id === rgSc.id || (x.name && x.name === rgSc.name));
+                if (!locGsc) {
+                  locGsc = JSON.parse(JSON.stringify(rgSc));
+                  localProj.globalScenes.push(locGsc);
+                }
+                if (rgSc.imageUrl) {
+                  setProg(basePct + 12, `正在恢复全局地图：${rgSc.name || rgSc.id}...`);
+                  const dUrl = await fetchWorkshopAssetAsDataUrl(rgSc.imageUrl);
+                  if (dUrl && dUrl.startsWith('data:')) {
+                    locGsc.imageUrl = await saveAssetToLocalBridge(`projects/${safeProj}/scenes/${locGsc.id || 'scene'}.png`, dUrl);
+                    restoredSceneImgs += 1;
+                  }
+                }
+              }
+            }
+
+            // 3. 逐章恢复地图、CG插图、线索道具与剧本配置
+            const remoteChaps = Array.isArray(remoteProj.chapters) ? remoteProj.chapters : [];
+            if (!Array.isArray(localProj.chapters)) localProj.chapters = [];
+
+            for (let chIdx = 0; chIdx < remoteChaps.length; chIdx++) {
+              const rChap = remoteChaps[chIdx];
+              if (!rChap) continue;
+              const rOrd = Number(rChap.order ?? chIdx);
+              let lChap = localProj.chapters.find(
+                (c, i) => (rChap.id && c.id === rChap.id) || Number(c.order ?? i) === rOrd || (rChap.title && c.title === rChap.title)
+              );
+              if (!lChap) {
+                lChap = JSON.parse(JSON.stringify(rChap));
+                localProj.chapters.push(lChap);
+              } else {
+                if ((!Array.isArray(lChap.scriptLines) || lChap.scriptLines.length === 0) && Array.isArray(rChap.scriptLines) && rChap.scriptLines.length > 0) {
+                  lChap.scriptLines = JSON.parse(JSON.stringify(rChap.scriptLines));
+                }
+                if ((!Array.isArray(lChap.danmakuList) || lChap.danmakuList.length === 0) && Array.isArray(rChap.danmakuList) && rChap.danmakuList.length > 0) {
+                  lChap.danmakuList = JSON.parse(JSON.stringify(rChap.danmakuList));
+                }
+              }
+
+              // 章节场景地图恢复
+              if (wantScene && Array.isArray(rChap.scenes)) {
+                if (!Array.isArray(lChap.scenes)) lChap.scenes = [];
+                for (let sIdx = 0; sIdx < rChap.scenes.length; sIdx++) {
+                  const rSc = rChap.scenes[sIdx];
+                  if (!rSc) continue;
+                  let lSc = lChap.scenes.find((x) => x.id === rSc.id || (x.name && x.name === rSc.name));
+                  if (!lSc) {
+                    lSc = JSON.parse(JSON.stringify(rSc));
+                    lChap.scenes.push(lSc);
+                  }
+                  if (rSc.imageUrl) {
+                    setProg(basePct + 20, `正在恢复章节地图：${rSc.name || rSc.id}...`);
+                    const dUrl = await fetchWorkshopAssetAsDataUrl(rSc.imageUrl);
+                    if (dUrl && dUrl.startsWith('data:')) {
+                      const savedScUrl = await saveAssetToLocalBridge(`projects/${safeProj}/scenes/${lSc.id || ('sc_' + sIdx)}.png`, dUrl);
+                      lSc.imageUrl = savedScUrl;
+                      const gMatch = (localProj.globalScenes || []).find((gx) => gx.id === lSc.id || (gx.name && gx.name === lSc.name));
+                      if (gMatch && !gMatch.imageUrl) gMatch.imageUrl = savedScUrl;
+                      restoredSceneImgs += 1;
+                    }
+                  }
+                }
+              }
+
+              // 章节剧情CG插画恢复
+              if (wantCg && Array.isArray(rChap.cgNodes)) {
+                if (!Array.isArray(lChap.cgNodes)) lChap.cgNodes = [];
+                for (let gIdx = 0; gIdx < rChap.cgNodes.length; gIdx++) {
+                  const rCg = rChap.cgNodes[gIdx];
+                  if (!rCg) continue;
+                  let lCg = lChap.cgNodes.find(
+                    (x) => x.id === rCg.id || (typeof rCg.startLineIdx === 'number' && x.startLineIdx === rCg.startLineIdx) || (rCg.zhDesc && x.zhDesc === rCg.zhDesc)
+                  );
+                  if (!lCg) {
+                    lCg = JSON.parse(JSON.stringify(rCg));
+                    lChap.cgNodes.push(lCg);
+                  } else {
+                    if (!lCg.prompt && rCg.prompt) lCg.prompt = rCg.prompt;
+                    if (!lCg.zhDesc && rCg.zhDesc) lCg.zhDesc = rCg.zhDesc;
+                    if (typeof rCg.startLineIdx === 'number') lCg.startLineIdx = rCg.startLineIdx;
+                    if (typeof rCg.endLineIdx === 'number') lCg.endLineIdx = rCg.endLineIdx;
+                  }
+                  if (rCg.imageUrl) {
+                    setProg(basePct + 35, `正在恢复剧情插图：${rCg.zhDesc || lCg.id || ('CG ' + (gIdx + 1))}...`);
+                    const dUrl = await fetchWorkshopAssetAsDataUrl(rCg.imageUrl);
+                    if (dUrl && dUrl.startsWith('data:')) {
+                      lCg.imageUrl = await saveAssetToLocalBridge(`projects/${safeProj}/cgs/${lCg.id || ('cg_' + gIdx)}.png`, dUrl);
+                      restoredCgImgs += 1;
+                    }
+                  }
+                  if (rCg.customPadImg) {
+                    const padUrl = await fetchWorkshopAssetAsDataUrl(rCg.customPadImg);
+                    if (padUrl && padUrl.startsWith('data:')) {
+                      lCg.customPadImg = await saveAssetToLocalBridge(`projects/${safeProj}/cgs/pad_${lCg.id || ('cg_' + gIdx)}.png`, padUrl);
+                    }
+                  }
+                }
+                syncChapterCgLineBindings(lChap);
+              }
+
+              // 章节线索道具恢复
+              if (wantClue && Array.isArray(rChap.clueNodes)) {
+                if (!Array.isArray(lChap.clueNodes)) lChap.clueNodes = [];
+                for (let clIdx = 0; clIdx < rChap.clueNodes.length; clIdx++) {
+                  const rCl = rChap.clueNodes[clIdx];
+                  if (!rCl) continue;
+                  let lCl = lChap.clueNodes.find((x) => x.id === rCl.id || (rCl.name && x.name === rCl.name));
+                  if (!lCl) {
+                    lCl = JSON.parse(JSON.stringify(rCl));
+                    lChap.clueNodes.push(lCl);
+                  }
+                  if (rCl.imageUrl) {
+                    setProg(basePct + 50, `正在恢复线索道具：${rCl.name || lCl.id}...`);
+                    const dUrl = await fetchWorkshopAssetAsDataUrl(rCl.imageUrl);
+                    if (dUrl && dUrl.startsWith('data:')) {
+                      lCl.imageUrl = await saveAssetToLocalBridge(`projects/${safeProj}/clues/${lCl.id || ('clue_' + clIdx)}.png`, dUrl);
+                      restoredClueImgs += 1;
+                    }
+                  }
+                }
+                syncChapterClueLineBindings(lChap);
+              }
+
+              // 同步恢复台词里的日文翻译、情绪参数与CG绑定
+              if (Array.isArray(rChap.scriptLines) && Array.isArray(lChap.scriptLines)) {
+                for (let lIdx = 0; lIdx < Math.min(rChap.scriptLines.length, lChap.scriptLines.length); lIdx++) {
+                  const rl = rChap.scriptLines[lIdx];
+                  const ll = lChap.scriptLines[lIdx];
+                  if (!rl || !ll) continue;
+                  if (wantVoice) {
+                    if (!ll.jpText && rl.jpText) ll.jpText = rl.jpText;
+                    if (!ll.ttsEmotion && rl.ttsEmotion) ll.ttsEmotion = rl.ttsEmotion;
+                    if (typeof rl.ttsSpeed === 'number' && typeof ll.ttsSpeed !== 'number') ll.ttsSpeed = rl.ttsSpeed;
+                    if (typeof rl.ttsPitch === 'number' && typeof ll.ttsPitch !== 'number') ll.ttsPitch = rl.ttsPitch;
+                  }
+                  if (wantScene && rl.sceneId && !ll.sceneId) ll.sceneId = rl.sceneId;
+                  if (wantCg && rl.cgId && !ll.cgId) ll.cgId = rl.cgId;
+                }
+              }
+            }
+
+            await saveReplayProjectToDB(localProj);
+          }
+
+          // 4. 恢复角色语音缓存
+          if (wantVoice && remoteProj.ttsByChapter && typeof remoteProj.ttsByChapter === 'object') {
+            const chapTtsLists = Object.values(remoteProj.ttsByChapter);
+            for (const ttsArr of chapTtsLists) {
+              if (!Array.isArray(ttsArr)) continue;
+              for (let tIdx = 0; tIdx < ttsArr.length; tIdx++) {
+                const rec = ttsArr[tIdx];
+                if (!rec || !rec.id) continue;
+                const rawAudioRef = rec.audioDataUrl || rec.audioData;
+                if (!rawAudioRef) continue;
+                setProg(basePct + 68, `正在恢复章节配音语音 ${restoredVoices + 1}...`);
+                const audioDataUrl = await fetchWorkshopAssetAsDataUrl(rawAudioRef);
+                if (audioDataUrl && audioDataUrl.startsWith('data:')) {
+                  const safeKey = String(rec.id || 'tts').replace(/[\\/:*?"<>|]/g, '_');
+                  await saveAssetToLocalBridge(`audio/${safeKey}.mp3`, audioDataUrl);
+                  await db.ttsCache.put({
+                    ...rec,
+                    audioDataUrl,
+                    updatedAt: Date.now()
+                  });
+                  restoredVoices += 1;
+                }
+              }
+            }
+          }
+
+          // 5. 恢复音乐曲目
+          if (wantBgm && Array.isArray(remoteProj.bgmTracks) && remoteProj.bgmTracks.length > 0) {
+            if (!Array.isArray(appState.bgmTracks)) appState.bgmTracks = [];
+            for (const rb of remoteProj.bgmTracks) {
+              if (!rb || (!rb.id && !rb.name)) continue;
+              const exists = appState.bgmTracks.some((lb) => (rb.id && lb.id === rb.id) || (rb.name && lb.name === rb.name));
+              if (!exists) {
+                appState.bgmTracks.push(rb);
+                if (db?.bgmTracks) {
+                  await db.bgmTracks.put(rb).catch(() => {});
+                }
+                restoredBgms += 1;
+              }
+            }
+          }
+        }
+
+        appState.characters = await db.characters.toArray();
+        appState.replayProjects = await db.replayProjects.toArray();
+        populateCharacterSelects();
+        renderPersonaGrid();
+        loadCharToTachiePanel();
+        loadCharToChibiPanel();
+        renderHeightStage();
+        renderReplayStudioUI();
+        renderReplayCgStudio();
+        renderReplayVoiceStudio();
+
+        const summaryParts = [];
+        if (wantTachie) summaryParts.push(`立绘 ${restoredCharImgs} 张`);
+        if (wantScene) summaryParts.push(`地图 ${restoredSceneImgs} 张`);
+        if (wantCg) summaryParts.push(`插图 ${restoredCgImgs} 张`);
+        if (wantClue) summaryParts.push(`线索 ${restoredClueImgs} 张`);
+        if (wantVoice) summaryParts.push(`语音 ${restoredVoices} 条`);
+        if (wantBgm) summaryParts.push(`音乐 ${restoredBgms} 首`);
+
+        setProg(100, `云端恢复完成！已恢复并锁入本地私密空间：${summaryParts.join(' · ')}`);
+      } catch (err) {
+        if (statusEl) statusEl.textContent = '恢复出错：' + err.message;
+        alert('从云端恢复素材失败：' + err.message);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '确定';
+        }
+      }
     }
 
     // MiniMax 语音合成与 IndexedDB 永久缓存 + BGM自动闪避压低

@@ -280,7 +280,12 @@ app.post('/api/local-assets/cleanup', async (req, res) => {
         } else if (entry.isFile()) {
           const rawRel = path.relative(rootAbs, fullPath).split(path.sep).join('/');
           const baseRel = stripVaultDiskSuffix(rawRel);
-          if (!activeSet.has(baseRel)) {
+          const isProtectedAsset =
+            baseRel.startsWith('characters/') ||
+            baseRel.startsWith('projects/') ||
+            baseRel.startsWith('audio/') ||
+            baseRel.startsWith('fonts/');
+          if (!isProtectedAsset && !activeSet.has(baseRel)) {
             try {
               await fs.promises.unlink(fullPath);
               removedCount += 1;
