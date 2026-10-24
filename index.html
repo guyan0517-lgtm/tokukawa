@@ -5350,6 +5350,12 @@
       if (!relPath) return '';
       const cleanRel = String(relPath).split('?')[0].replace(/^\/+/, '').replace(/\.\./g, '_').replace(/\.hknw$/, '');
       if (!cleanRel) return '';
+      if (typeof _localRelToBlobCache !== 'undefined' && _localRelToBlobCache.has(cleanRel)) {
+        const bUrl = _localRelToBlobCache.get(cleanRel);
+        if (bUrl && typeof _blobToOriginDataUrl !== 'undefined' && _blobToOriginDataUrl.has(bUrl)) {
+          return _blobToOriginDataUrl.get(bUrl);
+        }
+      }
       try {
         if (db && db.localAssetMirror) {
           const rec = await db.localAssetMirror.get(cleanRel);
@@ -5374,15 +5380,17 @@
       if (bUrl && bUrl.startsWith('blob:')) {
         _localRelToBlobCache.set(cleanRel, bUrl);
       }
-      try {
-        if (db && db.localAssetMirror) {
-          await db.localAssetMirror.put({
-            path: cleanRel,
-            dataUrl,
-            updatedAt: Date.now()
-          });
-        }
-      } catch (_) {}
+      if (cleanRel === 'fonts/custom_user_font') {
+        try {
+          if (db && db.localAssetMirror) {
+            await db.localAssetMirror.put({
+              path: cleanRel,
+              dataUrl,
+              updatedAt: Date.now()
+            });
+          }
+        } catch (_) {}
+      }
     }
 
     window.addEventListener('error', (e) => {
@@ -5403,23 +5411,14 @@
         }
         const baseUrl = getLocalBridgeBaseUrl();
         const relPath = extractRelativeAssetPath(el.src, baseUrl);
-        if (relPath && !el.dataset.mirrorFallbackTried) {
-          el.dataset.mirrorFallbackTried = '1';
-          getLocalAssetMirrorDataUrl(relPath).then((mirrorDataUrl) => {
-            if (mirrorDataUrl) {
-              el.src = toFastDisplayUrl(mirrorDataUrl);
-            } else if (el.src.startsWith(baseUrl + '/') && !el.dataset.localFallbackTried) {
-              el.dataset.localFallbackTried = '1';
-              _termuxBridgeOnlineState = false;
-              el.src = '/local-assets/' + el.src.slice(baseUrl.length + 1);
-            }
-          }).catch(() => {});
-          return;
-        }
-        if (el.src.startsWith(baseUrl + '/') && !el.dataset.localFallbackTried) {
+        if (relPath && !el.dataset.localFallbackTried) {
           el.dataset.localFallbackTried = '1';
-          _termuxBridgeOnlineState = false;
-          el.src = '/local-assets/' + el.src.slice(baseUrl.length + 1);
+          const encodedRel = relPath.split('/').map((seg) => encodeURIComponent(seg)).join('/');
+          if (el.src.startsWith(baseUrl + '/')) {
+            el.src = '/local-assets/' + encodedRel;
+          } else if (isLocalBridgeEnabled()) {
+            el.src = `${baseUrl}/${encodedRel}`;
+          }
         }
       }
     }, true);
@@ -5591,18 +5590,21 @@
       }
 
       evictAssetFromMemoryCaches(cleanRel);
-      await putLocalAssetMirrorDataUrl(cleanRel, resolvedDataUrl);
+      const memBlobUrl = toFastDisplayUrl(resolvedDataUrl);
+      if (memBlobUrl && memBlobUrl.startsWith('blob:')) {
+        _localRelToBlobCache.set(cleanRel, memBlobUrl);
+      }
 
       let savedTermuxUrl = '';
       if (isLocalBridgeEnabled()) {
-        if (!_termuxBridgeOnlineState && Date.now() - _termuxBridgeLastCheckTs > 8000) {
+        if (!_termuxBridgeOnlineState && Date.now() - _termuxBridgeLastCheckTs > 4000) {
           await checkLocalBridgeEndpointAlive(baseUrl, 700);
         }
         if (_termuxBridgeOnlineState) {
           ensureLocalBridgeNoMediaForRelPath(cleanRel).catch(() => {});
           try {
             const ctrl = new AbortController();
-            const tid = setTimeout(() => ctrl.abort(), 2200);
+            const tid = setTimeout(() => ctrl.abort(), 2500);
             const res = await fetch(baseUrl + '/save', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -5625,6 +5627,9 @@
       }
 
       if (savedTermuxUrl) {
+        if (db && db.localAssetMirror && cleanRel !== 'fonts/custom_user_font') {
+          db.localAssetMirror.delete(cleanRel).catch(() => {});
+        }
         fetch('/api/local-assets/save', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -5643,6 +5648,9 @@
           if (srvRes.ok) {
             const srvInfo = await srvRes.json();
             if (srvInfo && srvInfo.ok) {
+              if (db && db.localAssetMirror && cleanRel !== 'fonts/custom_user_font') {
+                db.localAssetMirror.delete(cleanRel).catch(() => {});
+              }
               return `/local-assets/${encodedRel}${verSuffix}`;
             }
           }
@@ -5717,7 +5725,7 @@
         if (c.tachieRawExpressions && typeof c.tachieRawExpressions === 'object') {
           for (const k of Object.keys(c.tachieRawExpressions)) {
             const hasActiveCutout = Boolean(c.tachieExpressions && isRealNonSvgAsset(c.tachieExpressions[k]));
-            if (!silentMode || !validActNames.has(k) || !hasActiveCutout || !isRealNonSvgAsset(c.tachieRawExpressions[k])) {
+            if (!validActNames.has(k) || hasActiveCutout || !isRealNonSvgAsset(c.tachieRawExpressions[k])) {
               evictAssetFromMemoryCaches(c.tachieRawExpressions[k]);
               delete c.tachieRawExpressions[k];
               changed = true;
@@ -5725,37 +5733,33 @@
             }
           }
         }
-        if (!silentMode) {
-          ['chibiRawImg', 'chibiAlignedRawImg'].forEach((rawKey) => {
-            if (c[rawKey]) {
-              evictAssetFromMemoryCaches(c[rawKey]);
-              c[rawKey] = '';
-              changed = true;
-              dbCleanedCount += 1;
-            }
-          });
-          ['chibiPoseRawImgs', 'chibiPoseAlignedRawImgs'].forEach((rawStoreKey) => {
-            if (c[rawStoreKey] && typeof c[rawStoreKey] === 'object' && Object.keys(c[rawStoreKey]).length > 0) {
-              Object.values(c[rawStoreKey]).forEach((u) => evictAssetFromMemoryCaches(u));
-              c[rawStoreKey] = {};
-              changed = true;
-              dbCleanedCount += 1;
-            }
-          });
-        }
+        ['chibiRawImg', 'chibiAlignedRawImg'].forEach((rawKey) => {
+          if (c[rawKey] && (!silentMode || isRealNonSvgAsset(c.chibiImg))) {
+            evictAssetFromMemoryCaches(c[rawKey]);
+            c[rawKey] = '';
+            changed = true;
+            dbCleanedCount += 1;
+          }
+        });
+        ['chibiPoseRawImgs', 'chibiPoseAlignedRawImgs'].forEach((rawStoreKey) => {
+          if (c[rawStoreKey] && typeof c[rawStoreKey] === 'object' && Object.keys(c[rawStoreKey]).length > 0) {
+            Object.values(c[rawStoreKey]).forEach((u) => evictAssetFromMemoryCaches(u));
+            c[rawStoreKey] = {};
+            changed = true;
+            dbCleanedCount += 1;
+          }
+        });
         if (changed) {
           await db.characters.put(c);
         }
       }
 
-      if (!silentMode) {
-        for (const f of (appState.furnitures || [])) {
-          if (f.rawImg) {
-            evictAssetFromMemoryCaches(f.rawImg);
-            f.rawImg = '';
-            await db.furnitures.put(f);
-            dbCleanedCount += 1;
-          }
+      for (const f of (appState.furnitures || [])) {
+        if (f.rawImg && (!silentMode || isRealNonSvgAsset(f.img))) {
+          evictAssetFromMemoryCaches(f.rawImg);
+          f.rawImg = '';
+          await db.furnitures.put(f);
+          dbCleanedCount += 1;
         }
       }
 
@@ -5783,21 +5787,11 @@
           const safeExp = String(exp).replace(/[\\/:*?"<>|]/g, '_');
           collectUrl(u, `characters/${safeName}/${safeExp}.png`);
         });
-        if (silentMode) {
-          Object.entries(c.tachieRawExpressions || {}).forEach(([exp, u]) => {
-            const safeExp = String(exp).replace(/[\\/:*?"<>|]/g, '_');
-            collectUrl(u, `characters/${safeName}/raw_${safeExp}.png`);
-          });
-        }
-        const chibiKeepFields = silentMode
-          ? ['chibiImg', 'chibiRawImg', 'chibiAlignedRawImg', 'chibiBackImg', 'chibiSideImg', 'chibiRightImg', 'chibiSeatedImg']
-          : ['chibiImg', 'chibiBackImg', 'chibiSideImg', 'chibiRightImg', 'chibiSeatedImg'];
+        const chibiKeepFields = ['chibiImg', 'chibiBackImg', 'chibiSideImg', 'chibiRightImg', 'chibiSeatedImg'];
         chibiKeepFields.forEach((fKey) => {
           collectUrl(c[fKey], `characters/${safeName}/${fKey}.png`);
         });
-        const chibiPoseStores = silentMode
-          ? ['chibiPoseImgs', 'chibiPoseRawImgs', 'chibiPoseAlignedRawImgs']
-          : ['chibiPoseImgs'];
+        const chibiPoseStores = ['chibiPoseImgs'];
         chibiPoseStores.forEach((sKey) => {
           if (c[sKey] && typeof c[sKey] === 'object') {
             Object.entries(c[sKey]).forEach(([pKey, u]) => {
@@ -5916,10 +5910,24 @@
       } catch (_) {}
 
       try {
+        if (db && db.ttsCache) {
+          const allTts = await db.ttsCache.toArray();
+          for (const tRow of allTts) {
+            if (tRow && tRow.audioData) {
+              if (!tRow.audioDataUrl) tRow.audioDataUrl = tRow.audioData;
+              delete tRow.audioData;
+              await db.ttsCache.put(tRow);
+              dbCleanedCount += 1;
+            }
+          }
+        }
+      } catch (_) {}
+
+      try {
         if (db && db.localAssetMirror) {
           const allMirrorRows = await db.localAssetMirror.toArray();
           for (const row of allMirrorRows) {
-            if (row && row.path && !activePaths.has(row.path) && row.path !== 'fonts/custom_user_font') {
+            if (row && row.path && row.path !== 'fonts/custom_user_font') {
               await db.localAssetMirror.delete(row.path);
               dbCleanedCount += 1;
             }
@@ -5927,9 +5935,19 @@
         }
       } catch (_) {}
 
+      try {
+        if (db && db.workshopProjects) {
+          const wpCount = await db.workshopProjects.count();
+          if (wpCount > 0) {
+            await db.workshopProjects.clear();
+            dbCleanedCount += wpCount;
+          }
+        }
+      } catch (_) {}
+
       const totalRemoved = diskRemovedCount + dbCleanedCount;
       if (!silentMode && statusBox) {
-        statusBox.textContent = `清理完成！共清理 ${totalRemoved} 张冗余图片，其中本地目录删除 ${diskRemovedCount} 张，缓存清理 ${dbCleanedCount} 条，所有正在使用的立绘与CG均已保留最新版本。`;
+        statusBox.textContent = `清理完成！共清理 ${totalRemoved} 项冗余缓存，其中本地目录删除 ${diskRemovedCount} 项，浏览器内部缓存彻底清空 ${dbCleanedCount} 条，所有正在使用的立绘、CG与配音均只保留在本地磁盘。`;
       }
       return totalRemoved;
     }
@@ -6126,7 +6144,16 @@
         "        dfp = to_disk_path(fp)",
         "        target_fp = dfp if os.path.isfile(dfp) else (fp if os.path.isfile(fp) else '')",
         "        if target_fp and target_fp.startswith(os.path.abspath(root)):",
-        "            mt = mimetypes.guess_type(rel)[0] or 'image/png'",
+        "            low_r = rel.lower()",
+        "            if low_r.endswith('.mp3'): mt = 'audio/mpeg'",
+        "            elif low_r.endswith('.wav'): mt = 'audio/wav'",
+        "            elif low_r.endswith('.ogg'): mt = 'audio/ogg'",
+        "            elif low_r.endswith('.m4a'): mt = 'audio/mp4'",
+        "            elif low_r.endswith('.png'): mt = 'image/png'",
+        "            elif low_r.endswith(('.jpg', '.jpeg')): mt = 'image/jpeg'",
+        "            elif low_r.endswith('.webp'): mt = 'image/webp'",
+        "            elif low_r.endswith('.json'): mt = 'application/json; charset=utf-8'",
+        "            else: mt = mimetypes.guess_type(rel)[0] or 'application/octet-stream'",
         "            data = open(target_fp, 'rb').read()",
         "            if target_fp == fp and fp != dfp:",
         "                try: os.rename(fp, dfp)",
@@ -6134,6 +6161,7 @@
         "            s.send_response(200)",
         "            s._cors()",
         "            s.send_header('Content-Type', mt)",
+        "            s.send_header('Accept-Ranges', 'bytes')",
         "            s.send_header('Content-Length', str(len(data)))",
         "            s.send_header('Cache-Control', 'no-cache')",
         "            s.end_headers()",
@@ -6331,7 +6359,7 @@
     function isAssetNeedsLocalMigration(val, termuxOnline, baseUrl) {
       if (!val || typeof val !== 'string') return false;
       if (val.startsWith('data:image/svg+xml')) return false;
-      if (val.startsWith('data:image') || val.startsWith('data:audio')) return true;
+      if (val.startsWith('data:')) return true;
       if (termuxOnline && val.startsWith('/local-assets/')) return true;
       return false;
     }
@@ -6519,16 +6547,49 @@
 
       const ttsList = await db.ttsCache.toArray();
       for (const item of ttsList) {
+        if (!item) continue;
+        let ttsChanged = false;
+        if (item.audioData) {
+          if (!item.audioDataUrl) item.audioDataUrl = item.audioData;
+          delete item.audioData;
+          ttsChanged = true;
+        }
         if (isAssetNeedsLocalMigration(item.audioDataUrl, termuxOnline, baseUrl)) {
           const safeId = String(item.id || 'tts').replace(/[\\/:*?"<>|]/g, '_');
           const newUrl = await saveAssetToLocalBridge(`audio/${safeId}.mp3`, item.audioDataUrl, termuxOnline);
           if (newUrl !== item.audioDataUrl) {
             item.audioDataUrl = newUrl;
-            await db.ttsCache.put(item);
+            ttsChanged = true;
             count++;
           }
         }
+        if (ttsChanged) {
+          await db.ttsCache.put(item);
+        }
       }
+      if (typeof registerTtsItemInFastIndex === 'function') {
+        const latestTts = await db.ttsCache.toArray();
+        latestTts.forEach((it) => registerTtsItemInFastIndex(it));
+      }
+
+      try {
+        if (db && db.localAssetMirror) {
+          const allMirrorRows = await db.localAssetMirror.toArray();
+          for (const row of allMirrorRows) {
+            if (!row || !row.path || row.path === 'fonts/custom_user_font') continue;
+            if (!row.path.startsWith('workshop_assets/') && row.dataUrl && row.dataUrl.startsWith('data:')) {
+              await saveAssetToLocalBridge(row.path, row.dataUrl, termuxOnline).catch(() => {});
+            }
+            await db.localAssetMirror.delete(row.path);
+          }
+        }
+      } catch (_) {}
+
+      try {
+        if (db && db.workshopProjects) {
+          await db.workshopProjects.clear();
+        }
+      } catch (_) {}
 
       _heightCroppedSpriteCache.forEach((u) => {
         if (typeof u === 'string' && u.startsWith('blob:')) {
@@ -6555,7 +6616,7 @@
       }
 
       if (!silentMode && statusBox) {
-        statusBox.textContent = `同步完成！已将 ${count} 个图片与音频文件无损存入本地目录 ${targetRootDesc}，并已清空浏览器大图缓存释放内存。`;
+        statusBox.textContent = `同步完成！已将 ${count} 个图片与音频文件无损存入本地目录 ${targetRootDesc}，并已彻底清空浏览器内部图片与语音镜像缓存释放空间。`;
       }
       return count;
     }
@@ -16424,13 +16485,17 @@ ${BUILTIN_CSS_TEMPLATE}`;
 
     function unlockBgmAudioPlayerOnUserGesture() {
       const player = document.getElementById('bgm-audio-player');
-      if (!player) return;
-      try {
-        player.muted = false;
-        if (player.paused && player.src && _currentReplayBgmUrl) {
-          player.play().catch(() => {});
-        }
-      } catch (_) {}
+      if (player) {
+        try {
+          player.muted = false;
+          if (player.paused && player.src && _currentReplayBgmUrl) {
+            player.play().catch(() => {});
+          }
+        } catch (_) {}
+      }
+      if (typeof ensureSharedTheaterVoicePlayerUnlocked === 'function') {
+        ensureSharedTheaterVoicePlayerUnlocked();
+      }
     }
 
     function previewReplayBgmTrack(url, fallbackTag = '日常', onErrorFallback = null) {
@@ -26639,7 +26704,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                 }
                 const fastPackAsset = toFastDisplayUrl(dUrl);
                 _playableUrlRamCache.set(ref, fastPackAsset);
-                putLocalAssetMirrorDataUrl(`workshop_assets/${h}`, dUrl).catch(() => {});
               }
             }
             return packJson.assets;
@@ -26702,12 +26766,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
         const assetHash = rawUrl.replace('/api/workshop/asset/', '').split('?')[0].trim();
         if (assetHash) {
-          const mirrorWorkshop = await getLocalAssetMirrorDataUrl(`workshop_assets/${assetHash}`);
-          if (mirrorWorkshop) {
-            const fastMirror = toFastDisplayUrl(mirrorWorkshop);
-            _playableUrlRamCache.set(rawUrl, fastMirror);
-            return fastMirror;
-          }
           const packPath = _workshopAssetPackIndexMap.get(assetHash);
           if (packPath) {
             await fetchAndUnpackWorkshopAssetPack(packPath);
@@ -26729,17 +26787,20 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           return _mountedZipAssetBlobCache.get(fullApiUrl);
         }
         const failAt = _failedPlayableUrlMap.get(rawUrl) || 0;
-        if (Date.now() - failAt > 30000) {
+        if (Date.now() - failAt > 15000) {
           try {
             const ctrl = new AbortController();
-            const timer = setTimeout(() => ctrl.abort(), 900);
+            const timer = setTimeout(() => ctrl.abort(), 1800);
             try {
               const resp = await fetch(fullApiUrl, { signal: ctrl.signal });
               if (resp.ok) {
                 const ct = String(resp.headers.get('content-type') || '');
                 if (!ct.includes('text/html')) {
-                  const blob = await resp.blob();
+                  let blob = await resp.blob();
                   if (blob && blob.size > 0) {
+                    if (fallbackMime.startsWith('audio/') && (!blob.type || !blob.type.startsWith('audio/'))) {
+                      blob = new Blob([blob], { type: fallbackMime });
+                    }
                     const bUrl = URL.createObjectURL(blob);
                     const cachedBUrl = cacheMountedBlobUrl(fullApiUrl, bUrl);
                     _playableUrlRamCache.set(rawUrl, cachedBUrl);
@@ -26752,7 +26813,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             }
           } catch (_) {}
         }
-        if (assetHash && Date.now() - failAt > 30000) {
+        if (assetHash && Date.now() - failAt > 15000) {
           try {
             const ghAsset = await fetchGithubWorkshopJson(`assets/${assetHash}.json`);
             if (ghAsset && (ghAsset.base64 || ghAsset.dataUrl)) {
@@ -26760,7 +26821,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               if (typeof _localWorkshopAssetUrlMap === 'object') {
                 _localWorkshopAssetUrlMap.set(rawUrl, dataUrl);
               }
-              putLocalAssetMirrorDataUrl(`workshop_assets/${assetHash}`, dataUrl).catch(() => {});
               const fastGh = toFastDisplayUrl(dataUrl);
               _playableUrlRamCache.set(rawUrl, fastGh);
               return fastGh;
@@ -26773,36 +26833,41 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const baseUrl = getLocalBridgeBaseUrl();
       if (rawUrl.startsWith(baseUrl + '/') || rawUrl.startsWith('/local-assets/') || rawUrl.includes(':8765/')) {
         const rel = extractRelativeAssetPath(rawUrl, baseUrl);
-        if (rel) {
-          const mirrorDataUrl = await getLocalAssetMirrorDataUrl(rel);
-          if (mirrorDataUrl) {
-            const fastUrl = toFastDisplayUrl(mirrorDataUrl);
-            _playableUrlRamCache.set(rawUrl, fastUrl);
-            return fastUrl;
+        if (rel && typeof _localRelToBlobCache !== 'undefined' && _localRelToBlobCache.has(rel)) {
+          const memBlob = _localRelToBlobCache.get(rel);
+          if (memBlob) {
+            _playableUrlRamCache.set(rawUrl, memBlob);
+            return memBlob;
           }
         }
-        const failAt = _failedPlayableUrlMap.get(rawUrl) || 0;
-        if (Date.now() - failAt < 30000) {
-          return '';
-        }
+        const encodedRel = rel ? rel.split('/').map((seg) => encodeURIComponent(seg)).join('/') : '';
         const candidateUrls = [];
-        if (rel) {
-          if (_termuxBridgeOnlineState) candidateUrls.push(`${baseUrl}/${rel}`);
-          candidateUrls.push(`/local-assets/${rel}`);
+        if (encodedRel) {
+          if (rawUrl.startsWith('/local-assets/')) {
+            candidateUrls.push(`/local-assets/${encodedRel}`);
+            if (isLocalBridgeEnabled()) candidateUrls.push(`${baseUrl}/${encodedRel}`);
+          } else {
+            if (isLocalBridgeEnabled()) candidateUrls.push(`${baseUrl}/${encodedRel}`);
+            candidateUrls.push(`/local-assets/${encodedRel}`);
+          }
         } else {
           candidateUrls.push(rawUrl);
         }
         for (const cUrl of candidateUrls) {
           try {
             const ctrl = new AbortController();
-            const tid = setTimeout(() => ctrl.abort(), 700);
+            const tid = setTimeout(() => ctrl.abort(), 2200);
             try {
               const r = await fetch(cUrl, { signal: ctrl.signal });
               if (r.ok) {
                 const ct = String(r.headers.get('content-type') || '');
                 if (!ct.includes('text/html')) {
-                  const blob = await r.blob();
+                  let blob = await r.blob();
                   if (blob && blob.size > 0) {
+                    const isAudioFile = fallbackMime.startsWith('audio/') || (rel && /\.(mp3|wav|ogg|m4a)$/i.test(rel));
+                    if (isAudioFile && (!blob.type || !blob.type.startsWith('audio/'))) {
+                      blob = new Blob([blob], { type: 'audio/mpeg' });
+                    }
                     const bUrl = URL.createObjectURL(blob);
                     _playableUrlRamCache.set(rawUrl, bUrl);
                     return bUrl;
@@ -26814,10 +26879,12 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             }
           } catch (_) {}
         }
-        _failedPlayableUrlMap.set(rawUrl, Date.now());
-        if (rawUrl.startsWith(baseUrl + '/') && !_termuxBridgeOnlineState) {
-          return '/local-assets/' + rawUrl.slice(baseUrl.length + 1);
+        if (encodedRel) {
+          return isLocalBridgeEnabled() && (rawUrl.includes(':8765/') || _termuxBridgeOnlineState)
+            ? `${baseUrl}/${encodedRel}`
+            : `/local-assets/${encodedRel}`;
         }
+        return rawUrl;
       }
       const finalFast = toFastDisplayUrl(rawUrl);
       if (finalFast && finalFast.startsWith('blob:')) {
@@ -27681,9 +27748,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               }
             }
 
-            // 3. 写入本机镜像缓存
+            // 3. 标记已上传哈希集合，不再将百兆素材重复塞入浏览器 IndexedDB
             for (const it of task.items) {
-              await putLocalAssetMirrorDataUrl(`workshop_assets/${it.hash}`, it.dataUrl);
               localUploadedSet.add(it.hash);
             }
 
@@ -28150,7 +28216,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                   for (const [hKey, dUrl] of Object.entries(data.assets)) {
                     if (typeof dUrl === 'string' && dUrl.startsWith('data:')) {
                       stillMissingSet.delete(hKey);
-                      await putLocalAssetMirrorDataUrl(`workshop_assets/${hKey}`, dUrl);
                       if (typeof _localWorkshopAssetUrlMap === 'object') {
                         _localWorkshopAssetUrlMap.set(`/api/workshop/asset/${hKey}`, dUrl);
                         _localWorkshopAssetUrlMap.set(hKey, dUrl);
@@ -28232,7 +28297,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                 }
                 if (dUrl && dUrl.startsWith('data:')) {
                   stillMissingSet.delete(h);
-                  await putLocalAssetMirrorDataUrl(`workshop_assets/${h}`, dUrl);
                   if (typeof _localWorkshopAssetUrlMap === 'object') {
                     _localWorkshopAssetUrlMap.set(`/api/workshop/asset/${h}`, dUrl);
                     _localWorkshopAssetUrlMap.set(h, dUrl);
@@ -28280,12 +28344,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                 dataUrl = portableLocal;
               }
             }
-            if (!dataUrl.startsWith('data:') && assetHash) {
-              const localMir = await getLocalAssetMirrorDataUrl(`workshop_assets/${assetHash}`);
-              if (localMir && localMir.startsWith('data:')) {
-                dataUrl = localMir;
-              }
-            }
           } else if (!refOrDataUrl.startsWith('data:')) {
             const portable = await packAssetUrlToPortableDataUrl(refOrDataUrl);
             if (portable && portable.startsWith('data:')) {
@@ -28297,7 +28355,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             zip.file(zipPath, b64, { base64: true });
             if (assetHash) {
               existingAssetHashes.set(zipPath, assetHash);
-              await putLocalAssetMirrorDataUrl(`workshop_assets/${assetHash}`, dataUrl);
             }
             if (refOrDataUrl.startsWith('/api/workshop/asset/') && typeof _localWorkshopAssetUrlMap === 'object') {
               _localWorkshopAssetUrlMap.set(refOrDataUrl, dataUrl);
@@ -28376,10 +28433,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               const safeKey = String(rec.id).replace(/[^a-zA-Z0-9_-]/g, '_');
               const zRef = await pullAssetIntoZip(rec.audioDataUrl || rec.audioData, `audio/${safeKey}.mp3`);
               existingTtsMap.set(rec.id, { ...rec, audioDataUrl: zRef });
-              if (db && db.ttsCache) {
-                const resolvedAudio = _localWorkshopAssetUrlMap.get(rec.audioDataUrl || rec.audioData) || rec.audioDataUrl || rec.audioData;
-                await db.ttsCache.put({ ...rec, audioDataUrl: resolvedAudio, audioData: resolvedAudio });
-              }
             }
           }
 
@@ -28424,10 +28477,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               const safeKey = String(rec.id).replace(/[^a-zA-Z0-9_-]/g, '_');
               const zRef = await pullAssetIntoZip(rec.audioDataUrl || rec.audioData, `audio/${safeKey}.mp3`);
               existingTtsMap.set(rec.id, { ...rec, audioDataUrl: zRef });
-              if (db && db.ttsCache) {
-                const resolvedAudio = _localWorkshopAssetUrlMap.get(rec.audioDataUrl || rec.audioData) || rec.audioDataUrl || rec.audioData;
-                await db.ttsCache.put({ ...rec, audioDataUrl: resolvedAudio, audioData: resolvedAudio });
-              }
             }
           }
         }
@@ -28467,7 +28516,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         };
 
         zip.file('manifest.json', JSON.stringify(packManifest));
-        setDlProgress(92, '正在打包生成本地压缩包并缓存至浏览器...');
+        setDlProgress(92, '正在打包生成本地压缩包并导出到本地磁盘...');
         const zipBlob = await zip.generateAsync({ type: 'blob' });
         const dlUrl = URL.createObjectURL(zipBlob);
         const a = document.createElement('a');
@@ -28494,25 +28543,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           syncedAt: remoteProj.updatedAt || Date.now()
         });
 
-        try {
-          if (db && db.workshopProjects) {
-            await db.workshopProjects.put(remoteProj);
-          }
-          if (db && db.replayProjects) {
-            const browserProj = JSON.parse(JSON.stringify(remoteProj));
-            browserProj.stageStylePreset = browserProj.uiTheme || 'ark_grad';
-            await db.replayProjects.put(browserProj);
-            appState.replayProjects = await db.replayProjects.toArray();
-          }
-          if (db && db.characters && Array.isArray(remoteProj.characters)) {
-            for (const rc of remoteProj.characters) {
-              if (rc && rc.id) await db.characters.put(rc);
-            }
-            appState.characters = await db.characters.toArray();
-          }
-        } catch (_) {}
-
-        setDlProgress(100, `已下载模组包并写入浏览器本地缓存，立绘、插图与语音均可直接读取 · 本次打包 ${fetchedAssets} 个素材`);
+        setDlProgress(100, `已下载模组压缩包至本地设备，不占用浏览器缓存空间 · 本次打包 ${fetchedAssets} 个素材`);
         renderReplayWorkshopList();
         renderTheaterSelectorLobby();
         setTimeout(() => {
@@ -28743,7 +28774,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           r.readAsDataURL(blob);
         });
 
-        await db.ttsCache.put({
+        const safeKey = String(key || 'tts').replace(/[\\/:*?"<>|]/g, '_');
+        const savedLocalUrl = await saveAssetToLocalBridge(`audio/${safeKey}.mp3`, audioDataUrl);
+        const storedAudioUrl = (savedLocalUrl && !savedLocalUrl.startsWith('data:')) ? savedLocalUrl : audioDataUrl;
+
+        const ttsRecObj = {
           id: key,
           voiceId,
           paramSig,
@@ -28751,9 +28786,13 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           pitch: pitchVal,
           emotion: emotionVal,
           text: cleanText,
-          audioDataUrl,
+          audioDataUrl: storedAudioUrl,
           updatedAt: Date.now()
-        });
+        };
+        await db.ttsCache.put(ttsRecObj);
+        if (typeof registerTtsItemInFastIndex === 'function') {
+          registerTtsItemInFastIndex(ttsRecObj);
+        }
         if (typeof _theaterTtsRamCache !== 'undefined') {
           if (_theaterTtsRamCache.has(key)) {
             const oldEntry = _theaterTtsRamCache.get(key);
@@ -28763,33 +28802,34 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             _theaterTtsRamCache.delete(key);
           }
           const freshBlobUrl = URL.createObjectURL(blob);
-          const preAudio = new Audio(freshBlobUrl);
-          preAudio.preload = 'auto';
-          _theaterTtsRamCache.set(key, { src: audioDataUrl, blobUrl: freshBlobUrl, preAudio });
+          _theaterTtsRamCache.set(key, { src: storedAudioUrl, blobUrl: freshBlobUrl });
+          audioDataUrl = freshBlobUrl;
+        } else {
+          audioDataUrl = storedAudioUrl;
         }
-        const safeKey = String(key || 'tts').replace(/[\\/:*?"<>|]/g, '_');
-        await saveAssetToLocalBridge(`audio/${safeKey}.mp3`, audioDataUrl);
         appendApiConsoleLog({
           caller: '跑团剧场语音合成',
           apiType: 'MiniMax',
           target: `${model} · ${voiceId}`,
           ok: true,
-          detail: `已合成并缓存：语速${speedVal} 语调${pitchVal} · ${cleanText.slice(0, 22)}`
+          detail: `已合成并存入本地：语速${speedVal} 语调${pitchVal} · ${cleanText.slice(0, 22)}`
         });
       }
 
+      const playTargetUrl = await resolveInstantTtsPlayableUrl(key, audioDataUrl);
       if (typeof onPlaybackStart === 'function') {
-        try { onPlaybackStart(audioDataUrl); } catch (_) {}
+        try { onPlaybackStart(playTargetUrl); } catch (_) {}
       }
 
       return new Promise((resolve) => {
-        const audio = new Audio(audioDataUrl);
+        const audio = new Audio(playTargetUrl || audioDataUrl);
         _activeReplayTtsAudio = audio;
         audio.volume = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
         setBgmDuckingActive(true);
 
         let done = false;
         let timer = null;
+        let retriedFallback = false;
         const finish = (result) => {
           if (done) return;
           done = true;
@@ -28800,13 +28840,25 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         };
 
         audio.onended = () => finish(true);
-        audio.onerror = () => finish(false);
+        audio.onerror = () => {
+          if (!retriedFallback) {
+            retriedFallback = true;
+            const altLocal = getAlternateLocalBridgeUrl(audio.src || playTargetUrl || audioDataUrl);
+            if (altLocal && altLocal !== audio.src) {
+              audio.src = altLocal;
+              audio.play().catch(() => finish(false));
+              return;
+            }
+          }
+          finish(false);
+        };
         audio.onpause = () => {
           if (audio.ended || audio.currentTime === 0) finish(true);
         };
 
         audio.onloadedmetadata = () => {
           const dur = (audio.duration && !isNaN(audio.duration) && audio.duration > 0) ? (audio.duration + 2) : 10;
+          if (timer) clearTimeout(timer);
           timer = setTimeout(() => finish(true), Math.min(25, dur) * 1000);
         };
         timer = setTimeout(() => finish(true), 12000);
@@ -28994,12 +29046,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
 
       if (!forceRegen) {
-        let cached = await db.ttsCache.get(cacheKey);
-        if (!cached || !cached.audioDataUrl) {
-          const altKey = `line_${chap.id}_${line.id}_${appState.theaterTtsLang === 'jp' ? 'zh' : 'jp'}`;
-          cached = await db.ttsCache.get(altKey);
-        }
-        if (!cached || !cached.audioDataUrl) {
+        const playSourceUrl = await findOrResolveLineVoiceUrl(chap.id, line);
+        if (!playSourceUrl) {
           const statusEl = document.getElementById('replay-voice-status-bar');
           if (statusEl) statusEl.textContent = `第 #${lineIdx + 1} 句暂无已生成的语音，未播放`;
           _activeReplayTtsLineIdx = null;
@@ -29018,13 +29066,15 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           voiceBtn.textContent = '播放中';
         }
 
-        const audio = new Audio(cached.audioDataUrl);
+        const resolvedPlayUrl = await resolveInstantTtsPlayableUrl(cacheKey, playSourceUrl);
+        const audio = new Audio(resolvedPlayUrl || playSourceUrl);
         audio.volume = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
         _activeReplayTtsAudio = audio;
         setBgmDuckingActive(true);
 
         let finished = false;
         let safeTimer = null;
+        let retried = false;
         const resetStatus = () => {
           if (finished) return;
           finished = true;
@@ -29043,13 +29093,25 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         };
 
         audio.onended = resetStatus;
-        audio.onerror = resetStatus;
+        audio.onerror = () => {
+          if (!retried) {
+            retried = true;
+            const altUrl = getAlternateLocalBridgeUrl(audio.src || playSourceUrl);
+            if (altUrl && altUrl !== audio.src) {
+              audio.src = altUrl;
+              audio.play().catch(resetStatus);
+              return;
+            }
+          }
+          resetStatus();
+        };
         audio.onpause = () => {
           if (audio.ended || audio.currentTime === 0) resetStatus();
         };
 
         audio.onloadedmetadata = () => {
           const dur = (audio.duration && !isNaN(audio.duration) && audio.duration > 0) ? (audio.duration + 2) : 10;
+          if (safeTimer) clearTimeout(safeTimer);
           safeTimer = setTimeout(resetStatus, Math.min(25, dur) * 1000);
         };
         safeTimer = setTimeout(resetStatus, 12000);
@@ -29152,12 +29214,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
 
       if (!forceRegen) {
-        let cached = await db.ttsCache.get(cacheKey);
-        if (!cached || !cached.audioDataUrl) {
-          const altKey = `line_${sg.id}_${line.id}_${appState.theaterTtsLang === 'jp' ? 'zh' : 'jp'}`;
-          cached = await db.ttsCache.get(altKey);
-        }
-        if (!cached || !cached.audioDataUrl) {
+        const playSourceUrl = await findOrResolveLineVoiceUrl(sg.id, line);
+        if (!playSourceUrl) {
           const statusEl = document.getElementById('replay-voice-status-bar');
           if (statusEl) statusEl.textContent = `小群「${sg.title}」第 #${lineIdx + 1} 句暂无已生成的语音，未播放`;
           _activeReplayTtsLineIdx = null;
@@ -29173,13 +29231,15 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           voiceBtn.textContent = '播放中';
         }
 
-        const audio = new Audio(cached.audioDataUrl);
+        const resolvedPlayUrl = await resolveInstantTtsPlayableUrl(cacheKey, playSourceUrl);
+        const audio = new Audio(resolvedPlayUrl || playSourceUrl);
         audio.volume = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
         _activeReplayTtsAudio = audio;
         setBgmDuckingActive(true);
 
         let finished = false;
         let safeTimer = null;
+        let retried = false;
         const resetStatus = () => {
           if (finished) return;
           finished = true;
@@ -29194,12 +29254,24 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         };
 
         audio.onended = resetStatus;
-        audio.onerror = resetStatus;
+        audio.onerror = () => {
+          if (!retried) {
+            retried = true;
+            const altUrl = getAlternateLocalBridgeUrl(audio.src || playSourceUrl);
+            if (altUrl && altUrl !== audio.src) {
+              audio.src = altUrl;
+              audio.play().catch(resetStatus);
+              return;
+            }
+          }
+          resetStatus();
+        };
         audio.onpause = () => {
           if (audio.ended || audio.currentTime === 0) resetStatus();
         };
         audio.onloadedmetadata = () => {
           const dur = (audio.duration && !isNaN(audio.duration) && audio.duration > 0) ? (audio.duration + 2) : 10;
+          if (safeTimer) clearTimeout(safeTimer);
           safeTimer = setTimeout(resetStatus, Math.min(25, dur) * 1000);
         };
         safeTimer = setTimeout(resetStatus, 12000);
@@ -30176,33 +30248,207 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       openTheaterSelectorLobby();
     }
 
-    // 剧本语音内存预热池：将章节台词音频提前同步转为内存Blob并预解码Audio实例，彻底消除首次播放与本地读取的0.5秒延迟
+    // 剧本语音内存索引与预热池：支持按ID、行号后缀、台词内容与本地磁盘路径多重瞬时匹配，彻底解决语音找不到与音画不同步
     const _theaterTtsRamCache = new Map();
+    const _ttsFastIdMap = new Map();
+    const _ttsFastLineSuffixMap = new Map();
+    const _ttsFastTextMap = new Map();
+    let _ttsFastIndexReady = false;
     let _ttsPreloadSeq = 0;
     let _spritePreloadSeq = 0;
+    let _sharedTheaterVoicePlayer = null;
+    let _sharedTheaterVoiceUnlocked = false;
+
+    function getSharedTheaterVoicePlayer() {
+      if (!_sharedTheaterVoicePlayer) {
+        _sharedTheaterVoicePlayer = new Audio();
+        _sharedTheaterVoicePlayer.preload = 'auto';
+      }
+      return _sharedTheaterVoicePlayer;
+    }
+
+    function ensureSharedTheaterVoicePlayerUnlocked() {
+      const player = getSharedTheaterVoicePlayer();
+      if (_sharedTheaterVoiceUnlocked || !player) return;
+      try {
+        player.muted = false;
+        if (!player.src) {
+          player.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+          const p = player.play();
+          if (p && typeof p.then === 'function') {
+            p.then(() => {
+              player.pause();
+              player.currentTime = 0;
+              _sharedTheaterVoiceUnlocked = true;
+            }).catch(() => {});
+          }
+        } else {
+          _sharedTheaterVoiceUnlocked = true;
+        }
+      } catch (_) {}
+    }
+
+    function normalizeTtsMatchText(t) {
+      return String(t || '').trim().replace(/[\s\u3000「」『』""''，。！？、…—~～,.!?]/g, '');
+    }
+
+    function registerTtsItemInFastIndex(row) {
+      if (!row || !row.id) return;
+      const u = row.audioDataUrl || row.audioData || '';
+      if (!u) return;
+      const idStr = String(row.id);
+      _ttsFastIdMap.set(idStr, u);
+      const m = idStr.match(/_(line_[^_]+|sg_line_[^_]+)_(jp|zh)$/i);
+      if (m) {
+        _ttsFastLineSuffixMap.set(`${m[1]}_${m[2].toLowerCase()}`, u);
+      }
+      if (row.text) {
+        const normTxt = normalizeTtsMatchText(row.text);
+        if (normTxt && normTxt.length >= 2) {
+          _ttsFastTextMap.set(normTxt, u);
+        }
+      }
+    }
+
+    async function ensureTheaterTtsIndexLoaded() {
+      if (_ttsFastIndexReady && _ttsFastIdMap.size > 0) return;
+      try {
+        if (db && db.ttsCache) {
+          const rows = await db.ttsCache.toArray();
+          rows.forEach((r) => registerTtsItemInFastIndex(r));
+          _ttsFastIndexReady = true;
+        }
+      } catch (_) {}
+    }
+
+    function getAlternateLocalBridgeUrl(urlStr) {
+      if (!urlStr || typeof urlStr !== 'string') return '';
+      const baseUrl = getLocalBridgeBaseUrl();
+      const rel = extractRelativeAssetPath(urlStr, baseUrl);
+      if (!rel) return '';
+      const encodedRel = rel.split('/').map((seg) => encodeURIComponent(seg)).join('/');
+      if (urlStr.startsWith(baseUrl + '/') || urlStr.includes(':8765/')) {
+        return `/local-assets/${encodedRel}`;
+      }
+      if (urlStr.startsWith('/local-assets/') || urlStr.includes('/local-assets/')) {
+        return isLocalBridgeEnabled() ? `${baseUrl}/${encodedRel}` : '';
+      }
+      return '';
+    }
+
+    function lookupTheaterLineVoiceSync(holderId, line) {
+      if (!line) return { key: '', url: '' };
+      const lang = appState.theaterTtsLang || 'jp';
+      const altLang = lang === 'jp' ? 'zh' : 'jp';
+      const mainChap = getCurrentReplayChapter();
+      const candidateKeys = [];
+      if (holderId && line.id) {
+        candidateKeys.push(`line_${holderId}_${line.id}_${lang}`);
+        candidateKeys.push(`line_${holderId}_${line.id}_${altLang}`);
+      }
+      if (mainChap && mainChap.id && mainChap.id !== holderId && line.id) {
+        candidateKeys.push(`line_${mainChap.id}_${line.id}_${lang}`);
+        candidateKeys.push(`line_${mainChap.id}_${line.id}_${altLang}`);
+      }
+      if (line.ttsKey) {
+        candidateKeys.push(String(line.ttsKey));
+      }
+
+      for (const k of candidateKeys) {
+        if (_theaterTtsRamCache.has(k)) {
+          const entry = _theaterTtsRamCache.get(k);
+          if (entry && (entry.blobUrl || entry.src)) {
+            return { key: k, url: entry.blobUrl || entry.src };
+          }
+        }
+      }
+
+      const mountedBundle = typeof getActiveMountedBundle === 'function' ? getActiveMountedBundle() : null;
+      if (mountedBundle && mountedBundle.ttsLookup instanceof Map) {
+        for (const k of candidateKeys) {
+          const extU = mountedBundle.ttsLookup.get(k);
+          if (extU) return { key: k, url: extU };
+        }
+      }
+
+      for (const k of candidateKeys) {
+        if (_ttsFastIdMap.has(k)) {
+          return { key: k, url: _ttsFastIdMap.get(k) };
+        }
+      }
+
+      if (line.id) {
+        const suf1 = `${line.id}_${lang}`;
+        const suf2 = `${line.id}_${altLang}`;
+        if (_ttsFastLineSuffixMap.has(suf1)) {
+          return { key: candidateKeys[0] || suf1, url: _ttsFastLineSuffixMap.get(suf1) };
+        }
+        if (_ttsFastLineSuffixMap.has(suf2)) {
+          return { key: candidateKeys[1] || suf2, url: _ttsFastLineSuffixMap.get(suf2) };
+        }
+      }
+
+      const jpNorm = normalizeTtsMatchText(line.jpText);
+      const zhNorm = normalizeTtsMatchText(line.text);
+      if (lang === 'jp' && jpNorm && _ttsFastTextMap.has(jpNorm)) {
+        return { key: candidateKeys[0] || `txt_${jpNorm.slice(0, 12)}`, url: _ttsFastTextMap.get(jpNorm) };
+      }
+      if (zhNorm && _ttsFastTextMap.has(zhNorm)) {
+        return { key: candidateKeys[0] || `txt_${zhNorm.slice(0, 12)}`, url: _ttsFastTextMap.get(zhNorm) };
+      }
+      if (jpNorm && _ttsFastTextMap.has(jpNorm)) {
+        return { key: candidateKeys[0] || `txt_${jpNorm.slice(0, 12)}`, url: _ttsFastTextMap.get(jpNorm) };
+      }
+
+      return { key: candidateKeys[0] || '', url: '' };
+    }
+
+    async function findOrResolveLineVoiceUrl(holderId, line) {
+      await ensureTheaterTtsIndexLoaded();
+      const syncHit = lookupTheaterLineVoiceSync(holderId, line);
+      if (syncHit && syncHit.url) return syncHit.url;
+      if (!line || !line.id) return '';
+      const lang = appState.theaterTtsLang || 'jp';
+      const altLang = lang === 'jp' ? 'zh' : 'jp';
+      const k1 = `line_${holderId}_${line.id}_${lang}`;
+      const k2 = `line_${holderId}_${line.id}_${altLang}`;
+      try {
+        const r1 = await db.ttsCache.get(k1);
+        if (r1 && (r1.audioDataUrl || r1.audioData)) {
+          registerTtsItemInFastIndex(r1);
+          return r1.audioDataUrl || r1.audioData;
+        }
+        const r2 = await db.ttsCache.get(k2);
+        if (r2 && (r2.audioDataUrl || r2.audioData)) {
+          registerTtsItemInFastIndex(r2);
+          return r2.audioDataUrl || r2.audioData;
+        }
+      } catch (_) {}
+      return '';
+    }
 
     async function resolveInstantTtsPlayableUrl(cacheKey, rawUrl) {
       if (!rawUrl) return '';
-      if (_theaterTtsRamCache.has(cacheKey)) {
+      if (cacheKey && _theaterTtsRamCache.has(cacheKey)) {
         const entry = _theaterTtsRamCache.get(cacheKey);
         if (entry && entry.src === rawUrl && entry.blobUrl) return entry.blobUrl;
       }
       const strUrl = String(rawUrl);
       if (strUrl.startsWith('blob:')) {
-        _theaterTtsRamCache.set(cacheKey, { src: rawUrl, blobUrl: strUrl });
+        if (cacheKey) _theaterTtsRamCache.set(cacheKey, { src: rawUrl, blobUrl: strUrl });
         return strUrl;
       }
       if (strUrl.startsWith('data:')) {
         const fastBlobUrl = toFastDisplayUrl(strUrl);
         if (fastBlobUrl) {
-          _theaterTtsRamCache.set(cacheKey, { src: rawUrl, blobUrl: fastBlobUrl });
+          if (cacheKey) _theaterTtsRamCache.set(cacheKey, { src: rawUrl, blobUrl: fastBlobUrl });
           return fastBlobUrl;
         }
       }
       try {
         const resolved = await resolveTheaterPlayableUrl(strUrl, 'audio/mpeg');
         if (resolved) {
-          _theaterTtsRamCache.set(cacheKey, { src: rawUrl, blobUrl: resolved });
+          if (cacheKey) _theaterTtsRamCache.set(cacheKey, { src: rawUrl, blobUrl: resolved });
           return resolved;
         }
       } catch (_) {}
@@ -30215,39 +30461,21 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         : (getActiveTheaterPlayableChapter() || chap);
       if (!playableChap || !Array.isArray(playableChap.scriptLines)) return;
       const mySeq = ++_ttsPreloadSeq;
-      const lang = appState.theaterTtsLang || 'jp';
-      const altLang = lang === 'jp' ? 'zh' : 'jp';
       const begin = Math.max(0, Number(startIdx) || 0);
-      const mountedBundle = typeof getActiveMountedBundle === 'function' ? getActiveMountedBundle() : null;
       (async () => {
+        await ensureTheaterTtsIndexLoaded();
         let dialoguePreloaded = 0;
-        for (let i = begin; i < playableChap.scriptLines.length && dialoguePreloaded < 10; i++) {
+        for (let i = begin; i < playableChap.scriptLines.length && dialoguePreloaded < 6; i++) {
           if (mySeq !== _ttsPreloadSeq) return;
           const l = playableChap.scriptLines[i];
           if (!l || l.type === 'narration' || l.type === 'ooc' || l.type === 'dice' || !l.speaker || l.speaker === '旁白' || l.speaker === '检定') continue;
           dialoguePreloaded += 1;
           const holderId = l._ttsHolderId || playableChap.id;
-          const ck = `line_${holderId}_${l.id}_${lang}`;
-          const altCk = `line_${holderId}_${l.id}_${altLang}`;
-          if (_theaterTtsRamCache.has(ck) || _theaterTtsRamCache.has(altCk)) continue;
+          const hit = lookupTheaterLineVoiceSync(holderId, l);
+          if (!hit.url) continue;
+          if (hit.key && _theaterTtsRamCache.has(hit.key)) continue;
           try {
-            if (mountedBundle && mountedBundle.ttsLookup instanceof Map) {
-              const extRaw = mountedBundle.ttsLookup.get(ck) || mountedBundle.ttsLookup.get(altCk) || (l.ttsKey ? mountedBundle.ttsLookup.get(l.ttsKey) : '');
-              if (extRaw) {
-                await resolveInstantTtsPlayableUrl(ck, extRaw);
-                continue;
-              }
-            }
-            let rec = await db.ttsCache.get(ck);
-            let targetKey = ck;
-            if (!rec || !rec.audioDataUrl) {
-              rec = await db.ttsCache.get(altCk);
-              if (rec && rec.audioDataUrl) targetKey = altCk;
-            }
-            if (mySeq !== _ttsPreloadSeq) return;
-            if (rec && rec.audioDataUrl) {
-              await resolveInstantTtsPlayableUrl(targetKey, rec.audioDataUrl);
-            }
+            await resolveInstantTtsPlayableUrl(hit.key || `line_${holderId}_${l.id}`, hit.url);
           } catch (_) {}
         }
       })();
@@ -31528,17 +31756,16 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const displayLineText = String(line.text || '').replace(/^[\s\u3000]+/gm, '');
       const isDialogueLine = line.type !== 'narration' && Boolean(line.speaker && line.speaker !== '旁白' && line.speaker !== '检定');
 
-      // 语音衔接规则：如果进入下一句时上一句还没播完，若当前句是对话则立刻停止上一句；若当前句是旁白则让上一句继续播完
-      if (!canPlayStageAudio || isDialogueLine) {
-        if (_activeReplayTtsAudio) {
-          try {
-            _activeReplayTtsAudio.onended = null;
-            _activeReplayTtsAudio.onerror = null;
-            _activeReplayTtsAudio.pause();
-          } catch (_) {}
-          _activeReplayTtsAudio = null;
-          setBgmDuckingActive(false);
-        }
+      // 严格音画同步：每当切换到任何新台词（无论是对话还是旁白），立刻停止上一句残留语音，杜绝上一句人声串音到下一句画面
+      if (_activeReplayTtsAudio) {
+        try {
+          _activeReplayTtsAudio.onended = null;
+          _activeReplayTtsAudio.onerror = null;
+          _activeReplayTtsAudio.onloadedmetadata = null;
+          _activeReplayTtsAudio.pause();
+        } catch (_) {}
+        _activeReplayTtsAudio = null;
+        setBgmDuckingActive(false);
       }
 
       // 同步原子更新左上角人名与启动打字机：若开启神秘人匿影则名字显示为？？？
@@ -31603,99 +31830,147 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         playTheaterSfx(line.sfxTag || '', displayLineText);
       }
 
-      // 节流预热后续立绘与语音：仅在初入章节或每跨越 5 句时触发单航道预热，杜绝快点时叠加阻塞主线程
-      if (idx === 0 || idx % 5 === 0) {
-        preloadChapterStageSprites(chap, idx + 1);
-      }
-      if (canPlayStageAudio && !appState.theaterSkipPlay && !appState.theaterEditMode) {
-        if (idx === 0 || idx % 5 === 0) {
-          preloadChapterTtsAudioPool(chap, idx + 1);
-        }
-        if (isDialogueLine) {
-          const holderId = line._ttsHolderId || chap.id;
-          const cacheKey = `line_${holderId}_${line.id}_${appState.theaterTtsLang}`;
-          const altKey = `line_${holderId}_${line.id}_${appState.theaterTtsLang === 'jp' ? 'zh' : 'jp'}`;
-          (async () => {
-            try {
-              let playUrl = '';
-              let activeKey = cacheKey;
-              if (_theaterTtsRamCache.has(cacheKey)) {
-                playUrl = _theaterTtsRamCache.get(cacheKey).blobUrl || '';
-              } else if (_theaterTtsRamCache.has(altKey)) {
-                playUrl = _theaterTtsRamCache.get(altKey).blobUrl || '';
-                activeKey = altKey;
+      // 1. 当前台词语音第一优先级同步播放：复用已解锁的单例播放器并在内存索引中零延迟命中，确保人声、立绘与字幕同步开口
+      if (shouldAttemptLineVoice) {
+        const holderId = line._ttsHolderId || chap.id;
+        (async () => {
+          try {
+            let syncHit = lookupTheaterLineVoiceSync(holderId, line);
+            let rawSourceUrl = syncHit.url;
+            let activeKey = syncHit.key || `line_${holderId}_${line.id}_${appState.theaterTtsLang || 'jp'}`;
+            if (!rawSourceUrl) {
+              rawSourceUrl = await findOrResolveLineVoiceUrl(holderId, line);
+            }
+            if (myRenderSeq !== _theaterRenderSeq) return;
+
+            let playUrl = '';
+            if (rawSourceUrl) {
+              if (rawSourceUrl.startsWith('blob:')) {
+                playUrl = rawSourceUrl;
+              } else if (_theaterTtsRamCache.has(activeKey) && _theaterTtsRamCache.get(activeKey).blobUrl) {
+                playUrl = _theaterTtsRamCache.get(activeKey).blobUrl;
+              } else if (_playableUrlRamCache.has(rawSourceUrl)) {
+                playUrl = _playableUrlRamCache.get(rawSourceUrl);
+              } else if (rawSourceUrl.startsWith('http://127.0.0.1:8765/') || rawSourceUrl.startsWith('/local-assets/')) {
+                const baseUrl = getLocalBridgeBaseUrl();
+                const rel = extractRelativeAssetPath(rawSourceUrl, baseUrl);
+                const encodedRel = rel ? rel.split('/').map((s) => encodeURIComponent(s)).join('/') : '';
+                if (encodedRel) {
+                  playUrl = (isLocalBridgeEnabled() && (rawSourceUrl.includes(':8765/') || _termuxBridgeOnlineState))
+                    ? `${baseUrl}/${encodedRel}`
+                    : `/local-assets/${encodedRel}`;
+                } else {
+                  playUrl = rawSourceUrl;
+                }
+              } else {
+                playUrl = await resolveInstantTtsPlayableUrl(activeKey, rawSourceUrl);
               }
-              if (!playUrl) {
-                const mountedBundle = getActiveMountedBundle();
-                if (mountedBundle && mountedBundle.ttsLookup instanceof Map) {
-                  const extRaw = mountedBundle.ttsLookup.get(cacheKey) || mountedBundle.ttsLookup.get(altKey) || (line.ttsKey ? mountedBundle.ttsLookup.get(line.ttsKey) : '');
-                  if (extRaw) {
-                    playUrl = await resolveInstantTtsPlayableUrl(cacheKey, extRaw);
-                  }
-                }
-              }
-              if (!playUrl) {
-                let cached = await db.ttsCache.get(cacheKey);
-                if (!cached || !cached.audioDataUrl) {
-                  cached = await db.ttsCache.get(altKey);
-                  if (cached && cached.audioDataUrl) activeKey = altKey;
-                }
-                if (myRenderSeq !== _theaterRenderSeq) return;
-                if (cached && cached.audioDataUrl) {
-                  playUrl = await resolveInstantTtsPlayableUrl(activeKey, cached.audioDataUrl);
-                }
-              }
-              if (!playUrl || myRenderSeq !== _theaterRenderSeq) {
-                if (myRenderSeq === _theaterRenderSeq) {
-                  _theaterLineVoicePending = false;
-                  scheduleTheaterAutoAdvanceCheck(myRenderSeq);
-                }
-                return;
-              }
-              await new Promise((resolve) => {
-                if (myRenderSeq !== _theaterRenderSeq) {
-                  resolve(false);
-                  return;
-                }
-                let settled = false;
-                let safetyTimer = null;
-                const finishAudio = (ok) => {
-                  if (settled) return;
-                  settled = true;
-                  if (safetyTimer) clearTimeout(safetyTimer);
-                  if (_activeReplayTtsAudio === audio) {
-                    _activeReplayTtsAudio = null;
-                    setBgmDuckingActive(false);
-                  }
-                  resolve(ok);
-                };
-                const audio = new Audio(playUrl);
-                _activeReplayTtsAudio = audio;
-                audio.volume = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
-                setBgmDuckingActive(true);
-                safetyTimer = setTimeout(() => finishAudio(false), 9500);
-                audio.onloadedmetadata = () => {
-                  if (!settled && Number.isFinite(audio.duration) && audio.duration > 0) {
-                    if (safetyTimer) clearTimeout(safetyTimer);
-                    const dynamicLimitMs = Math.min(16000, Math.max(2000, Math.ceil(audio.duration * 1000) + 650));
-                    safetyTimer = setTimeout(() => finishAudio(false), dynamicLimitMs);
-                  }
-                };
-                audio.onended = () => finishAudio(true);
-                audio.onerror = () => finishAudio(false);
-                audio.play().catch(() => finishAudio(false));
-              });
-              if (myRenderSeq !== _theaterRenderSeq) return;
-              _theaterLineVoicePending = false;
-              scheduleTheaterAutoAdvanceCheck(myRenderSeq, 650);
-            } catch (_) {
+            }
+
+            if (!playUrl || myRenderSeq !== _theaterRenderSeq) {
               if (myRenderSeq === _theaterRenderSeq) {
                 _theaterLineVoicePending = false;
                 scheduleTheaterAutoAdvanceCheck(myRenderSeq);
               }
+              return;
             }
-          })();
-        }
+
+            await new Promise((resolve) => {
+              if (myRenderSeq !== _theaterRenderSeq) {
+                resolve(false);
+                return;
+              }
+              let settled = false;
+              let safetyTimer = null;
+              let fallbackStage = 0;
+              const audio = getSharedTheaterVoicePlayer();
+              const finishAudio = (ok) => {
+                if (settled) return;
+                settled = true;
+                if (safetyTimer) clearTimeout(safetyTimer);
+                if (_activeReplayTtsAudio === audio) {
+                  _activeReplayTtsAudio = null;
+                  setBgmDuckingActive(false);
+                }
+                resolve(ok);
+              };
+
+              const tryFallbackOrFinish = async () => {
+                if (settled || myRenderSeq !== _theaterRenderSeq) {
+                  finishAudio(false);
+                  return;
+                }
+                if (fallbackStage === 0) {
+                  fallbackStage = 1;
+                  const altLocalUrl = getAlternateLocalBridgeUrl(audio.src || playUrl || rawSourceUrl);
+                  if (altLocalUrl && altLocalUrl !== audio.src) {
+                    audio.src = altLocalUrl;
+                    audio.play().catch(() => tryFallbackOrFinish());
+                    return;
+                  }
+                }
+                if (fallbackStage <= 1 && rawSourceUrl) {
+                  fallbackStage = 2;
+                  const blobPlayUrl = await resolveInstantTtsPlayableUrl(activeKey, rawSourceUrl).catch(() => '');
+                  if (myRenderSeq !== _theaterRenderSeq) {
+                    finishAudio(false);
+                    return;
+                  }
+                  if (blobPlayUrl && blobPlayUrl !== audio.src) {
+                    audio.src = blobPlayUrl;
+                    audio.play().catch(() => finishAudio(false));
+                    return;
+                  }
+                }
+                finishAudio(false);
+              };
+
+              try {
+                audio.onended = null;
+                audio.onerror = null;
+                audio.onloadedmetadata = null;
+                audio.pause();
+              } catch (_) {}
+
+              _activeReplayTtsAudio = audio;
+              audio.muted = false;
+              audio.volume = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
+              setBgmDuckingActive(true);
+              safetyTimer = setTimeout(() => finishAudio(false), 11000);
+              audio.onloadedmetadata = () => {
+                if (!settled && Number.isFinite(audio.duration) && audio.duration > 0) {
+                  if (safetyTimer) clearTimeout(safetyTimer);
+                  const dynamicLimitMs = Math.min(18000, Math.max(1800, Math.ceil(audio.duration * 1000) + 550));
+                  safetyTimer = setTimeout(() => finishAudio(false), dynamicLimitMs);
+                }
+              };
+              audio.onended = () => finishAudio(true);
+              audio.onerror = () => { tryFallbackOrFinish(); };
+              audio.src = playUrl;
+              audio.play().catch(() => { tryFallbackOrFinish(); });
+            });
+
+            if (myRenderSeq !== _theaterRenderSeq) return;
+            _theaterLineVoicePending = false;
+            scheduleTheaterAutoAdvanceCheck(myRenderSeq, 550);
+          } catch (_) {
+            if (myRenderSeq === _theaterRenderSeq) {
+              _theaterLineVoicePending = false;
+              scheduleTheaterAutoAdvanceCheck(myRenderSeq);
+            }
+          }
+        })();
+      }
+
+      // 2. 延后预热后续立绘与语音：让出当前句的即时加载带宽，避免并发请求阻塞当前句语音与立绘
+      if (idx === 0 || idx % 5 === 0) {
+        setTimeout(() => {
+          if (myRenderSeq !== _theaterRenderSeq) return;
+          preloadChapterStageSprites(chap, idx + 1);
+          if (canPlayStageAudio && !appState.theaterSkipPlay && !appState.theaterEditMode) {
+            preloadChapterTtsAudioPool(chap, idx + 1);
+          }
+        }, 320);
       }
 
       // 舞台可视化编辑模式同步控件值
@@ -33461,15 +33736,38 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       if (termuxCmdTa && typeof buildTermuxLocalBridgeCommandString === 'function') {
         termuxCmdTa.value = buildTermuxLocalBridgeCommandString();
       }
+      try {
+        const ghCfg = getWorkshopSyncConfig();
+        const savedPackIdx = getSavedGithubAssetPackIndex(ghCfg.githubRepo);
+        Object.entries(savedPackIdx).forEach(([h, p]) => {
+          if (h && p) _workshopAssetPackIndexMap.set(h, p);
+        });
+        (appState.replayProjects || []).forEach((proj) => registerRemoteProjectPackIndex(proj));
+      } catch (_) {}
+      ensureTheaterTtsIndexLoaded().catch(() => {});
       restoreSessionNavAndDrafts();
-      setTimeout(() => {
+      setTimeout(async () => {
+        try {
+          if (db && db.workshopProjects) {
+            await db.workshopProjects.clear();
+          }
+          if (db && db.localAssetMirror) {
+            const allMir = await db.localAssetMirror.toArray();
+            for (const row of allMir) {
+              if (row && row.path && row.path.startsWith('workshop_assets/')) {
+                await db.localAssetMirror.delete(row.path);
+              }
+            }
+          }
+        } catch (_) {}
         if (isLocalBridgeEnabled()) {
-          probeAndAutoSyncLocalBridge().catch(() => {});
+          await probeAndAutoSyncLocalBridge().catch(() => {});
+          await cleanupUnusedAssetsUI(true).catch(() => {});
           setInterval(() => {
             probeAndAutoSyncLocalBridge().catch(() => {});
           }, 12000);
         }
-      }, 1200);
+      }, 350);
     }
 
     const DRAFT_PERSIST_IDS = [
@@ -33617,7 +33915,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         if ('caches' in window) {
           caches.keys().then((keys) => {
             keys.forEach((k) => {
-              if (k !== 'ephone-tuk-cache-v35') caches.delete(k);
+              if (k !== 'ephone-tuk-cache-v36') caches.delete(k);
             });
           }).catch(() => {});
         }
