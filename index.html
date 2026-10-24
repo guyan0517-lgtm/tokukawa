@@ -18818,7 +18818,7 @@ JP_VOICE: L行号|润色后的纯日语配音台词`;
       if (statusEl) statusEl.textContent = '已恢复默认配音与日译提示词';
     }
 
-    // 点击配音页「日译」按钮：普通模式仅翻译日语台词并使用默认语速与默认语调，不生成情绪；高级模式同时生成日语翻译、情绪、语速与语调；若已选定单个角色则仅针对该角色台词生效
+    // 点击配音页「日译」按钮：普通模式仅翻译日语台词并使用默认语速与默认语调，不生成情绪；高级模式同时生成日语翻译、情绪、语速与语调；不清除已有语音缓存；同时包含已插入小群
     async function translateCurrentChapterToJapanese() {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
@@ -18834,29 +18834,56 @@ JP_VOICE: L行号|润色后的纯日语配音台词`;
       if (voiceJpBtn) { voiceJpBtn.textContent = '润色中'; voiceJpBtn.disabled = true; }
 
       try {
+        const subGroups = getSubGroupsForChapter(proj, appState.currentReplayChapterIdx);
         chap.scriptLines.forEach((l) => {
           if (l.type === 'narration' || l.speaker === '旁白') {
             l.jpText = '';
           }
         });
+        subGroups.forEach((sg) => {
+          (sg.scriptLines || []).forEach((l) => {
+            if (l.type === 'narration' || l.speaker === '旁白') {
+              l.jpText = '';
+            }
+          });
+        });
 
-        const dialogueItems = chap.scriptLines
-          .map((l, idx) => ({ l, idx }))
-          .filter((item) => item.l.type === 'dialogue' && item.l.speaker !== '旁白' && item.l.text && item.l.text.trim() && (!targetSpk || item.l.speaker === targetSpk));
+        const dialogueItems = [];
+        const fullScriptRows = [];
+        chap.scriptLines.forEach((l, idx) => {
+          const code = `L${idx}`;
+          fullScriptRows.push(`${code}|${l.type === 'narration' || l.speaker === '旁白' ? '旁白' : l.speaker}|${l.text}`);
+          if (l.type === 'dialogue' && l.speaker !== '旁白' && l.text && l.text.trim() && (!targetSpk || l.speaker === targetSpk)) {
+            dialogueItems.push({ code, l, idx, isSubGroup: false });
+          }
+          subGroups.forEach((sg, sgOrder) => {
+            const insIdx = Math.max(0, Math.min(chap.scriptLines.length - 1, Number(sg.insertAfterLineIdx ?? 0)));
+            if (insIdx === idx && Array.isArray(sg.scriptLines)) {
+              sg.scriptLines.forEach((sl, sIdx) => {
+                const sCode = `S${sgOrder}_L${sIdx}`;
+                fullScriptRows.push(`${sCode}|${sl.type === 'narration' || sl.speaker === '旁白' ? '旁白' : sl.speaker}|${sl.text}`);
+                if (sl.type === 'dialogue' && sl.speaker !== '旁白' && sl.text && sl.text.trim() && (!targetSpk || sl.speaker === targetSpk)) {
+                  dialogueItems.push({ code: sCode, l: sl, idx: sIdx, isSubGroup: true, sg, sgOrder });
+                }
+              });
+            }
+          });
+        });
 
         if (dialogueItems.length === 0) {
           await saveReplayProjectToDB(proj);
           renderReplayScriptEditor();
           renderReplayVoiceStudio();
+          renderReplaySubGroupStudio();
           if (statusEl) statusEl.textContent = '当前筛选范围内没有角色对话行，无需翻译日语';
           if (voiceStatusEl) voiceStatusEl.textContent = '当前筛选范围内没有角色对话行，无需翻译日语';
           return;
         }
 
-        const scopeLabel = targetSpk ? `角色「${targetSpk}」的 ${dialogueItems.length} 句` : '本章全部';
+        const scopeLabel = targetSpk ? `角色「${targetSpk}」的 ${dialogueItems.length} 句` : '本章及插入小群全部';
         const msgText = isAdvancedMode
           ? `正在结合整章上下文，为${scopeLabel}台词润色日语并配置情绪语速语调...`
-          : `正在结合整章上下文，为${scopeLabel}台词进行纯日语翻译，不生成情绪语速语调...`;
+          : `正在结合整章上下文，为${scopeLabel}台词进行纯日语翻译，保留已有配音不重置...`;
         if (statusEl) statusEl.textContent = msgText;
         if (voiceStatusEl) voiceStatusEl.textContent = msgText;
 
@@ -18870,12 +18897,10 @@ JP_VOICE: L行号|润色后的纯日语配音台词`;
               : `名字:${c.name}｜身份:${c.trpgType || '调查员'}｜年龄:${p.age || c.age || '未知'}｜性格与说话语气称呼:${p.personality || c.quirk || '自然'}｜背景:${p.background || c.surface || ''}`;
           }).join('\n');
 
-        const fullScriptContext = chap.scriptLines
-          .map((l, idx) => `L${idx}|${l.type === 'narration' || l.speaker === '旁白' ? '旁白' : l.speaker}|${l.text}`)
-          .join('\n');
+        const fullScriptContext = fullScriptRows.join('\n');
 
         const targetDialogueLines = dialogueItems
-          .map((item) => `L${item.idx}|${item.l.speaker}|当前差分:${item.l.exp || '默认'}|中文原词:${item.l.text}|初版日译:${item.l.jpText || '待译'}`)
+          .map((item) => `${item.code}|${item.l.speaker}|当前差分:${item.l.exp || '默认'}|中文原词:${item.l.text}|初版日译:${item.l.jpText || '待译'}`)
           .join('\n');
 
         const rawChapterExcerpt = String(chap.rawText || '').slice(0, 14000);
@@ -18883,8 +18908,8 @@ JP_VOICE: L行号|润色后的纯日语配音台词`;
         const sysPromptContent = getCustomOrDefaultVoiceSystemPrompt(isAdvancedMode);
 
         const userPromptContent = isAdvancedMode
-          ? `所属模组：${proj.title || '跑团模组'} · 章节：${chap.title || '当前章节'}\n\n登场角色完整人设与各自语音范围：\n${personaSummary || '调查员'}\n\n本章原始跑团记录参考：\n${rawChapterExcerpt}\n\n本章完整剧本上下文：\n${fullScriptContext}\n\n请一次性润色以下角色对话的日语台词并配置每句情绪、语速与语调，严格按 JP_VOICE: L行号|emotion|speed|pitch|纯日语台词 输出：\n${targetDialogueLines}`
-          : `所属模组：${proj.title || '跑团模组'} · 章节：${chap.title || '当前章节'}\n\n登场角色人设：\n${personaSummary || '调查员'}\n\n本章原始跑团记录参考：\n${rawChapterExcerpt}\n\n本章完整剧本上下文：\n${fullScriptContext}\n\n请一次性翻译并润色以下角色对话的纯日语台词，不要输出情绪、语速和语调，严格按 JP_VOICE: L行号|纯日语台词 输出：\n${targetDialogueLines}`;
+          ? `所属模组：${proj.title || '跑团模组'} · 章节：${chap.title || '当前章节'}\n\n登场角色完整人设与各自语音范围：\n${personaSummary || '调查员'}\n\n本章原始跑团记录参考：\n${rawChapterExcerpt}\n\n本章完整剧本上下文：\n${fullScriptContext}\n\n请一次性润色以下角色对话的日语台词并配置每句情绪、语速与语调，行号原样保持 L行号 或 S小群号_L行号，严格按 JP_VOICE: 行号编码|emotion|speed|pitch|纯日语台词 输出：\n${targetDialogueLines}`
+          : `所属模组：${proj.title || '跑团模组'} · 章节：${chap.title || '当前章节'}\n\n登场角色人设：\n${personaSummary || '调查员'}\n\n本章原始跑团记录参考：\n${rawChapterExcerpt}\n\n本章完整剧本上下文：\n${fullScriptContext}\n\n请一次性翻译并润色以下角色对话的纯日语台词，不要输出情绪、语速和语调，行号原样保持 L行号 或 S小群号_L行号，严格按 JP_VOICE: 行号编码|纯日语台词 输出：\n${targetDialogueLines}`;
 
         const reply = await callLlmCompletion(
           [
@@ -18901,6 +18926,28 @@ JP_VOICE: L行号|润色后的纯日语配音台词`;
           { caller: `日语润色·${targetSpk || '全章'}·${isAdvancedMode ? '高级模式' : '普通模式'}·${chap.title}`, preferSubApi: false }
         );
 
+        const resolveTargetLineByCode = (rawCode) => {
+          const token = String(rawCode || '').trim();
+          const sm = token.match(/S(\d+)_L(\d+)/i);
+          if (sm) {
+            const sgOrd = parseInt(sm[1], 10);
+            const sIdx = parseInt(sm[2], 10);
+            const sg = subGroups[sgOrd];
+            if (sg && Array.isArray(sg.scriptLines) && sg.scriptLines[sIdx]) {
+              return sg.scriptLines[sIdx];
+            }
+            return null;
+          }
+          const lm = token.match(/L?(\d+)/i);
+          if (lm) {
+            const lIdx = parseInt(lm[1], 10);
+            if (lIdx >= 0 && lIdx < chap.scriptLines.length) {
+              return chap.scriptLines[lIdx];
+            }
+          }
+          return null;
+        };
+
         let updatedCount = 0;
         if (reply) {
           reply.split('\n').forEach((rLine) => {
@@ -18909,78 +18956,73 @@ JP_VOICE: L行号|润色后的纯日语配音台词`;
             const cleanRow = trimmed.replace(/^JP_VOICE:\s*/i, '');
             const parts = cleanRow.split('|').map((s) => s.trim());
             if (isAdvancedMode && parts.length >= 5) {
-              const m = parts[0].match(/L?(\d+)/i);
-              const lIdx = m ? parseInt(m[1], 10) : -1;
-              if (lIdx >= 0 && lIdx < chap.scriptLines.length) {
-                const targetLine = chap.scriptLines[lIdx];
-                if (targetLine.type === 'dialogue' && targetLine.speaker !== '旁白' && (!targetSpk || targetLine.speaker === targetSpk)) {
-                  const clamped = clampSpeakerVoiceParams(targetLine.speaker, parts[1], parts[2], parts[3], true);
+              const targetLine = resolveTargetLineByCode(parts[0]);
+              if (targetLine && targetLine.type === 'dialogue' && targetLine.speaker !== '旁白' && (!targetSpk || targetLine.speaker === targetSpk)) {
+                const clamped = clampSpeakerVoiceParams(targetLine.speaker, parts[1], parts[2], parts[3], true);
+                targetLine.ttsEmotion = clamped.emotion;
+                if (!targetLine.ttsManualModified) {
+                  targetLine.ttsSpeed = clamped.speed;
+                  targetLine.ttsPitch = clamped.pitch;
+                }
+                const jp = cleanJapaneseLineText(parts.slice(4).join('|').trim(), targetLine.speaker);
+                if (jp) {
+                  targetLine.jpText = jp;
+                }
+                updatedCount += 1;
+              }
+            } else if (parts.length >= 2) {
+              const targetLine = resolveTargetLineByCode(parts[0]);
+              if (targetLine && targetLine.type === 'dialogue' && targetLine.speaker !== '旁白' && (!targetSpk || targetLine.speaker === targetSpk)) {
+                const bounds = getSpeakerVoiceBounds(targetLine.speaker);
+                const rawJpPart = parts.length >= 5 ? parts.slice(4).join('|').trim() : parts.slice(1).join('|').trim();
+                const jp = cleanJapaneseLineText(rawJpPart, targetLine.speaker);
+                if (jp) {
+                  targetLine.jpText = jp;
+                }
+                if (isAdvancedMode) {
+                  const clamped = clampSpeakerVoiceParams(targetLine.speaker, targetLine.ttsEmotion || 'neutral', targetLine.ttsSpeed, targetLine.ttsPitch, false);
                   targetLine.ttsEmotion = clamped.emotion;
                   if (!targetLine.ttsManualModified) {
                     targetLine.ttsSpeed = clamped.speed;
                     targetLine.ttsPitch = clamped.pitch;
                   }
-                  const jp = cleanJapaneseLineText(parts.slice(4).join('|').trim(), targetLine.speaker);
-                  if (jp) {
-                    targetLine.jpText = jp;
-                    invalidateSingleLineTtsCache(chap.id, targetLine.id);
+                } else {
+                  targetLine.ttsEmotion = '';
+                  if (!targetLine.ttsManualModified) {
+                    targetLine.ttsSpeed = bounds.defaultSpeed;
+                    targetLine.ttsPitch = bounds.defaultPitch;
                   }
-                  updatedCount += 1;
                 }
-              }
-            } else if (parts.length >= 2) {
-              const m = parts[0].match(/L?(\d+)/i);
-              const lIdx = m ? parseInt(m[1], 10) : -1;
-              if (lIdx >= 0 && lIdx < chap.scriptLines.length) {
-                const targetLine = chap.scriptLines[lIdx];
-                if (targetLine.type === 'dialogue' && targetLine.speaker !== '旁白' && (!targetSpk || targetLine.speaker === targetSpk)) {
-                  const bounds = getSpeakerVoiceBounds(targetLine.speaker);
-                  const rawJpPart = parts.length >= 5 ? parts.slice(4).join('|').trim() : parts.slice(1).join('|').trim();
-                  const jp = cleanJapaneseLineText(rawJpPart, targetLine.speaker);
-                  if (jp) {
-                    targetLine.jpText = jp;
-                    invalidateSingleLineTtsCache(chap.id, targetLine.id);
-                  }
-                  if (isAdvancedMode) {
-                    const clamped = clampSpeakerVoiceParams(targetLine.speaker, targetLine.ttsEmotion || 'neutral', targetLine.ttsSpeed, targetLine.ttsPitch, false);
-                    targetLine.ttsEmotion = clamped.emotion;
-                    if (!targetLine.ttsManualModified) {
-                      targetLine.ttsSpeed = clamped.speed;
-                      targetLine.ttsPitch = clamped.pitch;
-                    }
-                  } else {
-                    targetLine.ttsEmotion = '';
-                    if (!targetLine.ttsManualModified) {
-                      targetLine.ttsSpeed = bounds.defaultSpeed;
-                      targetLine.ttsPitch = bounds.defaultPitch;
-                    }
-                  }
-                  updatedCount += 1;
-                }
+                updatedCount += 1;
               }
             }
           });
         }
 
         if (!isAdvancedMode) {
-          chap.scriptLines.forEach((l) => {
-            if (l.type === 'dialogue' && l.speaker && l.speaker !== '旁白' && (!targetSpk || l.speaker === targetSpk)) {
-              const bounds = getSpeakerVoiceBounds(l.speaker);
-              l.ttsEmotion = '';
-              if (!l.ttsManualModified) {
-                l.ttsSpeed = bounds.defaultSpeed;
-                l.ttsPitch = bounds.defaultPitch;
+          const resetDefaultOnList = (linesArr) => {
+            (linesArr || []).forEach((l) => {
+              if (l.type === 'dialogue' && l.speaker && l.speaker !== '旁白' && (!targetSpk || l.speaker === targetSpk)) {
+                const bounds = getSpeakerVoiceBounds(l.speaker);
+                l.ttsEmotion = '';
+                if (!l.ttsManualModified) {
+                  l.ttsSpeed = bounds.defaultSpeed;
+                  l.ttsPitch = bounds.defaultPitch;
+                }
               }
-            }
-          });
+            });
+          };
+          resetDefaultOnList(chap.scriptLines);
+          subGroups.forEach((sg) => resetDefaultOnList(sg.scriptLines));
         }
 
         await saveReplayProjectToDB(proj);
         renderReplayScriptEditor();
         renderReplayVoiceStudio();
+        renderReplaySubGroupStudio();
         const doneText = isAdvancedMode
-          ? `高级模式已完成${scopeLabel}共 ${updatedCount || dialogueItems.length} 句日语润色及情绪、语速、语调配置`
-          : `普通模式已完成${scopeLabel}共 ${updatedCount || dialogueItems.length} 句纯日语翻译，已设为默认语速与默认语调`;
+          ? `高级模式已完成${scopeLabel}共 ${updatedCount || dialogueItems.length} 句日语润色及情绪、语速、语调配置，原有已生成语音已保留`
+          : `普通模式已完成${scopeLabel}共 ${updatedCount || dialogueItems.length} 句纯日语翻译，原有已生成语音已保留`;
         if (statusEl) statusEl.textContent = doneText;
         if (voiceStatusEl) voiceStatusEl.textContent = doneText;
       } catch (err) {
@@ -20584,7 +20626,7 @@ ${scriptPreview}`;
       }
     }
 
-    // 点击剧本顶栏「插图」按钮：AI结合现有插图与整章剧情文本，思考并优化插图所在的起止句位置、调整或删除不合理的插图、并在有画面感的关键互动处补充新插图
+    // 点击剧本顶栏「插图」按钮：AI结合现有插图与整章剧情文本含已插入小群，思考并优化插图所在的起止句位置
     async function aiOptimizeCurrentChapterCgNodes() {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
@@ -20596,41 +20638,77 @@ ${scriptPreview}`;
       const btn = document.getElementById('replay-ai-cg-opt-btn');
       const statusEl = document.getElementById('replay-script-status-bar');
       if (btn) { btn.textContent = '优化中'; btn.disabled = true; }
-      if (statusEl) statusEl.textContent = '正在调用AI通读本章剧情与现有插图，思考优化每张插图的起止句位置并增删插图...';
+      if (statusEl) statusEl.textContent = '正在调用AI通读本章剧情与内嵌小群，思考优化每张插图的起止句位置并增删插图...';
 
       try {
         const lines = chap.scriptLines;
+        const curChapIdx = Number(appState.currentReplayChapterIdx) || 0;
+        const chapSubGroups = ensureProjectSubGroupsArray(proj).filter(
+          (sg) => sg && sg.inserted && Number(sg.targetChapterIdx) === curChapIdx && Array.isArray(sg.scriptLines) && sg.scriptLines.length > 0
+        );
+
         const existingCgs = Array.isArray(chap.cgNodes) ? chap.cgNodes : [];
-        const existingSummary = existingCgs.length > 0
-          ? existingCgs.map((cg, idx) => {
-              const sIdx = cg.startLineIdx ?? cg.lineIdx ?? 0;
-              const eIdx = cg.endLineIdx ?? sIdx;
-              return `原CG序号:${idx}|编号:${cg.id}|当前起止行:L${sIdx}-L${eIdx}|已生图:${cg.imageUrl ? '是' : '否'}|画面说明:${cg.zhDesc || ''}|在场角色:${(cg.presentNames || []).join('、')}`;
-            }).join('\n')
-          : '当前章节暂无插图';
+        const existingSummaryRows = [];
+        existingCgs.forEach((cg, idx) => {
+          const sIdx = cg.startLineIdx ?? cg.lineIdx ?? 0;
+          const eIdx = cg.endLineIdx ?? sIdx;
+          existingSummaryRows.push(`原CG序号:${idx}|编号:${cg.id}|当前起止行:L${sIdx}-L${eIdx}|已生图:${cg.imageUrl ? '是' : '否'}|画面说明:${cg.zhDesc || cg.title || ''}|在场角色:${(cg.presentNames || []).join('、')}`);
+        });
+        chapSubGroups.forEach((sg, sgIdx) => {
+          (sg.cgNodes || []).forEach((cg, idx) => {
+            const sIdx = cg.startLineIdx ?? cg.lineIdx ?? 0;
+            const eIdx = cg.endLineIdx ?? sIdx;
+            existingSummaryRows.push(`原小群CG序号:SG${sgIdx}_${idx}|编号:${cg.id}|当前起止行:SG${sgIdx}_L${sIdx}-SG${sgIdx}_L${eIdx}|已生图:${cg.imageUrl ? '是' : '否'}|画面说明:${cg.zhDesc || cg.title || ''}|在场角色:${(cg.presentNames || []).join('、')}`);
+          });
+        });
+        const existingSummary = existingSummaryRows.length > 0 ? existingSummaryRows.join('\n') : '当前章节暂无插图';
 
         const charNames = (appState.characters || [])
           .filter((c) => c.id !== 'narrator_kp' && c.name && c.name !== '旁白')
           .map((c) => `${c.name} 定位:${c.trpgType || '调查员'}`)
           .join('、');
 
-        const scriptText = lines.map((l, idx) => `L${idx}|${l.speaker || '旁白'}|${l.text}`).join('\n');
+        const scriptTextRows = [];
+        const maxMainIdx = Math.max(0, lines.length - 1);
+        chapSubGroups.forEach((sg, sgIdx) => {
+          if (Number(sg.insertAfterLineIdx) < 0) {
+            scriptTextRows.push(`--- 以下为插入小群 ${sg.title} ---`);
+            sg.scriptLines.forEach((sl, sLineIdx) => {
+              scriptTextRows.push(`SG${sgIdx}_L${sLineIdx}|${sl.speaker || '旁白'}|${sl.text || ''}`);
+            });
+            scriptTextRows.push(`--- 小群 ${sg.title} 结束 ---`);
+          }
+        });
+        lines.forEach((l, idx) => {
+          scriptTextRows.push(`L${idx}|${l.speaker || '旁白'}|${l.text || ''}`);
+          chapSubGroups.forEach((sg, sgIdx) => {
+            const targetPos = Math.min(maxMainIdx, Math.max(0, Number(sg.insertAfterLineIdx) || 0));
+            if (Number(sg.insertAfterLineIdx) >= 0 && targetPos === idx) {
+              scriptTextRows.push(`--- 以下为插入小群 ${sg.title} ---`);
+              sg.scriptLines.forEach((sl, sLineIdx) => {
+                scriptTextRows.push(`SG${sgIdx}_L${sLineIdx}|${sl.speaker || '旁白'}|${sl.text || ''}`);
+              });
+              scriptTextRows.push(`--- 小群 ${sg.title} 结束 ---`);
+            }
+          });
+        });
+        const scriptText = scriptTextRows.join('\n');
 
-        const sysPrompt = `你是专业视觉小说分镜与CG插图导演。请通读整章剧本台词与现有的插图列表，全面思考并优化本章所有插图的排布：
+        const sysPrompt = `你是专业视觉小说分镜与CG插图导演。请通读整章剧本台词包含穿插在章节中的小群记录与现有的插图列表，全面思考并优化所有插图的排布：
 1. 评估现有插图：如果某张现有插图放在了纯站桩干聊、毫无动作画面的地方，请将它挪到附近真正有动作互动的句子区间，或者直接删掉不合理的冗余无画面插图；如果某张现有插图已经生成了图片，优先保留该插图并将它的起止行号调整到最契合该画面说明的剧情句子区间。
-2. 规划新增插图：检查整章剧情中是否有极具画面感的动作、日常互动、喂食、递物、接触、调查线索、危机或高潮段落缺少插图，在合适位置增加新的插图，使整章插图总数保持在 5 到 10 张左右，节奏均匀自然。
-3. 明确持续区间：每一张插图都必须指定从哪一句开始显示、持续到哪一句结束，格式为 L起始行号-L结束行号，通常一张插图持续 2 到 6 句相关联的动作与对话。
+2. 规划新增插图：检查主线剧情以及小群记录中是否有极具画面感的动作、日常互动、喂食、递物、接触、调查线索、危机或高潮段落缺少插图，在合适位置增加新的插图，使整章加小群的插图总数保持在 5 到 10 张左右，节奏均匀自然。
+3. 明确持续区间：每一张插图都必须指定从哪一句开始显示、持续到哪一句结束。主线句子使用 L起始行号-L结束行号，小群内的句子使用 SG小群序号_L起始行号-SG小群序号_L结束行号，通常一张插图持续 2 到 6 句相关联的动作与对话。
 4. 如果某条插图是保留或移动自现有插图，第4项填写原有的编号如 cg_xxx；如果是全新增加的插图，第4项填 new。
-5. 从头到尾严禁使用任何圆括号或方括号，严格按以下行格式输出优化后的全章插图列表：
-CG_OPT: L起始行号-L结束行号|插图简短剧情画面说明|在场角色姓名用顿号分隔|原CG编号或new`;
+5. 从头到尾严禁使用任何圆括号或方括号，严格按以下行格式输出优化后的插图列表：
+CG_OPT: 起始行号编码-结束行号编码|插图简短剧情画面说明|在场角色姓名用顿号分隔|原CG编号或new`;
 
         const userPrompt = `本章登场角色：
 ${charNames || '调查员'}
 
-本章现有插图列表：
+本章及小群现有插图列表：
 ${existingSummary}
 
-本章完整剧本台词 L0 至 L${lines.length - 1}：
+本章及已插入小群完整剧本台词：
 ${scriptText}`;
 
         const reply = await callLlmCompletion(
@@ -20639,14 +20717,25 @@ ${scriptText}`;
             { role: 'user', content: userPrompt }
           ],
           null,
-          { caller: `AI智能优化章节插图排布·${chap.title}`, preferSubApi: false }
+          { caller: `AI智能优化章节与小群插图排布·${chap.title}`, preferSubApi: false }
         );
 
-        const newCgNodes = [];
+        const newMainCgNodes = [];
+        const newSubGroupCgMap = new Map();
+        chapSubGroups.forEach((sg, sgIdx) => {
+          newSubGroupCgMap.set(sgIdx, []);
+        });
+
         const oldMap = new Map();
         existingCgs.forEach((cg, idx) => {
           oldMap.set(cg.id, cg);
           oldMap.set(String(idx), cg);
+        });
+        chapSubGroups.forEach((sg, sgIdx) => {
+          (sg.cgNodes || []).forEach((cg, idx) => {
+            oldMap.set(cg.id, cg);
+            oldMap.set(`SG${sgIdx}_${idx}`, cg);
+          });
         });
 
         if (reply) {
@@ -20655,6 +20744,45 @@ ${scriptText}`;
             if (l.startsWith('CG_OPT:') || l.startsWith('CG_MARK:')) {
               const parts = l.replace(/^CG_(?:OPT|MARK):\s*/i, '').split('|').map((s) => s.trim());
               if (parts.length >= 2) {
+                const sgMatch = parts[0].match(/SG(\d+)_L?(\d+)\s*(?:-\s*(?:SG\d+_)?L?(\d+))?/i);
+                if (sgMatch) {
+                  const sgIdx = parseInt(sgMatch[1], 10);
+                  const sgObj = chapSubGroups[sgIdx];
+                  if (!sgObj || !Array.isArray(sgObj.scriptLines) || sgObj.scriptLines.length === 0) return;
+                  const sgLines = sgObj.scriptLines;
+                  const rStart = parseInt(sgMatch[2], 10);
+                  const rEnd = sgMatch[3] !== undefined ? parseInt(sgMatch[3], 10) : (rStart + 2);
+                  const startLineIdx = Math.max(0, Math.min(sgLines.length - 1, Math.min(rStart, rEnd)));
+                  const endLineIdx = Math.max(startLineIdx, Math.min(sgLines.length - 1, Math.max(rStart, rEnd)));
+                  const zhDesc = parts[1] || `${sgObj.title}互动画面`;
+                  const presentNames = (parts[2] || '').split(/[、,，\s]+/).filter(Boolean);
+                  if (presentNames.length === 0 && sgLines[startLineIdx]?.speaker && sgLines[startLineIdx].speaker !== '旁白') {
+                    presentNames.push(sgLines[startLineIdx].speaker);
+                  }
+                  const refKey = (parts[3] || '').trim();
+                  const matchedOld = (refKey && refKey.toLowerCase() !== 'new') ? oldMap.get(refKey) : null;
+                  const singleChar = presentNames.length === 1 ? appState.characters.find((c) => c.name === presentNames[0]) : null;
+                  const targetList = newSubGroupCgMap.get(sgIdx) || [];
+                  const cgId = matchedOld?.id || `cg_sg_${Date.now()}_${sgIdx}_${targetList.length + 1}`;
+                  targetList.push({
+                    id: cgId,
+                    subGroupId: sgObj.id,
+                    title: zhDesc,
+                    lineIdx: startLineIdx,
+                    startLineIdx,
+                    endLineIdx,
+                    lineText: sgLines[startLineIdx]?.text || '',
+                    zhDesc,
+                    presentNames,
+                    refCharId: matchedOld?.refCharId || (singleChar ? singleChar.id : ''),
+                    prompt: matchedOld?.prompt || '',
+                    imageUrl: matchedOld?.imageUrl || '',
+                    customPadImg: matchedOld?.customPadImg || ''
+                  });
+                  newSubGroupCgMap.set(sgIdx, targetList);
+                  return;
+                }
+
                 const rangeMatch = parts[0].match(/L?(\d+)\s*(?:-\s*L?(\d+))?/i);
                 if (!rangeMatch) return;
                 const rStart = parseInt(rangeMatch[1], 10);
@@ -20669,8 +20797,8 @@ ${scriptText}`;
                 const refKey = (parts[3] || '').trim();
                 const matchedOld = (refKey && refKey.toLowerCase() !== 'new') ? oldMap.get(refKey) : null;
                 const singleChar = presentNames.length === 1 ? appState.characters.find((c) => c.name === presentNames[0]) : null;
-                const cgId = matchedOld?.id || `cg_opt_${Date.now()}_${newCgNodes.length + 1}`;
-                newCgNodes.push({
+                const cgId = matchedOld?.id || `cg_opt_${Date.now()}_${newMainCgNodes.length + 1}`;
+                newMainCgNodes.push({
                   id: cgId,
                   lineIdx: startLineIdx,
                   startLineIdx,
@@ -20688,16 +20816,30 @@ ${scriptText}`;
           });
         }
 
-        if (newCgNodes.length > 0) {
-          newCgNodes.sort((a, b) => (a.startLineIdx ?? 0) - (b.startLineIdx ?? 0));
-          chap.cgNodes = newCgNodes;
+        let totalPlanned = newMainCgNodes.length;
+        if (newMainCgNodes.length > 0) {
+          newMainCgNodes.sort((a, b) => (a.startLineIdx ?? 0) - (b.startLineIdx ?? 0));
+          chap.cgNodes = newMainCgNodes;
           syncChapterCgLineBindings(chap);
+        }
+        newSubGroupCgMap.forEach((sgCgList, sgIdx) => {
+          const sgObj = chapSubGroups[sgIdx];
+          if (sgObj && sgCgList.length > 0) {
+            sgCgList.sort((a, b) => (a.startLineIdx ?? 0) - (b.startLineIdx ?? 0));
+            sgObj.cgNodes = sgCgList;
+            syncSubGroupCgLineBindings(sgObj);
+            totalPlanned += sgCgList.length;
+          }
+        });
+
+        if (totalPlanned > 0) {
           await saveReplayProjectToDB(proj);
           renderReplayScriptEditor();
+          renderReplaySubGroupStudio();
           renderReplayCgStudio();
           renderReplayChaptersList();
           if (statusEl) {
-            statusEl.textContent = `AI已完成本章插图优化：共规划 ${newCgNodes.length} 张插图并设定好每张插图的起止持续句！`;
+            statusEl.textContent = `AI已完成本章与内嵌小群插图优化：共规划 ${totalPlanned} 张插图并设定好起止持续句`;
           }
         } else if (statusEl) {
           statusEl.textContent = 'AI未返回有效插图调整结果，已保持原插图设置';
@@ -20843,36 +20985,43 @@ ${scriptText}`;
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
       if (!proj || !chap || !Array.isArray(chap.scriptLines) || !chap.scriptLines[lineIdx]) return;
-      const targetLine = chap.scriptLines[lineIdx];
-      if (targetLine && targetLine.cgId && Array.isArray(chap.cgNodes)) {
-        chap.cgNodes = chap.cgNodes.filter((g) => g.id !== targetLine.cgId);
-      }
       chap.scriptLines.splice(lineIdx, 1);
+      const maxRemainingIdx = Math.max(0, chap.scriptLines.length - 1);
       if (Array.isArray(chap.cgNodes)) {
-        chap.cgNodes.forEach((cg) => {
-          if (typeof cg.lineIdx === 'number' && cg.lineIdx > lineIdx) {
-            cg.lineIdx = Math.max(0, cg.lineIdx - 1);
+        chap.cgNodes = chap.cgNodes.filter((cg) => {
+          if (!cg) return false;
+          let s = cg.startLineIdx ?? cg.lineIdx ?? 0;
+          let e = cg.endLineIdx ?? s;
+          if (s === lineIdx && e === lineIdx && chap.scriptLines.length === 0) return false;
+          if (lineIdx < s) {
+            s = Math.max(0, s - 1);
+            e = Math.max(s, e - 1);
+          } else if (lineIdx <= e) {
+            e = Math.max(s, e - 1);
           }
-          if (typeof cg.startLineIdx === 'number' && cg.startLineIdx > lineIdx) {
-            cg.startLineIdx = Math.max(0, cg.startLineIdx - 1);
-          }
-          if (typeof cg.endLineIdx === 'number' && cg.endLineIdx >= lineIdx) {
-            cg.endLineIdx = Math.max(cg.startLineIdx ?? 0, cg.endLineIdx - 1);
-          }
+          cg.startLineIdx = Math.min(maxRemainingIdx, s);
+          cg.endLineIdx = Math.min(maxRemainingIdx, Math.max(cg.startLineIdx, e));
+          cg.lineIdx = cg.startLineIdx;
+          return true;
         });
         syncChapterCgLineBindings(chap);
       }
       if (Array.isArray(chap.clueNodes)) {
-        chap.clueNodes.forEach((cl) => {
-          if (typeof cl.lineIdx === 'number' && cl.lineIdx > lineIdx) {
-            cl.lineIdx = Math.max(0, cl.lineIdx - 1);
+        chap.clueNodes = chap.clueNodes.filter((cl) => {
+          if (!cl) return false;
+          let s = cl.startLineIdx ?? cl.lineIdx ?? 0;
+          let e = cl.endLineIdx ?? s;
+          if (s === lineIdx && e === lineIdx && chap.scriptLines.length === 0) return false;
+          if (lineIdx < s) {
+            s = Math.max(0, s - 1);
+            e = Math.max(s, e - 1);
+          } else if (lineIdx <= e) {
+            e = Math.max(s, e - 1);
           }
-          if (typeof cl.startLineIdx === 'number' && cl.startLineIdx > lineIdx) {
-            cl.startLineIdx = Math.max(0, cl.startLineIdx - 1);
-          }
-          if (typeof cl.endLineIdx === 'number' && cl.endLineIdx >= lineIdx) {
-            cl.endLineIdx = Math.max(cl.startLineIdx ?? 0, cl.endLineIdx - 1);
-          }
+          cl.startLineIdx = Math.min(maxRemainingIdx, s);
+          cl.endLineIdx = Math.min(maxRemainingIdx, Math.max(cl.startLineIdx, e));
+          cl.lineIdx = cl.startLineIdx;
+          return true;
         });
         syncChapterClueLineBindings(chap);
       }
@@ -21008,11 +21157,41 @@ ${scriptText}`;
       const btn = document.getElementById('replay-ai-clue-btn');
       const statusEl = document.getElementById('replay-script-status-bar');
       if (btn) { btn.textContent = '分析中'; btn.disabled = true; }
-      if (statusEl) statusEl.textContent = `正在严格筛查 ${chap.title} 中调查员真正获得到手或具有实质破案作用的跑团道具线索...`;
+      if (statusEl) statusEl.textContent = `正在严格筛查 ${chap.title} 及内嵌小群中调查员真正获得到手或具有实质破案作用的跑团道具线索...`;
 
       try {
-        const numberedLines = chap.scriptLines.map((l, i) => `${i + 1}|${l.speaker || '旁白'}|${l.text || ''}`).join('\n');
-        const prompt = `你是资深跑团KP与视觉小说导演。请通读以下当前章节的剧本台词，严格按照跑团规则筛选本章真正属于「道具线索」的节点。
+        const curChapIdx = Number(appState.currentReplayChapterIdx) || 0;
+        const chapSubGroups = ensureProjectSubGroupsArray(proj).filter(
+          (sg) => sg && sg.inserted && Number(sg.targetChapterIdx) === curChapIdx && Array.isArray(sg.scriptLines) && sg.scriptLines.length > 0
+        );
+
+        const numberedRows = [];
+        const maxMainIdx = Math.max(0, chap.scriptLines.length - 1);
+        chapSubGroups.forEach((sg, sgIdx) => {
+          if (Number(sg.insertAfterLineIdx) < 0) {
+            numberedRows.push(`--- 以下为插入小群 ${sg.title} ---`);
+            sg.scriptLines.forEach((sl, sLineIdx) => {
+              numberedRows.push(`SG${sgIdx}_${sLineIdx + 1}|${sl.speaker || '旁白'}|${sl.text || ''}`);
+            });
+            numberedRows.push(`--- 小群 ${sg.title} 结束 ---`);
+          }
+        });
+        chap.scriptLines.forEach((l, i) => {
+          numberedRows.push(`${i + 1}|${l.speaker || '旁白'}|${l.text || ''}`);
+          chapSubGroups.forEach((sg, sgIdx) => {
+            const targetPos = Math.min(maxMainIdx, Math.max(0, Number(sg.insertAfterLineIdx) || 0));
+            if (Number(sg.insertAfterLineIdx) >= 0 && targetPos === i) {
+              numberedRows.push(`--- 以下为插入小群 ${sg.title} ---`);
+              sg.scriptLines.forEach((sl, sLineIdx) => {
+                numberedRows.push(`SG${sgIdx}_${sLineIdx + 1}|${sl.speaker || '旁白'}|${sl.text || ''}`);
+              });
+              numberedRows.push(`--- 小群 ${sg.title} 结束 ---`);
+            }
+          });
+        });
+        const numberedLines = numberedRows.join('\n');
+
+        const prompt = `你是资深跑团KP与视觉小说导演。请通读以下当前章节及穿插其中的小群剧本台词，严格按照跑团规则筛选真正属于「道具线索」的节点。
 
 【道具线索的唯一判定铁律】：
 1. 只有调查员真正「获得、得到、拾取、搜出、接过、收到并持有到自己手上」的实质性道具，或者经过调查检定真正发现、查获、阅读了关键内容并对推进跑团解谜有实际作用、确实需要特别展示给玩家的破案实证，才允许被列为线索！
@@ -21020,21 +21199,21 @@ ${scriptText}`;
 3. 宁缺毋滥：绝不硬凑数量！如果这一章里调查员只得到了1件道具就只输出1条；如果这一章里调查员根本没有真正得到任何道具或关键实证，请直接单独输出一行 NONE，绝对不要为了凑数把普通物品列出来！
 
 每条输出格式严格为：
-CLUE|起始句号|结束句号|道具短名称|纯物品特写NovelAI英文生图提示词
+CLUE|起始句号编码|结束句号编码|道具短名称|纯物品特写NovelAI英文生图提示词
 
 格式要求：
-1. 起始句号与结束句号为从1开始的句子编号，精准对应调查员获得该道具或查看该关键线索的那 1 到 3 句台词。
+1. 主线台词的起始与结束句号为从1开始的纯数字；小群内台词的起始与结束句号使用 SG小群序号_句号，精准对应调查员获得该道具或查看该关键线索的那 1 到 3 句台词。
 2. 道具短名称控制在 2 到 8 个中文字以内。
 3. 英文提示词只画该道具物品本身的精致特写，严禁出现人物，必须以 no humans, still life, object focus, item close-up, centered composition, detailed game icon prop illustration 开头。
 4. 从头到尾严禁使用任何括号，只输出 CLUE|... 行或 NONE，严禁输出任何解释。
 
-当前章节剧本台词：
+当前章节及内嵌小群剧本台词：
 ${numberedLines}`;
 
         const raw = await callLlmCompletion(
           [{ role: 'user', content: prompt }],
           null,
-          { caller: `跑团章节道具线索提取·${chap.title}`, preferSubApi: false }
+          { caller: `跑团章节与小群道具线索提取·${chap.title}`, preferSubApi: false }
         );
         const lines = String(raw || '').split('\n').map((s) => s.trim()).filter((s) => s.startsWith('CLUE|'));
         const prevClues = Array.isArray(chap.clueNodes) ? chap.clueNodes : [];
@@ -21042,12 +21221,53 @@ ${numberedLines}`;
         prevClues.forEach((c) => {
           if (c && c.name) oldByName.set(c.name.trim(), c);
         });
+        chapSubGroups.forEach((sg) => {
+          (sg.clueNodes || []).forEach((c) => {
+            if (c && c.name) oldByName.set(c.name.trim(), c);
+          });
+        });
+
         const keptManualClues = prevClues.filter((c) => c && (c.isManual || c.imageUrl));
         const newExtractedClues = [];
+        const newSubGroupCluesMap = new Map();
+        chapSubGroups.forEach((sg, sgIdx) => {
+          newSubGroupCluesMap.set(sgIdx, (sg.clueNodes || []).filter((c) => c && (c.isManual || c.imageUrl)));
+        });
 
         lines.forEach((row, idx) => {
           const parts = row.split('|').map((x) => x.trim());
           if (parts.length < 4) return;
+          const sgStartMatch = parts[1].match(/SG(\d+)_(\d+)/i);
+          if (sgStartMatch) {
+            const sgIdx = parseInt(sgStartMatch[1], 10);
+            const sgObj = chapSubGroups[sgIdx];
+            if (!sgObj || !Array.isArray(sgObj.scriptLines) || sgObj.scriptLines.length === 0) return;
+            const sgEndMatch = parts[2].match(/(?:SG\d+_)?(\d+)/i);
+            const sNum = Math.max(1, Math.min(sgObj.scriptLines.length, parseInt(sgStartMatch[2], 10) || 1)) - 1;
+            const eNum = Math.max(sNum, Math.min(sgObj.scriptLines.length - 1, (sgEndMatch ? parseInt(sgEndMatch[1], 10) : (sNum + 1)) - 1));
+            const clueName = (parts[3] || '').trim();
+            if (!isValidAcquiredTrpgClue(clueName, sNum, eNum, sgObj.scriptLines)) return;
+            const enPrompt = parts[4] || 'no humans, still life, object focus, item close-up, centered composition, detailed visual novel prop illustration, masterpiece, best quality';
+            const matchedOld = oldByName.get(clueName);
+            const list = newSubGroupCluesMap.get(sgIdx) || [];
+            if (!list.some((x) => x.name === clueName)) {
+              list.push({
+                id: matchedOld?.id || `clue_sg_${Date.now()}_${sgIdx}_${idx}`,
+                subGroupId: sgObj.id,
+                name: clueName,
+                startLineIdx: sNum,
+                lineIdx: sNum,
+                endLineIdx: eNum,
+                lineText: sgObj.scriptLines[sNum]?.text || '',
+                prompt: matchedOld?.prompt || enPrompt,
+                imageUrl: matchedOld?.imageUrl || '',
+                isManual: Boolean(matchedOld?.isManual)
+              });
+              newSubGroupCluesMap.set(sgIdx, list);
+            }
+            return;
+          }
+
           const sNum = Math.max(1, Math.min(chap.scriptLines.length, parseInt(parts[1], 10) || 1)) - 1;
           const eNum = Math.max(sNum, Math.min(chap.scriptLines.length - 1, (parseInt(parts[2], 10) || (sNum + 1)) - 1));
           const clueName = (parts[3] || '').trim();
@@ -21075,14 +21295,26 @@ ${numberedLines}`;
         });
         mergedClues.sort((a, b) => Number(a.startLineIdx ?? a.lineIdx ?? 0) - Number(b.startLineIdx ?? b.lineIdx ?? 0));
         chap.clueNodes = mergedClues;
-
         syncChapterClueLineBindings(chap);
+
+        let totalCluesCount = mergedClues.length;
+        newSubGroupCluesMap.forEach((sgClues, sgIdx) => {
+          const sgObj = chapSubGroups[sgIdx];
+          if (sgObj) {
+            sgClues.sort((a, b) => Number(a.startLineIdx ?? a.lineIdx ?? 0) - Number(b.startLineIdx ?? b.lineIdx ?? 0));
+            sgObj.clueNodes = sgClues;
+            syncSubGroupClueLineBindings(sgObj);
+            totalCluesCount += sgClues.length;
+          }
+        });
+
         await saveReplayProjectToDB(proj);
         renderReplayScriptEditor();
+        renderReplaySubGroupStudio();
         renderReplayCgStudio();
         if (statusEl) {
-          statusEl.textContent = chap.clueNodes.length > 0
-            ? `已完成严格线索筛查：本章共确认 ${chap.clueNodes.length} 个调查员真正获得或核心实证道具线索`
+          statusEl.textContent = totalCluesCount > 0
+            ? `已完成严格线索筛查：本章与小群共确认 ${totalCluesCount} 个调查员真正获得或核心实证道具线索`
             : `已完成严格线索筛查：本章未发现调查员真正获得到手的道具线索，已自动排除无关日常物品`;
         }
       } catch (err) {
@@ -21378,7 +21610,111 @@ ${numberedLines}`;
         ? proj.subGroups.filter((sg) => sg && sg.inserted && Number(sg.targetChapterIdx) === curChapIdx)
         : [];
 
-      const buildSubGroupPlaceholderCard = (sg) => {
+      const buildSubGroupLineCardEl = (sg, line, lIdx, targetChap) => {
+        syncSubGroupCgLineBindings(sg);
+        syncSubGroupClueLineBindings(sg);
+        const activeCgObj = (sg.cgNodes || []).find((g) => {
+          const s = g.startLineIdx ?? g.lineIdx ?? 0;
+          const e = g.endLineIdx ?? s;
+          return g.id === line.cgId || (lIdx >= s && lIdx <= e);
+        }) || null;
+        const hasCg = Boolean(activeCgObj);
+        const activeClueObj = (sg.clueNodes || []).find((cl) => {
+          const s = cl.startLineIdx ?? cl.lineIdx ?? 0;
+          const e = cl.endLineIdx ?? s;
+          return cl.id === line.clueId || (lIdx >= s && lIdx <= e);
+        }) || null;
+        const hasClue = Boolean(activeClueObj);
+        const isNarration = line.type === 'narration' || line.speaker === '旁白';
+
+        const speakerNames = [...baseSpeakerList];
+        if (line.speaker && !speakerNames.includes(line.speaker)) {
+          speakerNames.push(line.speaker);
+        }
+        const spkChar = (appState.characters || []).find((c) => c.name === line.speaker);
+        const expList = getCharacterAvailableExpressionPool(spkChar);
+        if (line.exp && !expList.includes(line.exp)) {
+          expList.push(line.exp);
+        }
+
+        const badges = [`<span class="vn-console-badge accent">${(sg.title || '小群').replace(/</g, '&lt;')}</span>`];
+        if (Array.isArray(line.hudEvents) && line.hudEvents.length > 0) {
+          badges.push(`<span class="vn-console-badge">检定·${line.hudEvents.length}</span>`);
+        }
+        if (line.bgmTag === '停止') {
+          badges.push(`<span class="vn-console-badge accent">停乐</span>`);
+        } else if (line.bgmTag) {
+          badges.push(`<span class="vn-console-badge">乐·${line.bgmTag}</span>`);
+        }
+        if (hasCg && activeCgObj) {
+          const cgS = (activeCgObj.startLineIdx ?? activeCgObj.lineIdx ?? lIdx) + 1;
+          const cgE = (activeCgObj.endLineIdx ?? activeCgObj.startLineIdx ?? activeCgObj.lineIdx ?? lIdx) + 1;
+          const rangeLabel = cgS === cgE ? `第${cgS}句` : `第${cgS}-${cgE}句`;
+          badges.push(`<span class="vn-console-badge accent">插图${activeCgObj.imageUrl ? '已绘' : ''}·${rangeLabel}</span>`);
+        }
+        if (hasClue && activeClueObj) {
+          badges.push(`<span class="vn-console-badge accent">线索${activeClueObj.imageUrl ? '已绘' : ''}·${activeClueObj.name || '道具'}</span>`);
+        }
+
+        const sceneOptionsList = [];
+        const seenSceneIds = new Set();
+        (targetChap?.scenes || []).forEach((s) => {
+          if (s && s.id && !seenSceneIds.has(s.id)) {
+            seenSceneIds.add(s.id);
+            sceneOptionsList.push({ id: s.id, label: s.name || s.id });
+          }
+        });
+        if (line.sceneId && line.sceneId !== 'cg_only' && !seenSceneIds.has(line.sceneId)) {
+          sceneOptionsList.push({ id: line.sceneId, label: line.sceneId });
+        }
+        sceneOptionsList.push({ id: 'cg_only', label: '无背景' });
+        const curSceneVal = line.sceneId || (targetChap?.scenes && targetChap.scenes[0]?.id) || 'scene_1';
+
+        const hasBgmMark = Boolean(line.bgmTag && String(line.bgmTag).trim());
+        const flushText = String(line.text || '').replace(/^[\s\u3000]+/gm, '');
+        if (line.text !== flushText) line.text = flushText;
+
+        const sgLineCard = document.createElement('div');
+        sgLineCard.className = 'vn-script-card';
+        sgLineCard.id = `script-sg-line-card-${sg.id}-${lIdx}`;
+        sgLineCard.style.borderLeft = '3px solid var(--accent-color)';
+        sgLineCard.innerHTML = `
+          <div class="vn-script-row-top">
+            <div class="vn-script-row-left">
+              <span class="vn-console-idx">#${lIdx + 1}</span>
+              <select class="moe-input" style="width:auto;min-width:92px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:12px;font-weight:700;" onchange="updateSubGroupScriptLineField('${sg.id}', ${lIdx}, 'speaker', this.value)">
+                ${speakerNames.map((n) => `<option value="${n.replace(/"/g, '&quot;')}" ${n === (line.speaker || '旁白') ? 'selected' : ''}>${n}</option>`).join('')}
+              </select>
+              ${!isNarration ? `
+                <select class="moe-input" style="width:auto;min-width:84px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:12px;" title="选择对应立绘差分" onchange="updateSubGroupScriptLineField('${sg.id}', ${lIdx}, 'exp', this.value)">
+                  ${expList.map((e) => `<option value="${e}" ${(line.exp || '默认') === e ? 'selected' : ''}>${e}</option>`).join('')}
+                </select>
+              ` : ''}
+              <select class="moe-input" style="width:auto;min-width:96px;max-width:150px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:12px;" title="切换当前台词显示的背景场景" onchange="updateSubGroupScriptLineField('${sg.id}', ${lIdx}, 'sceneId', this.value)">
+                ${sceneOptionsList.map((sc) => `<option value="${sc.id.replace(/"/g, '&quot;')}" ${sc.id === curSceneVal ? 'selected' : ''}>${sc.label}</option>`).join('')}
+              </select>
+              ${hasBgmMark ? `
+                <input type="text" class="moe-input" value="${(line.bgmTag || '').replace(/"/g, '&quot;')}" placeholder="音乐标记" title="填入歌名或停止，清空即可移除音乐标记" style="width:108px;height:30px;min-height:30px;padding:0 8px;font-size:11px;" onchange="updateSubGroupScriptLineField('${sg.id}', ${lIdx}, 'bgmTag', this.value)" />
+              ` : ''}
+              <div class="vn-console-badges">${badges.join('')}</div>
+            </div>
+            <div class="vn-script-row-actions">
+              <button type="button" class="moe-btn secondary vn-play-tri-btn" title="上移一句" ${lIdx === 0 ? 'disabled' : ''} onmousedown="event.stopPropagation()" onclick="moveSubGroupLineOrder('${sg.id}', ${lIdx}, -1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></button>
+              <button type="button" class="moe-btn secondary vn-play-tri-btn" title="下移一句" ${lIdx === sg.scriptLines.length - 1 ? 'disabled' : ''} onmousedown="event.stopPropagation()" onclick="moveSubGroupLineOrder('${sg.id}', ${lIdx}, 1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+              <button type="button" class="moe-btn ${hasCg ? '' : 'secondary'}" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="addManualCgForSubGroupLine('${sg.id}', ${lIdx})">${hasCg ? '撤图' : '插图'}</button>
+              ${hasCg && activeCgObj ? `<button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="jumpToSubGroupCgNode('${sg.id}', '${activeCgObj.id}')">调图</button>` : ''}
+              <button type="button" class="moe-btn ${hasClue ? '' : 'secondary'}" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="addManualClueForSubGroupLine('${sg.id}', ${lIdx})">${hasClue ? '撤索' : '线索'}</button>
+              ${hasClue && activeClueObj ? `<button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="jumpToSubGroupClueNode('${sg.id}', '${activeClueObj.id}')">调索</button>` : ''}
+              <button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="insertSubGroupLineAfter('${sg.id}', ${lIdx})">插行</button>
+              <button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onmousedown="event.stopPropagation()" onclick="deleteSubGroupLineByIdx('${sg.id}', ${lIdx}, this)">删行</button>
+            </div>
+          </div>
+          <textarea rows="2" class="moe-input" placeholder="中文台词或旁白文本" style="min-height:52px;height:52px;resize:vertical;font-size:12px;line-height:1.5;padding:6px 10px;text-indent:0;" onchange="updateSubGroupScriptLineField('${sg.id}', ${lIdx}, 'text', this.value)">${flushText}</textarea>
+        `;
+        return sgLineCard;
+      };
+
+      const appendSubGroupPlaceholderAndInlineLines = (container, sg) => {
         const sgCard = document.createElement('div');
         sgCard.className = 'vn-script-card';
         sgCard.id = `script-subgroup-placeholder-${sg.id}`;
@@ -21386,10 +21722,11 @@ ${numberedLines}`;
         sgCard.style.background = 'var(--secondary-bg)';
         sgCard.style.cursor = 'pointer';
         const lineCnt = Array.isArray(sg.scriptLines) ? sg.scriptLines.length : 0;
+        const isExpanded = Boolean(sg.inlineExpandedInScript);
         const previewSample = lineCnt > 0
           ? sg.scriptLines.slice(0, 2).map((l) => `${l.speaker || '旁白'}：${String(l.text || '').slice(0, 24)}`).join(' ｜ ')
           : '点击前往小群查看并整理消息记录';
-        sgCard.onclick = () => jumpFromChapterPlaceholderToSubGroup(sg.id);
+        sgCard.onclick = () => toggleSubGroupInlineExpandInScript(sg.id);
         sgCard.innerHTML = `
           <div class="vn-script-row-top" style="margin-bottom:2px;">
             <div class="vn-script-row-left">
@@ -21401,7 +21738,8 @@ ${numberedLines}`;
               <span class="vn-console-badge">共${lineCnt}句</span>
             </div>
             <div class="vn-script-row-actions">
-              <button type="button" class="moe-btn" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="event.stopPropagation();jumpFromChapterPlaceholderToSubGroup('${sg.id}')">查看</button>
+              <button type="button" class="moe-btn" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="event.stopPropagation();toggleSubGroupInlineExpandInScript('${sg.id}')">${isExpanded ? '收起' : '展开'}</button>
+              <button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="event.stopPropagation();jumpFromChapterPlaceholderToSubGroup('${sg.id}')">查看</button>
               <button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="event.stopPropagation();withdrawSubGroupFromChapter('${sg.id}')">撤回</button>
             </div>
           </div>
@@ -21409,7 +21747,12 @@ ${numberedLines}`;
             ${previewSample.replace(/</g, '&lt;')}
           </div>
         `;
-        return sgCard;
+        container.appendChild(sgCard);
+        if (isExpanded && Array.isArray(sg.scriptLines) && sg.scriptLines.length > 0) {
+          sg.scriptLines.forEach((sgLine, sgLineIdx) => {
+            container.appendChild(buildSubGroupLineCardEl(sg, sgLine, sgLineIdx, chap));
+          });
+        }
       };
 
       box.innerHTML = '';
@@ -21417,7 +21760,7 @@ ${numberedLines}`;
         chapSubGroups
           .filter((sg) => Number(sg.insertAfterLineIdx) < 0)
           .forEach((sg) => {
-            box.appendChild(buildSubGroupPlaceholderCard(sg));
+            appendSubGroupPlaceholderAndInlineLines(box, sg);
           });
       }
 
@@ -21549,7 +21892,7 @@ ${numberedLines}`;
               return Number(sg.insertAfterLineIdx) >= 0 && targetPos === idx;
             })
             .forEach((sg) => {
-              box.appendChild(buildSubGroupPlaceholderCard(sg));
+              appendSubGroupPlaceholderAndInlineLines(box, sg);
             });
         }
       });
@@ -21563,17 +21906,20 @@ ${numberedLines}`;
     }
 
     // ==================== 小群独立整理与章节位置插入工作台 ====================
-    const DEFAULT_SUBGROUP_SCRIPT_PROMPT = `你是专业跑团Replay视觉小说导演与台本编辑。现在主线章节的中间穿插了一段小群私聊记录。我将同时提供主线整篇章节的上下文、全体登场角色人设、各自可用差分池，以及这段小群的待整理消息记录。
-请你结合整篇主线章节的前因后果与人物关系，只针对这段小群的消息记录完成剧本化整理、角色发言归属、立绘差分匹配、背景纯音乐编排与对话日语配音翻译，严格遵守以下规则：
+    const DEFAULT_SUBGROUP_SCRIPT_PROMPT = `你是专业跑团Replay视觉小说导演与台本编辑。现在主线章节的中间穿插了一段小群私聊记录。我将同时提供主线整篇章节的上下文、本章节可用场景地图、全体登场角色人设、各自可用差分池，以及这段小群的待整理消息记录。
+请你结合整篇主线章节的前因后果与人物关系，只针对这段小群的消息记录完成剧本化整理、角色发言归属、立绘差分匹配、场景衔接、背景纯音乐编排与对话日语配音翻译，严格遵守以下规则：
 规则一：只整理下方标有 S行号 的小群消息行，绝对不要输出或修改主线章节的台词！
-规则二：所有角色的动作描写、神态描写与环境互动一律归为旁白 narration 且采用第三人称顶格书写；角色的对话行 dialogue 中只保留角色亲口说出的第一人称纯台词！若原句同时含动作描写与说话台词，拆成多条相同 S行号 的 LINE_UPDATE 按先后顺序输出。
+规则二：所有角色的动作描写、神态描写与环境互动一律归为旁白 narration 且采用第三人称顶格书写，严禁出现你或你们等第二人称；角色的对话行 dialogue 中只保留角色亲口说出的第一人称纯台词！若原句同时含动作描写与说话台词，拆成多条相同 S行号 的 LINE_UPDATE 按先后顺序输出。
 规则三：彻底剔除骰娘指令、绑卡、改名、检定过程等系统废话，将其类型标为 delete。
 规则四：立绘差分切换必须严格从下方提供的该角色可用差分池中选择！调查员与主要NPC使用36基础差分加专属差分，次要NPC仅使用12基础差分，绝对禁止原创池子之外的差分名字！
 规则五：为这段小群规划 1 到 3 处贴合私聊氛围的日本乙女游戏、BL抓马或Galgame纯音乐 BGM_REC，以及需要留白时的 BGM_STOP，同一情绪复用同一首纯音乐，绝对禁止带人声演唱的歌曲！
-规则六：所有对话台词 dialogue 必须在最后一个字段写出贴合角色性格与称呼习惯的口语化日语配音翻译，不带人名前缀；旁白 narration 最后一个字段填无。
+规则六：若小群中发生了高光剧情画面，可规划 0 到 2 处 CG_MARK 插图区间；并按剧情所在地点输出 SCENE_RANGE 绑定场景标识。
+规则七：所有对话台词 dialogue 必须在最后一个字段写出贴合角色性格与称呼习惯的口语化日语配音翻译，不带人名前缀；旁白 narration 最后一个字段填无。
 
 从头到尾严禁使用任何圆括号或方括号，严格按以下行格式输出：
 LINE_UPDATE: S行号|类型dialogue或narration或delete|说话人姓名或旁白|该角色可用差分池内的准确表情名称|音效名称或无|演出特效none或shake_char或zoom_char或jump_char或shake_screen|顶格纯中文台词或第三人称旁白文本|仅对话必填的纯日语翻译或旁白填无
+SCENE_RANGE: S起始行号-S结束行号|场景标识如scene_1
+CG_MARK: S起始行号-S结束行号|插图标题|纯英文动漫CG绘图提示词
 BGM_REC: S行号|纯音乐曲名|作曲家或原声带名称|氛围分类如日常或悬疑或诡异或战斗或抒情或欢快
 BGM_STOP: S行号`;
 
@@ -21633,7 +21979,166 @@ BGM_STOP: S行号`;
       if (!Array.isArray(proj.subGroups)) {
         proj.subGroups = [];
       }
+      proj.subGroups.forEach((sg) => {
+        if (!sg) return;
+        if (!Array.isArray(sg.scriptLines)) sg.scriptLines = [];
+        if (!Array.isArray(sg.cgNodes)) sg.cgNodes = [];
+        if (!Array.isArray(sg.clueNodes)) sg.clueNodes = [];
+        if (typeof sg.inlineExpandedInScript !== 'boolean') sg.inlineExpandedInScript = false;
+      });
       return proj.subGroups;
+    }
+
+    function syncSubGroupCgLineBindings(sg) {
+      if (!sg || !Array.isArray(sg.scriptLines)) return;
+      if (!Array.isArray(sg.cgNodes)) sg.cgNodes = [];
+      const maxIdx = Math.max(0, sg.scriptLines.length - 1);
+      sg.scriptLines.forEach((l) => {
+        if (l) delete l.cgId;
+      });
+      sg.cgNodes.forEach((cg) => {
+        if (!cg) return;
+        let s = Number.isFinite(Number(cg.startLineIdx)) ? Number(cg.startLineIdx) : (Number(cg.lineIdx) || 0);
+        let e = Number.isFinite(Number(cg.endLineIdx)) ? Number(cg.endLineIdx) : s;
+        s = Math.max(0, Math.min(maxIdx, s));
+        e = Math.max(s, Math.min(maxIdx, e));
+        cg.startLineIdx = s;
+        cg.endLineIdx = e;
+        cg.lineIdx = s;
+        cg.subGroupId = sg.id;
+        for (let i = s; i <= e; i++) {
+          if (sg.scriptLines[i]) {
+            sg.scriptLines[i].cgId = cg.id;
+          }
+        }
+      });
+    }
+
+    function syncSubGroupClueLineBindings(sg) {
+      if (!sg || !Array.isArray(sg.scriptLines)) return;
+      if (!Array.isArray(sg.clueNodes)) sg.clueNodes = [];
+      const maxIdx = Math.max(0, sg.scriptLines.length - 1);
+      sg.scriptLines.forEach((l) => {
+        if (l) delete l.clueId;
+      });
+      sg.clueNodes.forEach((cl) => {
+        if (!cl) return;
+        let s = Number.isFinite(Number(cl.startLineIdx)) ? Number(cl.startLineIdx) : (Number(cl.lineIdx) || 0);
+        let e = Number.isFinite(Number(cl.endLineIdx)) ? Number(cl.endLineIdx) : s;
+        s = Math.max(0, Math.min(maxIdx, s));
+        e = Math.max(s, Math.min(maxIdx, e));
+        cl.startLineIdx = s;
+        cl.endLineIdx = e;
+        cl.lineIdx = s;
+        cl.subGroupId = sg.id;
+        for (let i = s; i <= e; i++) {
+          if (sg.scriptLines[i]) {
+            sg.scriptLines[i].clueId = cl.id;
+          }
+        }
+      });
+    }
+
+    async function toggleSubGroupInlineExpandInScript(sgId) {
+      const proj = getCurrentReplayProject();
+      if (!proj) return;
+      const sg = ensureProjectSubGroupsArray(proj).find((x) => x && x.id === sgId);
+      if (!sg) return;
+      sg.inlineExpandedInScript = !sg.inlineExpandedInScript;
+      await saveReplayProjectToDB(proj);
+      renderReplayScriptEditor();
+    }
+
+    async function addManualCgForSubGroupLine(sgId, lineIdx) {
+      const proj = getCurrentReplayProject();
+      if (!proj) return;
+      const sg = ensureProjectSubGroupsArray(proj).find((x) => x && x.id === sgId);
+      if (!sg || !Array.isArray(sg.scriptLines) || !sg.scriptLines[lineIdx]) return;
+      if (!Array.isArray(sg.cgNodes)) sg.cgNodes = [];
+      const line = sg.scriptLines[lineIdx];
+      const existingIdx = sg.cgNodes.findIndex((g) => {
+        const s = g.startLineIdx ?? g.lineIdx ?? 0;
+        const e = g.endLineIdx ?? s;
+        return g.id === line.cgId || (lineIdx >= s && lineIdx <= e);
+      });
+      if (existingIdx >= 0) {
+        sg.cgNodes.splice(existingIdx, 1);
+      } else {
+        const endIdx = Math.min(sg.scriptLines.length - 1, lineIdx + 2);
+        const newCg = {
+          id: 'cg_sg_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+          subGroupId: sg.id,
+          title: `${sg.title || '小群'}插图 ${sg.cgNodes.length + 1}`,
+          lineIdx,
+          startLineIdx: lineIdx,
+          endLineIdx: endIdx,
+          speaker: line.speaker || '旁白',
+          prompt: '',
+          imageUrl: ''
+        };
+        sg.cgNodes.push(newCg);
+      }
+      syncSubGroupCgLineBindings(sg);
+      await saveReplayProjectToDB(proj);
+      renderReplayScriptEditor();
+      renderReplaySubGroupStudio();
+      renderReplayCgStudio();
+    }
+
+    async function addManualClueForSubGroupLine(sgId, lineIdx) {
+      const proj = getCurrentReplayProject();
+      if (!proj) return;
+      const sg = ensureProjectSubGroupsArray(proj).find((x) => x && x.id === sgId);
+      if (!sg || !Array.isArray(sg.scriptLines) || !sg.scriptLines[lineIdx]) return;
+      if (!Array.isArray(sg.clueNodes)) sg.clueNodes = [];
+      const line = sg.scriptLines[lineIdx];
+      const existingIdx = sg.clueNodes.findIndex((cl) => {
+        const s = cl.startLineIdx ?? cl.lineIdx ?? 0;
+        const e = cl.endLineIdx ?? s;
+        return cl.id === line.clueId || (lineIdx >= s && lineIdx <= e);
+      });
+      if (existingIdx >= 0) {
+        sg.clueNodes.splice(existingIdx, 1);
+      } else {
+        const endIdx = Math.min(sg.scriptLines.length - 1, lineIdx + 1);
+        const newClue = {
+          id: 'clue_sg_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+          subGroupId: sg.id,
+          name: `${sg.title || '小群'}线索 ${sg.clueNodes.length + 1}`,
+          desc: String(line.text || '').slice(0, 80),
+          lineIdx,
+          startLineIdx: lineIdx,
+          endLineIdx: endIdx,
+          prompt: 'anime style close-up object illustration, tabletop RPG key clue item, clean composition, no characters, high detail',
+          imageUrl: ''
+        };
+        sg.clueNodes.push(newClue);
+      }
+      syncSubGroupClueLineBindings(sg);
+      await saveReplayProjectToDB(proj);
+      renderReplayScriptEditor();
+      renderReplaySubGroupStudio();
+      renderReplayCgStudio();
+    }
+
+    function jumpToSubGroupCgNode(sgId, cgId) {
+      switchSubPage('screen-replay', 'replay-sub-cg');
+      switchCgStudioSubTab('cg');
+      renderReplayCgStudio();
+      setTimeout(() => {
+        const el = document.getElementById(`cg-studio-card-${cgId}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 80);
+    }
+
+    function jumpToSubGroupClueNode(sgId, clueId) {
+      switchSubPage('screen-replay', 'replay-sub-cg');
+      switchCgStudioSubTab('clue');
+      renderReplayCgStudio();
+      setTimeout(() => {
+        const el = document.getElementById(`clue-studio-card-${clueId}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 80);
     }
 
     async function createNewReplaySubGroup() {
@@ -21649,11 +22154,14 @@ BGM_STOP: S行号`;
         id: 'sg_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
         title: `小群 ${list.length + 1}`,
         collapsed: false,
+        inlineExpandedInScript: false,
         rawText: '',
         targetChapterIdx: curChapIdx,
         insertAfterLineIdx: defaultLineIdx,
         inserted: false,
         scriptLines: [],
+        cgNodes: [],
+        clueNodes: [],
         danmakuList: []
       };
       list.push(newSg);
@@ -21698,6 +22206,8 @@ BGM_STOP: S行号`;
       await saveReplayProjectToDB(proj);
       renderReplaySubGroupStudio();
       renderReplayScriptEditor();
+      renderReplayCgStudio();
+      renderReplayVoiceStudio();
     }
 
     async function updateReplaySubGroupMeta(sgId, field, val) {
@@ -21716,6 +22226,8 @@ BGM_STOP: S行号`;
         await saveReplayProjectToDB(proj);
         renderReplaySubGroupStudio();
         renderReplayScriptEditor();
+        renderReplayCgStudio();
+        renderReplayVoiceStudio();
         return;
       }
       if (field === 'insertAfterLineIdx') {
@@ -21724,12 +22236,15 @@ BGM_STOP: S行号`;
         await saveReplayProjectToDB(proj);
         renderReplaySubGroupStudio();
         renderReplayScriptEditor();
+        renderReplayVoiceStudio();
         return;
       }
       sg[field] = val;
       await saveReplayProjectToDB(proj);
       if (field === 'title') {
         renderReplayScriptEditor();
+        renderReplayCgStudio();
+        renderReplayVoiceStudio();
       }
     }
 
@@ -21779,6 +22294,8 @@ BGM_STOP: S行号`;
         renderReplaySubGroupStudio();
       }
       renderReplayScriptEditor();
+      renderReplayCgStudio();
+      renderReplayVoiceStudio();
     }
 
     async function withdrawSubGroupFromChapter(sgId) {
@@ -21790,6 +22307,8 @@ BGM_STOP: S行号`;
       await saveReplayProjectToDB(proj);
       renderReplaySubGroupStudio();
       renderReplayScriptEditor();
+      renderReplayCgStudio();
+      renderReplayVoiceStudio();
     }
 
     function jumpFromChapterPlaceholderToSubGroup(sgId) {
@@ -21849,7 +22368,7 @@ BGM_STOP: S行号`;
       if (btn) { btn.textContent = '整理中'; btn.disabled = true; }
       if (statusEl) {
         statusEl.style.display = 'block';
-        statusEl.textContent = `正在结合主线章节全文上下文整理 ${sg.title} 的消息、立绘差分与配乐...`;
+        statusEl.textContent = `正在结合主线章节全文上下文整理 ${sg.title} 的消息、立绘差分、日语翻译与配乐...`;
       }
 
       try {
@@ -21913,7 +22432,7 @@ BGM_STOP: S行号`;
           const segments = [`名字:${name}`, `身份定位:${roleType}`];
           if (fieldCfg.age !== false) segments.push(`年龄:${p.age || c?.age || '未知'}`);
           if (fieldCfg.appearance !== false) segments.push(`外貌:${p.appearance || c?.body || c?.desc || ''}`);
-          if (fieldCfg.personality !== false) segments.push(`性格与称呼语气:${p.personality || c?.quirk || '自然'}`);
+          if (fieldCfg.personality !== false) segments.push(`性格与称呼习惯:${p.personality || c?.quirk || '自然'}`);
           if (fieldCfg.background !== false) segments.push(`背景:${p.background || c?.surface || ''}`);
           if (fieldCfg.weaponItems !== false) segments.push(`武器随身携带道具:${p.weaponItems || c?.weapon || ''}`);
           segments.push(`该角色全部可用差分池:${pool.join('、')}`);
@@ -21921,9 +22440,13 @@ BGM_STOP: S行号`;
         }).join('\n');
 
         let chapterContextView = '当前未选择主线章节';
+        let inheritedSceneId = (targetChap?.scenes && targetChap.scenes[0]?.id) || 'scene_1';
         if (targetChap) {
           if (Array.isArray(targetChap.scriptLines) && targetChap.scriptLines.length > 0) {
             const insPos = Math.max(0, Math.min(targetChap.scriptLines.length - 1, Number(sg.insertAfterLineIdx) || 0));
+            if (targetChap.scriptLines[insPos]?.sceneId) {
+              inheritedSceneId = targetChap.scriptLines[insPos].sceneId;
+            }
             const chapLinesStr = targetChap.scriptLines
               .map((l, idx) => `主线#${idx + 1}${idx === insPos ? '[此处插入小群]' : ''}|${l.speaker || '旁白'}|${l.text || ''}`)
               .join('\n');
@@ -21933,11 +22456,18 @@ BGM_STOP: S行号`;
           }
         }
 
+        const sceneContextLines = Array.isArray(targetChap?.scenes) && targetChap.scenes.length > 0
+          ? targetChap.scenes.map((sc) => `${sc.id}|${sc.name || sc.id}`).join('\n')
+          : `${inheritedSceneId}|默认场景`;
+
         const numberedSubGroupLines = baseLines.map((l, idx) => `S${idx}|${l.type}|${l.speaker}|${l.text}`).join('\n');
 
         const sysPrompt = getCustomOrDefaultSubGroupPrompt();
         const userPrompt = `本模组调查员名单：
 ${investigatorNames.join('、') || '调查员'}
+
+本章节可用场景列表：
+${sceneContextLines}
 
 调查员与主要NPC可用36差分池：
 ${defaultPoolList.join('、')}
@@ -21967,6 +22497,13 @@ ${numberedSubGroupLines}`;
         const aiLineReplacements = new Map();
         const bgmRecommendations = [];
         const bgmStopLines = [];
+        const sceneRanges = [];
+        const cgMarks = [];
+        const sortedInvestigators = [...investigatorNames].sort((a, b) => b.length - a.length);
+        const primaryInvestigatorName = sortedInvestigators[0] || '调查员';
+        const multiInvestigatorNames = sortedInvestigators.length > 1
+          ? sortedInvestigators.slice(0, 3).join('与')
+          : (sortedInvestigators[0] ? `${sortedInvestigators[0]}一行人` : '调查员们');
 
         if (aiReply) {
           aiReply.split('\n').forEach((rawLine) => {
@@ -22010,31 +22547,81 @@ ${numberedSubGroupLines}`;
                         .trim();
                       if (cleanedAiText) newText = cleanedAiText;
                     }
+                    if (newType === 'narration' || newSpeaker === '旁白') {
+                      newText = newText
+                        .replace(/你们/g, multiInvestigatorNames)
+                        .replace(/你/g, primaryInvestigatorName);
+                    }
                     let newJp = '';
-                    if (newType !== 'narration' && newSpeaker !== '旁白' && parts[7]) {
-                      const jpCandidate = cleanJapaneseLineText(parts.slice(7).join('|').trim(), newSpeaker);
-                      if (jpCandidate && jpCandidate !== '无' && jpCandidate !== 'none') {
-                        newJp = jpCandidate;
+                    let newTtsEmotion = 'neutral';
+                    let newTtsSpeed = 1.0;
+                    let newTtsPitch = 0;
+                    if (newType !== 'narration' && newSpeaker !== '旁白' && parts.length >= 8) {
+                      if (parts.length >= 9 && /^(neutral|happy|sad|angry|fearful|surprised|shy|cold|serious|whisper|excited)$/i.test(parts[7])) {
+                        newTtsEmotion = parts[7].toLowerCase();
+                        const jpRaw = parts.slice(8).join('|').trim();
+                        const jpCandidate = cleanJapaneseLineText(jpRaw, newSpeaker);
+                        if (jpCandidate && jpCandidate !== '无' && jpCandidate !== 'none') {
+                          newJp = jpCandidate;
+                        }
+                      } else {
+                        const jpCandidate = cleanJapaneseLineText(parts.slice(7).join('|').trim(), newSpeaker);
+                        if (jpCandidate && jpCandidate !== '无' && jpCandidate !== 'none') {
+                          newJp = jpCandidate;
+                        }
                       }
                     }
                     if (!aiLineReplacements.has(idx)) {
                       aiLineReplacements.set(idx, []);
                     }
                     const repList = aiLineReplacements.get(idx);
-                    const isFirstSub = repList.length === 0;
-                    repList.push({
-                      ...origObj,
-                      id: isFirstSub ? origObj.id : `${origObj.id}_sg_${repList.length}`,
-                      type: newType,
-                      speaker: newSpeaker,
-                      exp: newExp,
-                      sfxTag: newSfx,
-                      effect: newEffect,
-                      text: newText,
-                      jpText: newJp,
-                      bgmTag: isFirstSub ? (origObj.bgmTag || '') : ''
+                    const textChunks = typeof splitOverlongSegmentIntoChunks === 'function'
+                      ? splitOverlongSegmentIntoChunks(newText, 85)
+                      : [newText];
+                    textChunks.forEach((chunkTxt, chunkIdx) => {
+                      const isFirstSub = repList.length === 0 && chunkIdx === 0;
+                      repList.push({
+                        ...origObj,
+                        id: isFirstSub ? origObj.id : `${origObj.id}_sg_${repList.length}_${chunkIdx}`,
+                        type: newType,
+                        speaker: newSpeaker,
+                        exp: newExp,
+                        sfxTag: isFirstSub ? newSfx : '',
+                        effect: isFirstSub ? newEffect : 'none',
+                        text: chunkTxt,
+                        jpText: chunkIdx === 0 ? newJp : '',
+                        ttsEmotion: newTtsEmotion,
+                        ttsSpeed: newTtsSpeed,
+                        ttsPitch: newTtsPitch,
+                        bgmTag: isFirstSub ? (origObj.bgmTag || '') : ''
+                      });
                     });
                   }
+                }
+              }
+            } else if (line.startsWith('SCENE_RANGE:')) {
+              const parts = line.replace(/^SCENE_RANGE:\s*/i, '').split('|').map((s) => s.trim());
+              if (parts.length >= 2) {
+                const rm = parts[0].match(/[SL]?(\d+)\s*[-~至]\s*[SL]?(\d+)/i) || parts[0].match(/[SL]?(\d+)/i);
+                if (rm) {
+                  const sIdx = Math.max(0, Math.min(baseLines.length - 1, parseInt(rm[1], 10)));
+                  const eIdx = rm[2] !== undefined ? Math.max(sIdx, Math.min(baseLines.length - 1, parseInt(rm[2], 10))) : sIdx;
+                  sceneRanges.push({ startOrigIdx: sIdx, endOrigIdx: eIdx, sceneId: parts[1] });
+                }
+              }
+            } else if (line.startsWith('CG_MARK:') || line.startsWith('CG_PLAN:')) {
+              const parts = line.replace(/^CG_(?:MARK|PLAN):\s*/i, '').split('|').map((s) => s.trim());
+              if (parts.length >= 2) {
+                const rm = parts[0].match(/[SL]?(\d+)\s*[-~至]\s*[SL]?(\d+)/i) || parts[0].match(/[SL]?(\d+)/i);
+                if (rm) {
+                  const sIdx = Math.max(0, Math.min(baseLines.length - 1, parseInt(rm[1], 10)));
+                  const eIdx = rm[2] !== undefined ? Math.max(sIdx, Math.min(baseLines.length - 1, parseInt(rm[2], 10))) : sIdx;
+                  cgMarks.push({
+                    startOrigIdx: sIdx,
+                    endOrigIdx: eIdx,
+                    title: parts[1] || `${sg.title}插图`,
+                    prompt: parts[2] || ''
+                  });
                 }
               }
             } else if (line.startsWith('BGM_REC:') || line.startsWith('BGM_MARK:') || line.startsWith('BGM:')) {
@@ -22069,6 +22656,8 @@ ${numberedSubGroupLines}`;
           });
         }
 
+        const origToNewFirstIdx = new Map();
+        const origToNewLastIdx = new Map();
         const filteredLines = [];
         let pendingCarryBgmRec = null;
         let pendingCarryBgmTag = '';
@@ -22107,9 +22696,102 @@ ${numberedSubGroupLines}`;
             if (isUselessSystemNoticeText(l.speaker, l.text)) return;
             l.text = String(l.text || '').replace(/^[\s\u3000]+/gm, '').trim();
             if (!l.text) return;
+            const newIdx = filteredLines.length;
+            if (!origToNewFirstIdx.has(origIdx)) origToNewFirstIdx.set(origIdx, newIdx);
+            origToNewLastIdx.set(origIdx, newIdx);
+            if (!l.sceneId) l.sceneId = inheritedSceneId;
             filteredLines.push(l);
           });
         });
+
+        sceneRanges.forEach((sr) => {
+          const sNew = origToNewFirstIdx.get(sr.startOrigIdx) ?? 0;
+          const eNew = origToNewLastIdx.get(sr.endOrigIdx) ?? sNew;
+          for (let i = sNew; i <= eNew && i < filteredLines.length; i++) {
+            filteredLines[i].sceneId = sr.sceneId;
+          }
+        });
+
+        if (cgMarks.length > 0) {
+          const existingEarnedMap = new Map();
+          (sg.cgNodes || []).forEach((g) => {
+            if (g && g.imageUrl) existingEarnedMap.set(`${g.startLineIdx}-${g.endLineIdx}`, g.imageUrl);
+          });
+          sg.cgNodes = cgMarks.slice(0, 3).map((cm, cIdx) => {
+            const sNew = origToNewFirstIdx.get(cm.startOrigIdx) ?? 0;
+            const eNew = Math.max(sNew, origToNewLastIdx.get(cm.endOrigIdx) ?? sNew);
+            return {
+              id: 'cg_sg_' + Date.now() + '_' + cIdx,
+              subGroupId: sg.id,
+              title: cm.title || `${sg.title}插图 ${cIdx + 1}`,
+              lineIdx: sNew,
+              startLineIdx: sNew,
+              endLineIdx: eNew,
+              speaker: filteredLines[sNew]?.speaker || '旁白',
+              prompt: cm.prompt || '',
+              imageUrl: existingEarnedMap.get(`${sNew}-${eNew}`) || ''
+            };
+          });
+        }
+
+        // 自动检测小群漏译台词并补齐日语翻译与配音情绪参数
+        const untranslatedSubLines = [];
+        filteredLines.forEach((l, fIdx) => {
+          if (l && l.type !== 'narration' && l.speaker && l.speaker !== '旁白' && (!l.jpText || !String(l.jpText).trim())) {
+            untranslatedSubLines.push({ fIdx, line: l });
+          }
+        });
+        if (untranslatedSubLines.length > 0) {
+          if (statusEl) {
+            statusEl.textContent = `正在补齐 ${sg.title} 的 ${untranslatedSubLines.length} 句日语配音翻译...`;
+          }
+          try {
+            const batchPayload = untranslatedSubLines
+              .map((item) => `U${item.fIdx}|${item.line.speaker}|${item.line.exp || '默认'}|${item.line.text}`)
+              .join('\n');
+            const jpFillReply = await callLlmCompletion(
+              [
+                {
+                  role: 'system',
+                  content: `你是日本Galgame与视觉小说台本翻译及声优导演。请将以下角色中文台词逐句翻译为自然、口语化、贴合角色性格与立绘情绪的纯日语配音台词，同时给出配音情绪标签、语速倍率与音调偏移。严禁使用任何括号，严格按以下格式输出：\nJP_FILL: U行号|配音情绪neutral或happy或sad或angry或fearful或surprised或shy或cold或serious或whisper或excited|语速0.85至1.20|音调-4至4|不带人名前缀的纯日语台词`
+                },
+                {
+                  role: 'user',
+                  content: `角色人设参考：\n${charContextLines}\n\n待补齐日语翻译的小群台词：\n${batchPayload}`
+                }
+              ],
+              null,
+              { caller: `小群日语漏译补齐·${sg.title}`, preferSubApi: true }
+            );
+            if (jpFillReply) {
+              jpFillReply.split('\n').forEach((rawLine) => {
+                const line = rawLine.trim();
+                if (!line.startsWith('JP_FILL:')) return;
+                const parts = line.replace(/^JP_FILL:\s*/i, '').split('|').map((s) => s.trim());
+                if (parts.length < 2) return;
+                const m = parts[0].match(/U?(\d+)/i);
+                const fIdx = m ? parseInt(m[1], 10) : -1;
+                if (fIdx < 0 || fIdx >= filteredLines.length) return;
+                const targetObj = filteredLines[fIdx];
+                if (!targetObj) return;
+                if (parts.length >= 5) {
+                  targetObj.ttsEmotion = parts[1] || 'neutral';
+                  const spd = parseFloat(parts[2]);
+                  if (!isNaN(spd)) targetObj.ttsSpeed = Math.max(0.7, Math.min(1.4, spd));
+                  const ptc = parseFloat(parts[3]);
+                  if (!isNaN(ptc)) targetObj.ttsPitch = Math.max(-10, Math.min(10, ptc));
+                  const cleanedJp = cleanJapaneseLineText(parts.slice(4).join('|').trim(), targetObj.speaker);
+                  if (cleanedJp) targetObj.jpText = cleanedJp;
+                } else {
+                  const cleanedJp = cleanJapaneseLineText(parts.slice(1).join('|').trim(), targetObj.speaker);
+                  if (cleanedJp) targetObj.jpText = cleanedJp;
+                }
+              });
+            }
+          } catch (jpErr) {
+            console.warn('小群日语补译异常:', jpErr);
+          }
+        }
 
         const chapterMoodBgmMap = new Map();
         for (let fIdx = 0; fIdx < filteredLines.length; fIdx++) {
@@ -22149,9 +22831,13 @@ ${numberedSubGroupLines}`;
 
         computeChapterStageSlots(filteredLines);
         sg.scriptLines = filteredLines;
+        syncSubGroupCgLineBindings(sg);
+        syncSubGroupClueLineBindings(sg);
         await saveReplayProjectToDB(proj);
         renderReplaySubGroupStudio();
         renderReplayScriptEditor();
+        renderReplayCgStudio();
+        renderReplayVoiceStudio();
         if (statusEl) {
           statusEl.textContent = `${sg.title} 整理完成：共 ${filteredLines.length} 句台词`;
         }
@@ -22243,6 +22929,7 @@ BGM_STOP: L行号`;
         }
         await saveReplayProjectToDB(proj);
         renderReplaySubGroupStudio();
+        renderReplayScriptEditor();
       } catch (err) {
         alert('小群配乐失败：' + err.message);
       } finally {
@@ -22307,6 +22994,7 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
         }
         await saveReplayProjectToDB(proj);
         renderReplaySubGroupStudio();
+        renderReplayScriptEditor();
       } catch (err) {
         alert('小群差分匹配失败：' + err.message);
       } finally {
@@ -22357,6 +23045,7 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
         renderReplaySubGroupStudio();
       }
       renderReplayScriptEditor();
+      renderReplayVoiceStudio();
     }
 
     async function moveSubGroupLineOrder(sgId, lineIdx, delta) {
@@ -22373,6 +23062,7 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
       await saveReplayProjectToDB(proj);
       renderReplaySubGroupStudio();
       renderReplayScriptEditor();
+      renderReplayVoiceStudio();
     }
 
     async function insertSubGroupLineAfter(sgId, lineIdx) {
@@ -22390,6 +23080,7 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
         text: '新插入台词',
         jpText: '',
         exp: '默认',
+        sceneId: refLine.sceneId || 'scene_1',
         sfxTag: '',
         bgmTag: '',
         presentSpeakers: [...(refLine.presentSpeakers || [])]
@@ -22399,10 +23090,30 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
       } else {
         sg.scriptLines.splice(safeIdx + 1, 0, newLine);
       }
+      if (Array.isArray(sg.cgNodes)) {
+        sg.cgNodes.forEach((cg) => {
+          if (!cg) return;
+          if ((cg.startLineIdx ?? 0) > safeIdx) cg.startLineIdx += 1;
+          if ((cg.endLineIdx ?? 0) > safeIdx) cg.endLineIdx += 1;
+          cg.lineIdx = cg.startLineIdx;
+        });
+      }
+      if (Array.isArray(sg.clueNodes)) {
+        sg.clueNodes.forEach((cl) => {
+          if (!cl) return;
+          if ((cl.startLineIdx ?? 0) > safeIdx) cl.startLineIdx += 1;
+          if ((cl.endLineIdx ?? 0) > safeIdx) cl.endLineIdx += 1;
+          cl.lineIdx = cl.startLineIdx;
+        });
+      }
+      syncSubGroupCgLineBindings(sg);
+      syncSubGroupClueLineBindings(sg);
       computeChapterStageSlots(sg.scriptLines);
       await saveReplayProjectToDB(proj);
       renderReplaySubGroupStudio();
       renderReplayScriptEditor();
+      renderReplayCgStudio();
+      renderReplayVoiceStudio();
     }
 
     async function deleteSubGroupLineByIdx(sgId, lineIdx, btnEl = null) {
@@ -22427,10 +23138,51 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
       const sg = ensureProjectSubGroupsArray(proj).find((x) => x && x.id === sgId);
       if (!sg || !Array.isArray(sg.scriptLines) || !sg.scriptLines[lineIdx]) return;
       sg.scriptLines.splice(lineIdx, 1);
+      const maxRemainingIdx = Math.max(0, sg.scriptLines.length - 1);
+      if (Array.isArray(sg.cgNodes)) {
+        sg.cgNodes = sg.cgNodes.filter((cg) => {
+          if (!cg) return false;
+          let s = cg.startLineIdx ?? cg.lineIdx ?? 0;
+          let e = cg.endLineIdx ?? s;
+          if (s === lineIdx && e === lineIdx && sg.scriptLines.length === 0) return false;
+          if (lineIdx < s) {
+            s = Math.max(0, s - 1);
+            e = Math.max(s, e - 1);
+          } else if (lineIdx <= e) {
+            e = Math.max(s, e - 1);
+          }
+          cg.startLineIdx = Math.min(maxRemainingIdx, s);
+          cg.endLineIdx = Math.min(maxRemainingIdx, Math.max(cg.startLineIdx, e));
+          cg.lineIdx = cg.startLineIdx;
+          return true;
+        });
+      }
+      if (Array.isArray(sg.clueNodes)) {
+        sg.clueNodes = sg.clueNodes.filter((cl) => {
+          if (!cl) return false;
+          let s = cl.startLineIdx ?? cl.lineIdx ?? 0;
+          let e = cl.endLineIdx ?? s;
+          if (s === lineIdx && e === lineIdx && sg.scriptLines.length === 0) return false;
+          if (lineIdx < s) {
+            s = Math.max(0, s - 1);
+            e = Math.max(s, e - 1);
+          } else if (lineIdx <= e) {
+            e = Math.max(s, e - 1);
+          }
+          cl.startLineIdx = Math.min(maxRemainingIdx, s);
+          cl.endLineIdx = Math.min(maxRemainingIdx, Math.max(cl.startLineIdx, e));
+          cl.lineIdx = cl.startLineIdx;
+          return true;
+        });
+      }
+      syncSubGroupCgLineBindings(sg);
+      syncSubGroupClueLineBindings(sg);
       computeChapterStageSlots(sg.scriptLines);
       await saveReplayProjectToDB(proj);
       renderReplaySubGroupStudio();
       renderReplayScriptEditor();
+      renderReplayCgStudio();
+      renderReplayVoiceStudio();
     }
 
     function renderReplaySubGroupStudio() {
@@ -22473,6 +23225,8 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
       box.innerHTML = '';
       subGroups.forEach((sg, sgIdx) => {
         if (!sg) return;
+        syncSubGroupCgLineBindings(sg);
+        syncSubGroupClueLineBindings(sg);
         const tChapIdx = Math.max(0, Math.min(Math.max(0, chaps.length - 1), Number(sg.targetChapterIdx) || 0));
         const targetChap = chaps[tChapIdx] || null;
         const chapLines = Array.isArray(targetChap?.scriptLines) ? targetChap.scriptLines : [];
@@ -22507,6 +23261,18 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
             `;
           } else {
             linesHtml = sg.scriptLines.map((line, lIdx) => {
+              const activeCgObj = (sg.cgNodes || []).find((g) => {
+                const s = g.startLineIdx ?? g.lineIdx ?? 0;
+                const e = g.endLineIdx ?? s;
+                return g.id === line.cgId || (lIdx >= s && lIdx <= e);
+              }) || null;
+              const hasCg = Boolean(activeCgObj);
+              const activeClueObj = (sg.clueNodes || []).find((cl) => {
+                const s = cl.startLineIdx ?? cl.lineIdx ?? 0;
+                const e = cl.endLineIdx ?? s;
+                return cl.id === line.clueId || (lIdx >= s && lIdx <= e);
+              }) || null;
+              const hasClue = Boolean(activeClueObj);
               const isNarration = line.type === 'narration' || line.speaker === '旁白';
               const speakerNames = [...baseSpeakerList];
               if (line.speaker && !speakerNames.includes(line.speaker)) {
@@ -22517,6 +23283,40 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
               if (line.exp && !expList.includes(line.exp)) {
                 expList.push(line.exp);
               }
+
+              const badges = [];
+              if (Array.isArray(line.hudEvents) && line.hudEvents.length > 0) {
+                badges.push(`<span class="vn-console-badge">检定·${line.hudEvents.length}</span>`);
+              }
+              if (line.bgmTag === '停止') {
+                badges.push(`<span class="vn-console-badge accent">停乐</span>`);
+              } else if (line.bgmTag) {
+                badges.push(`<span class="vn-console-badge">乐·${line.bgmTag}</span>`);
+              }
+              if (hasCg && activeCgObj) {
+                const cgS = (activeCgObj.startLineIdx ?? activeCgObj.lineIdx ?? lIdx) + 1;
+                const cgE = (activeCgObj.endLineIdx ?? activeCgObj.startLineIdx ?? activeCgObj.lineIdx ?? lIdx) + 1;
+                const rangeLabel = cgS === cgE ? `第${cgS}句` : `第${cgS}-${cgE}句`;
+                badges.push(`<span class="vn-console-badge accent">插图${activeCgObj.imageUrl ? '已绘' : ''}·${rangeLabel}</span>`);
+              }
+              if (hasClue && activeClueObj) {
+                badges.push(`<span class="vn-console-badge accent">线索${activeClueObj.imageUrl ? '已绘' : ''}·${activeClueObj.name || '道具'}</span>`);
+              }
+
+              const sceneOptionsList = [];
+              const seenSceneIds = new Set();
+              (targetChap?.scenes || []).forEach((s) => {
+                if (s && s.id && !seenSceneIds.has(s.id)) {
+                  seenSceneIds.add(s.id);
+                  sceneOptionsList.push({ id: s.id, label: s.name || s.id });
+                }
+              });
+              if (line.sceneId && line.sceneId !== 'cg_only' && !seenSceneIds.has(line.sceneId)) {
+                sceneOptionsList.push({ id: line.sceneId, label: line.sceneId });
+              }
+              sceneOptionsList.push({ id: 'cg_only', label: '无背景' });
+              const curSceneVal = line.sceneId || (targetChap?.scenes && targetChap.scenes[0]?.id) || 'scene_1';
+
               const flushText = String(line.text || '').replace(/^[\s\u3000]+/gm, '');
               return `
                 <div class="vn-script-card">
@@ -22531,11 +23331,19 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
                           ${expList.map((e) => `<option value="${e}" ${(line.exp || '默认') === e ? 'selected' : ''}>${e}</option>`).join('')}
                         </select>
                       ` : ''}
-                      <input type="text" class="moe-input" value="${(line.bgmTag || '').replace(/"/g, '&quot;')}" placeholder="音乐或填停止" style="width:116px;height:32px;min-height:32px;padding:0 8px;font-size:11px;" onchange="updateSubGroupScriptLineField('${sg.id}', ${lIdx}, 'bgmTag', this.value)" />
+                      <select class="moe-input" style="width:auto;min-width:96px;max-width:150px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:12px;" onchange="updateSubGroupScriptLineField('${sg.id}', ${lIdx}, 'sceneId', this.value)">
+                        ${sceneOptionsList.map((sc) => `<option value="${sc.id.replace(/"/g, '&quot;')}" ${sc.id === curSceneVal ? 'selected' : ''}>${sc.label}</option>`).join('')}
+                      </select>
+                      <input type="text" class="moe-input" value="${(line.bgmTag || '').replace(/"/g, '&quot;')}" placeholder="音乐或填停止" style="width:108px;height:32px;min-height:32px;padding:0 8px;font-size:11px;" onchange="updateSubGroupScriptLineField('${sg.id}', ${lIdx}, 'bgmTag', this.value)" />
+                      <div class="vn-console-badges">${badges.join('')}</div>
                     </div>
                     <div class="vn-script-row-actions">
                       <button type="button" class="moe-btn secondary vn-play-tri-btn" ${lIdx === 0 ? 'disabled' : ''} onclick="moveSubGroupLineOrder('${sg.id}', ${lIdx}, -1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></button>
                       <button type="button" class="moe-btn secondary vn-play-tri-btn" ${lIdx === sg.scriptLines.length - 1 ? 'disabled' : ''} onclick="moveSubGroupLineOrder('${sg.id}', ${lIdx}, 1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+                      <button type="button" class="moe-btn ${hasCg ? '' : 'secondary'}" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onclick="addManualCgForSubGroupLine('${sg.id}', ${lIdx})">${hasCg ? '撤图' : '插图'}</button>
+                      ${hasCg && activeCgObj ? `<button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onclick="jumpToSubGroupCgNode('${sg.id}', '${activeCgObj.id}')">调图</button>` : ''}
+                      <button type="button" class="moe-btn ${hasClue ? '' : 'secondary'}" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onclick="addManualClueForSubGroupLine('${sg.id}', ${lIdx})">${hasClue ? '撤索' : '线索'}</button>
+                      ${hasClue && activeClueObj ? `<button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onclick="jumpToSubGroupClueNode('${sg.id}', '${activeClueObj.id}')">调索</button>` : ''}
                       <button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onclick="insertSubGroupLineAfter('${sg.id}', ${lIdx})">插行</button>
                       <button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 8px;font-size:11px;" onclick="deleteSubGroupLineByIdx('${sg.id}', ${lIdx}, this)">删行</button>
                     </div>
@@ -22846,22 +23654,97 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
       if (statusEl) statusEl.textContent = '已恢复CG写词默认提示词';
     }
 
-    // 整理完章节后，点击「写词」由AI同时修复场景地图起止句范围、修复CG插图起止句范围，并统一撰写NovelAI提示词
+    function getCombinedChapterCgEntries(proj = getCurrentReplayProject(), chap = getCurrentReplayChapter()) {
+      const entries = [];
+      if (!proj || !chap) return entries;
+      const curChapIdx = Number(appState.currentReplayChapterIdx) || 0;
+      const chapLines = Array.isArray(chap.scriptLines) ? chap.scriptLines : [];
+      (chap.cgNodes || []).forEach((cg, idx) => {
+        if (!cg) return;
+        entries.push({
+          node: cg,
+          ownerType: 'chapter',
+          sg: null,
+          localIdx: idx,
+          lines: chapLines,
+          ownerLabel: '主线'
+        });
+      });
+      const chapSubGroups = ensureProjectSubGroupsArray(proj).filter(
+        (sg) => sg && sg.inserted && Number(sg.targetChapterIdx) === curChapIdx
+      );
+      chapSubGroups.forEach((sg) => {
+        syncSubGroupCgLineBindings(sg);
+        const sgLines = Array.isArray(sg.scriptLines) ? sg.scriptLines : [];
+        (sg.cgNodes || []).forEach((cg, idx) => {
+          if (!cg) return;
+          entries.push({
+            node: cg,
+            ownerType: 'subgroup',
+            sg,
+            localIdx: idx,
+            lines: sgLines,
+            ownerLabel: `小群·${sg.title || '小群'}`
+          });
+        });
+      });
+      return entries;
+    }
+
+    function getCombinedChapterClueEntries(proj = getCurrentReplayProject(), chap = getCurrentReplayChapter()) {
+      const entries = [];
+      if (!proj || !chap) return entries;
+      const curChapIdx = Number(appState.currentReplayChapterIdx) || 0;
+      const chapLines = Array.isArray(chap.scriptLines) ? chap.scriptLines : [];
+      (chap.clueNodes || []).forEach((cl, idx) => {
+        if (!cl) return;
+        entries.push({
+          node: cl,
+          ownerType: 'chapter',
+          sg: null,
+          localIdx: idx,
+          lines: chapLines,
+          ownerLabel: '主线'
+        });
+      });
+      const chapSubGroups = ensureProjectSubGroupsArray(proj).filter(
+        (sg) => sg && sg.inserted && Number(sg.targetChapterIdx) === curChapIdx
+      );
+      chapSubGroups.forEach((sg) => {
+        syncSubGroupClueLineBindings(sg);
+        const sgLines = Array.isArray(sg.scriptLines) ? sg.scriptLines : [];
+        (sg.clueNodes || []).forEach((cl, idx) => {
+          if (!cl) return;
+          entries.push({
+            node: cl,
+            ownerType: 'subgroup',
+            sg,
+            localIdx: idx,
+            lines: sgLines,
+            ownerLabel: `小群·${sg.title || '小群'}`
+          });
+        });
+      });
+      return entries;
+    }
+
+    // 整理完章节后，点击「写词」由AI同时修复场景地图起止句范围、修复CG插图含小群CG起止句范围，并统一撰写NovelAI提示词
     async function generateChapterCgPromptsViaAi() {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
       if (!proj || !chap) return;
-      const hasCgs = Array.isArray(chap.cgNodes) && chap.cgNodes.length > 0;
+      const combinedCgEntries = getCombinedChapterCgEntries(proj, chap);
+      const hasCgs = combinedCgEntries.length > 0;
       const hasScenes = Array.isArray(chap.scenes) && chap.scenes.length > 0;
       if (!hasCgs && !hasScenes) {
-        alert('当前章节还没有场景地图或CG插点，请先整理剧本或在上方点击新增');
+        alert('当前章节及小群还没有场景地图或CG插点，请先整理剧本或在上方点击新增');
         return;
       }
 
       const btn = document.getElementById('replay-cg-write-prompts-btn');
       const statusEl = document.getElementById('replay-cg-queue-status');
       if (btn) { btn.textContent = '写词中'; btn.disabled = true; }
-      if (statusEl) statusEl.textContent = `正在根据整章剧情同步修复 ${chap.scenes?.length || 0} 个场景地图与 ${chap.cgNodes?.length || 0} 张CG插图的起止句范围并编写提示词...`;
+      if (statusEl) statusEl.textContent = `正在根据整章及内嵌小群剧情同步修复 ${chap.scenes?.length || 0} 个场景地图与 ${combinedCgEntries.length} 张CG插图的起止句范围并编写提示词...`;
 
       try {
         const lines = chap.scriptLines || [];
@@ -22870,20 +23753,23 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
           return `场景序号:${sIdx}|场景ID:${sc.id}|场景名称:${sc.name || ''}|当前起止行:L${sc.startLineIdx ?? 0}-L${sc.endLineIdx ?? maxLineIdx}|原提示词:${sc.prompt || ''}`;
         }).join('\n');
 
-        const cgContextBlocks = (chap.cgNodes || []).map((cg, cIdx) => {
-          const centerIdx = Math.max(0, Math.min(maxLineIdx, cg.startLineIdx ?? cg.lineIdx ?? 0));
-          const curEndIdx = Math.max(centerIdx, Math.min(maxLineIdx, cg.endLineIdx ?? centerIdx));
+        const cgContextBlocks = combinedCgEntries.map((entry, cIdx) => {
+          const cg = entry.node;
+          const targetLines = entry.lines || [];
+          const targetMaxIdx = Math.max(0, targetLines.length - 1);
+          const centerIdx = Math.max(0, Math.min(targetMaxIdx, cg.startLineIdx ?? cg.lineIdx ?? 0));
+          const curEndIdx = Math.max(centerIdx, Math.min(targetMaxIdx, cg.endLineIdx ?? centerIdx));
           const start = Math.max(0, centerIdx - 4);
-          const end = Math.min(lines.length, curEndIdx + 5);
-          const contextLines = lines.slice(start, end).map((l, off) => `L${start + off} ${l.speaker}:${l.text}`).join(' / ');
+          const end = Math.min(targetLines.length, curEndIdx + 5);
+          const contextLines = targetLines.slice(start, end).map((l, off) => `L${start + off} ${l.speaker}:${l.text}`).join(' / ');
           const present = Array.isArray(cg.presentNames) && cg.presentNames.length > 0
             ? cg.presentNames
-            : (lines[centerIdx]?.speaker && lines[centerIdx].speaker !== '旁白' ? [lines[centerIdx].speaker] : []);
+            : (targetLines[centerIdx]?.speaker && targetLines[centerIdx].speaker !== '旁白' ? [targetLines[centerIdx].speaker] : []);
           const charAppearances = present.map((n) => {
             const c = appState.characters.find((x) => x.name === n);
             return `${n} 外貌服装词:${c?.naiTags ? stripBasePoseAndExpFromPrompt(c.naiTags) : 'solo, anime style'}`;
           }).join('；');
-          return `CG序号:${cIdx}|当前起止行:L${centerIdx}-L${curEndIdx}|原定说明:${cg.zhDesc || ''}|在场人数:${present.length}|在场角色与外貌:${charAppearances || '调查员'}|前后文剧情:${contextLines}`;
+          return `CG序号:${cIdx}|所属范围:${entry.ownerLabel}|当前起止行:L${centerIdx}-L${curEndIdx}|原定说明:${cg.zhDesc || cg.title || ''}|在场人数:${present.length}|在场角色与外貌:${charAppearances || '调查员'}|前后文剧情:${contextLines}`;
         }).join('\n\n');
 
         const fullChapterOverview = lines.slice(0, 280).map((l, idx) => `L${idx} ${l.speaker}:${l.text}`).join('\n');
@@ -22897,10 +23783,10 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
         const reply = await callLlmCompletion(
           [
             { role: 'system', content: sysPrompt },
-            { role: 'user', content: `本章总台词行数：共 ${lines.length} 句，行号从 0 到 ${maxLineIdx}\n\n本章登场角色人设与外貌词：\n${allCharsInfo}\n\n本章场景地图列表：\n${sceneContextBlocks || '无'}\n\n整章剧情脉络概览：\n${fullChapterOverview}\n\n本章全部待写词CG插点明细：\n${cgContextBlocks || '无'}` }
+            { role: 'user', content: `本章总台词行数：共 ${lines.length} 句，行号从 0 到 ${maxLineIdx}\n\n本章登场角色人设与外貌词：\n${allCharsInfo}\n\n本章场景地图列表：\n${sceneContextBlocks || '无'}\n\n整章剧情脉络概览：\n${fullChapterOverview}\n\n本章及小群全部待写词CG插点明细：\n${cgContextBlocks || '无'}` }
           ],
           null,
-          { caller: `章节CG与地图起止范围修复写词·${chap.title}`, preferSubApi: false }
+          { caller: `章节与小群CG起止范围修复写词·${chap.title}`, preferSubApi: false }
         );
 
         let updatedSceneRanges = 0;
@@ -22935,28 +23821,37 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
                   updatedSceneRanges += 1;
                 }
               }
-            } else if (l.startsWith('CG_PROMPT:') && Array.isArray(chap.cgNodes)) {
+            } else if (l.startsWith('CG_PROMPT:')) {
               const parts = l.replace(/^CG_PROMPT:\s*/i, '').split('|').map((s) => s.trim());
               if (parts.length >= 4) {
                 const cIdx = parseInt(parts[0].replace(/\D/g, ''), 10);
-                if (cIdx >= 0 && cIdx < chap.cgNodes.length) {
-                  const node = chap.cgNodes[cIdx];
+                if (cIdx >= 0 && cIdx < combinedCgEntries.length) {
+                  const entry = combinedCgEntries[cIdx];
+                  const node = entry.node;
+                  const targetLines = entry.lines || [];
+                  const targetMaxIdx = Math.max(0, targetLines.length - 1);
                   const isNew6Col = parts.length >= 6 && /^\d+$/.test(parts[1].replace(/^[Ll]/, '')) && /^\d+$/.test(parts[2].replace(/^[Ll]/, ''));
                   if (isNew6Col) {
-                    const sLine = Math.max(0, Math.min(maxLineIdx, parseInt(parts[1].replace(/\D/g, ''), 10) || 0));
-                    const eLine = Math.max(sLine, Math.min(maxLineIdx, parseInt(parts[2].replace(/\D/g, ''), 10) || sLine));
+                    const sLine = Math.max(0, Math.min(targetMaxIdx, parseInt(parts[1].replace(/\D/g, ''), 10) || 0));
+                    const eLine = Math.max(sLine, Math.min(targetMaxIdx, parseInt(parts[2].replace(/\D/g, ''), 10) || sLine));
                     node.startLineIdx = sLine;
                     node.lineIdx = sLine;
                     node.endLineIdx = eLine;
-                    if (lines[sLine]) node.lineText = lines[sLine].text;
-                    if (parts[3]) node.zhDesc = parts[3];
+                    if (targetLines[sLine]) node.lineText = targetLines[sLine].text;
+                    if (parts[3]) {
+                      node.zhDesc = parts[3];
+                      node.title = parts[3];
+                    }
                     const parsedNames = parts[4].split(/[、,，\s]+/).filter(Boolean);
                     if (parsedNames.length > 0) node.presentNames = parsedNames;
                     const rawEn = parts.slice(5).join(', ').replace(/\b(age difference|age gap|older man|older male|older woman|younger girl|younger boy|mature male|mature man|middle-aged|old man|long face|horse face)\b\s*,?/gi, '').trim();
                     node.prompt = `masterpiece, best quality, very aesthetic, absurdres, cinematic anime CG illustration, 16:9 wide angle, dramatic lighting, same age peers, ${rawEn}`;
                     node.refCharId = '';
                   } else {
-                    if (parts[1]) node.zhDesc = parts[1];
+                    if (parts[1]) {
+                      node.zhDesc = parts[1];
+                      node.title = parts[1];
+                    }
                     const parsedNames = parts[2].split(/[、,，\s]+/).filter(Boolean);
                     if (parsedNames.length > 0) node.presentNames = parsedNames;
                     const rawEn = parts.slice(3).join(', ').replace(/\b(age difference|age gap|older man|older male|older woman|younger girl|younger boy|mature male|mature man|middle-aged|old man|long face|horse face)\b\s*,?/gi, '').trim();
@@ -22971,27 +23866,30 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
 
         // 确保整章地图连续不断档
         ensureContinuousChapterScenes(chap);
-        if (Array.isArray(chap.cgNodes)) {
-          chap.cgNodes.forEach((node) => {
-            if (!node.prompt || !node.prompt.trim()) {
-              const present = Array.isArray(node.presentNames) && node.presentNames.length > 0 ? node.presentNames : ['调查员'];
-              const countTag = present.length > 1 ? `${present.length} characters, multiple people` : 'solo';
-              const charTags = present.map((n) => {
-                const c = appState.characters.find((x) => x.name === n);
-                return c?.naiTags ? stripBasePoseAndExpFromPrompt(c.naiTags) : 'anime style';
-              }).join(', ');
-              node.prompt = `masterpiece, best quality, very aesthetic, absurdres, cinematic visual novel event CG, 16:9 wide shot, ${countTag}, ${charTags}, dramatic lighting, detailed background`;
-            }
-          });
-          syncChapterCgLineBindings(chap);
-        }
+        combinedCgEntries.forEach((entry) => {
+          const node = entry.node;
+          if (!node.prompt || !node.prompt.trim()) {
+            const present = Array.isArray(node.presentNames) && node.presentNames.length > 0 ? node.presentNames : ['调查员'];
+            const countTag = present.length > 1 ? `${present.length} characters, multiple people` : 'solo';
+            const charTags = present.map((n) => {
+              const c = appState.characters.find((x) => x.name === n);
+              return c?.naiTags ? stripBasePoseAndExpFromPrompt(c.naiTags) : 'anime style';
+            }).join(', ');
+            node.prompt = `masterpiece, best quality, very aesthetic, absurdres, cinematic visual novel event CG, 16:9 wide shot, ${countTag}, ${charTags}, dramatic lighting, detailed background`;
+          }
+          if (entry.ownerType === 'subgroup' && entry.sg) {
+            syncSubGroupCgLineBindings(entry.sg);
+          }
+        });
+        syncChapterCgLineBindings(chap);
 
         await saveReplayProjectToDB(proj);
         renderReplayScriptEditor();
+        renderReplaySubGroupStudio();
         if (typeof renderReplayStageFxStudio === 'function') renderReplayStageFxStudio();
         renderReplayCgStudio();
         if (statusEl) {
-          statusEl.textContent = `已同步修复本章 ${chap.scenes?.length || 0} 张场景地图与 ${chap.cgNodes?.length || 0} 张CG插图的起止句范围并写好提示词`;
+          statusEl.textContent = `已同步修复本章 ${chap.scenes?.length || 0} 张场景地图与 ${combinedCgEntries.length} 张CG插图的起止句范围并写好提示词`;
         }
       } catch (err) {
         alert('生成CG提示词与修复地图范围失败：' + err.message);
@@ -23004,8 +23902,11 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
     async function aiModifySingleCgPrompt(cIdx) {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
-      if (!proj || !chap || !Array.isArray(chap.cgNodes) || !chap.cgNodes[cIdx]) return;
-      const cg = chap.cgNodes[cIdx];
+      if (!proj || !chap) return;
+      const entries = getCombinedChapterCgEntries(proj, chap);
+      const entry = entries[cIdx];
+      if (!entry) return;
+      const cg = entry.node;
       const inputEl = document.getElementById(`cg-ai-mod-input-${cIdx}`);
       const btn = document.getElementById(`cg-ai-mod-btn-${cIdx}`);
       const statusEl = document.getElementById('replay-cg-queue-status');
@@ -23019,8 +23920,8 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
       if (statusEl) statusEl.textContent = `正在根据修改意见重写第 ${cIdx + 1} 张插图的文字与提示词...`;
 
       try {
-        const lines = chap.scriptLines || [];
-        const centerIdx = Math.max(0, Math.min(lines.length - 1, cg.startLineIdx ?? cg.lineIdx ?? 0));
+        const lines = entry.lines || [];
+        const centerIdx = Math.max(0, Math.min(Math.max(0, lines.length - 1), cg.startLineIdx ?? cg.lineIdx ?? 0));
         const start = Math.max(0, centerIdx - 4);
         const end = Math.min(lines.length, centerIdx + 5);
         const contextLines = lines.slice(start, end).map((l, off) => `L${start + off} ${l.speaker}:${l.text}`).join(' / ');
@@ -23035,7 +23936,7 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
         const reply = await callLlmCompletion(
           [
             { role: 'system', content: sysPrompt },
-            { role: 'user', content: `角色外貌参考：\n${allCharsInfo}\n\n当前CG序号：${cIdx}\n当前在场角色：${present.join('、') || '待定'}\n当前中文画面说明：${cg.zhDesc || ''}\n当前英文提示词：${cg.prompt || ''}\n前后文剧情：${contextLines}\n\n用户修改意见：\n${reqText}` }
+            { role: 'user', content: `角色外貌参考：\n${allCharsInfo}\n\n当前CG序号：${cIdx}\n所属范围：${entry.ownerLabel}\n当前在场角色：${present.join('、') || '待定'}\n当前中文画面说明：${cg.zhDesc || cg.title || ''}\n当前英文提示词：${cg.prompt || ''}\n前后文剧情：${contextLines}\n\n用户修改意见：\n${reqText}` }
           ],
           null,
           { caller: `单张CG按修改意见重写提示词·#${cIdx + 1}`, preferSubApi: false }
@@ -23046,7 +23947,10 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
           if (matchLine) {
             const parts = matchLine.replace(/^CG_PROMPT:\s*/i, '').split('|').map((s) => s.trim());
             if (parts.length >= 4) {
-              if (parts[1]) cg.zhDesc = parts[1];
+              if (parts[1]) {
+                cg.zhDesc = parts[1];
+                cg.title = parts[1];
+              }
               const parsedNames = parts[2].split(/[、,，\s]+/).filter(Boolean);
               if (parsedNames.length > 0) cg.presentNames = parsedNames;
               cg.prompt = parts.slice(3).join(', ').trim();
@@ -23067,11 +23971,16 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
     async function saveSingleCgNodePrompt(cIdx, btnEl) {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
-      if (!proj || !chap || !chap.cgNodes || !chap.cgNodes[cIdx]) return;
-      const cg = chap.cgNodes[cIdx];
+      if (!proj || !chap) return;
+      const entry = getCombinedChapterCgEntries(proj, chap)[cIdx];
+      if (!entry) return;
+      const cg = entry.node;
       const zhInp = document.getElementById(`cg-zh-desc-input-${cIdx}`);
       const enTa = document.getElementById(`cg-en-prompt-ta-${cIdx}`);
-      if (zhInp) cg.zhDesc = zhInp.value.trim();
+      if (zhInp) {
+        cg.zhDesc = zhInp.value.trim();
+        cg.title = zhInp.value.trim();
+      }
       if (enTa) cg.prompt = enTa.value.trim();
       await saveReplayProjectToDB(proj);
       if (btnEl) {
@@ -23122,6 +24031,7 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
       const clueBox = document.getElementById('replay-clue-nodes-list-container');
       const cgBox = document.getElementById('replay-cg-nodes-list-container');
       if (!cgBox) return;
+      const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
       if (!chap) {
         if (sceneBox) sceneBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">请先选择章节并整理剧本</div>';
@@ -23184,34 +24094,39 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
         }
       }
 
-      // 1. 渲染本章线索道具列表
+      // 1. 渲染本章与已插入小群的线索道具列表
       if (clueBox) {
-        const clueNodes = chap.clueNodes || [];
-        const totalLinesForClue = totalScriptLines;
-        if (clueNodes.length === 0) {
-          clueBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">本章暂无线索道具节点，可在剧本页点顶部线索按钮自动分析提取，或点右上角新增</div>';
+        const clueEntries = getCombinedChapterClueEntries(proj, chap);
+        if (clueEntries.length === 0) {
+          clueBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">本章及内嵌小群暂无线索道具节点，可在剧本页点顶部线索按钮自动分析提取，或点右上角新增</div>';
         } else {
           clueBox.innerHTML = '';
-          clueNodes.forEach((cl, clIdx) => {
+          clueEntries.forEach((entry, clIdx) => {
+            const cl = entry.node;
+            const targetLines = entry.lines || [];
+            const totalLinesForClue = targetLines.length;
             const clStartIdx = Math.max(0, Math.min(Math.max(0, totalLinesForClue - 1), Number(cl.startLineIdx ?? cl.lineIdx ?? 0)));
             const clEndIdx = Math.max(clStartIdx, Math.min(Math.max(0, totalLinesForClue - 1), Number(cl.endLineIdx ?? clStartIdx)));
             const clStartOptions = totalLinesForClue > 0
-              ? chap.scriptLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === clStartIdx ? 'selected' : ''}>从第 ${lIdx + 1} 句：${(l.speaker || '旁白')}·${String(l.text || '').slice(0, 14)}</option>`).join('')
+              ? targetLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === clStartIdx ? 'selected' : ''}>从第 ${lIdx + 1} 句：${(l.speaker || '旁白')}·${String(l.text || '').slice(0, 14)}</option>`).join('')
               : `<option value="0">第 1 句</option>`;
             const clEndOptions = totalLinesForClue > 0
-              ? chap.scriptLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === clEndIdx ? 'selected' : ''}>到第 ${lIdx + 1} 句：${(l.speaker || '旁白')}·${String(l.text || '').slice(0, 14)}</option>`).join('')
+              ? targetLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === clEndIdx ? 'selected' : ''}>到第 ${lIdx + 1} 句：${(l.speaker || '旁白')}·${String(l.text || '').slice(0, 14)}</option>`).join('')
               : `<option value="0">第 1 句</option>`;
 
             const card = document.createElement('div');
-            card.id = 'clue-card-' + cl.id;
+            card.id = 'clue-studio-card-' + cl.id;
             card.className = 'setting-item';
             card.style.flexDirection = 'column';
             card.style.alignItems = 'stretch';
             card.style.gap = '6px';
             card.innerHTML = `
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-                <input type="text" class="moe-input" value="${(cl.name || '').replace(/"/g, '&quot;')}" placeholder="线索道具名称" style="max-width:190px;height:30px;min-height:30px;font-weight:700;font-size:12px;" oninput="updateReplayClueNodeField(${clIdx}, 'name', this.value, true)" onchange="updateReplayClueNodeField(${clIdx}, 'name', this.value, false)" />
-                <span style="font-size:11px;color:var(--text-secondary);">浮现于第 ${clStartIdx + 1} 至第 ${clEndIdx + 1} 句</span>
+              <div id="clue-card-${cl.id}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                  ${entry.ownerType === 'subgroup' ? `<span class="vn-console-badge accent">${entry.ownerLabel.replace(/</g, '&lt;')}</span>` : ''}
+                  <input type="text" class="moe-input" value="${(cl.name || '').replace(/"/g, '&quot;')}" placeholder="线索道具名称" style="max-width:190px;height:30px;min-height:30px;font-weight:700;font-size:12px;" oninput="updateReplayClueNodeField(${clIdx}, 'name', this.value, true)" onchange="updateReplayClueNodeField(${clIdx}, 'name', this.value, false)" />
+                </div>
+                <span style="font-size:11px;color:var(--text-secondary);">${entry.ownerLabel} · 浮现于第 ${clStartIdx + 1} 至第 ${clEndIdx + 1} 句</span>
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                 <select class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplayClueNodeField(${clIdx}, 'startLineIdx', this.value)">
@@ -23235,24 +24150,27 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
         }
       }
 
-      // 2. 渲染本章剧情CG插画列表
-      const cgNodes = chap.cgNodes || [];
-      if (cgNodes.length === 0) {
-        cgBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">本章暂无CG节点，整理剧本时将自动标记CG插点，也可在剧本页任意台词处点插图</div>';
+      // 2. 渲染本章与已插入小群的剧情CG插画列表
+      const cgEntries = getCombinedChapterCgEntries(proj, chap);
+      if (cgEntries.length === 0) {
+        cgBox.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">本章及内嵌小群暂无CG节点，整理剧本时将自动标记CG插点，也可在剧本页或小群任意台词处点插图</div>';
       } else {
         cgBox.innerHTML = '';
-        cgNodes.forEach((cg, cIdx) => {
+        cgEntries.forEach((entry, cIdx) => {
+          const cg = entry.node;
+          const targetLines = entry.lines || [];
+          const totalLinesForCg = targetLines.length;
           const isMultiPerson = Array.isArray(cg.presentNames) && cg.presentNames.length > 1;
           const presentLabel = Array.isArray(cg.presentNames) && cg.presentNames.length > 0 ? cg.presentNames.join('、') : '待定';
 
-          const startIdx = Math.max(0, Math.min(Math.max(0, totalScriptLines - 1), Number(cg.startLineIdx ?? cg.lineIdx ?? 0)));
-          const endIdx = Math.max(startIdx, Math.min(Math.max(0, totalScriptLines - 1), Number(cg.endLineIdx ?? startIdx)));
+          const startIdx = Math.max(0, Math.min(Math.max(0, totalLinesForCg - 1), Number(cg.startLineIdx ?? cg.lineIdx ?? 0)));
+          const endIdx = Math.max(startIdx, Math.min(Math.max(0, totalLinesForCg - 1), Number(cg.endLineIdx ?? startIdx)));
 
-          const lineSelectOptionsStart = totalScriptLines > 0
-            ? chap.scriptLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === startIdx ? 'selected' : ''}>从第 ${lIdx + 1} 句：${(l.speaker || '旁白')}·${String(l.text || '').slice(0, 14)}</option>`).join('')
+          const lineSelectOptionsStart = totalLinesForCg > 0
+            ? targetLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === startIdx ? 'selected' : ''}>从第 ${lIdx + 1} 句：${(l.speaker || '旁白')}·${String(l.text || '').slice(0, 14)}</option>`).join('')
             : `<option value="0">第 1 句</option>`;
-          const lineSelectOptionsEnd = totalScriptLines > 0
-            ? chap.scriptLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === endIdx ? 'selected' : ''}>到第 ${lIdx + 1} 句：${(l.speaker || '旁白')}·${String(l.text || '').slice(0, 14)}</option>`).join('')
+          const lineSelectOptionsEnd = totalLinesForCg > 0
+            ? targetLines.map((l, lIdx) => `<option value="${lIdx}" ${lIdx === endIdx ? 'selected' : ''}>到第 ${lIdx + 1} 句：${(l.speaker || '旁白')}·${String(l.text || '').slice(0, 14)}</option>`).join('')
             : `<option value="0">第 1 句</option>`;
 
           const realChars = (appState.characters || []).filter((c) => c.id !== 'narrator_kp' && c.trpgType !== '旁白');
@@ -23266,14 +24184,17 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
             : `<span style="font-size:11px;color:var(--text-secondary);">纯景无人物</span>`;
 
           const card = document.createElement('div');
-          card.id = 'cg-card-' + cg.id;
+          card.id = 'cg-studio-card-' + cg.id;
           card.className = 'setting-item';
           card.style.flexDirection = 'column';
           card.style.alignItems = 'stretch';
           card.style.gap = '8px';
           card.innerHTML = `
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-              <span style="font-size:12px;font-weight:800;color:var(--accent-color);">CG #${cIdx + 1} · 持续第 ${startIdx + 1} 至第 ${endIdx + 1} 句</span>
+            <div id="cg-card-${cg.id}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                ${entry.ownerType === 'subgroup' ? `<span class="vn-console-badge accent">${entry.ownerLabel.replace(/</g, '&lt;')}</span>` : ''}
+                <span style="font-size:12px;font-weight:800;color:var(--accent-color);">CG #${cIdx + 1} · 持续第 ${startIdx + 1} 至第 ${endIdx + 1} 句</span>
+              </div>
               <span style="font-size:11px;font-weight:700;color:var(--text-secondary);">在场：${presentLabel}${isMultiPerson ? ' · 多人同框' : ''}</span>
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -23284,7 +24205,7 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
                 ${lineSelectOptionsEnd}
               </select>
             </div>
-            <div style="font-size:11px;color:var(--text-secondary);line-height:1.45;white-space:normal;">起始原句：${cg.lineText || '章节互动画面'}</div>
+            <div style="font-size:11px;color:var(--text-secondary);line-height:1.45;white-space:normal;">起始原句：${cg.lineText || targetLines[startIdx]?.text || '互动画面'}</div>
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
               <select class="moe-input" style="flex:1;min-width:160px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="if(this.value){toggleCgPresentCharacter(${cIdx}, this.value);this.value='';}">
                 ${charDropdownOptionsHtml}
@@ -23292,7 +24213,7 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
               <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${selectedCharTagsHtml}</div>
             </div>
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-              <input type="text" id="cg-zh-desc-input-${cIdx}" class="moe-input" value="${(cg.zhDesc || '').replace(/"/g, '&quot;')}" placeholder="中文画面说明" style="flex:1;min-width:160px;height:32px;min-height:32px;font-size:12px;" oninput="updateReplayCgNodeField(${cIdx}, 'zhDesc', this.value)" onchange="updateReplayCgNodeField(${cIdx}, 'zhDesc', this.value)" />
+              <input type="text" id="cg-zh-desc-input-${cIdx}" class="moe-input" value="${(cg.zhDesc || cg.title || '').replace(/"/g, '&quot;')}" placeholder="中文画面说明" style="flex:1;min-width:160px;height:32px;min-height:32px;font-size:12px;" oninput="updateReplayCgNodeField(${cIdx}, 'zhDesc', this.value)" onchange="updateReplayCgNodeField(${cIdx}, 'zhDesc', this.value)" />
             </div>
             <div style="display:flex;align-items:center;gap:6px;">
               <input type="text" id="cg-ai-mod-input-${cIdx}" class="moe-input" value="${(cg.modReq || '').replace(/"/g, '&quot;')}" placeholder="输入对本张插图的修改意见，点右侧改词重新生成插图文字..." style="flex:1;height:32px;min-height:32px;font-size:11px;" oninput="updateReplayCgNodeField(${cIdx}, 'modReq', this.value)" />
@@ -23319,8 +24240,10 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
     async function toggleCgPresentCharacter(cIdx, charName) {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
-      if (!proj || !chap || !chap.cgNodes || !chap.cgNodes[cIdx]) return;
-      const cg = chap.cgNodes[cIdx];
+      if (!proj || !chap) return;
+      const entry = getCombinedChapterCgEntries(proj, chap)[cIdx];
+      if (!entry) return;
+      const cg = entry.node;
       if (!Array.isArray(cg.presentNames)) cg.presentNames = [];
       const idx = cg.presentNames.indexOf(charName);
       if (idx >= 0) {
@@ -23378,10 +24301,13 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
     async function updateReplayCgNodeField(cIdx, field, val) {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
-      if (!proj || !chap || !chap.cgNodes || !chap.cgNodes[cIdx]) return;
-      const cg = chap.cgNodes[cIdx];
+      if (!proj || !chap) return;
+      const entry = getCombinedChapterCgEntries(proj, chap)[cIdx];
+      if (!entry) return;
+      const cg = entry.node;
+      const targetLines = entry.lines || [];
       if (field === 'startLineIdx' || field === 'endLineIdx') {
-        const maxIdx = Math.max(0, (chap.scriptLines?.length || 1) - 1);
+        const maxIdx = Math.max(0, (targetLines.length || 1) - 1);
         const num = Math.max(0, Math.min(maxIdx, parseInt(val, 10) || 0));
         if (field === 'startLineIdx') {
           cg.startLineIdx = num;
@@ -23394,13 +24320,19 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
             cg.lineIdx = num;
           }
         }
-        syncChapterCgLineBindings(chap);
+        if (entry.ownerType === 'subgroup' && entry.sg) {
+          syncSubGroupCgLineBindings(entry.sg);
+        } else {
+          syncChapterCgLineBindings(chap);
+        }
         await saveReplayProjectToDB(proj);
         renderReplayScriptEditor();
+        renderReplaySubGroupStudio();
         renderReplayCgStudio();
         return;
       }
       cg[field] = val;
+      if (field === 'zhDesc') cg.title = val;
       await saveReplayProjectToDB(proj);
     }
 
@@ -23829,17 +24761,25 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     async function deleteReplayCgNode(cIdx) {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
-      if (!proj || !chap || !chap.cgNodes || !chap.cgNodes[cIdx]) return;
-      const removed = chap.cgNodes.splice(cIdx, 1)[0];
-      if (removed && Array.isArray(chap.scriptLines)) {
-        chap.scriptLines.forEach((l) => {
+      if (!proj || !chap) return;
+      const entries = getCombinedChapterCgEntries(chap, proj);
+      const entry = entries[cIdx];
+      if (!entry) return;
+      const targetHolder = entry.isSubGroup ? entry.subGroup : chap;
+      if (!targetHolder || !Array.isArray(targetHolder.cgNodes)) return;
+      const removed = targetHolder.cgNodes.splice(entry.localIdx, 1)[0];
+      if (removed && Array.isArray(targetHolder.scriptLines)) {
+        targetHolder.scriptLines.forEach((l) => {
           if (l.cgId === removed.id) l.cgId = '';
         });
       }
+      if (entry.isSubGroup) syncSubGroupCgLineBindings(targetHolder);
+      else syncChapterCgLineBindings(chap);
       await saveReplayProjectToDB(proj);
       cleanupUnusedAssetsUI(true).catch(() => {});
       renderReplayScriptEditor();
       renderReplayCgStudio();
+      renderReplaySubGroupStudio();
     }
 
     async function generateSingleReplaySceneBg(sIdx) {
@@ -23906,8 +24846,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     async function generateSingleReplayCg(cIdx) {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
-      if (!proj || !chap || !chap.cgNodes || !chap.cgNodes[cIdx]) return;
-      const cg = chap.cgNodes[cIdx];
+      if (!proj || !chap) return;
+      const entries = getCombinedChapterCgEntries(chap, proj);
+      const entry = entries[cIdx];
+      if (!entry || !entry.cg) return;
+      const cg = entry.cg;
       const btn = document.getElementById(`cg-gen-btn-${cIdx}`);
       if (btn) { btn.textContent = '生图中'; btn.disabled = true; }
 
@@ -23940,6 +24883,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         renderReplayCgStudio();
         renderReplayChaptersList();
         renderReplayScriptEditor();
+        renderReplaySubGroupStudio();
       } catch (err) {
         alert('剧情CG生图失败：' + err.message);
         throw err;
@@ -23955,14 +24899,18 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       reader.onload = async (e) => {
         const proj = getCurrentReplayProject();
         const chap = getCurrentReplayChapter();
-        if (!proj || !chap || !chap.cgNodes || !chap.cgNodes[cIdx]) return;
+        if (!proj || !chap) return;
+        const entries = getCombinedChapterCgEntries(chap, proj);
+        const entry = entries[cIdx];
+        if (!entry || !entry.cg) return;
         const safeProj = (proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
-        const savedCgUrl = await saveAssetToLocalBridge(`projects/${safeProj}/cgs/${chap.cgNodes[cIdx].id}.png`, e.target.result);
-        chap.cgNodes[cIdx].imageUrl = savedCgUrl;
+        const savedCgUrl = await saveAssetToLocalBridge(`projects/${safeProj}/cgs/${entry.cg.id}.png`, e.target.result);
+        entry.cg.imageUrl = savedCgUrl;
         await saveReplayProjectToDB(proj);
         renderReplayCgStudio();
         renderReplayChaptersList();
         renderReplayScriptEditor();
+        renderReplaySubGroupStudio();
       };
       reader.readAsDataURL(file);
       event.target.value = '';
@@ -24000,8 +24948,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     }
 
     async function startReplayCgQueue() {
+      const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
-      if (!chap) return;
+      if (!proj || !chap) return;
       if (appState.replayCgQueueRunning) return;
       appState.replayCgQueueRunning = true;
       const statusEl = document.getElementById('replay-cg-queue-status');
@@ -24009,11 +24958,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       if (startBtn) { startBtn.textContent = '排队中'; startBtn.disabled = true; }
 
       try {
-        const cgs = chap.cgNodes || [];
-        for (let j = 0; j < cgs.length; j++) {
+        const entries = getCombinedChapterCgEntries(chap, proj);
+        for (let j = 0; j < entries.length; j++) {
           if (!appState.replayCgQueueRunning) break;
-          if (!cgs[j].imageUrl) {
-            if (statusEl) statusEl.textContent = `正在排队生成剧情CG ${j + 1}/${cgs.length}：${cgs[j].zhDesc}`;
+          if (!entries[j].cg.imageUrl) {
+            if (statusEl) statusEl.textContent = `正在排队生成剧情CG ${j + 1}/${entries.length}：${entries[j].cg.zhDesc}`;
             await generateSingleReplayCg(j);
           }
         }
@@ -24031,8 +24980,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     }
 
     async function startReplayClueQueue() {
+      const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
-      if (!chap) return;
+      if (!proj || !chap) return;
       if (appState.replayCgQueueRunning) return;
       appState.replayCgQueueRunning = true;
       const statusEl = document.getElementById('replay-clue-queue-status');
@@ -24040,11 +24990,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       if (startBtn) { startBtn.textContent = '排队中'; startBtn.disabled = true; }
 
       try {
-        const clues = chap.clueNodes || [];
-        for (let i = 0; i < clues.length; i++) {
+        const entries = getCombinedChapterClueEntries(chap, proj);
+        for (let i = 0; i < entries.length; i++) {
           if (!appState.replayCgQueueRunning) break;
-          if (!clues[i].imageUrl) {
-            if (statusEl) statusEl.textContent = `正在排队生成线索道具 ${i + 1}/${clues.length}：${clues[i].name}`;
+          if (!entries[i].clue.imageUrl) {
+            if (statusEl) statusEl.textContent = `正在排队生成线索道具 ${i + 1}/${entries.length}：${entries[i].clue.name}`;
             await generateSingleReplayClueImg(i);
           }
         }
@@ -24095,8 +25045,12 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     async function updateReplayClueNodeField(clIdx, field, val, silent = false) {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
-      if (!proj || !chap || !chap.clueNodes || !chap.clueNodes[clIdx]) return;
-      const cl = chap.clueNodes[clIdx];
+      if (!proj || !chap) return;
+      const entries = getCombinedChapterClueEntries(chap, proj);
+      const entry = entries[clIdx];
+      if (!entry || !entry.clue) return;
+      const cl = entry.clue;
+      const targetHolder = entry.isSubGroup ? entry.subGroup : chap;
       if (field === 'startLineIdx' || field === 'endLineIdx') {
         const num = Math.max(0, parseInt(val, 10) || 0);
         if (field === 'startLineIdx') {
@@ -24110,35 +25064,48 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             cl.lineIdx = num;
           }
         }
-        syncChapterClueLineBindings(chap);
+        if (entry.isSubGroup) syncSubGroupClueLineBindings(targetHolder);
+        else syncChapterClueLineBindings(chap);
         await saveReplayProjectToDB(proj);
         renderReplayScriptEditor();
         renderReplayCgStudio();
+        renderReplaySubGroupStudio();
         return;
       }
       cl[field] = val;
       await saveReplayProjectToDB(proj);
       if (!silent) {
         renderReplayScriptEditor();
+        renderReplaySubGroupStudio();
       }
     }
 
     async function deleteReplayClueNode(clIdx) {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
-      if (!proj || !chap || !chap.clueNodes || !chap.clueNodes[clIdx]) return;
-      chap.clueNodes.splice(clIdx, 1);
-      syncChapterClueLineBindings(chap);
+      if (!proj || !chap) return;
+      const entries = getCombinedChapterClueEntries(chap, proj);
+      const entry = entries[clIdx];
+      if (!entry) return;
+      const targetHolder = entry.isSubGroup ? entry.subGroup : chap;
+      if (!targetHolder || !Array.isArray(targetHolder.clueNodes)) return;
+      targetHolder.clueNodes.splice(entry.localIdx, 1);
+      if (entry.isSubGroup) syncSubGroupClueLineBindings(targetHolder);
+      else syncChapterClueLineBindings(chap);
       await saveReplayProjectToDB(proj);
       renderReplayScriptEditor();
       renderReplayCgStudio();
+      renderReplaySubGroupStudio();
     }
 
     async function generateSingleReplayClueImg(clIdx) {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
-      if (!proj || !chap || !chap.clueNodes || !chap.clueNodes[clIdx]) return;
-      const cl = chap.clueNodes[clIdx];
+      if (!proj || !chap) return;
+      const entries = getCombinedChapterClueEntries(chap, proj);
+      const entry = entries[clIdx];
+      if (!entry || !entry.clue) return;
+      const cl = entry.clue;
       const btn = document.getElementById(`clue-gen-btn-${clIdx}`);
       if (btn) { btn.textContent = '生图中'; btn.disabled = true; }
       try {
@@ -24160,6 +25127,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         await saveReplayProjectToDB(proj);
         renderReplayCgStudio();
         renderReplayScriptEditor();
+        renderReplaySubGroupStudio();
       } catch (err) {
         alert('线索道具生图失败：' + err.message);
       } finally {
@@ -24174,13 +25142,17 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       reader.onload = async (e) => {
         const proj = getCurrentReplayProject();
         const chap = getCurrentReplayChapter();
-        if (!proj || !chap || !chap.clueNodes || !chap.clueNodes[clIdx]) return;
+        if (!proj || !chap) return;
+        const entries = getCombinedChapterClueEntries(chap, proj);
+        const entry = entries[clIdx];
+        if (!entry || !entry.clue) return;
         const safeProj = (proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
-        const savedClueUrl = await saveAssetToLocalBridge(`projects/${safeProj}/clues/${chap.clueNodes[clIdx].id}.png`, e.target.result);
-        chap.clueNodes[clIdx].imageUrl = savedClueUrl;
+        const savedClueUrl = await saveAssetToLocalBridge(`projects/${safeProj}/clues/${entry.clue.id}.png`, e.target.result);
+        entry.clue.imageUrl = savedClueUrl;
         await saveReplayProjectToDB(proj);
         renderReplayCgStudio();
         renderReplayScriptEditor();
+        renderReplaySubGroupStudio();
       };
       reader.readAsDataURL(file);
       event.target.value = '';
@@ -25756,13 +26728,24 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             await invalidateSingleLineTtsCache(chap.id, line.id);
           }
         }
+        const subGroups = getSubGroupsForChapter(proj, appState.currentReplayChapterIdx);
+        for (const sg of subGroups) {
+          for (const line of (sg.scriptLines || [])) {
+            if (line.type === 'dialogue' && normalizeSpeakerName(line.speaker) === normTarget) {
+              line.ttsSpeed = newSpeed;
+              line.ttsPitch = newPitch;
+              updatedLines += 1;
+              await invalidateSingleLineTtsCache(sg.id, line.id);
+            }
+          }
+        }
         await saveReplayProjectToDB(proj);
       }
 
       renderReplayVoiceStudio();
       const statusEl = document.getElementById('replay-voice-status-bar');
       if (statusEl) {
-        statusEl.textContent = `已更新角色 ${_voiceSpeakerFilter} 的音色与默认语速语调，并同步至本章 ${updatedLines} 句台词`;
+        statusEl.textContent = `已更新角色 ${_voiceSpeakerFilter} 的音色与默认语速语调，并同步至本章及小群 ${updatedLines} 句台词`;
       }
       if (btnEl) {
         const origText = btnEl.textContent;
@@ -25945,10 +26928,313 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
     }
 
-    // 渲染专属「配音」子页：支持普通模式与高级模式切换，以及按单人筛选与修改音色
+    async function playSingleSubGroupLineTts(sgId, lineIdx, forceRegen = false) {
+      const proj = getCurrentReplayProject();
+      const sg = findSubGroupById(proj, sgId);
+      if (!proj || !sg || !Array.isArray(sg.scriptLines) || !sg.scriptLines[lineIdx]) return;
+      const line = sg.scriptLines[lineIdx];
+      if (line.type === 'narration' || line.speaker === '旁白') return;
+      const cacheKey = `line_${sg.id}_${line.id}_${appState.theaterTtsLang}`;
+      const activeTag = `sg_${sg.id}_${lineIdx}`;
+      const voiceBtn = document.getElementById(`sg-voice-studio-play-btn-${sg.id}-${lineIdx}`);
+
+      if (_activeReplayTtsLineIdx === activeTag && _activeReplayTtsAudio && !forceRegen) {
+        try { _activeReplayTtsAudio.pause(); } catch (_) {}
+        _activeReplayTtsAudio = null;
+        _activeReplayTtsLineIdx = null;
+        setBgmDuckingActive(false);
+        if (voiceBtn) {
+          voiceBtn.disabled = false;
+          voiceBtn.textContent = '试听';
+        }
+        return;
+      }
+
+      if (_activeReplayTtsAudio) {
+        try { _activeReplayTtsAudio.pause(); } catch (_) {}
+        _activeReplayTtsAudio = null;
+        setBgmDuckingActive(false);
+      }
+
+      if (!forceRegen) {
+        let cached = await db.ttsCache.get(cacheKey);
+        if (!cached || !cached.audioDataUrl) {
+          const altKey = `line_${sg.id}_${line.id}_${appState.theaterTtsLang === 'jp' ? 'zh' : 'jp'}`;
+          cached = await db.ttsCache.get(altKey);
+        }
+        if (!cached || !cached.audioDataUrl) {
+          const statusEl = document.getElementById('replay-voice-status-bar');
+          if (statusEl) statusEl.textContent = `小群「${sg.title}」第 #${lineIdx + 1} 句暂无已生成的语音，未播放`;
+          _activeReplayTtsLineIdx = null;
+          return;
+        }
+
+        const dotEl = document.getElementById(`sg-voice-dot-${sg.id}-${lineIdx}`);
+        if (dotEl) dotEl.style.display = 'inline-block';
+
+        _activeReplayTtsLineIdx = activeTag;
+        if (voiceBtn) {
+          voiceBtn.disabled = false;
+          voiceBtn.textContent = '播放中';
+        }
+
+        const audio = new Audio(cached.audioDataUrl);
+        audio.volume = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
+        _activeReplayTtsAudio = audio;
+        setBgmDuckingActive(true);
+
+        let finished = false;
+        let safeTimer = null;
+        const resetStatus = () => {
+          if (finished) return;
+          finished = true;
+          if (safeTimer) { clearTimeout(safeTimer); safeTimer = null; }
+          if (_activeReplayTtsAudio === audio) _activeReplayTtsAudio = null;
+          if (_activeReplayTtsLineIdx === activeTag) _activeReplayTtsLineIdx = null;
+          setBgmDuckingActive(false);
+          if (voiceBtn) {
+            voiceBtn.disabled = false;
+            voiceBtn.textContent = '试听';
+          }
+        };
+
+        audio.onended = resetStatus;
+        audio.onerror = resetStatus;
+        audio.onpause = () => {
+          if (audio.ended || audio.currentTime === 0) resetStatus();
+        };
+        safeTimer = setTimeout(resetStatus, 12000);
+        try {
+          await audio.play();
+        } catch (_) {
+          resetStatus();
+        }
+        return;
+      }
+
+      const spdEl = document.getElementById(`sg-voice-speed-input-${sg.id}-${lineIdx}`);
+      const ptcEl = document.getElementById(`sg-voice-pitch-input-${sg.id}-${lineIdx}`);
+      if (spdEl && spdEl.value !== '') {
+        const sv = parseFloat(spdEl.value);
+        if (!isNaN(sv)) line.ttsSpeed = Number(Math.max(0.5, Math.min(2.0, sv)).toFixed(2));
+      }
+      if (ptcEl && ptcEl.value !== '' && ptcEl.value !== '-') {
+        const pv = parseFloat(ptcEl.value);
+        if (!isNaN(pv)) line.ttsPitch = Number(Math.max(-12, Math.min(12, pv)).toFixed(2));
+      }
+      const useJp = appState.theaterTtsLang === 'jp' && line.jpText && line.jpText.trim();
+      const ttsText = useJp ? line.jpText.trim() : line.text.trim();
+      const voiceId = getSpeakerVoiceId(line.speaker);
+      if (!voiceId) {
+        alert(`角色 ${line.speaker} 尚未填写语音音色编号，请先在上方角色栏或角色档案填写`);
+        return;
+      }
+
+      _activeReplayTtsLineIdx = activeTag;
+      if (voiceBtn) {
+        voiceBtn.disabled = false;
+        voiceBtn.textContent = '合成中';
+      }
+      try {
+        await invalidateSingleLineTtsCache(sg.id, line.id);
+        await saveReplayProjectToDB(proj);
+        const effParams = resolveLineEffectiveVoiceParams(line);
+        await synthesizeAndPlayReplayTts(ttsText, voiceId, cacheKey, true, effParams);
+        const dotEl = document.getElementById(`sg-voice-dot-${sg.id}-${lineIdx}`);
+        if (dotEl) dotEl.style.display = 'inline-block';
+      } catch (err) {
+        alert('小群语音合成失败：' + err.message);
+      } finally {
+        if (_activeReplayTtsLineIdx === activeTag) _activeReplayTtsLineIdx = null;
+        if (voiceBtn) {
+          voiceBtn.disabled = false;
+          voiceBtn.textContent = '试听';
+        }
+      }
+    }
+
+    async function toggleVoiceStudioSubGroupFold(sgId) {
+      const proj = getCurrentReplayProject();
+      const sg = findSubGroupById(proj, sgId);
+      if (!proj || !sg) return;
+      sg.voiceCollapsed = !sg.voiceCollapsed;
+      await saveReplayProjectToDB(proj);
+      renderReplayVoiceStudio();
+    }
+
+    async function translateSubGroupToJapanese(sgId) {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      const sg = findSubGroupById(proj, sgId);
+      if (!proj || !chap || !sg || !Array.isArray(sg.scriptLines) || sg.scriptLines.length === 0) return;
+
+      const isAdvancedMode = getReplayVoiceStudioMode() === 'advanced';
+      const targetSpk = String(_voiceSpeakerFilter || '').trim();
+      const btn = document.getElementById(`sg-voice-jp-btn-${sg.id}`);
+      const voiceStatusEl = document.getElementById('replay-voice-status-bar');
+      if (btn) { btn.textContent = '润色中'; btn.disabled = true; }
+
+      try {
+        sg.scriptLines.forEach((l) => {
+          if (l.type === 'narration' || l.speaker === '旁白') l.jpText = '';
+        });
+
+        const dialogueItems = sg.scriptLines
+          .map((l, idx) => ({ l, idx }))
+          .filter((item) => item.l.type === 'dialogue' && item.l.speaker !== '旁白' && item.l.text && item.l.text.trim() && (!targetSpk || item.l.speaker === targetSpk));
+
+        if (dialogueItems.length === 0) {
+          if (voiceStatusEl) voiceStatusEl.textContent = `小群「${sg.title}」当前筛选下无对话台词`;
+          return;
+        }
+
+        if (voiceStatusEl) voiceStatusEl.textContent = `正在为小群「${sg.title}」翻译润色 ${dialogueItems.length} 句日语台词，保留已有配音不重置...`;
+
+        const personaSummary = (appState.characters || [])
+          .filter((c) => c.id !== 'narrator_kp' && c.name !== '旁白')
+          .map((c) => {
+            const p = c.personaData || {};
+            const b = getSpeakerVoiceBounds(c.name);
+            return isAdvancedMode
+              ? `名字:${c.name}｜身份:${c.trpgType || '调查员'}｜年龄:${p.age || c.age || '未知'}｜性格:${p.personality || c.quirk || '自然'}｜默认语速:${b.defaultSpeed}｜默认语调:${b.defaultPitch}`
+              : `名字:${c.name}｜身份:${c.trpgType || '调查员'}｜性格:${p.personality || c.quirk || '自然'}`;
+          }).join('\n');
+
+        const fullSgContext = sg.scriptLines
+          .map((l, idx) => `L${idx}|${l.type === 'narration' || l.speaker === '旁白' ? '旁白' : l.speaker}|${l.text}`)
+          .join('\n');
+
+        const targetDialogueLines = dialogueItems
+          .map((item) => `L${item.idx}|${item.l.speaker}|当前差分:${item.l.exp || '默认'}|中文原词:${item.l.text}|初版日译:${item.l.jpText || '待译'}`)
+          .join('\n');
+
+        const sysPromptContent = getCustomOrDefaultVoiceSystemPrompt(isAdvancedMode);
+        const userPromptContent = isAdvancedMode
+          ? `所属模组：${proj.title || '跑团模组'} · 章节：${chap.title || '当前章节'} · 小群：${sg.title || '小群'}\n\n登场角色：\n${personaSummary || '调查员'}\n\n小群完整剧本上下文：\n${fullSgContext}\n\n请一次性润色以下小群角色对话的日语台词并配置每句情绪、语速与语调，严格按 JP_VOICE: L行号|emotion|speed|pitch|纯日语台词 输出：\n${targetDialogueLines}`
+          : `所属模组：${proj.title || '跑团模组'} · 章节：${chap.title || '当前章节'} · 小群：${sg.title || '小群'}\n\n登场角色：\n${personaSummary || '调查员'}\n\n小群完整剧本上下文：\n${fullSgContext}\n\n请一次性翻译并润色以下小群角色对话的纯日语台词，严格按 JP_VOICE: L行号|纯日语台词 输出：\n${targetDialogueLines}`;
+
+        const reply = await callLlmCompletion(
+          [
+            { role: 'system', content: sysPromptContent },
+            { role: 'user', content: userPromptContent }
+          ],
+          null,
+          { caller: `小群日语润色·${sg.title}`, preferSubApi: false }
+        );
+
+        let updatedCount = 0;
+        if (reply) {
+          reply.split('\n').forEach((rLine) => {
+            const trimmed = rLine.trim();
+            if (!trimmed) return;
+            const cleanRow = trimmed.replace(/^JP_VOICE:\s*/i, '');
+            const parts = cleanRow.split('|').map((s) => s.trim());
+            const m = (parts[0] || '').match(/L?(\d+)/i);
+            const lIdx = m ? parseInt(m[1], 10) : -1;
+            if (lIdx < 0 || lIdx >= sg.scriptLines.length) return;
+            const targetLine = sg.scriptLines[lIdx];
+            if (!targetLine || targetLine.type !== 'dialogue' || targetLine.speaker === '旁白') return;
+            if (isAdvancedMode && parts.length >= 5) {
+              const clamped = clampSpeakerVoiceParams(targetLine.speaker, parts[1], parts[2], parts[3], true);
+              targetLine.ttsEmotion = clamped.emotion;
+              if (!targetLine.ttsManualModified) {
+                targetLine.ttsSpeed = clamped.speed;
+                targetLine.ttsPitch = clamped.pitch;
+              }
+              const jp = cleanJapaneseLineText(parts.slice(4).join('|').trim(), targetLine.speaker);
+              if (jp) targetLine.jpText = jp;
+              updatedCount += 1;
+            } else if (parts.length >= 2) {
+              const rawJpPart = parts.length >= 5 ? parts.slice(4).join('|').trim() : parts.slice(1).join('|').trim();
+              const jp = cleanJapaneseLineText(rawJpPart, targetLine.speaker);
+              if (jp) targetLine.jpText = jp;
+              updatedCount += 1;
+            }
+          });
+        }
+
+        await saveReplayProjectToDB(proj);
+        renderReplayVoiceStudio();
+        renderReplayScriptEditor();
+        renderReplaySubGroupStudio();
+        if (voiceStatusEl) {
+          voiceStatusEl.textContent = `已完成小群「${sg.title}」共 ${updatedCount || dialogueItems.length} 句日语润色，原有已生成语音已保留`;
+        }
+      } catch (err) {
+        alert('小群日语润色失败：' + err.message);
+      } finally {
+        if (btn) { btn.textContent = '日译'; btn.disabled = false; }
+      }
+    }
+
+    async function synthesizeSubGroupVoice(sgId) {
+      const proj = getCurrentReplayProject();
+      const sg = findSubGroupById(proj, sgId);
+      if (!proj || !sg || !Array.isArray(sg.scriptLines) || sg.scriptLines.length === 0) return;
+
+      const isAdvancedMode = getReplayVoiceStudioMode() === 'advanced';
+      const btn = document.getElementById(`sg-voice-gen-btn-${sg.id}`);
+      const statusEl = document.getElementById('replay-voice-status-bar');
+      if (btn) { btn.textContent = '生成中'; btn.disabled = true; }
+
+      try {
+        const dialogueItems = sg.scriptLines
+          .map((l, idx) => ({ l, idx }))
+          .filter((item) => {
+            if (item.l.type !== 'dialogue' || !item.l.speaker || item.l.speaker === '旁白' || !item.l.text || !item.l.text.trim()) return false;
+            if (_voiceSpeakerFilter && String(item.l.speaker).trim() !== _voiceSpeakerFilter) return false;
+            return Boolean(getSpeakerVoiceId(item.l.speaker));
+          });
+
+        if (dialogueItems.length === 0) {
+          if (statusEl) statusEl.textContent = `小群「${sg.title}」当前无已设音色的角色对话台词`;
+          return;
+        }
+
+        let doneCount = 0;
+        for (const { l: line, idx } of dialogueItems) {
+          const useJp = appState.theaterTtsLang === 'jp' && line.jpText && line.jpText.trim();
+          const ttsText = useJp ? line.jpText.trim() : line.text.trim();
+          if (!ttsText) continue;
+          const voiceId = getSpeakerVoiceId(line.speaker);
+          if (!voiceId) continue;
+          doneCount += 1;
+          const bounds = getSpeakerVoiceBounds(line.speaker);
+          const clamped = clampSpeakerVoiceParams(
+            line.speaker,
+            line.ttsEmotion || 'neutral',
+            line.ttsSpeed ?? bounds.defaultSpeed,
+            line.ttsPitch ?? bounds.defaultPitch,
+            false
+          );
+          const cacheKey = `line_${sg.id}_${line.id}_${appState.theaterTtsLang}`;
+          if (statusEl) {
+            statusEl.textContent = `正在合成小群「${sg.title}」语音 ${doneCount}/${dialogueItems.length}：${line.speaker}`;
+          }
+          await synthesizeAndPlayReplayTts(ttsText, voiceId, cacheKey, true, {
+            emotion: isAdvancedMode ? clamped.emotion : '',
+            speed: clamped.speed,
+            pitch: clamped.pitch
+          });
+          const dotEl = document.getElementById(`sg-voice-dot-${sg.id}-${idx}`);
+          if (dotEl) dotEl.style.display = 'inline-block';
+        }
+        await saveReplayProjectToDB(proj);
+        if (statusEl) {
+          statusEl.textContent = `小群「${sg.title}」共 ${doneCount} 句角色语音已全部合成完毕！`;
+        }
+      } catch (err) {
+        alert('小群语音合成失败：' + err.message);
+      } finally {
+        if (btn) { btn.textContent = '生成'; btn.disabled = false; }
+      }
+    }
+
+    // 渲染专属「配音」子页：支持普通模式与高级模式切换，按单人筛选与修改音色，并在对应插入位置显示可折叠的小群配音区块
     function renderReplayVoiceStudio() {
       const box = document.getElementById('replay-voice-lines-container');
       if (!box) return;
+      const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
       const cSel = document.getElementById('replay-voice-chapter-select');
       if (cSel) cSel.value = String(appState.currentReplayChapterIdx || 0);
@@ -26005,6 +27291,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         return;
       }
 
+      const subGroups = getSubGroupsForChapter(proj, appState.currentReplayChapterIdx);
       const allDialogueEntries = chap.scriptLines
         .map((line, idx) => ({ line, idx }))
         .filter((item) => item.line.type === 'dialogue' && item.line.speaker && item.line.speaker !== '旁白');
@@ -26014,6 +27301,14 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         allDialogueEntries.forEach(({ line }) => {
           const sp = String(line.speaker || '').trim();
           if (sp) speakerCounts.set(sp, (speakerCounts.get(sp) || 0) + 1);
+        });
+        subGroups.forEach((sg) => {
+          (sg.scriptLines || []).forEach((line) => {
+            if (line.type === 'dialogue' && line.speaker && line.speaker !== '旁白') {
+              const sp = String(line.speaker || '').trim();
+              if (sp) speakerCounts.set(sp, (speakerCounts.get(sp) || 0) + 1);
+            }
+          });
         });
         if (_voiceSpeakerFilter && !speakerCounts.has(_voiceSpeakerFilter)) {
           _voiceSpeakerFilter = '';
@@ -26055,20 +27350,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         if (applyCharBtn) applyCharBtn.disabled = true;
       }
 
-      if (allDialogueEntries.length === 0) {
-        box.innerHTML = '<div class="moe-card" style="text-align:center;color:var(--text-secondary);font-size:12px;">本章暂无角色亲口对话台词</div>';
-        return;
-      }
-
-      const dialogueEntries = _voiceSpeakerFilter
-        ? allDialogueEntries.filter((item) => String(item.line.speaker || '').trim() === _voiceSpeakerFilter)
-        : allDialogueEntries;
-
-      if (dialogueEntries.length === 0) {
-        box.innerHTML = '<div class="moe-card" style="text-align:center;color:var(--text-secondary);font-size:12px;">当前筛选角色在本章暂无对话台词</div>';
-        return;
-      }
-
       const emotionOptions = [
         { val: 'neutral', label: '平静' },
         { val: 'happy', label: '愉快' },
@@ -26080,60 +27361,183 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       ];
 
       box.innerHTML = '';
-      dialogueEntries.forEach(({ line, idx }) => {
-        const cleanJp = cleanJapaneseLineText(line.jpText || '', line.speaker);
-        const bounds = getSpeakerVoiceBounds(line.speaker);
-        const curEmo = line.ttsEmotion || 'neutral';
-        const curSpeed = (typeof line.ttsSpeed === 'number' && !isNaN(line.ttsSpeed)) ? line.ttsSpeed : bounds.defaultSpeed;
-        const curPitch = (typeof line.ttsPitch === 'number' && !isNaN(line.ttsPitch)) ? line.ttsPitch : bounds.defaultPitch;
-        if (typeof line.ttsSpeed !== 'number' || isNaN(line.ttsSpeed)) line.ttsSpeed = curSpeed;
-        if (typeof line.ttsPitch !== 'number' || isNaN(line.ttsPitch)) line.ttsPitch = curPitch;
-        const voiceId = getSpeakerVoiceId(line.speaker);
-
-        const card = document.createElement('div');
-        card.className = 'vn-script-card';
-        card.style.position = 'relative';
-        card.innerHTML = `
-          <span id="voice-dot-${idx}" style="display:none;position:absolute;top:8px;right:8px;width:8px;height:8px;border-radius:50%;background:#94b49f;box-shadow:0 0 4px rgba(148,180,159,0.45);pointer-events:none;z-index:2;"></span>
-          <div class="vn-script-row-top" style="padding-left:4px;padding-right:14px;">
-            <div class="vn-script-row-left">
-              <span class="vn-console-idx">#${idx + 1}</span>
-              <span style="font-size:12px;font-weight:800;color:var(--text-primary);">${line.speaker}</span>
-              <span class="vn-console-badge">${voiceId || '未设音色'}</span>
-              ${isAdvancedMode ? `
-                <select class="moe-input" style="width:auto;min-width:78px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="MiniMax语音情绪" onchange="updateReplayVoiceParam(${idx}, 'ttsEmotion', this.value)">
-                  ${emotionOptions.map((o) => `<option value="${o.val}" ${curEmo === o.val ? 'selected' : ''}>${o.label}</option>`).join('')}
-                </select>
-              ` : ''}
-              <span style="font-size:11px;color:var(--text-secondary);">语速</span>
-              <input type="number" step="any" min="0.5" max="2.0" id="voice-speed-input-${idx}" class="moe-input" value="${curSpeed}" style="width:62px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" oninput="updateReplayVoiceParam(${idx}, 'ttsSpeed', this.value, true)" onchange="updateReplayVoiceParam(${idx}, 'ttsSpeed', this.value, false)" />
-              <span style="font-size:11px;color:var(--text-secondary);">语调</span>
-              <input type="number" step="any" min="-12" max="12" id="voice-pitch-input-${idx}" class="moe-input" value="${curPitch}" style="width:58px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" oninput="updateReplayVoiceParam(${idx}, 'ttsPitch', this.value, true)" onchange="updateReplayVoiceParam(${idx}, 'ttsPitch', this.value, false)" />
-            </div>
-            <div class="vn-script-row-actions">
-              <button type="button" class="moe-btn secondary" id="voice-studio-play-btn-${idx}" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="playSingleScriptLineTts(${idx}, false)">试听</button>
-              <button type="button" class="moe-btn" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="playSingleScriptLineTts(${idx}, true)">重配</button>
-            </div>
-          </div>
-          <textarea rows="2" class="moe-input" style="min-height:48px;height:48px;resize:vertical;font-size:12px;line-height:1.45;padding:6px 10px;" onchange="updateReplayVoiceParam(${idx}, 'text', this.value, false)">${line.text || ''}</textarea>
-          <input type="text" class="moe-input" value="${cleanJp.replace(/"/g, '&quot;')}" placeholder="日语配音台词" style="height:30px;min-height:30px;font-size:11px;color:var(--text-secondary);" onchange="updateReplayVoiceParam(${idx}, 'jpText', this.value, false)" />
-        `;
-        box.appendChild(card);
-      });
-
+      let renderedAny = false;
       const curChapId = chap.id;
       const curLang = appState.theaterTtsLang || 'jp';
-      dialogueEntries.forEach(async ({ line, idx }) => {
-        try {
-          const key = `line_${curChapId}_${line.id}_${curLang}`;
-          const altKey = `line_${curChapId}_${line.id}_${curLang === 'jp' ? 'zh' : 'jp'}`;
-          const rec = await db.ttsCache.get(key) || await db.ttsCache.get(altKey);
-          if (rec && rec.audioDataUrl) {
-            const dot = document.getElementById(`voice-dot-${idx}`);
-            if (dot) dot.style.display = 'inline-block';
+
+      const appendSubGroupVoiceSection = (sg, insIdx) => {
+        const sgLines = Array.isArray(sg.scriptLines) ? sg.scriptLines : [];
+        const sgDialogues = sgLines
+          .map((line, sIdx) => ({ line, sIdx }))
+          .filter((item) => {
+            if (item.line.type !== 'dialogue' || !item.line.speaker || item.line.speaker === '旁白') return false;
+            if (_voiceSpeakerFilter && String(item.line.speaker || '').trim() !== _voiceSpeakerFilter) return false;
+            return true;
+          });
+        if (_voiceSpeakerFilter && sgDialogues.length === 0) return;
+        renderedAny = true;
+
+        const sgHeader = document.createElement('div');
+        sgHeader.className = 'vn-script-card';
+        sgHeader.style.borderStyle = 'dashed';
+        sgHeader.style.background = 'var(--secondary-bg)';
+        sgHeader.innerHTML = `
+          <div class="vn-script-row-top">
+            <div class="vn-script-row-left">
+              <span class="vn-console-badge accent">小群配音</span>
+              <span style="font-size:12px;font-weight:800;color:var(--text-primary);">${(sg.title || '小群记录').replace(/</g, '&lt;')}</span>
+              <span class="vn-console-badge">第 #${insIdx + 1} 句后 · 对话 ${sgDialogues.length} 句</span>
+            </div>
+            <div class="vn-script-row-actions">
+              <button type="button" class="moe-btn secondary" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="toggleVoiceStudioSubGroupFold('${sg.id}')">${sg.voiceCollapsed ? '展开' : '收起'}</button>
+              <button type="button" class="moe-btn secondary" id="sg-voice-jp-btn-${sg.id}" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="translateSubGroupToJapanese('${sg.id}')">日译</button>
+              <button type="button" class="moe-btn" id="sg-voice-gen-btn-${sg.id}" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="synthesizeSubGroupVoice('${sg.id}')">生成</button>
+            </div>
+          </div>
+        `;
+        box.appendChild(sgHeader);
+
+        if (!sg.voiceCollapsed) {
+          if (sgDialogues.length === 0) {
+            const emptyHint = document.createElement('div');
+            emptyHint.className = 'vn-script-card';
+            emptyHint.style.marginLeft = '12px';
+            emptyHint.style.fontSize = '11px';
+            emptyHint.style.color = 'var(--text-secondary)';
+            emptyHint.textContent = sgLines.length === 0
+              ? '该小群尚未整理剧本，请先前往小群页点击整理'
+              : '该小群暂无角色对话台词';
+            box.appendChild(emptyHint);
+          } else {
+            sgDialogues.forEach(({ line, sIdx }) => {
+              const cleanJp = cleanJapaneseLineText(line.jpText || '', line.speaker);
+              const bounds = getSpeakerVoiceBounds(line.speaker);
+              const curEmo = line.ttsEmotion || 'neutral';
+              const curSpeed = (typeof line.ttsSpeed === 'number' && !isNaN(line.ttsSpeed)) ? line.ttsSpeed : bounds.defaultSpeed;
+              const curPitch = (typeof line.ttsPitch === 'number' && !isNaN(line.ttsPitch)) ? line.ttsPitch : bounds.defaultPitch;
+              if (typeof line.ttsSpeed !== 'number' || isNaN(line.ttsSpeed)) line.ttsSpeed = curSpeed;
+              if (typeof line.ttsPitch !== 'number' || isNaN(line.ttsPitch)) line.ttsPitch = curPitch;
+              const voiceId = getSpeakerVoiceId(line.speaker);
+
+              const card = document.createElement('div');
+              card.className = 'vn-script-card';
+              card.style.position = 'relative';
+              card.style.marginLeft = '12px';
+              card.style.borderLeft = '3px solid var(--accent-color)';
+              card.innerHTML = `
+                <span id="sg-voice-dot-${sg.id}-${sIdx}" style="display:none;position:absolute;top:8px;right:8px;width:8px;height:8px;border-radius:50%;background:#94b49f;box-shadow:0 0 4px rgba(148,180,159,0.45);pointer-events:none;z-index:2;"></span>
+                <div class="vn-script-row-top" style="padding-left:4px;padding-right:14px;">
+                  <div class="vn-script-row-left">
+                    <span class="vn-console-badge accent">小群 #${sIdx + 1}</span>
+                    <span style="font-size:12px;font-weight:800;color:var(--text-primary);">${line.speaker}</span>
+                    <span class="vn-console-badge">${voiceId || '未设音色'}</span>
+                    ${isAdvancedMode ? `
+                      <select class="moe-input" style="width:auto;min-width:78px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="MiniMax语音情绪" onchange="updateSubGroupVoiceParam('${sg.id}', ${sIdx}, 'ttsEmotion', this.value)">
+                        ${emotionOptions.map((o) => `<option value="${o.val}" ${curEmo === o.val ? 'selected' : ''}>${o.label}</option>`).join('')}
+                      </select>
+                    ` : ''}
+                    <span style="font-size:11px;color:var(--text-secondary);">语速</span>
+                    <input type="number" step="any" min="0.5" max="2.0" id="sg-voice-speed-input-${sg.id}-${sIdx}" class="moe-input" value="${curSpeed}" style="width:62px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" oninput="updateSubGroupVoiceParam('${sg.id}', ${sIdx}, 'ttsSpeed', this.value, true)" onchange="updateSubGroupVoiceParam('${sg.id}', ${sIdx}, 'ttsSpeed', this.value, false)" />
+                    <span style="font-size:11px;color:var(--text-secondary);">语调</span>
+                    <input type="number" step="any" min="-12" max="12" id="sg-voice-pitch-input-${sg.id}-${sIdx}" class="moe-input" value="${curPitch}" style="width:58px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" oninput="updateSubGroupVoiceParam('${sg.id}', ${sIdx}, 'ttsPitch', this.value, true)" onchange="updateSubGroupVoiceParam('${sg.id}', ${sIdx}, 'ttsPitch', this.value, false)" />
+                  </div>
+                  <div class="vn-script-row-actions">
+                    <button type="button" class="moe-btn secondary" id="sg-voice-studio-play-btn-${sg.id}-${sIdx}" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="playSingleSubGroupLineTts('${sg.id}', ${sIdx}, false)">试听</button>
+                    <button type="button" class="moe-btn" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="playSingleSubGroupLineTts('${sg.id}', ${sIdx}, true)">重配</button>
+                  </div>
+                </div>
+                <textarea rows="2" class="moe-input" style="min-height:48px;height:48px;resize:vertical;font-size:12px;line-height:1.45;padding:6px 10px;" onchange="updateSubGroupVoiceParam('${sg.id}', ${sIdx}, 'text', this.value, false)">${line.text || ''}</textarea>
+                <input type="text" class="moe-input" value="${cleanJp.replace(/"/g, '&quot;')}" placeholder="日语配音台词" style="height:30px;min-height:30px;font-size:11px;color:var(--text-secondary);" onchange="updateSubGroupVoiceParam('${sg.id}', ${sIdx}, 'jpText', this.value, false)" />
+              `;
+              box.appendChild(card);
+
+              (async () => {
+                try {
+                  const key = `line_${sg.id}_${line.id}_${curLang}`;
+                  const altKey = `line_${sg.id}_${line.id}_${curLang === 'jp' ? 'zh' : 'jp'}`;
+                  const rec = await db.ttsCache.get(key) || await db.ttsCache.get(altKey);
+                  if (rec && rec.audioDataUrl) {
+                    const dot = document.getElementById(`sg-voice-dot-${sg.id}-${sIdx}`);
+                    if (dot) dot.style.display = 'inline-block';
+                  }
+                } catch (_) {}
+              })();
+            });
           }
-        } catch (_) {}
+        }
+      };
+
+      chap.scriptLines.forEach((line, idx) => {
+        const isTargetDialogue = line.type === 'dialogue'
+          && line.speaker
+          && line.speaker !== '旁白'
+          && (!_voiceSpeakerFilter || String(line.speaker || '').trim() === _voiceSpeakerFilter);
+
+        if (isTargetDialogue) {
+          renderedAny = true;
+          const cleanJp = cleanJapaneseLineText(line.jpText || '', line.speaker);
+          const bounds = getSpeakerVoiceBounds(line.speaker);
+          const curEmo = line.ttsEmotion || 'neutral';
+          const curSpeed = (typeof line.ttsSpeed === 'number' && !isNaN(line.ttsSpeed)) ? line.ttsSpeed : bounds.defaultSpeed;
+          const curPitch = (typeof line.ttsPitch === 'number' && !isNaN(line.ttsPitch)) ? line.ttsPitch : bounds.defaultPitch;
+          if (typeof line.ttsSpeed !== 'number' || isNaN(line.ttsSpeed)) line.ttsSpeed = curSpeed;
+          if (typeof line.ttsPitch !== 'number' || isNaN(line.ttsPitch)) line.ttsPitch = curPitch;
+          const voiceId = getSpeakerVoiceId(line.speaker);
+
+          const card = document.createElement('div');
+          card.className = 'vn-script-card';
+          card.style.position = 'relative';
+          card.innerHTML = `
+            <span id="voice-dot-${idx}" style="display:none;position:absolute;top:8px;right:8px;width:8px;height:8px;border-radius:50%;background:#94b49f;box-shadow:0 0 4px rgba(148,180,159,0.45);pointer-events:none;z-index:2;"></span>
+            <div class="vn-script-row-top" style="padding-left:4px;padding-right:14px;">
+              <div class="vn-script-row-left">
+                <span class="vn-console-idx">#${idx + 1}</span>
+                <span style="font-size:12px;font-weight:800;color:var(--text-primary);">${line.speaker}</span>
+                <span class="vn-console-badge">${voiceId || '未设音色'}</span>
+                ${isAdvancedMode ? `
+                  <select class="moe-input" style="width:auto;min-width:78px;height:32px;min-height:32px;line-height:1.3;padding:2px 22px 2px 8px;font-size:11px;" title="MiniMax语音情绪" onchange="updateReplayVoiceParam(${idx}, 'ttsEmotion', this.value)">
+                    ${emotionOptions.map((o) => `<option value="${o.val}" ${curEmo === o.val ? 'selected' : ''}>${o.label}</option>`).join('')}
+                  </select>
+                ` : ''}
+                <span style="font-size:11px;color:var(--text-secondary);">语速</span>
+                <input type="number" step="any" min="0.5" max="2.0" id="voice-speed-input-${idx}" class="moe-input" value="${curSpeed}" style="width:62px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" oninput="updateReplayVoiceParam(${idx}, 'ttsSpeed', this.value, true)" onchange="updateReplayVoiceParam(${idx}, 'ttsSpeed', this.value, false)" />
+                <span style="font-size:11px;color:var(--text-secondary);">语调</span>
+                <input type="number" step="any" min="-12" max="12" id="voice-pitch-input-${idx}" class="moe-input" value="${curPitch}" style="width:58px;height:30px;min-height:30px;padding:0 6px;font-size:11px;" oninput="updateReplayVoiceParam(${idx}, 'ttsPitch', this.value, true)" onchange="updateReplayVoiceParam(${idx}, 'ttsPitch', this.value, false)" />
+              </div>
+              <div class="vn-script-row-actions">
+                <button type="button" class="moe-btn secondary" id="voice-studio-play-btn-${idx}" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="playSingleScriptLineTts(${idx}, false)">试听</button>
+                <button type="button" class="moe-btn" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="playSingleScriptLineTts(${idx}, true)">重配</button>
+              </div>
+            </div>
+            <textarea rows="2" class="moe-input" style="min-height:48px;height:48px;resize:vertical;font-size:12px;line-height:1.45;padding:6px 10px;" onchange="updateReplayVoiceParam(${idx}, 'text', this.value, false)">${line.text || ''}</textarea>
+            <input type="text" class="moe-input" value="${cleanJp.replace(/"/g, '&quot;')}" placeholder="日语配音台词" style="height:30px;min-height:30px;font-size:11px;color:var(--text-secondary);" onchange="updateReplayVoiceParam(${idx}, 'jpText', this.value, false)" />
+          `;
+          box.appendChild(card);
+
+          (async () => {
+            try {
+              const key = `line_${curChapId}_${line.id}_${curLang}`;
+              const altKey = `line_${curChapId}_${line.id}_${curLang === 'jp' ? 'zh' : 'jp'}`;
+              const rec = await db.ttsCache.get(key) || await db.ttsCache.get(altKey);
+              if (rec && rec.audioDataUrl) {
+                const dot = document.getElementById(`voice-dot-${idx}`);
+                if (dot) dot.style.display = 'inline-block';
+              }
+            } catch (_) {}
+          })();
+        }
+
+        subGroups.forEach((sg) => {
+          const insIdx = Math.max(0, Math.min(chap.scriptLines.length - 1, Number(sg.insertAfterLineIdx ?? 0)));
+          if (insIdx === idx) {
+            appendSubGroupVoiceSection(sg, insIdx);
+          }
+        });
       });
+
+      if (!renderedAny) {
+        box.innerHTML = '<div class="moe-card" style="text-align:center;color:var(--text-secondary);font-size:12px;">当前筛选范围内暂无角色对话台词</div>';
+      }
     }
 
     function evictTtsRamCacheKey(key) {
@@ -26191,8 +27595,40 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       } else {
         line[field] = val;
       }
-      if (!isInputEvent && (field === 'text' || field === 'jpText')) {
-        await invalidateSingleLineTtsCache(chap.id, line.id);
+      await saveReplayProjectToDB(proj);
+    }
+
+    async function updateSubGroupVoiceParam(sgId, lineIdx, field, val, isInputEvent = false) {
+      const proj = getCurrentReplayProject();
+      const sg = findSubGroupById(proj, sgId);
+      if (!proj || !sg || !Array.isArray(sg.scriptLines) || !sg.scriptLines[lineIdx]) return;
+      const line = sg.scriptLines[lineIdx];
+      const bounds = getSpeakerVoiceBounds(line.speaker);
+      if (field === 'ttsEmotion') {
+        line.ttsEmotion = val;
+        line.ttsManualModified = true;
+      } else if (field === 'ttsSpeed') {
+        if (isInputEvent && isIntermediateDecimalInput(val)) return;
+        const parsed = parseFloat(val);
+        const s = isNaN(parsed) ? bounds.defaultSpeed : Math.max(0.5, Math.min(2.0, parsed));
+        line.ttsSpeed = Number(s.toFixed(2));
+        line.ttsManualModified = true;
+        if (!isInputEvent) {
+          const spdInput = document.getElementById(`sg-voice-speed-input-${sg.id}-${lineIdx}`);
+          if (spdInput) spdInput.value = line.ttsSpeed;
+        }
+      } else if (field === 'ttsPitch') {
+        if (isInputEvent && isIntermediateDecimalInput(val)) return;
+        const parsed = parseFloat(val);
+        const p = isNaN(parsed) ? bounds.defaultPitch : Math.max(-12, Math.min(12, parsed));
+        line.ttsPitch = Number(p.toFixed(2));
+        line.ttsManualModified = true;
+        if (!isInputEvent) {
+          const ptcInput = document.getElementById(`sg-voice-pitch-input-${sg.id}-${lineIdx}`);
+          if (ptcInput) ptcInput.value = line.ttsPitch;
+        }
+      } else {
+        line[field] = val;
       }
       await saveReplayProjectToDB(proj);
     }
@@ -26201,27 +27637,31 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
       if (!proj || !chap || !Array.isArray(chap.scriptLines)) return;
-      chap.scriptLines.forEach((line) => {
-        if (line.type === 'dialogue' && line.speaker && line.speaker !== '旁白') {
-          if (_voiceSpeakerFilter && String(line.speaker).trim() !== _voiceSpeakerFilter) return;
-          const bounds = getSpeakerVoiceBounds(line.speaker);
-          line.ttsSpeed = bounds.defaultSpeed;
-          line.ttsPitch = bounds.defaultPitch;
-          line.ttsEmotion = 'neutral';
-          line.ttsManualModified = false;
-        }
-      });
+      const resetOnList = (linesArr) => {
+        (linesArr || []).forEach((line) => {
+          if (line.type === 'dialogue' && line.speaker && line.speaker !== '旁白') {
+            if (_voiceSpeakerFilter && String(line.speaker).trim() !== _voiceSpeakerFilter) return;
+            const bounds = getSpeakerVoiceBounds(line.speaker);
+            line.ttsSpeed = bounds.defaultSpeed;
+            line.ttsPitch = bounds.defaultPitch;
+            line.ttsEmotion = 'neutral';
+            line.ttsManualModified = false;
+          }
+        });
+      };
+      resetOnList(chap.scriptLines);
+      getSubGroupsForChapter(proj, appState.currentReplayChapterIdx).forEach((sg) => resetOnList(sg.scriptLines));
       await saveReplayProjectToDB(proj);
       renderReplayVoiceStudio();
       const statusEl = document.getElementById('replay-voice-status-bar');
       if (statusEl) {
         statusEl.textContent = _voiceSpeakerFilter
-          ? `已将角色 ${_voiceSpeakerFilter} 在本章所有台词的语速、语调、情绪恢复为默认值`
-          : '已将当前章节所有台词的语速、语调、情绪恢复为对应角色默认值';
+          ? `已将角色 ${_voiceSpeakerFilter} 在本章及小群所有台词的语速、语调、情绪恢复为默认值`
+          : '已将当前章节及小群所有台词的语速、语调、情绪恢复为对应角色默认值';
       }
     }
 
-    // 点击配音页顶部「生成」按钮：按当前模式调用MiniMax合成语音，若已筛选单个角色则仅合成该角色台词
+    // 点击配音页顶部「生成」按钮：按当前模式调用MiniMax合成整章及已插入小群的语音，若已筛选单个角色则仅合成该角色台词
     async function aiConfigureAndSynthesizeChapterVoice() {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
@@ -26233,13 +27673,27 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       if (btn) { btn.textContent = '生成中'; btn.disabled = true; }
 
       try {
-        const dialogueItems = chap.scriptLines
-          .map((l, idx) => ({ l, idx }))
-          .filter((item) => {
-            if (item.l.type !== 'dialogue' || !item.l.speaker || item.l.speaker === '旁白' || !item.l.text || !item.l.text.trim()) return false;
-            if (_voiceSpeakerFilter && String(item.l.speaker).trim() !== _voiceSpeakerFilter) return false;
-            return true;
+        const subGroups = getSubGroupsForChapter(proj, appState.currentReplayChapterIdx);
+        const dialogueItems = [];
+        chap.scriptLines.forEach((l, idx) => {
+          if (l.type === 'dialogue' && l.speaker && l.speaker !== '旁白' && l.text && l.text.trim()) {
+            if (!_voiceSpeakerFilter || String(l.speaker).trim() === _voiceSpeakerFilter) {
+              dialogueItems.push({ l, idx, holderId: chap.id, isSubGroup: false });
+            }
+          }
+          subGroups.forEach((sg) => {
+            const insIdx = Math.max(0, Math.min(chap.scriptLines.length - 1, Number(sg.insertAfterLineIdx ?? 0)));
+            if (insIdx === idx && Array.isArray(sg.scriptLines)) {
+              sg.scriptLines.forEach((sl, sIdx) => {
+                if (sl.type === 'dialogue' && sl.speaker && sl.speaker !== '旁白' && sl.text && sl.text.trim()) {
+                  if (!_voiceSpeakerFilter || String(sl.speaker).trim() === _voiceSpeakerFilter) {
+                    dialogueItems.push({ l: sl, idx: sIdx, holderId: sg.id, isSubGroup: true, sg });
+                  }
+                }
+              });
+            }
           });
+        });
 
         if (dialogueItems.length === 0) {
           if (statusEl) statusEl.textContent = '当前筛选范围内没有角色对话台词';
@@ -26253,9 +27707,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
 
         let doneCount = 0;
-        for (const { l: line, idx } of validVoiceItems) {
-          const spdEl = document.getElementById(`voice-speed-input-${idx}`);
-          const ptcEl = document.getElementById(`voice-pitch-input-${idx}`);
+        for (const item of validVoiceItems) {
+          const { l: line, idx, holderId, isSubGroup, sg } = item;
+          const spdEl = document.getElementById(isSubGroup ? `sg-voice-speed-input-${sg.id}-${idx}` : `voice-speed-input-${idx}`);
+          const ptcEl = document.getElementById(isSubGroup ? `sg-voice-pitch-input-${sg.id}-${idx}` : `voice-pitch-input-${idx}`);
           if (spdEl && spdEl.value !== '') {
             const sv = parseFloat(spdEl.value);
             if (!isNaN(sv)) line.ttsSpeed = Number(Math.max(0.5, Math.min(2.0, sv)).toFixed(2));
@@ -26278,7 +27733,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             line.ttsPitch ?? bounds.defaultPitch,
             false
           );
-          const cacheKey = `line_${chap.id}_${line.id}_${appState.theaterTtsLang}`;
+          const cacheKey = `line_${holderId}_${line.id}_${appState.theaterTtsLang}`;
           if (statusEl) {
             statusEl.textContent = `正在逐句调用MiniMax合成语音 ${doneCount}/${validVoiceItems.length}：${line.speaker}`;
           }
@@ -26287,12 +27742,14 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             speed: clamped.speed,
             pitch: clamped.pitch
           });
+          const dotEl = document.getElementById(isSubGroup ? `sg-voice-dot-${sg.id}-${idx}` : `voice-dot-${idx}`);
+          if (dotEl) dotEl.style.display = 'inline-block';
         }
         await saveReplayProjectToDB(proj);
         if (statusEl) {
           statusEl.textContent = _voiceSpeakerFilter
             ? `角色 ${_voiceSpeakerFilter} 的 ${doneCount} 句台词已逐条合成完毕！`
-            : `本章已设置音色的 ${doneCount} 句角色台词已逐条合成完毕！`;
+            : `本章及小群已设置音色的 ${doneCount} 句角色台词已逐条合成完毕！`;
         }
       } catch (err) {
         alert('生成章节配音失败：' + err.message);
@@ -26426,15 +27883,17 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     }
 
     function preloadChapterTtsAudioPool(chap, startIdx = 0) {
-      if (!chap || !Array.isArray(chap.scriptLines)) return;
+      const playableChap = (chap && chap._isMergedStream) ? chap : (getActiveTheaterPlayableChapter() || chap);
+      if (!playableChap || !Array.isArray(playableChap.scriptLines)) return;
       const lang = appState.theaterTtsLang || 'jp';
       const begin = Math.max(0, Number(startIdx) || 0);
-      const end = Math.min(chap.scriptLines.length - 1, begin + 10);
+      const end = Math.min(playableChap.scriptLines.length - 1, begin + 10);
       (async () => {
         for (let i = begin; i <= end; i++) {
-          const l = chap.scriptLines[i];
+          const l = playableChap.scriptLines[i];
           if (!l || l.type === 'narration' || !l.speaker || l.speaker === '旁白' || l.speaker === '检定') continue;
-          const ck = `line_${chap.id}_${l.id}_${lang}`;
+          const holderId = l._ttsHolderId || playableChap.id;
+          const ck = `line_${holderId}_${l.id}_${lang}`;
           if (_theaterTtsRamCache.has(ck)) continue;
           try {
             const rec = await db.ttsCache.get(ck);
@@ -26448,12 +27907,13 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
     function openTheaterForCurrentChapter() {
       unlockBgmAudioPlayerOnUserGesture();
+      appState.activeTheaterSubGroupId = '';
       appState.theaterLineIdx = 0;
       appState.theaterPureStageMode = true;
       appState.theaterEditMode = false;
       closeTheaterSelectorLobby();
       openAppScreen('theater');
-      const curChap = getCurrentReplayChapter();
+      const curChap = getActiveTheaterPlayableChapter();
       preloadChapterTtsAudioPool(curChap, 0);
       prewarmChapterBgmUrls(curChap);
       renderTheaterCurrentLine();
@@ -26469,14 +27929,22 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
     async function onStageEditFieldChange(field, val) {
       const proj = getCurrentReplayProject();
-      const chap = getCurrentReplayChapter();
+      const chap = getActiveTheaterPlayableChapter();
       if (!proj || !chap || !Array.isArray(chap.scriptLines)) return;
       const idx = Math.max(0, Math.min(chap.scriptLines.length - 1, appState.theaterLineIdx || 0));
       const line = chap.scriptLines[idx];
       if (!line) return;
+      const origHolder = line._origHolder || getCurrentReplayChapter();
+      const origIdx = typeof line._origIdx === 'number' ? line._origIdx : idx;
 
       if (field === 'sceneId') {
-        propagateSceneSwitchFromLine(chap, idx, val);
+        if (origHolder && Array.isArray(origHolder.scriptLines)) {
+          for (let k = origIdx; k < origHolder.scriptLines.length; k++) {
+            origHolder.scriptLines[k].sceneId = val;
+          }
+        } else {
+          line.sceneId = val;
+        }
       } else {
         line[field] = val;
       }
@@ -26490,7 +27958,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         line.jpText = '';
       }
       if (field === 'speaker' || field === 'sceneId' || field === 'effect') {
-        computeChapterStageSlots(chap.scriptLines);
+        if (origHolder && Array.isArray(origHolder.scriptLines)) {
+          computeChapterStageSlots(origHolder.scriptLines);
+        }
       }
       if (field === 'bgmTag') {
         const cleanVal = String(val || '').trim();
@@ -26519,16 +27989,23 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
       await saveReplayProjectToDB(proj);
       renderReplayScriptEditor();
+      renderReplaySubGroupStudio();
       if (typeof renderReplayStageFxStudio === 'function') renderReplayStageFxStudio();
       if (field === 'sceneId') renderReplayCgStudio();
       renderTheaterCurrentLine();
     }
 
     async function toggleCurrentStageLineCgMark() {
-      const chap = getCurrentReplayChapter();
+      const chap = getActiveTheaterPlayableChapter();
       if (!chap || !Array.isArray(chap.scriptLines)) return;
       const idx = Math.max(0, Math.min(chap.scriptLines.length - 1, appState.theaterLineIdx || 0));
-      await addManualCgForScriptLine(idx);
+      const line = chap.scriptLines[idx];
+      if (!line) return;
+      if (line._isSubGroupLine && line._subGroupId) {
+        await addManualCgForSubGroupLine(line._subGroupId, line._origIdx ?? 0);
+      } else {
+        await addManualCgForScriptLine(line._origIdx ?? idx);
+      }
       renderTheaterCurrentLine();
     }
 
@@ -27220,22 +28697,166 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     function getActiveTheaterPlayableChapter() {
       const proj = getCurrentReplayProject();
       const mainChap = getCurrentReplayChapter();
+      if (!mainChap) return null;
       if (appState.activeTheaterSubGroupId && proj && Array.isArray(proj.subGroups)) {
         const sg = proj.subGroups.find((x) => x && x.id === appState.activeTheaterSubGroupId);
         if (sg && Array.isArray(sg.scriptLines) && sg.scriptLines.length > 0) {
+          sg.scriptLines.forEach((l, i) => {
+            if (l) {
+              l._ttsHolderId = sg.id;
+              l._origHolder = sg;
+              l._origIdx = i;
+              l._isSubGroupLine = true;
+              l._subGroupId = sg.id;
+            }
+          });
           return {
             id: sg.id,
             title: sg.title || '小群',
             scriptLines: sg.scriptLines,
             danmakuList: sg.danmakuList || [],
             scenes: mainChap?.scenes || proj.globalScenes || [],
-            cgNodes: [],
-            clueNodes: [],
+            cgNodes: sg.cgNodes || [],
+            clueNodes: sg.clueNodes || [],
             _isSubGroup: true
           };
         }
       }
-      return mainChap;
+      const curChapIdx = Number(appState.currentReplayChapterIdx) || 0;
+      const insertedSgs = Array.isArray(proj?.subGroups)
+        ? proj.subGroups.filter((sg) => sg && sg.inserted && Number(sg.targetChapterIdx) === curChapIdx && Array.isArray(sg.scriptLines) && sg.scriptLines.length > 0)
+        : [];
+      if (insertedSgs.length === 0) {
+        (mainChap.scriptLines || []).forEach((l, i) => {
+          if (l) {
+            l._ttsHolderId = mainChap.id;
+            l._origHolder = mainChap;
+            l._origIdx = i;
+            l._isSubGroupLine = false;
+            l._subGroupId = '';
+          }
+        });
+        return mainChap;
+      }
+
+      const mergedLines = [];
+      const mergedDanmaku = [];
+      const mergedCgNodes = [];
+      const mergedClueNodes = [];
+      const mainIdxMap = new Map();
+      const mainLines = Array.isArray(mainChap.scriptLines) ? mainChap.scriptLines : [];
+
+      const appendSubGroupLines = (sg) => {
+        const sgOffset = mergedLines.length;
+        (sg.scriptLines || []).forEach((l, sIdx) => {
+          if (!l) return;
+          l._ttsHolderId = sg.id;
+          l._origHolder = sg;
+          l._origIdx = sIdx;
+          l._isSubGroupLine = true;
+          l._subGroupId = sg.id;
+          mergedLines.push(l);
+        });
+        (sg.danmakuList || []).forEach((dm) => {
+          if (dm && dm.text) {
+            mergedDanmaku.push({
+              ...dm,
+              lineIdx: sgOffset + Math.max(0, Number(dm.lineIdx) || 0)
+            });
+          }
+        });
+        (sg.cgNodes || []).forEach((cg) => {
+          if (!cg) return;
+          const s = Number(cg.startLineIdx ?? cg.lineIdx ?? 0);
+          const e = Number(cg.endLineIdx ?? s);
+          mergedCgNodes.push({
+            ...cg,
+            lineIdx: sgOffset + s,
+            startLineIdx: sgOffset + s,
+            endLineIdx: sgOffset + e
+          });
+        });
+        (sg.clueNodes || []).forEach((cl) => {
+          if (!cl) return;
+          const s = Number(cl.startLineIdx ?? cl.lineIdx ?? 0);
+          const e = Number(cl.endLineIdx ?? s);
+          mergedClueNodes.push({
+            ...cl,
+            lineIdx: sgOffset + s,
+            startLineIdx: sgOffset + s,
+            endLineIdx: sgOffset + e
+          });
+        });
+      };
+
+      insertedSgs.filter((sg) => Number(sg.insertAfterLineIdx) < 0).forEach(appendSubGroupLines);
+
+      mainLines.forEach((l, mIdx) => {
+        if (l) {
+          l._ttsHolderId = mainChap.id;
+          l._origHolder = mainChap;
+          l._origIdx = mIdx;
+          l._isSubGroupLine = false;
+          l._subGroupId = '';
+        }
+        mainIdxMap.set(mIdx, mergedLines.length);
+        mergedLines.push(l);
+        insertedSgs
+          .filter((sg) => {
+            const rawAfter = Number(sg.insertAfterLineIdx);
+            if (rawAfter < 0) return false;
+            const safePos = Math.min(Math.max(0, mainLines.length - 1), rawAfter);
+            return safePos === mIdx;
+          })
+          .forEach(appendSubGroupLines);
+      });
+
+      (mainChap.danmakuList || []).forEach((dm) => {
+        if (dm && dm.text) {
+          const origI = Math.max(0, Number(dm.lineIdx) || 0);
+          mergedDanmaku.push({
+            ...dm,
+            lineIdx: mainIdxMap.has(origI) ? mainIdxMap.get(origI) : origI
+          });
+        }
+      });
+
+      (mainChap.cgNodes || []).forEach((cg) => {
+        if (!cg) return;
+        const s = Number(cg.startLineIdx ?? cg.lineIdx ?? 0);
+        const e = Number(cg.endLineIdx ?? s);
+        const mappedS = mainIdxMap.has(s) ? mainIdxMap.get(s) : s;
+        const mappedE = mainIdxMap.has(e) ? mainIdxMap.get(e) : Math.max(mappedS, e);
+        mergedCgNodes.push({
+          ...cg,
+          lineIdx: mappedS,
+          startLineIdx: mappedS,
+          endLineIdx: mappedE
+        });
+      });
+
+      (mainChap.clueNodes || []).forEach((cl) => {
+        if (!cl) return;
+        const s = Number(cl.startLineIdx ?? cl.lineIdx ?? 0);
+        const e = Number(cl.endLineIdx ?? s);
+        const mappedS = mainIdxMap.has(s) ? mainIdxMap.get(s) : s;
+        const mappedE = mainIdxMap.has(e) ? mainIdxMap.get(e) : Math.max(mappedS, e);
+        mergedClueNodes.push({
+          ...cl,
+          lineIdx: mappedS,
+          startLineIdx: mappedS,
+          endLineIdx: mappedE
+        });
+      });
+
+      return {
+        ...mainChap,
+        scriptLines: mergedLines,
+        danmakuList: mergedDanmaku,
+        cgNodes: mergedCgNodes,
+        clueNodes: mergedClueNodes,
+        _isMergedPlayable: true
+      };
     }
 
     function enterTheaterSubGroup(sgId) {
@@ -27247,6 +28868,16 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         openAppScreen('replay');
         jumpFromChapterPlaceholderToSubGroup(sgId);
         return;
+      }
+      const playable = getActiveTheaterPlayableChapter();
+      if (playable && Array.isArray(playable.scriptLines)) {
+        const firstIdx = playable.scriptLines.findIndex((l) => l && l._subGroupId === sgId);
+        if (firstIdx >= 0) {
+          appState.activeTheaterSubGroupId = '';
+          appState.theaterLineIdx = firstIdx;
+          renderTheaterCurrentLine();
+          return;
+        }
       }
       appState.theaterReturnLineIdx = appState.theaterLineIdx || 0;
       appState.activeTheaterSubGroupId = sgId;
@@ -27316,7 +28947,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const transitionLayer = document.getElementById('vn-theater-transition-layer');
       const diceToast = document.getElementById('vn-theater-dice-toast');
       const blackoutLayer = document.getElementById('vn-theater-blackout-layer');
-      const blackoutText = document.getElementById('vn-theater-blackout-text');
       const subGroupBar = document.getElementById('vn-theater-subgroup-bar');
       const editPanel = document.getElementById('vn-theater-stage-edit-panel');
       const modeToggleBtn = document.getElementById('vn-stage-mode-toggle-btn');
@@ -27413,7 +29043,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       if (jpEl) jpEl.textContent = '';
       saveCurrentSessionNavState();
 
-      // 渲染环境氛围层与镜头转场层
+      // 渲染环境氛围层
       if (ambientLayer) {
         let effAmb = line.ambient || 'inherit';
         if (effAmb === 'inherit') {
@@ -27432,13 +29062,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
 
       if (transitionLayer && stageRoot) {
-        const curTrans = line.transition || 'none';
-        stageRoot.classList.toggle('stage-memory-sepia', curTrans === 'memory_sepia');
+        stageRoot.classList.remove('stage-memory-sepia');
         transitionLayer.className = 'vn-transition-layer';
-        if (curTrans && curTrans !== 'none' && curTrans !== 'memory_sepia' && !appState.theaterEditMode) {
-          void transitionLayer.offsetWidth;
-          transitionLayer.classList.add(`trans-${curTrans}`);
-        }
       }
 
       let typewriterDone = false;
@@ -27472,8 +29097,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       if (canPlayStageAudio && !appState.theaterSkipPlay && !appState.theaterEditMode) {
         preloadChapterTtsAudioPool(chap, idx + 1);
         if (isDialogueLine) {
-          const cacheKey = `line_${chap.id}_${line.id}_${appState.theaterTtsLang}`;
-          const altKey = `line_${chap.id}_${line.id}_${appState.theaterTtsLang === 'jp' ? 'zh' : 'jp'}`;
+          const holderId = line._ttsHolderId || chap.id;
+          const cacheKey = `line_${holderId}_${line.id}_${appState.theaterTtsLang}`;
+          const altKey = `line_${holderId}_${line.id}_${appState.theaterTtsLang === 'jp' ? 'zh' : 'jp'}`;
           (async () => {
             try {
               let playUrl = '';
@@ -27606,7 +29232,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         playTheaterSfx(line.sfxTag);
       }
 
-      // 0.5 高级文游全屏黑幕渐入渐出文字转场 与 全屏震动暗角灯效
+      // 0.5 全屏震动效果，不显示任何黑幕大字转场或小群跳转按钮
       if (stageRoot) {
         stageRoot.classList.remove('fx-shake-screen');
         if (activeEffect === 'shake_screen' || activeTextFx === 'shout_l' || activeTextFx === 'betrayal') {
@@ -27617,39 +29243,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       if (blackoutLayer) {
         blackoutLayer.classList.remove('active');
       }
-
       if (subGroupBar) {
-        if (chap._isSubGroup) {
-          subGroupBar.style.display = 'flex';
-          subGroupBar.innerHTML = `
-            <button type="button" class="moe-btn" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,0.28);" onclick="exitTheaterSubGroupToMain()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-              <span>主线</span>
-            </button>
-          `;
-        } else {
-          const curChapIdx = Number(appState.currentReplayChapterIdx) || 0;
-          const matchedSgs = Array.isArray(curProj?.subGroups)
-            ? curProj.subGroups.filter((sg) => {
-                if (!sg || !sg.inserted || Number(sg.targetChapterIdx) !== curChapIdx) return false;
-                if (Number(sg.insertAfterLineIdx) < 0 && idx === 0) return true;
-                const safePos = Math.min(Math.max(0, chap.scriptLines.length - 1), Math.max(0, Number(sg.insertAfterLineIdx) || 0));
-                return safePos === idx;
-              })
-            : [];
-          if (matchedSgs.length > 0) {
-            subGroupBar.style.display = 'flex';
-            subGroupBar.innerHTML = matchedSgs.map((sg) => `
-              <button type="button" class="moe-btn" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,0.28);" onclick="enterTheaterSubGroup('${sg.id}')">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                <span>${(sg.title || '小群').replace(/</g, '&lt;')}</span>
-              </button>
-            `).join('');
-          } else {
-            subGroupBar.style.display = 'none';
-            subGroupBar.innerHTML = '';
-          }
-        }
+        subGroupBar.style.display = 'none';
+        subGroupBar.innerHTML = '';
       }
 
       // 1. 屏幕右上角克制高级几何二十面骰检定横幅
@@ -27729,7 +29325,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                 const curScreen = document.getElementById('screen-theater');
                 if (!curScreen?.classList.contains('active') || curLobby?.classList.contains('active')) return;
 
-                const curChap = getCurrentReplayChapter();
+                const curChap = getActiveTheaterPlayableChapter();
                 const curIdx = Math.max(0, Math.min((curChap?.scriptLines?.length || 1) - 1, appState.theaterLineIdx || 0));
                 const latestActiveLine = findEffectiveChapterBgmLine(curChap, curIdx);
                 if (latestActiveLine && String(latestActiveLine.bgmTag).trim() !== bgmTagStr) return;
@@ -27950,7 +29546,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       } else if (chap._isSubGroup) {
         exitTheaterSubGroupToMain();
       } else {
-        // 当前章节播放完毕后，自动无缝进入下一章继续播放
+        // 当前章节播放完毕后，自动流畅切换到下一章继续播放，不显示大字报或黑幕转场
         const totalChapters = Array.isArray(proj?.chapters) ? proj.chapters.length : 0;
         const nextChapIdx = (appState.currentReplayChapterIdx || 0) + 1;
         if (proj && nextChapIdx < totalChapters) {
@@ -27979,7 +29575,14 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     }
 
     function replayCurrentTheaterLineTts() {
-      playSingleScriptLineTts(appState.theaterLineIdx || 0, false);
+      const chap = getActiveTheaterPlayableChapter();
+      const curIdx = appState.theaterLineIdx || 0;
+      const line = chap?.scriptLines?.[curIdx];
+      if (line && line._isSubGroupLine && line._subGroupId) {
+        playSingleSubGroupLineTts(line._subGroupId, Number(line._origIdx) || 0, false);
+      } else {
+        playSingleScriptLineTts(line && line._origIdx !== undefined ? line._origIdx : curIdx, false);
+      }
     }
 
     function stopTheaterAutoAndSkip() {
@@ -28075,6 +29678,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           if (cg.imageUrl) items.push({ title: `${ch.title} · CG #${idx + 1} ${cg.zhDesc}`, url: cg.imageUrl });
         });
       });
+      (proj?.subGroups || []).forEach((sg) => {
+        (sg.cgNodes || []).forEach((cg, idx) => {
+          if (cg.imageUrl) items.push({ title: `${sg.title || '小群'} · CG #${idx + 1} ${cg.zhDesc}`, url: cg.imageUrl });
+        });
+      });
 
       if (items.length === 0) {
         grid.innerHTML = '<div style="grid-column:1/-1;font-size:12px;color:var(--text-secondary);text-align:center;padding:18px;">当前工程暂未生成CG或场景背景图片，可在日志工坊的生图分页按需生成</div>';
@@ -28118,7 +29726,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const box = document.getElementById('theater-backlog-list');
       if (!box) return;
       box.innerHTML = '';
-      const chap = getCurrentReplayChapter();
+      const chap = getActiveTheaterPlayableChapter();
       const lines = chap?.scriptLines || [];
       if (lines.length === 0) {
         box.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);padding:24px;text-align:center;">暂无台词记录</div>';
@@ -28135,8 +29743,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           item.className = 'vn-backlog-row' + (isNarr ? ' is-narration' : '') + (isCurrent ? ' is-current' : '');
 
           const canPlayVoice = !isNarr && Boolean(getSpeakerVoiceId(l.speaker));
+          const voiceClickAction = (l._isSubGroupLine && l._subGroupId)
+            ? `playSingleSubGroupLineTts('${l._subGroupId}', ${Number(l._origIdx) || 0}, false)`
+            : `playSingleScriptLineTts(${l._origIdx !== undefined ? l._origIdx : actualIdx}, false)`;
           const playBtnHtml = canPlayVoice
-            ? `<button type="button" class="vn-backlog-icon-btn" title="播放语音" onclick="event.stopPropagation(); playSingleScriptLineTts(${actualIdx}, false);"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="8 5 19 12 8 19 8 5"></polygon></svg></button>`
+            ? `<button type="button" class="vn-backlog-icon-btn" title="播放语音" onclick="event.stopPropagation(); ${voiceClickAction};"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="8 5 19 12 8 19 8 5"></polygon></svg></button>`
             : '';
 
           const jumpBtnHtml = `<button type="button" class="vn-backlog-icon-btn" title="回到此句" onclick="event.stopPropagation(); rewindTheaterToLine(${actualIdx});"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg></button>`;
