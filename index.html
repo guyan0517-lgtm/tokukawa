@@ -5741,6 +5741,16 @@
       return resolvedDataUrl;
     }
 
+    function getPreferredLocalAssetReadUrl(relPath) {
+      const cleanRel = String(relPath || '').split('?')[0].replace(/^\/+/, '').replace(/\.\./g, '_').replace(/\.hknw$/, '');
+      if (!cleanRel) return '';
+      const encodedRel = cleanRel.split('/').map((seg) => encodeURIComponent(seg)).join('/');
+      if (isLocalBridgeEnabled() && _termuxBridgeOnlineState) {
+        return `${getLocalBridgeBaseUrl()}/${encodedRel}`;
+      }
+      return `/local-assets/${encodedRel}`;
+    }
+
     async function saveAssetBatchToLocalBridge(batchItems) {
       if (!Array.isArray(batchItems) || batchItems.length === 0) return;
       const baseUrl = getLocalBridgeBaseUrl();
@@ -26928,15 +26938,12 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         if (entry && entry.blobUrl) return entry.blobUrl;
       }
       const safeKey = String(cacheKey).replace(/[\\/:*?"<>|]/g, '_');
-      const mirrorPath = normalizeMirrorRelPath(`audio/${safeKey}.mp3`);
-      if (typeof _mirrorDataUrlMap !== 'undefined' && _mirrorDataUrlMap.has(mirrorPath)) {
-        const dUrl = _mirrorDataUrlMap.get(mirrorPath);
-        if (dUrl && String(dUrl).startsWith('data:')) {
-          const blobUrl = dataUrlToBlobUrlCached(dUrl);
-          if (blobUrl) {
-            _theaterTtsRamCache.set(cacheKey, { src: dUrl, blobUrl });
-            return blobUrl;
-          }
+      const dUrl = getMirrorDataUrlSync(`audio/${safeKey}.mp3`);
+      if (dUrl && String(dUrl).startsWith('data:')) {
+        const blobUrl = dataUrlToBlobUrlCached(dUrl);
+        if (blobUrl) {
+          _theaterTtsRamCache.set(cacheKey, { src: dUrl, blobUrl });
+          return blobUrl;
         }
       }
       return '';
@@ -26958,9 +26965,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
         return blobUrl || strUrl;
       }
-      const rel = extractLocalAssetRelPathFromUrl(strUrl);
-      if (rel && typeof _mirrorDataUrlMap !== 'undefined' && _mirrorDataUrlMap.has(rel)) {
-        const dUrl = _mirrorDataUrlMap.get(rel);
+      const rel = extractLocalAssetRelativePath(strUrl);
+      if (rel) {
+        const dUrl = getMirrorDataUrlSync(rel);
         if (dUrl && String(dUrl).startsWith('data:')) {
           const blobUrl = dataUrlToBlobUrlCached(dUrl);
           if (blobUrl && cacheKey) {
@@ -29530,77 +29537,97 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
 
       // 自动扫描本地镜像库中的 characters/<角色名>/ 目录，若有遗落角色或缺失立绘则自动找回并绑定
-      if (typeof _mirrorDataUrlMap !== 'undefined' && _mirrorDataUrlMap.size > 0) {
-        const currentChars = await db.characters.toArray();
-        const charByName = new Map();
-        currentChars.forEach((ch) => {
-          const nm = normalizeSpeakerName(ch.name);
-          if (nm) charByName.set(nm, ch);
-        });
-        const touchedChars = new Set();
-        for (const [relPath, dUrl] of _mirrorDataUrlMap.entries()) {
-          if (!relPath.startsWith('characters/') || !dUrl || !String(dUrl).startsWith('data:')) continue;
-          const parts = relPath.split('/');
-          if (parts.length < 3) continue;
-          const folderName = normalizeSpeakerName(parts[1]);
-          const fileName = parts[2];
-          if (!folderName || folderName === '旁白' || isFakeOrDiceSpeakerName(folderName)) continue;
-          let targetChar = charByName.get(folderName);
-          if (!targetChar) {
-            targetChar = {
-              id: 'char_recovered_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-              name: folderName,
-              trpgType: '模组人物',
-              moduleName: existingProjs[0]?.name || '通用',
-              role: '跑团角色',
-              personality: '',
-              appearance: '',
-              heightCm: 172,
-              earHatCm: 0,
-              color: '#4f6ef7',
-              profileAvatar: '',
-              tachieBase: '',
-              tachieExpressions: {},
-              tachieRawExpressions: {},
-              chibiImg: '',
-              chibiPoseImgs: {}
-            };
-            charByName.set(folderName, targetChar);
-            touchedChars.add(targetChar);
-          }
-          const localUrl = getPreferredLocalAssetReadUrl(relPath);
-          if (fileName === 'profile.png' && !targetChar.profileAvatar) {
-            targetChar.profileAvatar = localUrl;
-            touchedChars.add(targetChar);
-          } else if (fileName === 'base.png' && !targetChar.tachieBase) {
-            targetChar.tachieBase = localUrl;
-            touchedChars.add(targetChar);
-          } else if (fileName === 'lock.png' && !targetChar.charLockImg) {
-            targetChar.charLockImg = localUrl;
-            touchedChars.add(targetChar);
-          } else if (fileName === 'chibi.png' && !targetChar.chibiImg) {
-            targetChar.chibiImg = localUrl;
-            touchedChars.add(targetChar);
-          } else if (fileName.startsWith('exp_') && fileName.endsWith('.png')) {
-            const expKey = fileName.slice(4, -4);
-            if (!targetChar.tachieExpressions) targetChar.tachieExpressions = {};
-            if (expKey && !targetChar.tachieExpressions[expKey]) {
-              targetChar.tachieExpressions[expKey] = localUrl;
+      try {
+        if (typeof _mirrorDataUrlMap !== 'undefined' && _mirrorDataUrlMap.size > 0) {
+          const currentChars = await db.characters.toArray();
+          const charByName = new Map();
+          currentChars.forEach((ch) => {
+            const nm = normalizeSpeakerName(ch.name);
+            if (nm) charByName.set(nm, ch);
+          });
+          const touchedChars = new Set();
+          const primaryProj = existingProjs[0] || null;
+          for (const [relPath, dUrl] of _mirrorDataUrlMap.entries()) {
+            if (!relPath.startsWith('characters/') || !dUrl || !String(dUrl).startsWith('data:')) continue;
+            const parts = relPath.split('/');
+            if (parts.length < 3) continue;
+            const folderName = normalizeSpeakerName(parts[1]);
+            const fileName = parts[2];
+            if (!folderName || folderName === '旁白' || isFakeOrDiceSpeakerName(folderName)) continue;
+            let targetChar = charByName.get(folderName);
+            if (!targetChar) {
+              targetChar = {
+                id: 'char_recovered_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                name: folderName,
+                trpgType: '调查员',
+                trpgRoleType: '调查员',
+                isUniversal: true,
+                moduleId: primaryProj?.id || '',
+                moduleTitle: primaryProj?.title || '跑团模组',
+                region: 'alta_kilig',
+                role: '跑团角色',
+                body: '',
+                quirk: '',
+                surface: '',
+                secret: '',
+                quotes: '',
+                heightCm: 172,
+                earHatCm: 0,
+                color: '#4f6ef7',
+                profileAvatar: '',
+                tachieBase: '',
+                tachieExpressions: {},
+                tachieRawExpressions: {},
+                chibiImg: '',
+                chibiPoseImgs: {},
+                isFriend: true
+              };
+              charByName.set(folderName, targetChar);
               touchedChars.add(targetChar);
             }
+            const localUrl = getPreferredLocalAssetReadUrl(relPath) || dUrl;
+            if (fileName === 'profile.png' && !targetChar.profileAvatar) {
+              targetChar.profileAvatar = localUrl;
+              touchedChars.add(targetChar);
+            } else if (fileName === 'base.png' && !targetChar.tachieBase) {
+              targetChar.tachieBase = localUrl;
+              touchedChars.add(targetChar);
+            } else if (fileName === 'lock.png' && !targetChar.charLockImg) {
+              targetChar.charLockImg = localUrl;
+              touchedChars.add(targetChar);
+            } else if (fileName === 'chibi.png' && !targetChar.chibiImg) {
+              targetChar.chibiImg = localUrl;
+              touchedChars.add(targetChar);
+            } else if (fileName.startsWith('exp_') && fileName.endsWith('.png')) {
+              const expKey = fileName.slice(4, -4);
+              if (!targetChar.tachieExpressions) targetChar.tachieExpressions = {};
+              if (expKey && !targetChar.tachieExpressions[expKey]) {
+                targetChar.tachieExpressions[expKey] = localUrl;
+                touchedChars.add(targetChar);
+              }
+            } else if (fileName.endsWith('.png') && !fileName.startsWith('raw_')) {
+              const expKey = fileName.slice(0, -4);
+              if (!targetChar.tachieExpressions) targetChar.tachieExpressions = {};
+              if (expKey && !targetChar.tachieExpressions[expKey]) {
+                targetChar.tachieExpressions[expKey] = localUrl;
+                touchedChars.add(targetChar);
+              }
+            }
+          }
+          if (touchedChars.size > 0) {
+            for (const tc of touchedChars) {
+              if (!tc.tachieBase && tc.tachieExpressions && tc.tachieExpressions['默认']) {
+                tc.tachieBase = tc.tachieExpressions['默认'];
+              }
+              if (!tc.profileAvatar && tc.tachieBase) {
+                tc.profileAvatar = tc.tachieBase;
+              }
+            }
+            await db.characters.bulkPut(Array.from(touchedChars)).catch(() => {});
           }
         }
-        if (touchedChars.size > 0) {
-          for (const tc of touchedChars) {
-            if (!tc.tachieBase && tc.tachieExpressions && tc.tachieExpressions['默认']) {
-              tc.tachieBase = tc.tachieExpressions['默认'];
-            }
-            if (!tc.profileAvatar && tc.tachieBase) {
-              tc.profileAvatar = tc.tachieBase;
-            }
-          }
-          await db.characters.bulkPut(Array.from(touchedChars)).catch(() => {});
-        }
+      } catch (recErr) {
+        console.warn('自动扫描镜像角色目录异常:', recErr);
       }
 
       appState.characters = await db.characters.toArray();
