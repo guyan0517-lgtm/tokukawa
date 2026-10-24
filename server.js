@@ -190,10 +190,39 @@ app.get('/api/local-assets/ping', (_req, res) => {
   res.json({
     ok: true,
     service: 'hakoniwa-local-bridge',
-    version: 3,
+    version: 4,
     mode: 'server',
     root: LOCAL_ASSETS_ROOT
   });
+});
+
+app.get('/api/local-assets/list', async (_req, res) => {
+  try {
+    const rootAbs = path.resolve(LOCAL_ASSETS_ROOT);
+    const files = [];
+    const walk = async (dirPath) => {
+      let entries = [];
+      try {
+        entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
+      } catch (_) {
+        return;
+      }
+      for (const ent of entries) {
+        if (ent.name === '.wt' || ent.name === '.nomedia') continue;
+        const full = path.join(dirPath, ent.name);
+        if (ent.isDirectory()) {
+          await walk(full);
+        } else if (ent.isFile()) {
+          const rawRel = path.relative(rootAbs, full).split(path.sep).join('/');
+          files.push(stripVaultDiskSuffix(rawRel));
+        }
+      }
+    };
+    await walk(rootAbs);
+    res.json({ ok: true, files, root: LOCAL_ASSETS_ROOT });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message, files: [] });
+  }
 });
 
 app.post('/api/local-assets/hide-gallery', (_req, res) => {
