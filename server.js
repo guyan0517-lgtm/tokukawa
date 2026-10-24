@@ -155,26 +155,41 @@ function guessAssetMimeType(filePath) {
   return 'application/octet-stream';
 }
 
+function findMatchingFileInServerVaultSync(rootAbs, rawRel) {
+  const cleanRel = stripVaultDiskSuffix(String(rawRel || '').replace(/^\/+/, '').replace(/\.\./g, '_'));
+  if (!cleanRel) return '';
+  const candRels = [cleanRel];
+  if (cleanRel.includes(' ')) candRels.push(cleanRel.replace(/\s+/g, '_'), cleanRel.replace(/\s+/g, ''));
+  if (cleanRel.includes('_')) candRels.push(cleanRel.replace(/_/g, ' '), cleanRel.replace(/_/g, ''));
+  if (cleanRel.endsWith('/默认.png')) candRels.push(cleanRel.slice(0, -6) + 'base.png');
+  else if (cleanRel.endsWith('/base.png')) candRels.push(cleanRel.slice(0, -8) + '默认.png');
+
+  for (const cr of candRels) {
+    const plainPath = path.resolve(rootAbs, cr);
+    if (!plainPath.startsWith(rootAbs)) continue;
+    const hknwPath = toVaultDiskPath(plainPath);
+    if (fs.existsSync(hknwPath) && fs.statSync(hknwPath).isFile()) {
+      return hknwPath;
+    }
+    if (fs.existsSync(plainPath) && fs.statSync(plainPath).isFile()) {
+      try {
+        fs.renameSync(plainPath, hknwPath);
+        return hknwPath;
+      } catch (_) {
+        return plainPath;
+      }
+    }
+  }
+  return '';
+}
+
 app.use('/local-assets', (req, res, next) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') return next();
   try {
     const rawRel = decodeURIComponent(req.path || '').replace(/^\/+/, '').replace(/\.\./g, '_');
     if (!rawRel) return res.status(404).end();
     const rootAbs = path.resolve(LOCAL_ASSETS_ROOT);
-    const plainPath = path.resolve(rootAbs, rawRel);
-    if (!plainPath.startsWith(rootAbs)) return res.status(400).end();
-    const hknwPath = toVaultDiskPath(plainPath);
-    let actualPath = '';
-    if (fs.existsSync(hknwPath) && fs.statSync(hknwPath).isFile()) {
-      actualPath = hknwPath;
-    } else if (fs.existsSync(plainPath) && fs.statSync(plainPath).isFile()) {
-      try {
-        fs.renameSync(plainPath, hknwPath);
-        actualPath = hknwPath;
-      } catch (_) {
-        actualPath = plainPath;
-      }
-    }
+    const actualPath = findMatchingFileInServerVaultSync(rootAbs, rawRel);
     if (!actualPath) return res.status(404).end();
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cache-Control', 'no-cache');
@@ -242,7 +257,7 @@ app.post('/api/local-assets/hide-gallery', (_req, res) => {
 
 app.post('/api/local-assets/save', async (req, res) => {
   try {
-    const rawRel = String(req.body?.path || 'file.bin').split('?')[0].replace(/^\/+/, '').replace(/\.\./g, '_');
+    const rawRel = stripVaultDiskSuffix(String(req.body?.path || 'file.bin').split('?')[0].replace(/^\/+/, '').replace(/\.\./g, '_'));
     const dataUrl = String(req.body?.dataUrl || '');
     if (!dataUrl && !rawRel.endsWith('.nomedia')) {
       return res.status(400).json({ ok: false, error: 'Missing dataUrl' });
@@ -281,13 +296,18 @@ app.post('/api/local-assets/save-batch', async (req, res) => {
     ensureNoMediaInDirSync(LOCAL_ASSETS_ROOT);
     let savedCount = 0;
     const savedDirs = new Set();
+    const dedupMap = new Map();
+    for (const item of items) {
+      const rawRel = stripVaultDiskSuffix(String(item?.path || item?.relPath || '').split('?')[0].replace(/^\/+/, '').replace(/\.\./g, '_'));
+      const dataUrl = String(item?.dataUrl || '');
+      if (rawRel && dataUrl) {
+        dedupMap.set(rawRel, dataUrl);
+      }
+    }
 
     await Promise.all(
-      items.map(async (item) => {
+      Array.from(dedupMap.entries()).map(async ([rawRel, dataUrl]) => {
         try {
-          const rawRel = String(item?.path || item?.relPath || '').split('?')[0].replace(/^\/+/, '').replace(/\.\./g, '_');
-          const dataUrl = String(item?.dataUrl || '');
-          if (!rawRel || !dataUrl) return;
           const plainTarget = path.resolve(rootAbs, rawRel);
           if (!plainTarget.startsWith(rootAbs)) return;
           const targetPath = toVaultDiskPath(plainTarget);
@@ -300,6 +320,9 @@ app.post('/api/local-assets/save-batch', async (req, res) => {
           const base64Part = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
           const fileBuf = base64Part ? Buffer.from(base64Part, 'base64') : Buffer.alloc(0);
           await fs.promises.writeFile(targetPath, fileBuf);
+          if (plainTarget !== targetPath && fs.existsSync(plainTarget)) {
+            await fs.promises.unlink(plainTarget).catch(() => {});
+          }
           savedCount += 1;
         } catch (_) {}
       })
@@ -354,7 +377,13 @@ app.post('/api/local-assets/cleanup', async (req, res) => {
             baseRel.startsWith('characters/') ||
             baseRel.startsWith('projects/') ||
             baseRel.startsWith('audio/') ||
-            baseRel.startsWith('fonts/');
+            baseRel.startsWith('fonts/') ||
+            baseRel.startsWith('workshop/') ||
+            baseRel.startsWith('styles/') ||
+            baseRel.startsWith('maps/') ||
+            baseRel.startsWith('furnitures/') ||
+            baseRel.startsWith('foods/') ||
+            baseRel.startsWith('theme/');
           if (!isProtectedAsset && !activeSet.has(baseRel)) {
             try {
               await fs.promises.unlink(fullPath);
