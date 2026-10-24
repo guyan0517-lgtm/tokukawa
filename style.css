@@ -16,7 +16,7 @@
   --font-sans: var(--custom-user-font, -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif);
 }
 
-* {
+*, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -106,7 +106,10 @@ body.landscape-game-active #phone-screen {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-primary);
-  background: transparent;
+  background-color: var(--card-bg);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
   z-index: 30;
   flex-shrink: 0;
 }
@@ -1606,16 +1609,16 @@ body.landscape-game-active #screen-theater.active {
   font-family: var(--custom-user-font, var(--font-sans)) !important;
 }
 
-#phone-screen,
-#phone-screen *,
-#phone-screen *:active,
-#phone-screen *:focus,
-#phone-screen *:focus-visible,
 .vn-theater-wrapper *,
 .vn-theater-wrapper *:active,
-.vn-theater-wrapper *:focus,
-.vn-theater-wrapper *:focus-visible {
+.vn-theater-wrapper *:focus {
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0) !important;
+  outline: none !important;
+}
+
+#phone-screen:active {
+  filter: none !important;
+  opacity: 1 !important;
   outline: none !important;
 }
 
@@ -1629,6 +1632,7 @@ body.landscape-game-active #screen-theater.active {
   filter: none !important;
   opacity: 1 !important;
   outline: none !important;
+  background-color: var(--text-primary);
 }
 
 .vn-theater-wrapper img {
