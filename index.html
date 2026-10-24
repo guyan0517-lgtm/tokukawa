@@ -16250,9 +16250,19 @@ ${BUILTIN_CSS_TEMPLATE}`;
     async function saveReplayProjectToDB(proj) {
       if (!proj) return;
       proj.updatedAt = Date.now();
-      await db.replayProjects.put(proj);
-      appState.replayProjects = await db.replayProjects.toArray();
+      if (!Array.isArray(appState.replayProjects)) appState.replayProjects = [];
+      const existingIdx = appState.replayProjects.findIndex((p) => p && p.id === proj.id);
+      if (existingIdx >= 0) {
+        appState.replayProjects[existingIdx] = proj;
+      } else {
+        appState.replayProjects.unshift(proj);
+      }
       appState.replayProjects.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      if (typeof _mountedExternalProjects !== 'undefined' && _mountedExternalProjects.has(proj.id)) {
+        const mountedEntry = _mountedExternalProjects.get(proj.id);
+        if (mountedEntry) mountedEntry.project = proj;
+      }
+      await db.replayProjects.put(proj);
     }
 
     async function createNewReplayProject() {
@@ -23848,10 +23858,13 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
     function ensureContinuousHolderScenes(holder, proj = null, fallbackChap = null) {
       if (!holder || !Array.isArray(holder.scriptLines) || holder.scriptLines.length === 0) return;
       const scenes = Array.isArray(holder.scenes) ? holder.scenes : [];
-      const hasLegacyUnbounded = scenes.length === 0 || scenes.some((sc) => !sc || !sc._isRangeSegment || sc.startLineIdx === undefined || sc.endLineIdx === undefined);
+      const hasLegacyUnbounded = scenes.length === 0 || scenes.some((sc) => !sc || sc.startLineIdx === undefined || sc.endLineIdx === undefined);
       if (hasLegacyUnbounded) {
         rebuildHolderScenesFromLines(holder, proj, fallbackChap);
       } else {
+        scenes.forEach((sc) => {
+          if (sc) sc._isRangeSegment = true;
+        });
         applyHolderSceneSegmentsToLines(holder, proj, fallbackChap);
       }
     }
@@ -23983,7 +23996,7 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
       const chosen = pool[sg.scenes.length % pool.length] || pool[0];
       const maxIdx = Math.max(0, sg.scriptLines.length - 1);
       const prevEnd = sg.scenes.length > 0 ? Number(sg.scenes[sg.scenes.length - 1].endLineIdx ?? 0) : -1;
-      const startLineIdx = prevEnd >= 0 && prevEnd < maxIdx ? prevEnd + 1 : 0;
+      const startLineIdx = (prevEnd >= 0 && prevEnd < maxIdx) ? (prevEnd + 1) : maxIdx;
       sg.scenes.push({
         id: chosen.id,
         name: chosen.name,
@@ -24581,16 +24594,44 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
       const chap = getCurrentReplayChapter();
       if (!proj || !chap) return;
       const entry = getCombinedChapterCgEntries(proj, chap)[cIdx];
-      if (!entry) return;
+      if (!entry || !entry.node) return;
       const cg = entry.node;
+      const targetLines = entry.lines || [];
+      const maxIdx = Math.max(0, (targetLines.length || 1) - 1);
+
       const zhInp = document.getElementById(`cg-zh-desc-input-${cIdx}`);
+      const modInp = document.getElementById(`cg-ai-mod-input-${cIdx}`);
       const enTa = document.getElementById(`cg-en-prompt-ta-${cIdx}`);
+      const startSel = document.getElementById(`cg-start-sel-${cIdx}`);
+      const endSel = document.getElementById(`cg-end-sel-${cIdx}`);
+
       if (zhInp) {
         cg.zhDesc = zhInp.value.trim();
         cg.title = zhInp.value.trim();
       }
-      if (enTa) cg.prompt = enTa.value.trim();
+      if (modInp) {
+        cg.modReq = modInp.value.trim();
+      }
+      if (enTa) {
+        cg.prompt = enTa.value.trim();
+      }
+      if (startSel && startSel.value !== '') {
+        const sNum = Math.max(0, Math.min(maxIdx, parseInt(startSel.value, 10) || 0));
+        cg.startLineIdx = sNum;
+        cg.lineIdx = sNum;
+      }
+      if (endSel && endSel.value !== '') {
+        const eNum = Math.max(cg.startLineIdx ?? 0, Math.min(maxIdx, parseInt(endSel.value, 10) || 0));
+        cg.endLineIdx = eNum;
+      }
+      if (entry.ownerType === 'subgroup' && entry.sg) {
+        syncSubGroupCgLineBindings(entry.sg);
+      } else {
+        syncChapterCgLineBindings(chap);
+      }
       await saveReplayProjectToDB(proj);
+      renderReplayScriptEditor();
+      renderReplaySubGroupStudio();
       if (btnEl) {
         btnEl.textContent = '已存';
         setTimeout(() => {
@@ -24622,10 +24663,75 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
       const chap = getCurrentReplayChapter();
       if (!proj || !chap) return;
       const entry = getCombinedChapterSceneEntries(proj, chap)[sIdx];
-      if (!entry || !entry.node) return;
+      if (!entry || !entry.node || !entry.holder) return;
       const sc = entry.node;
-      syncSceneMetaAcrossProject(proj, sc.id, sc.name, { name: sc.name, prompt: sc.prompt });
+      const holder = entry.holder;
+      const targetLines = entry.lines || [];
+      const maxIdx = Math.max(0, (targetLines.length || 1) - 1);
+
+      const oldName = sc.name;
+      const nameInp = document.getElementById(`scene-name-input-${sIdx}`);
+      const promptTa = document.getElementById(`scene-prompt-ta-${sIdx}`);
+      const startSel = document.getElementById(`scene-start-sel-${sIdx}`);
+      const endSel = document.getElementById(`scene-end-sel-${sIdx}`);
+
+      if (nameInp) sc.name = nameInp.value.trim() || sc.name;
+      if (promptTa) sc.prompt = promptTa.value.trim();
+      if (startSel && startSel.value !== '') {
+        sc.startLineIdx = Math.max(0, Math.min(maxIdx, parseInt(startSel.value, 10) || 0));
+      }
+      if (endSel && endSel.value !== '') {
+        sc.endLineIdx = Math.max(sc.startLineIdx ?? 0, Math.min(maxIdx, parseInt(endSel.value, 10) || 0));
+      }
+      sc._isRangeSegment = true;
+      applyHolderSceneSegmentsToLines(holder, proj, chap, entry.localIdx);
+      syncSceneMetaAcrossProject(proj, sc.id, oldName, { name: sc.name, prompt: sc.prompt });
       await saveReplayProjectToDB(proj);
+      renderExtractedModuleScenesList();
+      renderReplayScriptEditor();
+      renderReplaySubGroupStudio();
+      if (btnEl) {
+        btnEl.textContent = '已存';
+        setTimeout(() => {
+          if (btnEl) btnEl.textContent = '保存';
+        }, 1200);
+      }
+    }
+
+    async function saveSingleClueNodePrompt(clIdx, btnEl) {
+      const proj = getCurrentReplayProject();
+      const chap = getCurrentReplayChapter();
+      if (!proj || !chap) return;
+      const entries = getCombinedChapterClueEntries(proj, chap);
+      const entry = entries[clIdx];
+      if (!entry || !entry.node) return;
+      const cl = entry.node;
+      const targetLines = entry.lines || [];
+      const maxIdx = Math.max(0, (targetLines.length || 1) - 1);
+
+      const nameInp = document.getElementById(`clue-name-input-${clIdx}`);
+      const promptTa = document.getElementById(`clue-prompt-ta-${clIdx}`);
+      const startSel = document.getElementById(`clue-start-sel-${clIdx}`);
+      const endSel = document.getElementById(`clue-end-sel-${clIdx}`);
+
+      if (nameInp) cl.name = nameInp.value.trim() || cl.name;
+      if (promptTa) cl.prompt = promptTa.value.trim();
+      if (startSel && startSel.value !== '') {
+        const sNum = Math.max(0, Math.min(maxIdx, parseInt(startSel.value, 10) || 0));
+        cl.startLineIdx = sNum;
+        cl.lineIdx = sNum;
+      }
+      if (endSel && endSel.value !== '') {
+        cl.endLineIdx = Math.max(cl.startLineIdx ?? 0, Math.min(maxIdx, parseInt(endSel.value, 10) || 0));
+      }
+      if (entry.isSubGroup && entry.subGroup) {
+        syncSubGroupClueLineBindings(entry.subGroup);
+      } else {
+        syncChapterClueLineBindings(chap);
+      }
+      await saveReplayProjectToDB(proj);
+      renderReplayScriptEditor();
+      renderReplaySubGroupStudio();
       if (btnEl) {
         btnEl.textContent = '已存';
         setTimeout(() => {
@@ -24703,23 +24809,23 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
                 <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:1;min-width:180px;">
                   ${entry.ownerType === 'subgroup' ? `<span class="vn-console-badge accent">${entry.ownerLabel.replace(/</g, '&lt;')}</span>` : `<span class="vn-console-badge">主线</span>`}
-                  <select class="moe-input" style="width:auto;min-width:130px;height:30px;min-height:30px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;font-weight:700;" onchange="updateReplaySceneNodeField(${sIdx}, 'sceneId', this.value)">
+                  <select id="scene-pool-sel-${sIdx}" class="moe-input" style="width:auto;min-width:130px;height:30px;min-height:30px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;font-weight:700;" onchange="updateReplaySceneNodeField(${sIdx}, 'sceneId', this.value)">
                     ${poolSelectOptions}
                     <option value="cg_only" ${sc.id === 'cg_only' ? 'selected' : ''}>无背景</option>
                   </select>
-                  <input type="text" class="moe-input" value="${(sc.name || '').replace(/"/g, '&quot;')}" placeholder="场景地图名称" style="max-width:155px;height:30px;min-height:30px;font-weight:700;font-size:12px;" oninput="updateReplaySceneNodeField(${sIdx}, 'name', this.value)" onchange="updateReplaySceneNodeField(${sIdx}, 'name', this.value)" />
+                  <input type="text" id="scene-name-input-${sIdx}" class="moe-input" value="${(sc.name || '').replace(/"/g, '&quot;')}" placeholder="场景地图名称" style="max-width:155px;height:30px;min-height:30px;font-weight:700;font-size:12px;" oninput="updateReplaySceneNodeField(${sIdx}, 'name', this.value)" onchange="updateReplaySceneNodeField(${sIdx}, 'name', this.value)" />
                 </div>
                 <span style="font-size:11px;font-weight:700;color:var(--accent-color);">${entry.ownerLabel} · 持续第 ${scStartIdx + 1} 至第 ${scEndIdx + 1} 句</span>
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                <select class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplaySceneNodeField(${sIdx}, 'startLineIdx', this.value)">
+                <select id="scene-start-sel-${sIdx}" class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplaySceneNodeField(${sIdx}, 'startLineIdx', this.value)">
                   ${scStartOptions}
                 </select>
-                <select class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplaySceneNodeField(${sIdx}, 'endLineIdx', this.value)">
+                <select id="scene-end-sel-${sIdx}" class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplaySceneNodeField(${sIdx}, 'endLineIdx', this.value)">
                   ${scEndOptions}
                 </select>
               </div>
-              <textarea class="moe-input" style="min-height:52px;font-size:11px;" placeholder="纯景无人物场景背景英文提示词" oninput="updateReplaySceneNodeField(${sIdx}, 'prompt', this.value)" onchange="updateReplaySceneNodeField(${sIdx}, 'prompt', this.value)">${sc.prompt || ''}</textarea>
+              <textarea id="scene-prompt-ta-${sIdx}" class="moe-input" style="min-height:52px;font-size:11px;" placeholder="纯景无人物场景背景英文提示词" oninput="updateReplaySceneNodeField(${sIdx}, 'prompt', this.value)" onchange="updateReplaySceneNodeField(${sIdx}, 'prompt', this.value)">${sc.prompt || ''}</textarea>
               <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;">
                 <button type="button" class="moe-btn secondary" onclick="saveSingleSceneNodePrompt(${sIdx}, this)">保存</button>
                 <button type="button" class="moe-btn" id="scene-gen-btn-${sIdx}" onclick="generateSingleReplaySceneBg(${sIdx})">${sc.imageUrl ? '重绘' : '生图'}</button>
@@ -24764,20 +24870,21 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
               <div id="clue-card-${cl.id}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
                 <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                   ${entry.ownerType === 'subgroup' ? `<span class="vn-console-badge accent">${entry.ownerLabel.replace(/</g, '&lt;')}</span>` : ''}
-                  <input type="text" class="moe-input" value="${(cl.name || '').replace(/"/g, '&quot;')}" placeholder="线索道具名称" style="max-width:190px;height:30px;min-height:30px;font-weight:700;font-size:12px;" oninput="updateReplayClueNodeField(${clIdx}, 'name', this.value, true)" onchange="updateReplayClueNodeField(${clIdx}, 'name', this.value, false)" />
+                  <input type="text" id="clue-name-input-${clIdx}" class="moe-input" value="${(cl.name || '').replace(/"/g, '&quot;')}" placeholder="线索道具名称" style="max-width:190px;height:30px;min-height:30px;font-weight:700;font-size:12px;" oninput="updateReplayClueNodeField(${clIdx}, 'name', this.value, true)" onchange="updateReplayClueNodeField(${clIdx}, 'name', this.value, false)" />
                 </div>
                 <span style="font-size:11px;color:var(--text-secondary);">${entry.ownerLabel} · 浮现于第 ${clStartIdx + 1} 至第 ${clEndIdx + 1} 句</span>
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                <select class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplayClueNodeField(${clIdx}, 'startLineIdx', this.value)">
+                <select id="clue-start-sel-${clIdx}" class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplayClueNodeField(${clIdx}, 'startLineIdx', this.value)">
                   ${clStartOptions}
                 </select>
-                <select class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplayClueNodeField(${clIdx}, 'endLineIdx', this.value)">
+                <select id="clue-end-sel-${clIdx}" class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplayClueNodeField(${clIdx}, 'endLineIdx', this.value)">
                   ${clEndOptions}
                 </select>
               </div>
-              <textarea class="moe-input" style="min-height:52px;font-size:11px;" placeholder="线索道具纯物品特写英文提示词" oninput="updateReplayClueNodeField(${clIdx}, 'prompt', this.value, true)" onchange="updateReplayClueNodeField(${clIdx}, 'prompt', this.value, false)">${cl.prompt || ''}</textarea>
+              <textarea id="clue-prompt-ta-${clIdx}" class="moe-input" style="min-height:52px;font-size:11px;" placeholder="线索道具纯物品特写英文提示词" oninput="updateReplayClueNodeField(${clIdx}, 'prompt', this.value, true)" onchange="updateReplayClueNodeField(${clIdx}, 'prompt', this.value, false)">${cl.prompt || ''}</textarea>
               <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;">
+                <button type="button" class="moe-btn secondary" onclick="saveSingleClueNodePrompt(${clIdx}, this)">保存</button>
                 <button type="button" class="moe-btn" id="clue-gen-btn-${clIdx}" onclick="generateSingleReplayClueImg(${clIdx})">${cl.imageUrl ? '重绘' : '生图'}</button>
                 <button type="button" class="moe-btn secondary" onclick="document.getElementById('clue-upload-input-${clIdx}').click()">传图</button>
                 <input type="file" id="clue-upload-input-${clIdx}" accept="image/*" style="display:none;" onchange="handleReplayClueImgUpload(event, ${clIdx})" />
@@ -24838,10 +24945,10 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
               <span style="font-size:11px;font-weight:700;color:var(--text-secondary);">在场：${presentLabel}${isMultiPerson ? ' · 多人同框' : ''}</span>
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-              <select class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplayCgNodeField(${cIdx}, 'startLineIdx', this.value)">
+              <select id="cg-start-sel-${cIdx}" class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplayCgNodeField(${cIdx}, 'startLineIdx', this.value)">
                 ${lineSelectOptionsStart}
               </select>
-              <select class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplayCgNodeField(${cIdx}, 'endLineIdx', this.value)">
+              <select id="cg-end-sel-${cIdx}" class="moe-input" style="flex:1;min-width:140px;height:32px;min-height:32px;line-height:1.3;padding:2px 24px 2px 8px;font-size:11px;" onchange="updateReplayCgNodeField(${cIdx}, 'endLineIdx', this.value)">
                 ${lineSelectOptionsEnd}
               </select>
             </div>
@@ -25014,9 +25121,10 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
       const idx = chap.scenes.length + 1;
       const lastLineIdx = Math.max(0, (chap.scriptLines?.length || 1) - 1);
       const prevEnd = chap.scenes.length > 0 ? Number(chap.scenes[chap.scenes.length - 1].endLineIdx ?? 0) : -1;
-      const startLineIdx = prevEnd >= 0 && prevEnd < lastLineIdx ? prevEnd + 1 : 0;
+      const startLineIdx = (prevEnd >= 0 && prevEnd < lastLineIdx) ? (prevEnd + 1) : lastLineIdx;
+      const newScId = `scene_${Date.now()}_${idx}`;
       const newSc = {
-        id: `scene_${Date.now()}_${idx}`,
+        id: newScId,
         name: `新增场所 ${idx}`,
         startLineIdx,
         endLineIdx: lastLineIdx,
@@ -25032,14 +25140,50 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
       renderExtractedModuleScenesList();
       renderReplayScriptEditor();
       renderReplayCgStudio();
+      setTimeout(() => {
+        const box = document.getElementById('replay-scene-nodes-list-container');
+        if (box && box.lastElementChild) {
+          box.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }, 40);
     }
 
     async function addManualCgNodeAtEnd() {
       const proj = getCurrentReplayProject();
       const chap = getCurrentReplayChapter();
       if (!proj || !chap) return;
-      const lastIdx = Math.max(0, (chap.scriptLines?.length || 1) - 1);
-      await addManualCgForScriptLine(lastIdx);
+      if (!Array.isArray(chap.cgNodes)) chap.cgNodes = [];
+      const lines = Array.isArray(chap.scriptLines) ? chap.scriptLines : [];
+      const lastIdx = Math.max(0, lines.length - 1);
+      const line = lines[lastIdx] || null;
+      const present = (line && Array.isArray(line.presentSpeakers) && line.presentSpeakers.length > 0)
+        ? [...line.presentSpeakers]
+        : (line && line.speaker && line.speaker !== '旁白' ? [line.speaker] : (appState.characters?.[0]?.name ? [appState.characters[0].name] : []));
+      const nextNum = chap.cgNodes.length + 1;
+      const newCgId = `cg_manual_${Date.now()}_${nextNum}`;
+      chap.cgNodes.push({
+        id: newCgId,
+        lineIdx: lastIdx,
+        startLineIdx: lastIdx,
+        endLineIdx: lastIdx,
+        lineText: line?.text || '',
+        title: `新增CG插图 ${nextNum}`,
+        zhDesc: `新增CG插图 ${nextNum}`,
+        presentNames: present,
+        refCharId: '',
+        modReq: '',
+        prompt: '',
+        imageUrl: '',
+        isManual: true
+      });
+      syncChapterCgLineBindings(chap);
+      await saveReplayProjectToDB(proj);
+      renderReplayScriptEditor();
+      renderReplayCgStudio();
+      setTimeout(() => {
+        const cardEl = document.getElementById('cg-studio-card-' + newCgId);
+        if (cardEl) cardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 40);
     }
 
     // ==================== 独立「演出」工作台：转场、环境粒子氛围、分级叫喊、背叛黑底红字、神秘人？？？匿影、SVG贴纸 ====================
@@ -27177,7 +27321,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
     }
 
-    async function synthesizeAndPlayReplayTts(text, voiceId, cacheKey, forceRegen = false, voiceParams = null) {
+    async function synthesizeAndPlayReplayTts(text, voiceId, cacheKey, forceRegen = false, voiceParams = null, onPlaybackStart = null) {
       const cleanText = String(text || '').trim();
       if (!cleanText) return null;
 
@@ -27312,6 +27456,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           ok: true,
           detail: `已合成并缓存：语速${speedVal} 语调${pitchVal} · ${cleanText.slice(0, 22)}`
         });
+      }
+
+      if (typeof onPlaybackStart === 'function') {
+        try { onPlaybackStart(audioDataUrl); } catch (_) {}
       }
 
       return new Promise((resolve) => {
@@ -27463,6 +27611,34 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       };
     }
 
+    function resetActiveVoiceStudioButtonByTag(activeTag) {
+      if (activeTag === null || activeTag === undefined) return;
+      if (typeof activeTag === 'string' && activeTag.startsWith('sg_')) {
+        const rest = activeTag.slice(3);
+        const lastUnderscore = rest.lastIndexOf('_');
+        if (lastUnderscore > 0) {
+          const sgId = rest.slice(0, lastUnderscore);
+          const lIdx = rest.slice(lastUnderscore + 1);
+          const prevSgBtn = document.getElementById(`sg-voice-studio-play-btn-${sgId}-${lIdx}`);
+          if (prevSgBtn) {
+            prevSgBtn.disabled = false;
+            prevSgBtn.textContent = '试听';
+          }
+        }
+      } else {
+        const prevBtn = document.getElementById(`voice-studio-play-btn-${activeTag}`);
+        if (prevBtn) {
+          prevBtn.disabled = false;
+          prevBtn.textContent = '试听';
+        }
+        const prevIconBtn = document.getElementById(`line-tts-btn-${activeTag}`);
+        if (prevIconBtn) {
+          prevIconBtn.disabled = false;
+          prevIconBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>`;
+        }
+      }
+    }
+
     async function playSingleScriptLineTts(lineIdx, forceRegen = false) {
       const chap = getCurrentReplayChapter();
       if (!chap || !chap.scriptLines || !chap.scriptLines[lineIdx]) return;
@@ -27493,16 +27669,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         _activeReplayTtsAudio = null;
         setBgmDuckingActive(false);
         if (_activeReplayTtsLineIdx !== null && _activeReplayTtsLineIdx !== lineIdx) {
-          const prevBtn = document.getElementById(`voice-studio-play-btn-${_activeReplayTtsLineIdx}`);
-          if (prevBtn) {
-            prevBtn.disabled = false;
-            prevBtn.textContent = '试听';
-          }
-          const prevIconBtn = document.getElementById(`line-tts-btn-${_activeReplayTtsLineIdx}`);
-          if (prevIconBtn) {
-            prevIconBtn.disabled = false;
-            prevIconBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>`;
-          }
+          resetActiveVoiceStudioButtonByTag(_activeReplayTtsLineIdx);
         }
       }
 
@@ -27606,21 +27773,28 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         const curProj = getCurrentReplayProject();
         if (curProj) await saveReplayProjectToDB(curProj);
         const effParams = resolveLineEffectiveVoiceParams(line);
-        await synthesizeAndPlayReplayTts(ttsText, voiceId, cacheKey, true, effParams);
-        if (btn) btn.classList.add('cached');
-        const dotEl = document.getElementById(`voice-dot-${lineIdx}`);
-        if (dotEl) dotEl.style.display = 'inline-block';
+        await synthesizeAndPlayReplayTts(ttsText, voiceId, cacheKey, true, effParams, () => {
+          if (btn) btn.classList.add('cached');
+          const dotEl = document.getElementById(`voice-dot-${lineIdx}`);
+          if (dotEl) dotEl.style.display = 'inline-block';
+          if (voiceBtn && _activeReplayTtsLineIdx === lineIdx) {
+            voiceBtn.disabled = false;
+            voiceBtn.textContent = '播放中';
+          }
+        });
       } catch (err) {
         alert('语音合成失败：' + err.message);
       } finally {
-        if (_activeReplayTtsLineIdx === lineIdx) _activeReplayTtsLineIdx = null;
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>`;
-        }
-        if (voiceBtn) {
-          voiceBtn.disabled = false;
-          voiceBtn.textContent = '试听';
+        if (_activeReplayTtsLineIdx === lineIdx) {
+          _activeReplayTtsLineIdx = null;
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>`;
+          }
+          if (voiceBtn) {
+            voiceBtn.disabled = false;
+            voiceBtn.textContent = '试听';
+          }
         }
       }
     }
@@ -27635,7 +27809,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const cacheKey = `line_${sg.id}_${line.id}_${appState.theaterTtsLang}`;
       const activeTag = `sg_${sg.id}_${lineIdx}`;
       const voiceBtn = document.getElementById(`sg-voice-studio-play-btn-${sg.id}-${lineIdx}`);
-      const regenBtn = document.getElementById(`sg-voice-studio-regen-btn-${sg.id}-${lineIdx}`);
 
       if (_activeReplayTtsLineIdx === activeTag && _activeReplayTtsAudio && !forceRegen) {
         try { _activeReplayTtsAudio.pause(); } catch (_) {}
@@ -27653,6 +27826,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         try { _activeReplayTtsAudio.pause(); } catch (_) {}
         _activeReplayTtsAudio = null;
         setBgmDuckingActive(false);
+        if (_activeReplayTtsLineIdx !== null && _activeReplayTtsLineIdx !== activeTag) {
+          resetActiveVoiceStudioButtonByTag(_activeReplayTtsLineIdx);
+        }
       }
 
       if (!forceRegen) {
@@ -27663,7 +27839,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
         if (!cached || !cached.audioDataUrl) {
           const statusEl = document.getElementById('replay-voice-status-bar');
-          if (statusEl) statusEl.textContent = `小群「${sg.title}」第 #${lineIdx + 1} 句暂无已生成的语音，请点右侧重配或顶部生成`;
+          if (statusEl) statusEl.textContent = `小群「${sg.title}」第 #${lineIdx + 1} 句暂无已生成的语音，未播放`;
           _activeReplayTtsLineIdx = null;
           return;
         }
@@ -27701,6 +27877,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         audio.onerror = resetStatus;
         audio.onpause = () => {
           if (audio.ended || audio.currentTime === 0) resetStatus();
+        };
+        audio.onloadedmetadata = () => {
+          const dur = (audio.duration && !isNaN(audio.duration) && audio.duration > 0) ? (audio.duration + 2) : 10;
+          safeTimer = setTimeout(resetStatus, Math.min(25, dur) * 1000);
         };
         safeTimer = setTimeout(resetStatus, 12000);
         try {
@@ -27747,35 +27927,27 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         voiceBtn.disabled = false;
         voiceBtn.textContent = '合成中';
       }
-      if (regenBtn) {
-        regenBtn.disabled = true;
-        regenBtn.textContent = '合成中';
-      }
-      const statusEl = document.getElementById('replay-voice-status-bar');
-      if (statusEl) {
-        statusEl.textContent = `正在合成小群「${sg.title}」第 #${lineIdx + 1} 句语音：${line.speaker}...`;
-      }
       try {
         await invalidateSingleLineTtsCache(sg.id, line.id);
         await saveReplayProjectToDB(proj);
         const effParams = resolveLineEffectiveVoiceParams(line);
-        await synthesizeAndPlayReplayTts(ttsText, voiceId, cacheKey, true, effParams);
-        const dotEl = document.getElementById(`sg-voice-dot-${sg.id}-${lineIdx}`);
-        if (dotEl) dotEl.style.display = 'inline-block';
-        if (statusEl) {
-          statusEl.textContent = `已完成小群「${sg.title}」第 #${lineIdx + 1} 句语音合成并播放`;
-        }
+        await synthesizeAndPlayReplayTts(ttsText, voiceId, cacheKey, true, effParams, () => {
+          const dotEl = document.getElementById(`sg-voice-dot-${sg.id}-${lineIdx}`);
+          if (dotEl) dotEl.style.display = 'inline-block';
+          if (voiceBtn && _activeReplayTtsLineIdx === activeTag) {
+            voiceBtn.disabled = false;
+            voiceBtn.textContent = '播放中';
+          }
+        });
       } catch (err) {
-        alert('小群语音合成失败：' + err.message);
+        alert('语音合成失败：' + err.message);
       } finally {
-        if (_activeReplayTtsLineIdx === activeTag) _activeReplayTtsLineIdx = null;
-        if (voiceBtn) {
-          voiceBtn.disabled = false;
-          voiceBtn.textContent = '试听';
-        }
-        if (regenBtn) {
-          regenBtn.disabled = false;
-          regenBtn.textContent = '重配';
+        if (_activeReplayTtsLineIdx === activeTag) {
+          _activeReplayTtsLineIdx = null;
+          if (voiceBtn) {
+            voiceBtn.disabled = false;
+            voiceBtn.textContent = '试听';
+          }
         }
       }
     }
