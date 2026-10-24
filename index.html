@@ -22121,7 +22121,9 @@ BGM_STOP: S行号`;
       renderReplayCgStudio();
     }
 
-    function getSubGroupsForChapter(proj = getCurrentReplayProject(), chapIdx = appState.currentReplayChapterIdx) {
+    function getSubGroupsForChapter(a, b) {
+      const proj = (a && typeof a === 'object') ? a : ((b && typeof b === 'object') ? b : getCurrentReplayProject());
+      const chapIdx = (typeof a === 'number' || typeof a === 'string') ? a : ((typeof b === 'number' || typeof b === 'string') ? b : appState.currentReplayChapterIdx);
       if (!proj) return [];
       const cIdx = Number(chapIdx) || 0;
       return ensureProjectSubGroupsArray(proj).filter(
@@ -22129,7 +22131,9 @@ BGM_STOP: S行号`;
       );
     }
 
-    function findSubGroupById(sgId, proj = getCurrentReplayProject()) {
+    function findSubGroupById(a, b) {
+      const sgId = typeof a === 'string' ? a : (typeof b === 'string' ? b : '');
+      const proj = (a && typeof a === 'object') ? a : ((b && typeof b === 'object') ? b : getCurrentReplayProject());
       if (!proj || !sgId) return null;
       return ensureProjectSubGroupsArray(proj).find((sg) => sg && sg.id === sgId) || null;
     }
@@ -26692,9 +26696,19 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     }
 
     function getSpeakerVoiceId(speakerName) {
-      const norm = normalizeSpeakerName(speakerName);
+      let norm = normalizeSpeakerName(speakerName);
       if (!norm) return '';
-      const found = appState.characters.find((c) => normalizeSpeakerName(c.name) === norm);
+      let found = appState.characters.find((c) => normalizeSpeakerName(c.name) === norm);
+      if (!found) {
+        const proj = getCurrentReplayProject();
+        const mappedSpk = (proj?.extractedSpeakers || []).find(
+          (s) => s && (normalizeSpeakerName(s.rawName) === norm || normalizeSpeakerName(s.name) === norm)
+        );
+        if (mappedSpk && (mappedSpk.trueName || mappedSpk.name)) {
+          norm = normalizeSpeakerName(mappedSpk.trueName || mappedSpk.name);
+          found = appState.characters.find((c) => normalizeSpeakerName(c.name) === norm);
+        }
+      }
       if (found && found.voiceId && String(found.voiceId).trim()) {
         return String(found.voiceId).trim();
       }
@@ -26965,9 +26979,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       if (!proj || !sg || !Array.isArray(sg.scriptLines) || !sg.scriptLines[lineIdx]) return;
       const line = sg.scriptLines[lineIdx];
       if (line.type === 'narration' || line.speaker === '旁白') return;
+      if (!line.id) line.id = `sg_line_${lineIdx}`;
       const cacheKey = `line_${sg.id}_${line.id}_${appState.theaterTtsLang}`;
       const activeTag = `sg_${sg.id}_${lineIdx}`;
       const voiceBtn = document.getElementById(`sg-voice-studio-play-btn-${sg.id}-${lineIdx}`);
+      const regenBtn = document.getElementById(`sg-voice-studio-regen-btn-${sg.id}-${lineIdx}`);
 
       if (_activeReplayTtsLineIdx === activeTag && _activeReplayTtsAudio && !forceRegen) {
         try { _activeReplayTtsAudio.pause(); } catch (_) {}
@@ -26995,7 +27011,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
         if (!cached || !cached.audioDataUrl) {
           const statusEl = document.getElementById('replay-voice-status-bar');
-          if (statusEl) statusEl.textContent = `小群「${sg.title}」第 #${lineIdx + 1} 句暂无已生成的语音，未播放`;
+          if (statusEl) statusEl.textContent = `小群「${sg.title}」第 #${lineIdx + 1} 句暂无已生成的语音，请点右侧重配或顶部生成`;
           _activeReplayTtsLineIdx = null;
           return;
         }
@@ -27043,6 +27059,15 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         return;
       }
 
+      const txtEl = document.getElementById(`sg-voice-text-input-${sg.id}-${lineIdx}`);
+      const jpEl = document.getElementById(`sg-voice-jp-input-${sg.id}-${lineIdx}`);
+      if (txtEl && typeof txtEl.value === 'string') {
+        line.text = txtEl.value;
+      }
+      if (jpEl && typeof jpEl.value === 'string') {
+        line.jpText = cleanJapaneseLineText(jpEl.value, line.speaker);
+      }
+
       const spdEl = document.getElementById(`sg-voice-speed-input-${sg.id}-${lineIdx}`);
       const ptcEl = document.getElementById(`sg-voice-pitch-input-${sg.id}-${lineIdx}`);
       if (spdEl && spdEl.value !== '') {
@@ -27054,7 +27079,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         if (!isNaN(pv)) line.ttsPitch = Number(Math.max(-12, Math.min(12, pv)).toFixed(2));
       }
       const useJp = appState.theaterTtsLang === 'jp' && line.jpText && line.jpText.trim();
-      const ttsText = useJp ? line.jpText.trim() : line.text.trim();
+      const ttsText = useJp ? line.jpText.trim() : (line.text || '').trim();
+      if (!ttsText) {
+        alert('该句台词为空，无法合成语音');
+        return;
+      }
       const voiceId = getSpeakerVoiceId(line.speaker);
       if (!voiceId) {
         alert(`角色 ${line.speaker} 尚未填写语音音色编号，请先在上方角色栏或角色档案填写`);
@@ -27066,6 +27095,14 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         voiceBtn.disabled = false;
         voiceBtn.textContent = '合成中';
       }
+      if (regenBtn) {
+        regenBtn.disabled = true;
+        regenBtn.textContent = '合成中';
+      }
+      const statusEl = document.getElementById('replay-voice-status-bar');
+      if (statusEl) {
+        statusEl.textContent = `正在合成小群「${sg.title}」第 #${lineIdx + 1} 句语音：${line.speaker}...`;
+      }
       try {
         await invalidateSingleLineTtsCache(sg.id, line.id);
         await saveReplayProjectToDB(proj);
@@ -27073,6 +27110,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         await synthesizeAndPlayReplayTts(ttsText, voiceId, cacheKey, true, effParams);
         const dotEl = document.getElementById(`sg-voice-dot-${sg.id}-${lineIdx}`);
         if (dotEl) dotEl.style.display = 'inline-block';
+        if (statusEl) {
+          statusEl.textContent = `已完成小群「${sg.title}」第 #${lineIdx + 1} 句语音合成并播放`;
+        }
       } catch (err) {
         alert('小群语音合成失败：' + err.message);
       } finally {
@@ -27080,6 +27120,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         if (voiceBtn) {
           voiceBtn.disabled = false;
           voiceBtn.textContent = '试听';
+        }
+        if (regenBtn) {
+          regenBtn.disabled = false;
+          regenBtn.textContent = '重配';
         }
       }
     }
@@ -27441,6 +27485,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             box.appendChild(emptyHint);
           } else {
             sgDialogues.forEach(({ line, sIdx }) => {
+              if (!line.id) line.id = `sg_line_${sIdx}`;
               const cleanJp = cleanJapaneseLineText(line.jpText || '', line.speaker);
               const bounds = getSpeakerVoiceBounds(line.speaker);
               const curEmo = line.ttsEmotion || 'neutral';
@@ -27474,11 +27519,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                   </div>
                   <div class="vn-script-row-actions">
                     <button type="button" class="moe-btn secondary" id="sg-voice-studio-play-btn-${sg.id}-${sIdx}" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="playSingleSubGroupLineTts('${sg.id}', ${sIdx}, false)">试听</button>
-                    <button type="button" class="moe-btn" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="playSingleSubGroupLineTts('${sg.id}', ${sIdx}, true)">重配</button>
+                    <button type="button" class="moe-btn" id="sg-voice-studio-regen-btn-${sg.id}-${sIdx}" style="height:30px;min-height:30px;padding:0 10px;font-size:11px;" onclick="playSingleSubGroupLineTts('${sg.id}', ${sIdx}, true)">重配</button>
                   </div>
                 </div>
-                <textarea rows="2" class="moe-input" style="min-height:48px;height:48px;resize:vertical;font-size:12px;line-height:1.45;padding:6px 10px;" onchange="updateSubGroupVoiceParam('${sg.id}', ${sIdx}, 'text', this.value, false)">${line.text || ''}</textarea>
-                <input type="text" class="moe-input" value="${cleanJp.replace(/"/g, '&quot;')}" placeholder="日语配音台词" style="height:30px;min-height:30px;font-size:11px;color:var(--text-secondary);" onchange="updateSubGroupVoiceParam('${sg.id}', ${sIdx}, 'jpText', this.value, false)" />
+                <textarea rows="2" id="sg-voice-text-input-${sg.id}-${sIdx}" class="moe-input" style="min-height:48px;height:48px;resize:vertical;font-size:12px;line-height:1.45;padding:6px 10px;" oninput="updateSubGroupVoiceParam('${sg.id}', ${sIdx}, 'text', this.value, true)" onchange="updateSubGroupVoiceParam('${sg.id}', ${sIdx}, 'text', this.value, false)">${line.text || ''}</textarea>
+                <input type="text" id="sg-voice-jp-input-${sg.id}-${sIdx}" class="moe-input" value="${cleanJp.replace(/"/g, '&quot;')}" placeholder="日语配音台词" style="height:30px;min-height:30px;font-size:11px;color:var(--text-secondary);" oninput="updateSubGroupVoiceParam('${sg.id}', ${sIdx}, 'jpText', this.value, true)" onchange="updateSubGroupVoiceParam('${sg.id}', ${sIdx}, 'jpText', this.value, false)" />
               `;
               box.appendChild(card);
 
