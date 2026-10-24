@@ -5897,31 +5897,60 @@
         if (proj.avatarUrl) {
           collectUrl(proj.avatarUrl, `projects/${safeProj}/avatar.jpg`);
         }
-        (proj.globalScenes || []).forEach((gsc) => {
-          if (gsc && gsc.imageUrl) collectUrl(gsc.imageUrl, `projects/${safeProj}/scenes/${gsc.id}.png`);
+        (proj.globalScenes || []).forEach((gsc, gIdx) => {
+          if (gsc && gsc.imageUrl) {
+            collectUrl(gsc.imageUrl, `projects/${safeProj}/scenes/${gsc.id || gIdx}.png`);
+            activePaths.add(`projects/${safeProj}/scenes/global_${gsc.id || gIdx}.png`);
+          }
         });
-        (proj.chapters || []).forEach((ch) => {
-          (ch.scenes || []).forEach((sc) => {
-            if (sc && sc.imageUrl) collectUrl(sc.imageUrl, `projects/${safeProj}/scenes/${sc.id}.png`);
+        (proj.chapters || []).forEach((ch, cIdx) => {
+          const ord = Number(ch?.order ?? cIdx);
+          (ch.scenes || []).forEach((sc, sIdx) => {
+            if (sc && sc.imageUrl) {
+              collectUrl(sc.imageUrl, `projects/${safeProj}/scenes/${sc.id || sIdx}.png`);
+              activePaths.add(`projects/${safeProj}/scenes/ch${ord}_${sc.id || sIdx}.png`);
+            }
           });
-          (ch.cgNodes || []).forEach((cg) => {
-            if (cg && cg.imageUrl) collectUrl(cg.imageUrl, `projects/${safeProj}/cgs/${cg.id}.png`);
-            if (cg && cg.customPadImg) collectUrl(cg.customPadImg, `projects/${safeProj}/cgs/pad_${cg.id}.png`);
+          (ch.cgNodes || []).forEach((cg, gIdx) => {
+            if (cg && cg.imageUrl) {
+              collectUrl(cg.imageUrl, `projects/${safeProj}/cgs/${cg.id || gIdx}.png`);
+              activePaths.add(`projects/${safeProj}/cgs/ch${ord}_${cg.id || gIdx}.png`);
+            }
+            if (cg && cg.customPadImg) {
+              collectUrl(cg.customPadImg, `projects/${safeProj}/cgs/pad_${cg.id || gIdx}.png`);
+              activePaths.add(`projects/${safeProj}/cgs/ch${ord}_${cg.id || gIdx}_pad.png`);
+            }
           });
-          (ch.clueNodes || []).forEach((cl) => {
-            if (cl && cl.imageUrl) collectUrl(cl.imageUrl, `projects/${safeProj}/clues/${cl.id}.png`);
+          (ch.clueNodes || []).forEach((cl, clIdx) => {
+            if (cl && cl.imageUrl) {
+              collectUrl(cl.imageUrl, `projects/${safeProj}/clues/${cl.id || clIdx}.png`);
+              activePaths.add(`projects/${safeProj}/clues/ch${ord}_${cl.id || clIdx}.png`);
+            }
           });
         });
-        (proj.subGroups || []).forEach((sg) => {
-          (sg.scenes || []).forEach((sc) => {
-            if (sc && sc.imageUrl) collectUrl(sc.imageUrl, `projects/${safeProj}/scenes/${sc.id}.png`);
+        (proj.subGroups || []).forEach((sg, sgIdx) => {
+          const sgId = sg?.id || `sg_${sgIdx}`;
+          (sg.scenes || []).forEach((sc, sIdx) => {
+            if (sc && sc.imageUrl) {
+              collectUrl(sc.imageUrl, `projects/${safeProj}/scenes/${sc.id || sIdx}.png`);
+              activePaths.add(`projects/${safeProj}/scenes/${sgId}_${sc.id || sIdx}.png`);
+            }
           });
-          (sg.cgNodes || []).forEach((cg) => {
-            if (cg && cg.imageUrl) collectUrl(cg.imageUrl, `projects/${safeProj}/cgs/${cg.id}.png`);
-            if (cg && cg.customPadImg) collectUrl(cg.customPadImg, `projects/${safeProj}/cgs/pad_${cg.id}.png`);
+          (sg.cgNodes || []).forEach((cg, gIdx) => {
+            if (cg && cg.imageUrl) {
+              collectUrl(cg.imageUrl, `projects/${safeProj}/cgs/${cg.id || gIdx}.png`);
+              activePaths.add(`projects/${safeProj}/cgs/${sgId}_${cg.id || gIdx}.png`);
+            }
+            if (cg && cg.customPadImg) {
+              collectUrl(cg.customPadImg, `projects/${safeProj}/cgs/pad_${cg.id || gIdx}.png`);
+              activePaths.add(`projects/${safeProj}/cgs/${sgId}_${cg.id || gIdx}_pad.png`);
+            }
           });
-          (sg.clueNodes || []).forEach((cl) => {
-            if (cl && cl.imageUrl) collectUrl(cl.imageUrl, `projects/${safeProj}/clues/${cl.id}.png`);
+          (sg.clueNodes || []).forEach((cl, clIdx) => {
+            if (cl && cl.imageUrl) {
+              collectUrl(cl.imageUrl, `projects/${safeProj}/clues/${cl.id || clIdx}.png`);
+              activePaths.add(`projects/${safeProj}/clues/${sgId}_${cl.id || clIdx}.png`);
+            }
           });
         });
       }
@@ -5963,9 +5992,11 @@
           if (info?.iconUrl) collectUrl(info.iconUrl, `theme/icon_${appKey}.png`);
         });
       }
-      ['homeBg', 'chatBg', 'homeAvatar'].forEach((bgKey) => {
-        const bgVal = localStorage.getItem(`custom-bg-${bgKey}`) || '';
-        if (bgVal) collectUrl(bgVal);
+      const bgsCfg = appState.customBgsConfig || {};
+      ['desktopBg', 'screenBg', 'cardBg', 'homeAvatar', 'homeBg', 'chatBg'].forEach((bgKey) => {
+        const bgVal = bgsCfg[bgKey] || localStorage.getItem(`custom-bg-${bgKey}`) || '';
+        const ext = bgKey === 'homeAvatar' ? 'png' : 'jpg';
+        if (bgVal) collectUrl(bgVal, `theme/bg_${bgKey}.${ext}`);
       });
       const customFontVal = localStorage.getItem('user-custom-font-url') || '';
       if (customFontVal) collectUrl(customFontVal, 'fonts/custom_user_font.ttf');
@@ -5974,31 +6005,33 @@
       const activePathsArr = Array.from(activePaths);
       let diskRemovedCount = 0;
 
-      if (isLocalBridgeEnabled()) {
+      if (!silentMode) {
+        if (isLocalBridgeEnabled()) {
+          try {
+            const res = await fetch(baseUrl + '/cleanup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ activePaths: activePathsArr })
+            });
+            if (res.ok) {
+              const info = await res.json();
+              diskRemovedCount += Number(info?.removedCount || 0);
+            }
+          } catch (_) {}
+        }
+
         try {
-          const res = await fetch(baseUrl + '/cleanup', {
+          const srvRes = await fetch('/api/local-assets/cleanup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ activePaths: activePathsArr })
           });
-          if (res.ok) {
-            const info = await res.json();
-            diskRemovedCount += Number(info?.removedCount || 0);
+          if (srvRes.ok) {
+            const srvInfo = await srvRes.json();
+            diskRemovedCount = Math.max(diskRemovedCount, Number(srvInfo?.removedCount || 0));
           }
         } catch (_) {}
       }
-
-      try {
-        const srvRes = await fetch('/api/local-assets/cleanup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ activePaths: activePathsArr })
-        });
-        if (srvRes.ok) {
-          const srvInfo = await srvRes.json();
-          diskRemovedCount = Math.max(diskRemovedCount, Number(srvInfo?.removedCount || 0));
-        }
-      } catch (_) {}
 
       try {
         if (db && db.ttsCache) {
@@ -15672,7 +15705,8 @@ ${BUILTIN_CSS_TEMPLATE}`;
             iconBox.dataset.defaultSvg = iconBox.innerHTML;
           }
           if (custom.iconUrl) {
-            iconBox.innerHTML = `<img src="${custom.iconUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" />`;
+            const dispIcon = typeof toFastDisplayUrl === 'function' ? toFastDisplayUrl(custom.iconUrl) : custom.iconUrl;
+            iconBox.innerHTML = `<img src="${dispIcon}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" />`;
           } else {
             iconBox.innerHTML = iconBox.dataset.defaultSvg;
           }
@@ -15689,7 +15723,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
       DEFAULT_APP_ICONS_META.forEach((meta) => {
         const custom = cfg[meta.app] || {};
         const curName = custom.name || meta.defaultName;
-        const curIcon = custom.iconUrl || '';
+        const curIcon = custom.iconUrl ? (typeof toFastDisplayUrl === 'function' ? toFastDisplayUrl(custom.iconUrl) : custom.iconUrl) : '';
         const row = document.createElement('div');
         row.className = 'setting-item';
         row.innerHTML = `
@@ -15840,21 +15874,48 @@ ${BUILTIN_CSS_TEMPLATE}`;
     function applySavedCustomBackgrounds() {
       const root = document.documentElement;
       const bgs = appState.customBgsConfig || {};
-      const desktopBg = bgs.desktopBg || localStorage.getItem('custom-bg-desktopBg') || '';
-      const screenBg = bgs.screenBg || localStorage.getItem('custom-bg-screenBg') || '';
-      const cardBg = bgs.cardBg || localStorage.getItem('custom-bg-cardBg') || '';
-      const homeAvatar = bgs.homeAvatar || localStorage.getItem('custom-bg-homeAvatar') || '';
+      const resolveBgUrl = (raw) => {
+        if (!raw) return '';
+        return typeof toFastDisplayUrl === 'function' ? toFastDisplayUrl(raw) : raw;
+      };
+      const desktopBg = resolveBgUrl(bgs.desktopBg || localStorage.getItem('custom-bg-desktopBg') || '');
+      const screenBg = resolveBgUrl(bgs.screenBg || localStorage.getItem('custom-bg-screenBg') || '');
+      const cardBg = resolveBgUrl(bgs.cardBg || localStorage.getItem('custom-bg-cardBg') || '');
+      const homeAvatar = resolveBgUrl(bgs.homeAvatar || localStorage.getItem('custom-bg-homeAvatar') || '');
 
-      root.style.setProperty('--custom-desktop-bg', desktopBg ? `url("${desktopBg}")` : 'none');
-      root.style.setProperty('--custom-screen-bg', screenBg ? `url("${screenBg}")` : 'none');
-      root.style.setProperty('--custom-card-bg', cardBg ? `url("${cardBg}")` : 'none');
+      const applyCssBgWithFallback = (varName, urlStr) => {
+        if (!urlStr) {
+          root.style.setProperty(varName, 'none');
+          return;
+        }
+        root.style.setProperty(varName, `url("${urlStr}")`);
+        const rel = typeof extractRelPathFromLocalUrl === 'function' ? extractRelPathFromLocalUrl(urlStr) : '';
+        if (rel) {
+          const testImg = new Image();
+          testImg.onerror = () => {
+            const enc = rel.split('/').map((s) => encodeURIComponent(s)).join('/');
+            const fallbackUrl = urlStr.includes(':8765/')
+              ? `/local-assets/${enc}`
+              : (typeof getLocalBridgeBaseUrl === 'function' ? `${getLocalBridgeBaseUrl()}/${enc}` : '');
+            if (fallbackUrl && fallbackUrl !== urlStr) {
+              root.style.setProperty(varName, `url("${fallbackUrl}")`);
+            }
+          };
+          testImg.src = urlStr;
+        }
+      };
+
+      applyCssBgWithFallback('--custom-desktop-bg', desktopBg);
+      applyCssBgWithFallback('--custom-screen-bg', screenBg);
+      applyCssBgWithFallback('--custom-card-bg', cardBg);
 
       const homeAv = document.getElementById('home-widget-avatar');
       if (homeAv) {
         if (homeAvatar) {
           homeAv.innerHTML = `<img src="${homeAvatar}" style="width:100%;height:100%;object-fit:cover;" />`;
         } else if (appState.characters[0] && appState.characters[0].chibiImg) {
-          homeAv.innerHTML = `<img src="${appState.characters[0].chibiImg}" style="width:100%;height:100%;object-fit:contain;" />`;
+          const dispChibi = typeof toFastDisplayUrl === 'function' ? toFastDisplayUrl(appState.characters[0].chibiImg) : appState.characters[0].chibiImg;
+          homeAv.innerHTML = `<img src="${dispChibi}" style="width:100%;height:100%;object-fit:contain;" />`;
         } else {
           homeAv.innerHTML = '';
         }
@@ -17966,12 +18027,13 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       return score;
     }
 
-    function mergeCharacterRecordsIntoPrimary(primary, secondary) {
+    function mergeCharacterRecordsIntoPrimary(primary, secondary, overwriteUrls = false) {
       if (!primary || !secondary || primary.id === secondary.id) return false;
       let changed = false;
       const preferUrl = (u1, u2) => {
         if (!u2) return u1 || '';
         if (!u1) return u2;
+        if (overwriteUrls && !u2.startsWith('/api/workshop/asset/')) return u2;
         if (u1.startsWith('/api/workshop/asset/') && !u2.startsWith('/api/workshop/asset/')) return u2;
         return u1;
       };
@@ -17997,7 +18059,7 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
         }
       }
       ['age', 'role', 'body', 'quirk', 'voiceId', 'surface', 'weapon', 'secret', 'cot', 'quotes', 'chapters', 'naiTags', 'moduleId', 'moduleTitle'].forEach((field) => {
-        if (!primary[field] && secondary[field]) {
+        if ((!primary[field] || overwriteUrls) && secondary[field]) {
           primary[field] = secondary[field];
           changed = true;
         }
@@ -18022,7 +18084,7 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
       let mergedDuplicateCount = 0;
 
       const projects = Array.isArray(appState.replayProjects) ? appState.replayProjects : (db.replayProjects ? await db.replayProjects.toArray() : []);
-      const compoundHalfFragments = new Set();
+      const compoundHalfFragments = new Map();
       const canonicalNameByNoSpace = new Map();
 
       const registerCanonicalCompound = (rawName) => {
@@ -18034,7 +18096,7 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
           const parts = trimmed.split(/\s+/).filter(Boolean);
           if (parts.length === 2) {
             parts.forEach((pt) => {
-              if (pt.length <= 2) compoundHalfFragments.add(pt);
+              if (pt.length <= 2) compoundHalfFragments.set(pt, trimmed);
             });
           }
         } else if (!canonicalNameByNoSpace.has(noSpace)) {
@@ -18067,24 +18129,28 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
         const cleanName = String(c?.name || '').trim();
         if (!cleanName) continue;
         if (compoundHalfFragments.has(cleanName) && !cleanName.includes(' ')) {
-          const hasAnyTachie = Boolean(c.tachieBase || (c.tachieExpressions && Object.keys(c.tachieExpressions).length > 0));
-          if (!hasAnyTachie) {
-            await db.characters.delete(c.id);
-            allDbChars = allDbChars.filter((x) => x.id !== c.id);
-            mergedDuplicateCount++;
-            projects.forEach((proj) => {
-              if (Array.isArray(proj.extractedSpeakers)) {
-                const beforeLen = proj.extractedSpeakers.length;
-                proj.extractedSpeakers = proj.extractedSpeakers.filter((s) => {
-                  const sn = String(s?.trueName || s?.name || '').trim();
-                  return sn !== cleanName;
-                });
-                if (proj.extractedSpeakers.length !== beforeLen) {
-                  db.replayProjects.put(proj).catch(() => {});
-                }
-              }
-            });
+          const targetFull = compoundHalfFragments.get(cleanName);
+          const targetNorm = normalizeCharNameNoSpace(targetFull);
+          const fullChar = allDbChars.find((x) => x.id !== c.id && normalizeCharNameNoSpace(x.name) === targetNorm);
+          if (fullChar) {
+            mergeCharacterRecordsIntoPrimary(fullChar, c, false);
+            await db.characters.put(fullChar);
           }
+          await db.characters.delete(c.id);
+          allDbChars = allDbChars.filter((x) => x.id !== c.id);
+          mergedDuplicateCount++;
+          projects.forEach((proj) => {
+            if (Array.isArray(proj.extractedSpeakers)) {
+              const beforeLen = proj.extractedSpeakers.length;
+              proj.extractedSpeakers = proj.extractedSpeakers.filter((s) => {
+                const sn = String(s?.trueName || s?.name || '').trim();
+                return sn !== cleanName;
+              });
+              if (proj.extractedSpeakers.length !== beforeLen) {
+                db.replayProjects.put(proj).catch(() => {});
+              }
+            }
+          });
         }
       }
 
@@ -26968,6 +27034,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     const _playableUrlRamCache = new Map();
     const _workshopAssetPackIndexMap = new Map();
     const _fetchingWorkshopPackPromises = new Map();
+    const _workshopRawDataUrlByHash = new Map();
 
     function registerRemoteProjectPackIndex(projObj) {
       if (!projObj || !projObj.assetPackIndex || typeof projObj.assetPackIndex !== 'object') return;
@@ -27022,6 +27089,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                 : (val.dataUrl || (val.base64 ? `data:${val.mime || 'application/octet-stream'};base64,${val.base64}` : ''));
               if (dUrl && dUrl.startsWith('data:')) {
                 const ref = `/api/workshop/asset/${h}`;
+                _workshopRawDataUrlByHash.set(h, dUrl);
+                _workshopRawDataUrlByHash.set(ref, dUrl);
                 if (typeof _localWorkshopAssetUrlMap === 'object') {
                   _localWorkshopAssetUrlMap.set(ref, dUrl);
                   _localWorkshopAssetUrlMap.set(h, dUrl);
@@ -27743,6 +27812,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           const hash = computeFastAssetFingerprint(portable);
           const assetRef = `/api/workshop/asset/${hash}`;
           rawUrlToAssetRefCache.set(rawUrl, assetRef);
+          _workshopRawDataUrlByHash.set(hash, portable);
+          _workshopRawDataUrlByHash.set(assetRef, portable);
           if (typeof _localWorkshopAssetUrlMap === 'object') {
             _localWorkshopAssetUrlMap.set(assetRef, rawUrl);
             _localWorkshopAssetUrlMap.set(hash, rawUrl);
@@ -28312,20 +28383,75 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     }
 
     async function fetchWorkshopFullProjectById(projectId) {
-      try {
-        const { res, data } = await fetchBackendJsonSafe(`/api/workshop/project/${encodeURIComponent(projectId)}`);
-        if (res && res.ok && data && data.ok && data.project) {
-          registerRemoteProjectPackIndex(data.project);
-          return data.project;
+      let srvProj = null;
+      let ghProj = null;
+      await Promise.all([
+        (async () => {
+          try {
+            const { res, data } = await fetchBackendJsonSafe(`/api/workshop/project/${encodeURIComponent(projectId)}`);
+            if (res && res.ok && data && data.ok && data.project) {
+              srvProj = data.project;
+              registerRemoteProjectPackIndex(srvProj);
+            }
+          } catch (_) {}
+        })(),
+        (async () => {
+          try {
+            const p = await fetchGithubWorkshopJson(`projects/${projectId}.json`);
+            if (p && p.id) {
+              ghProj = p;
+              registerRemoteProjectPackIndex(ghProj);
+            }
+          } catch (_) {}
+        })()
+      ]);
+
+      if (srvProj && ghProj) {
+        const srvTime = Number(srvProj.updatedAt || 0);
+        const ghTime = Number(ghProj.updatedAt || 0);
+        const primary = ghTime >= srvTime ? JSON.parse(JSON.stringify(ghProj)) : JSON.parse(JSON.stringify(srvProj));
+        const secondary = ghTime >= srvTime ? srvProj : ghProj;
+        primary.assetPackIndex = {
+          ...(secondary.assetPackIndex || {}),
+          ...(primary.assetPackIndex || {})
+        };
+        primary.ttsByChapter = {
+          ...(secondary.ttsByChapter || {}),
+          ...(primary.ttsByChapter || {})
+        };
+        const chapMap = new Map();
+        (secondary.chapters || []).forEach((ch, idx) => {
+          if (ch) chapMap.set(Number(ch.order ?? idx), ch);
+        });
+        (primary.chapters || []).forEach((ch, idx) => {
+          if (!ch) return;
+          const ord = Number(ch.order ?? idx);
+          const prev = chapMap.get(ord);
+          if (prev) {
+            chapMap.set(ord, {
+              ...prev,
+              ...ch,
+              scenes: (Array.isArray(ch.scenes) && ch.scenes.length > 0) ? ch.scenes : (prev.scenes || []),
+              cgNodes: (Array.isArray(ch.cgNodes) && ch.cgNodes.length > 0) ? ch.cgNodes : (prev.cgNodes || []),
+              clueNodes: (Array.isArray(ch.clueNodes) && ch.clueNodes.length > 0) ? ch.clueNodes : (prev.clueNodes || [])
+            });
+          } else {
+            chapMap.set(ord, ch);
+          }
+        });
+        primary.chapters = Array.from(chapMap.values()).sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
+        if ((!Array.isArray(primary.globalScenes) || primary.globalScenes.length === 0) && Array.isArray(secondary.globalScenes)) {
+          primary.globalScenes = secondary.globalScenes;
         }
-      } catch (_) {}
-      try {
-        const ghProj = await fetchGithubWorkshopJson(`projects/${projectId}.json`);
-        if (ghProj && ghProj.id) {
-          registerRemoteProjectPackIndex(ghProj);
-          return ghProj;
+        if (Array.isArray(secondary.characters) && secondary.characters.length > 0) {
+          primary.characters = [...(primary.characters || []), ...secondary.characters];
         }
-      } catch (_) {}
+        registerRemoteProjectPackIndex(primary);
+        return primary;
+      }
+      if (ghProj) return ghProj;
+      if (srvProj) return srvProj;
+
       try {
         if (typeof getTermuxUrl === 'function') {
           const tResp = await fetch(`${getTermuxUrl()}/file/${encodeURIComponent(`workshop/projects/${projectId}.json`)}`);
@@ -28481,7 +28607,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               });
             }
             for (const h of Array.from(stillMissingSet)) {
-              if (_localWorkshopAssetUrlMap.has(`/api/workshop/asset/${h}`) || _localWorkshopAssetUrlMap.has(h)) {
+              if (_workshopRawDataUrlByHash.has(h) || _workshopRawDataUrlByHash.has(`/api/workshop/asset/${h}`)) {
                 stillMissingSet.delete(h);
               }
             }
@@ -28521,7 +28647,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                 });
               }
               for (const h of Array.from(stillMissingSet)) {
-                if (_localWorkshopAssetUrlMap.has(`/api/workshop/asset/${h}`) || _localWorkshopAssetUrlMap.has(h)) {
+                if (_workshopRawDataUrlByHash.has(h) || _workshopRawDataUrlByHash.has(`/api/workshop/asset/${h}`)) {
                   stillMissingSet.delete(h);
                 }
               }
@@ -28566,6 +28692,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                 for (const [hKey, dUrl] of Object.entries(data.assets)) {
                   if (typeof dUrl === 'string' && dUrl.startsWith('data:')) {
                     stillMissingSet.delete(hKey);
+                    _workshopRawDataUrlByHash.set(hKey, dUrl);
+                    _workshopRawDataUrlByHash.set(`/api/workshop/asset/${hKey}`, dUrl);
                     if (typeof _localWorkshopAssetUrlMap === 'object') {
                       _localWorkshopAssetUrlMap.set(`/api/workshop/asset/${hKey}`, dUrl);
                       _localWorkshopAssetUrlMap.set(hKey, dUrl);
@@ -28609,6 +28737,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             }
             if (dUrl && dUrl.startsWith('data:')) {
               stillMissingSet.delete(h);
+              _workshopRawDataUrlByHash.set(h, dUrl);
+              _workshopRawDataUrlByHash.set(`/api/workshop/asset/${h}`, dUrl);
               if (typeof _localWorkshopAssetUrlMap === 'object') {
                 _localWorkshopAssetUrlMap.set(`/api/workshop/asset/${h}`, dUrl);
                 _localWorkshopAssetUrlMap.set(h, dUrl);
@@ -28790,9 +28920,15 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const missingHashesToFetch = [];
       for (const h of requiredWorkshopHashes) {
         const refKey = `/api/workshop/asset/${h}`;
+        const rawCached = _workshopRawDataUrlByHash.get(h) || _workshopRawDataUrlByHash.get(refKey);
+        if (rawCached && rawCached.startsWith('data:')) continue;
         if (typeof _localWorkshopAssetUrlMap === 'object' && _localWorkshopAssetUrlMap.has(refKey)) {
           const cachedVal = _localWorkshopAssetUrlMap.get(refKey);
-          if (cachedVal && (cachedVal.startsWith('data:') || cachedVal.startsWith('/local-assets/') || cachedVal.includes(':8765/'))) continue;
+          if (cachedVal && cachedVal.startsWith('data:')) {
+            _workshopRawDataUrlByHash.set(h, cachedVal);
+            _workshopRawDataUrlByHash.set(refKey, cachedVal);
+            continue;
+          }
         }
         missingHashesToFetch.push(h);
       }
@@ -28809,6 +28945,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const safeProj = String(remoteProj.title || remoteProj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
 
       const pendingDiskBatch = [];
+      const writtenDiskPathsInSession = new Set();
       const flushDiskBatch = async () => {
         if (pendingDiskBatch.length === 0) return;
         const chunk = pendingDiskBatch.splice(0, pendingDiskBatch.length);
@@ -28820,13 +28957,25 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           });
         } catch (_) {}
         if (termuxOnline) {
-          for (const it of chunk) {
-            fetch(`${baseUrl}/save`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(it)
-            }).catch(() => {});
+          let tCursor = 0;
+          const runTermuxSaveWorker = async () => {
+            while (tCursor < chunk.length) {
+              const it = chunk[tCursor++];
+              if (!it) continue;
+              try {
+                await fetch(`${baseUrl}/save`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(it)
+                });
+              } catch (_) {}
+            }
+          };
+          const tWorkers = [];
+          for (let w = 0; w < Math.min(6, chunk.length); w++) {
+            tWorkers.push(runTermuxSaveWorker());
           }
+          await Promise.all(tWorkers);
         }
       };
 
@@ -28836,16 +28985,24 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         const cleanRel = String(relDiskPath || '').replace(/^\/+/, '').replace(/\.\./g, '_');
         const encodedRel = cleanRel.split('/').map((s) => encodeURIComponent(s)).join('/');
         const targetLocalUrl = termuxOnline ? `${baseUrl}/${encodedRel}` : `/local-assets/${encodedRel}`;
+        const altLocalUrl = termuxOnline ? `/local-assets/${encodedRel}` : `${baseUrl}/${encodedRel}`;
 
         let dataUrl = '';
         let hash = '';
         if (refOrUrl.startsWith('/api/workshop/asset/')) {
           hash = refOrUrl.replace('/api/workshop/asset/', '').split('?')[0].trim();
-          const mapped = _localWorkshopAssetUrlMap.get(refOrUrl) || (hash ? _localWorkshopAssetUrlMap.get(hash) : '');
-          if (mapped && mapped.startsWith('data:')) {
-            dataUrl = mapped;
-          } else if (mapped && (mapped.startsWith('/local-assets/') || mapped.includes(':8765/'))) {
-            return mapped;
+          const rawData = _workshopRawDataUrlByHash.get(hash) || _workshopRawDataUrlByHash.get(refOrUrl);
+          if (rawData && rawData.startsWith('data:')) {
+            dataUrl = rawData;
+          } else {
+            const mapped = _localWorkshopAssetUrlMap.get(refOrUrl) || (hash ? _localWorkshopAssetUrlMap.get(hash) : '');
+            if (mapped && mapped.startsWith('data:')) {
+              dataUrl = mapped;
+              _workshopRawDataUrlByHash.set(hash, mapped);
+              _workshopRawDataUrlByHash.set(refOrUrl, mapped);
+            } else if (mapped && (mapped.startsWith('/local-assets/') || mapped.includes(':8765/'))) {
+              return mapped;
+            }
           }
         } else if (refOrUrl.startsWith('data:')) {
           dataUrl = refOrUrl;
@@ -28861,19 +29018,26 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         if (fastBlob && fastBlob.startsWith('blob:')) {
           _localRelToBlobCache.set(cleanRel, fastBlob);
           _playableUrlRamCache.set(targetLocalUrl, fastBlob);
+          _playableUrlRamCache.set(altLocalUrl, fastBlob);
           if (hash) {
             _playableUrlRamCache.set(`/api/workshop/asset/${hash}`, fastBlob);
           }
         }
+        _failedPlayableUrlMap.delete(targetLocalUrl);
+        _failedPlayableUrlMap.delete(altLocalUrl);
         if (hash) {
+          _failedPlayableUrlMap.delete(`/api/workshop/asset/${hash}`);
           _localWorkshopAssetUrlMap.set(`/api/workshop/asset/${hash}`, targetLocalUrl);
           _localWorkshopAssetUrlMap.set(hash, targetLocalUrl);
         }
 
-        pendingDiskBatch.push({ path: cleanRel, dataUrl });
-        savedAssetCount += 1;
-        if (pendingDiskBatch.length >= 20) {
-          await flushDiskBatch();
+        if (!writtenDiskPathsInSession.has(cleanRel)) {
+          writtenDiskPathsInSession.add(cleanRel);
+          pendingDiskBatch.push({ path: cleanRel, dataUrl });
+          savedAssetCount += 1;
+          if (pendingDiskBatch.length >= 16) {
+            await flushDiskBatch();
+          }
         }
         return targetLocalUrl;
       };
@@ -28916,7 +29080,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         validCastSpeakers.push(JSON.parse(JSON.stringify(s)));
       });
 
-      // 2. 恢复并合并角色与立绘差分，严格按名字忽略空格一一对应
+      // 2. 恢复并合并角色与立绘差分，严格按名字忽略空格一一对应并直接覆盖破损地址
       if (opts.restoreChars && Array.isArray(remoteProj.characters)) {
         const currentChars = await db.characters.toArray();
         const remoteCharsGroupMap = new Map();
@@ -28941,7 +29105,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           rcGroup.sort((a, b) => scoreCharacterCompleteness(b) - scoreCharacterCompleteness(a));
           const mergedRemote = JSON.parse(JSON.stringify(rcGroup[0]));
           for (let i = 1; i < rcGroup.length; i++) {
-            mergeCharacterRecordsIntoPrimary(mergedRemote, rcGroup[i]);
+            mergeCharacterRecordsIntoPrimary(mergedRemote, rcGroup[i], true);
           }
 
           const spkEntry = validCastSpeakers.find((s) => normalizeCharNameNoSpace(s.trueName || s.name) === ns);
@@ -28995,26 +29159,23 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             || currentChars.find((c) => normalizeCharNameNoSpace(c.name) === ns);
 
           if (localChar) {
-            if (opts.onlyMissing) {
-              mergeCharacterRecordsIntoPrimary(localChar, mergedRemote);
-            } else {
-              const keepId = localChar.id;
-              const mergedExps = {
-                ...(localChar.tachieExpressions || {}),
-                ...(mergedRemote.tachieExpressions || {})
-              };
-              Object.keys(mergedExps).forEach((k) => {
-                if (!isUsableLocalUrl(mergedExps[k])) delete mergedExps[k];
-              });
-              Object.assign(localChar, mergedRemote, {
-                id: keepId,
-                tachieBase: isUsableLocalUrl(mergedRemote.tachieBase) ? mergedRemote.tachieBase : (isUsableLocalUrl(localChar.tachieBase) ? localChar.tachieBase : (mergedExps['默认'] || Object.values(mergedExps)[0] || '')),
-                profileAvatar: isUsableLocalUrl(mergedRemote.profileAvatar) ? mergedRemote.profileAvatar : (isUsableLocalUrl(localChar.profileAvatar) ? localChar.profileAvatar : ''),
-                stageBustAvatar: isUsableLocalUrl(mergedRemote.stageBustAvatar) ? mergedRemote.stageBustAvatar : (isUsableLocalUrl(localChar.stageBustAvatar) ? localChar.stageBustAvatar : ''),
-                chibiImg: isUsableLocalUrl(mergedRemote.chibiImg) ? mergedRemote.chibiImg : (isUsableLocalUrl(localChar.chibiImg) ? localChar.chibiImg : ''),
-                tachieExpressions: mergedExps
-              });
-            }
+            const keepId = localChar.id;
+            const mergedExps = {
+              ...(localChar.tachieExpressions || {}),
+              ...(mergedRemote.tachieExpressions || {})
+            };
+            Object.keys(mergedExps).forEach((k) => {
+              if (!isUsableLocalUrl(mergedExps[k])) delete mergedExps[k];
+            });
+            Object.assign(localChar, mergedRemote, {
+              id: keepId,
+              name: mergedRemote.name || localChar.name,
+              tachieBase: isUsableLocalUrl(mergedRemote.tachieBase) ? mergedRemote.tachieBase : (isUsableLocalUrl(localChar.tachieBase) ? localChar.tachieBase : (mergedExps['默认'] || Object.values(mergedExps)[0] || '')),
+              profileAvatar: isUsableLocalUrl(mergedRemote.profileAvatar) ? mergedRemote.profileAvatar : (isUsableLocalUrl(localChar.profileAvatar) ? localChar.profileAvatar : ''),
+              stageBustAvatar: isUsableLocalUrl(mergedRemote.stageBustAvatar) ? mergedRemote.stageBustAvatar : (isUsableLocalUrl(localChar.stageBustAvatar) ? localChar.stageBustAvatar : ''),
+              chibiImg: isUsableLocalUrl(mergedRemote.chibiImg) ? mergedRemote.chibiImg : (isUsableLocalUrl(localChar.chibiImg) ? localChar.chibiImg : ''),
+              tachieExpressions: mergedExps
+            });
             if (!localChar.customActionList || localChar.customActionList.length === 0) {
               localChar.customActionList = getCharActionList(localChar);
             }
@@ -29031,7 +29192,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
       }
 
-      // 3. 恢复工程本体、全局场景、章节剧本、插图线索与小群
+      // 3. 恢复工程本体、全局场景、章节剧本、插图线索与小群，直接覆盖失效本地路径
       let localProj = (appState.replayProjects || []).find((p) => p.id === remoteProj.id);
       if (!localProj && db && db.replayProjects) {
         localProj = await db.replayProjects.get(remoteProj.id);
@@ -29052,13 +29213,13 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           updatedAt: remoteProj.updatedAt || Date.now()
         };
       } else {
-        if (!opts.onlyMissing || !localProj.title) localProj.title = remoteProj.title || localProj.title;
-        if (!opts.onlyMissing || !localProj.extractedSpeakers || localProj.extractedSpeakers.length === 0) {
+        localProj.title = remoteProj.title || localProj.title;
+        if (validCastSpeakers.length > 0) {
           localProj.extractedSpeakers = validCastSpeakers;
         }
       }
 
-      if (remoteProj.avatarUrl && (!opts.onlyMissing || !isUsableLocalUrl(localProj.avatarUrl))) {
+      if (remoteProj.avatarUrl) {
         const localAv = await materializeWorkshopRefToLocalUrl(remoteProj.avatarUrl, `projects/${safeProj}/avatar.jpg`);
         if (localAv) localProj.avatarUrl = localAv;
       }
@@ -29068,19 +29229,21 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         for (let gIdx = 0; gIdx < nextGlobalScenes.length; gIdx++) {
           const gsc = nextGlobalScenes[gIdx];
           if (gsc && gsc.imageUrl) {
-            const localScUrl = await materializeWorkshopRefToLocalUrl(gsc.imageUrl, `projects/${safeProj}/scenes/global_${gsc.id || gIdx}.png`);
+            const localScUrl = await materializeWorkshopRefToLocalUrl(gsc.imageUrl, `projects/${safeProj}/scenes/${gsc.id || gIdx}.png`);
             if (localScUrl) gsc.imageUrl = localScUrl;
           }
         }
-        if (!opts.onlyMissing || !Array.isArray(localProj.globalScenes) || localProj.globalScenes.length === 0) {
+        if (!Array.isArray(localProj.globalScenes) || localProj.globalScenes.length === 0) {
           localProj.globalScenes = nextGlobalScenes;
         } else {
           nextGlobalScenes.forEach((gsc) => {
             const ex = localProj.globalScenes.find((x) => x.id === gsc.id || x.name === gsc.name);
             if (!ex) {
               localProj.globalScenes.push(gsc);
-            } else if (!isUsableLocalUrl(ex.imageUrl) && isUsableLocalUrl(gsc.imageUrl)) {
-              ex.imageUrl = gsc.imageUrl;
+            } else {
+              Object.assign(ex, gsc, {
+                imageUrl: isUsableLocalUrl(gsc.imageUrl) ? gsc.imageUrl : ex.imageUrl
+              });
             }
           });
         }
@@ -29096,7 +29259,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           for (let sIdx = 0; sIdx < ch.scenes.length; sIdx++) {
             const sc = ch.scenes[sIdx];
             if (sc && sc.imageUrl) {
-              const localUrl = await materializeWorkshopRefToLocalUrl(sc.imageUrl, `projects/${safeProj}/scenes/ch${ord}_${sc.id || sIdx}.png`);
+              const localUrl = await materializeWorkshopRefToLocalUrl(sc.imageUrl, `projects/${safeProj}/scenes/${sc.id || `ch${ord}_${sIdx}`}.png`);
               if (localUrl) sc.imageUrl = localUrl;
             }
           }
@@ -29107,11 +29270,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             for (let gIdx = 0; gIdx < ch.cgNodes.length; gIdx++) {
               const cg = ch.cgNodes[gIdx];
               if (cg && cg.imageUrl) {
-                const localUrl = await materializeWorkshopRefToLocalUrl(cg.imageUrl, `projects/${safeProj}/cgs/ch${ord}_${cg.id || gIdx}.png`);
+                const localUrl = await materializeWorkshopRefToLocalUrl(cg.imageUrl, `projects/${safeProj}/cgs/${cg.id || `ch${ord}_${gIdx}`}.png`);
                 if (localUrl) cg.imageUrl = localUrl;
               }
               if (cg && cg.customPadImg) {
-                const localPad = await materializeWorkshopRefToLocalUrl(cg.customPadImg, `projects/${safeProj}/cgs/ch${ord}_${cg.id || gIdx}_pad.png`);
+                const localPad = await materializeWorkshopRefToLocalUrl(cg.customPadImg, `projects/${safeProj}/cgs/pad_${cg.id || `ch${ord}_${gIdx}`}.png`);
                 if (localPad) cg.customPadImg = localPad;
               }
             }
@@ -29120,7 +29283,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             for (let clIdx = 0; clIdx < ch.clueNodes.length; clIdx++) {
               const cl = ch.clueNodes[clIdx];
               if (cl && cl.imageUrl) {
-                const localUrl = await materializeWorkshopRefToLocalUrl(cl.imageUrl, `projects/${safeProj}/clues/ch${ord}_${cl.id || clIdx}.png`);
+                const localUrl = await materializeWorkshopRefToLocalUrl(cl.imageUrl, `projects/${safeProj}/clues/${cl.id || `ch${ord}_${clIdx}`}.png`);
                 if (localUrl) cl.imageUrl = localUrl;
               }
             }
@@ -29158,32 +29321,26 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         const existIdx = existingChaps.findIndex((mc) => (ch.id && mc.id === ch.id) || Number(mc.order ?? -1) === ord);
         if (existIdx >= 0) {
           const prevCh = existingChaps[existIdx];
-          if (opts.onlyMissing) {
-            if ((!Array.isArray(prevCh.scriptLines) || prevCh.scriptLines.length === 0) && opts.restoreChapters) {
-              prevCh.scriptLines = ch.scriptLines || [];
-              prevCh.rawText = ch.rawText || prevCh.rawText || '';
-            }
-            if (opts.restoreScenes) {
-              prevCh.scenes = (Array.isArray(prevCh.scenes) && prevCh.scenes.length > 0) ? prevCh.scenes : (ch.scenes || []);
-            }
-            if (opts.restoreCgsAndClues) {
-              prevCh.cgNodes = (Array.isArray(prevCh.cgNodes) && prevCh.cgNodes.length > 0) ? prevCh.cgNodes : (ch.cgNodes || []);
-              prevCh.clueNodes = (Array.isArray(prevCh.clueNodes) && prevCh.clueNodes.length > 0) ? prevCh.clueNodes : (ch.clueNodes || []);
-            }
-            syncChapterCgLineBindings(prevCh);
-            syncChapterClueLineBindings(prevCh);
-          } else {
-            existingChaps[existIdx] = {
-              ...prevCh,
-              ...(opts.restoreChapters ? ch : {}),
-              scenes: opts.restoreScenes ? (ch.scenes || []) : (prevCh.scenes || []),
-              cgNodes: opts.restoreCgsAndClues ? (ch.cgNodes || []) : (prevCh.cgNodes || []),
-              clueNodes: opts.restoreCgsAndClues ? (ch.clueNodes || []) : (prevCh.clueNodes || []),
-              order: ord
-            };
-            syncChapterCgLineBindings(existingChaps[existIdx]);
-            syncChapterClueLineBindings(existingChaps[existIdx]);
-          }
+          const mergedScenes = opts.restoreScenes
+            ? ((Array.isArray(ch.scenes) && ch.scenes.length > 0) ? ch.scenes : (prevCh.scenes || []))
+            : (prevCh.scenes || []);
+          const mergedCgs = opts.restoreCgsAndClues
+            ? ((Array.isArray(ch.cgNodes) && ch.cgNodes.length > 0) ? ch.cgNodes : (prevCh.cgNodes || []))
+            : (prevCh.cgNodes || []);
+          const mergedClues = opts.restoreCgsAndClues
+            ? ((Array.isArray(ch.clueNodes) && ch.clueNodes.length > 0) ? ch.clueNodes : (prevCh.clueNodes || []))
+            : (prevCh.clueNodes || []);
+
+          existingChaps[existIdx] = {
+            ...prevCh,
+            ...(opts.restoreChapters ? ch : {}),
+            scenes: mergedScenes,
+            cgNodes: mergedCgs,
+            clueNodes: mergedClues,
+            order: ord
+          };
+          syncChapterCgLineBindings(existingChaps[existIdx]);
+          syncChapterClueLineBindings(existingChaps[existIdx]);
         } else if (opts.restoreChapters || existingChaps.length === 0) {
           existingChaps.push(ch);
         }
@@ -29191,6 +29348,31 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
       existingChaps.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
       localProj.chapters = existingChaps;
+
+      // 将章节场景图与全局场景库双向同步，确保任何一处有图則全模组同步生效
+      if (opts.restoreScenes) {
+        if (!Array.isArray(localProj.globalScenes)) localProj.globalScenes = [];
+        localProj.chapters.forEach((ch) => {
+          (ch.scenes || []).forEach((sc) => {
+            if (!sc) return;
+            const gMatch = localProj.globalScenes.find((g) => (sc.id && g.id === sc.id) || (sc.name && g.name === sc.name));
+            if (!gMatch) {
+              localProj.globalScenes.push(JSON.parse(JSON.stringify(sc)));
+            } else if (isUsableLocalUrl(sc.imageUrl)) {
+              gMatch.imageUrl = sc.imageUrl;
+            } else if (isUsableLocalUrl(gMatch.imageUrl)) {
+              sc.imageUrl = gMatch.imageUrl;
+            }
+          });
+        });
+        if (typeof syncSceneMetaAcrossProject === 'function') {
+          localProj.globalScenes.forEach((gsc) => {
+            if (gsc && isUsableLocalUrl(gsc.imageUrl)) {
+              syncSceneMetaAcrossProject(localProj, gsc.id, gsc.name, { imageUrl: gsc.imageUrl });
+            }
+          });
+        }
+      }
 
       // 自动根据章节原文拼接恢复分章页总日志文本，确保分章页不为空
       if (!localProj.rawLog || !String(localProj.rawLog).trim()) {
@@ -29220,7 +29402,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             for (let sIdx = 0; sIdx < sg.scenes.length; sIdx++) {
               const sc = sg.scenes[sIdx];
               if (sc && sc.imageUrl) {
-                const localUrl = await materializeWorkshopRefToLocalUrl(sc.imageUrl, `projects/${safeProj}/scenes/${sgId}_${sc.id || sIdx}.png`);
+                const localUrl = await materializeWorkshopRefToLocalUrl(sc.imageUrl, `projects/${safeProj}/scenes/${sc.id || `${sgId}_${sIdx}`}.png`);
                 if (localUrl) sc.imageUrl = localUrl;
               }
             }
@@ -29229,18 +29411,18 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             for (let gIdx = 0; gIdx < (sg.cgNodes || []).length; gIdx++) {
               const cg = sg.cgNodes[gIdx];
               if (cg && cg.imageUrl) {
-                const localUrl = await materializeWorkshopRefToLocalUrl(cg.imageUrl, `projects/${safeProj}/cgs/${sgId}_${cg.id || gIdx}.png`);
+                const localUrl = await materializeWorkshopRefToLocalUrl(cg.imageUrl, `projects/${safeProj}/cgs/${cg.id || `${sgId}_${gIdx}`}.png`);
                 if (localUrl) cg.imageUrl = localUrl;
               }
               if (cg && cg.customPadImg) {
-                const localPad = await materializeWorkshopRefToLocalUrl(cg.customPadImg, `projects/${safeProj}/cgs/${sgId}_${cg.id || gIdx}_pad.png`);
+                const localPad = await materializeWorkshopRefToLocalUrl(cg.customPadImg, `projects/${safeProj}/cgs/pad_${cg.id || `${sgId}_${gIdx}`}.png`);
                 if (localPad) cg.customPadImg = localPad;
               }
             }
             for (let clIdx = 0; clIdx < (sg.clueNodes || []).length; clIdx++) {
               const cl = sg.clueNodes[clIdx];
               if (cl && cl.imageUrl) {
-                const localUrl = await materializeWorkshopRefToLocalUrl(cl.imageUrl, `projects/${safeProj}/clues/${sgId}_${cl.id || clIdx}.png`);
+                const localUrl = await materializeWorkshopRefToLocalUrl(cl.imageUrl, `projects/${safeProj}/clues/${cl.id || `${sgId}_${clIdx}`}.png`);
                 if (localUrl) cl.imageUrl = localUrl;
               }
             }
@@ -34592,11 +34774,18 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             }
           }
         } catch (_) {}
+        if (isLocalBridgeEnabled()) {
+          await probeAndAutoSyncLocalBridge().catch(() => {});
+        }
         try {
           const hasRealChaps = (appState.replayProjects || []).some((p) => Array.isArray(p?.chapters) && p.chapters.length > 0);
           const hasUnresolvedWsChar = (appState.characters || []).some((c) =>
-            (typeof c?.tachieBase === 'string' && c.tachieBase.startsWith('/api/workshop/asset/')) ||
-            (!c?.tachieBase && (!c?.tachieExpressions || Object.keys(c.tachieExpressions).length === 0))
+            !isNarratorCharacter(c) && (
+              (typeof c?.tachieBase === 'string' && c.tachieBase.startsWith('/api/workshop/asset/')) ||
+              !c?.tachieBase ||
+              !c?.tachieExpressions ||
+              Object.keys(c.tachieExpressions).length < 2
+            )
           );
           if (!hasRealChaps || hasUnresolvedWsChar) {
             await restoreWorkshopProjectToLocalEngine('proj_1773732842559', {
@@ -34606,12 +34795,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               restoreCgsAndClues: true,
               restoreTts: true,
               restoreBgm: true,
-              onlyMissing: hasRealChaps
+              onlyMissing: false
             }).catch(() => {});
           }
         } catch (_) {}
         if (isLocalBridgeEnabled()) {
-          await probeAndAutoSyncLocalBridge().catch(() => {});
           await cleanupUnusedAssetsUI(true).catch(() => {});
           setInterval(() => {
             probeAndAutoSyncLocalBridge().catch(() => {});
