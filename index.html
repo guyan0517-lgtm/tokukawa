@@ -18863,9 +18863,59 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
         return true;
       };
 
+      const validActorNames = [];
+      (Array.isArray(allChars) ? allChars : []).forEach((c) => {
+        if (!c || c.trpgType === '旁白' || !c.name) return;
+        const cn = resolveCanonicalTheaterSpeakerName(c.name);
+        if (cn && isValidActor(cn) && !validActorNames.includes(cn)) {
+          validActorNames.push(cn);
+        }
+      });
+
       let slots = [];
       let lastSpokeIdxMap = new Map();
       let currentSceneKey = '';
+
+      const tryAddActorToSlots = (actorName, lineIdx, sceneKey) => {
+        if (!actorName) return;
+        lastSpokeIdxMap.set(actorName, lineIdx);
+        if (!slots.includes(actorName)) {
+          if (slots.length < 3) {
+            slots.push(actorName);
+          } else {
+            let winEnd = lineIdx;
+            for (let k = lineIdx + 1; k <= Math.min(scriptLines.length - 1, lineIdx + 12); k++) {
+              const nextL = scriptLines[k];
+              if (!nextL) break;
+              if (nextL.sceneId && String(nextL.sceneId) !== sceneKey) break;
+              winEnd = k;
+            }
+            const upcomingSpeakers = [];
+            for (let k = lineIdx + 1; k <= winEnd; k++) {
+              const nextLine = scriptLines[k];
+              if (nextLine && nextLine.type !== 'narration' && nextLine.type !== 'ooc' && nextLine.type !== 'dice' && isValidActor(nextLine.speaker)) {
+                const nextCanon = resolveCanonicalTheaterSpeakerName(nextLine.speaker);
+                if (nextCanon && !upcomingSpeakers.includes(nextCanon)) {
+                  upcomingSpeakers.push(nextCanon);
+                }
+              }
+            }
+            let replaceSlotIdx = 0;
+            let oldestScore = Infinity;
+            for (let sIdx = 0; sIdx < slots.length; sIdx++) {
+              const occupant = slots[sIdx];
+              const lastLine = lastSpokeIdxMap.has(occupant) ? lastSpokeIdxMap.get(occupant) : -999;
+              const penalty = upcomingSpeakers.slice(0, 2).includes(occupant) ? 10000 : 0;
+              const score = lastLine + penalty;
+              if (score < oldestScore) {
+                oldestScore = score;
+                replaceSlotIdx = sIdx;
+              }
+            }
+            slots[replaceSlotIdx] = actorName;
+          }
+        }
+      };
 
       for (let i = 0; i < scriptLines.length; i++) {
         const line = scriptLines[i];
@@ -18879,47 +18929,43 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
         currentSceneKey = sceneKey;
 
         const isLineDialogue = line.type !== 'narration' && line.type !== 'ooc' && line.type !== 'dice';
-        const curSpk = (isLineDialogue && isValidActor(line.speaker))
+        let curSpk = (isLineDialogue && isValidActor(line.speaker))
           ? resolveCanonicalTheaterSpeakerName(line.speaker)
           : '';
+        if (!curSpk && line.origSpeaker && isValidActor(line.origSpeaker)) {
+          curSpk = resolveCanonicalTheaterSpeakerName(line.origSpeaker);
+        }
 
         if (curSpk) {
-          lastSpokeIdxMap.set(curSpk, i);
-          if (!slots.includes(curSpk)) {
-            if (slots.length < 3) {
-              slots.push(curSpk);
-            } else {
-              let winEnd = i;
-              for (let k = i + 1; k <= Math.min(scriptLines.length - 1, i + 12); k++) {
-                const nextL = scriptLines[k];
-                if (!nextL) break;
-                if (nextL.sceneId && String(nextL.sceneId) !== sceneKey) break;
-                winEnd = k;
-              }
-              const upcomingSpeakers = [];
-              for (let k = i + 1; k <= winEnd; k++) {
-                const nextLine = scriptLines[k];
-                if (nextLine && nextLine.type !== 'narration' && nextLine.type !== 'ooc' && nextLine.type !== 'dice' && isValidActor(nextLine.speaker)) {
-                  const nextCanon = resolveCanonicalTheaterSpeakerName(nextLine.speaker);
-                  if (nextCanon && !upcomingSpeakers.includes(nextCanon)) {
-                    upcomingSpeakers.push(nextCanon);
-                  }
-                }
-              }
-              let replaceSlotIdx = 0;
-              let oldestScore = Infinity;
-              for (let sIdx = 0; sIdx < slots.length; sIdx++) {
-                const occupant = slots[sIdx];
-                const lastLine = lastSpokeIdxMap.has(occupant) ? lastSpokeIdxMap.get(occupant) : -999;
-                const penalty = upcomingSpeakers.slice(0, 2).includes(occupant) ? 10000 : 0;
-                const score = lastLine + penalty;
-                if (score < oldestScore) {
-                  oldestScore = score;
-                  replaceSlotIdx = sIdx;
-                }
-              }
-              slots[replaceSlotIdx] = curSpk;
+          tryAddActorToSlots(curSpk, i, sceneKey);
+        } else if (line.type === 'narration' && line.text && validActorNames.length > 0) {
+          for (const vName of validActorNames) {
+            if (line.text.includes(vName) && (slots.includes(vName) || slots.length < 2)) {
+              tryAddActorToSlots(vName, i, sceneKey);
             }
+          }
+        }
+
+        // 若当前句槽位仍为空（例如章节开头前十几句全是旁白铺垫），提前向前扫描同场景首个登场说话人站上舞台，杜绝进场前几十秒无立绘
+        if (slots.length === 0) {
+          for (let k = i + 1; k < Math.min(scriptLines.length, i + 45); k++) {
+            const lookL = scriptLines[k];
+            if (!lookL) continue;
+            const lookSpkRaw = (lookL.type !== 'narration' && lookL.type !== 'ooc' && lookL.type !== 'dice')
+              ? lookL.speaker
+              : (lookL.origSpeaker || '');
+            if (lookSpkRaw && isValidActor(lookSpkRaw)) {
+              const lookCanon = resolveCanonicalTheaterSpeakerName(lookSpkRaw);
+              if (lookCanon && !slots.includes(lookCanon)) {
+                slots.push(lookCanon);
+                lastSpokeIdxMap.set(lookCanon, i);
+                if (slots.length >= 1) break;
+              }
+            }
+          }
+          if (slots.length === 0 && validActorNames.length > 0) {
+            slots.push(validActorNames[0]);
+            lastSpokeIdxMap.set(validActorNames[0], i);
           }
         }
 
@@ -26479,9 +26525,17 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       } catch (_) {}
     }
 
+    const _failedPlayableUrlMap = new Map();
+
     async function fetchAndUnpackWorkshopAssetPack(packRelPath) {
       if (!packRelPath || typeof packRelPath !== 'string') return null;
-      const cleanPack = packRelPath.replace(/^\/+/, '');
+      let cleanPack = packRelPath.replace(/^\/+/, '').trim();
+      if (!cleanPack.startsWith('packs/')) {
+        const baseName = cleanPack.endsWith('.json') ? cleanPack.slice(0, -5) : cleanPack;
+        cleanPack = `packs/${baseName.startsWith('pack_') ? baseName : 'pack_' + baseName}.json`;
+      } else if (!cleanPack.endsWith('.json')) {
+        cleanPack = `${cleanPack}.json`;
+      }
       if (_fetchingWorkshopPackPromises.has(cleanPack)) {
         return await _fetchingWorkshopPackPromises.get(cleanPack);
       }
@@ -26501,7 +26555,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                   _localWorkshopAssetUrlMap.set(ref, dUrl);
                   _localWorkshopAssetUrlMap.set(h, dUrl);
                 }
-                await putLocalAssetMirrorDataUrl(`workshop_assets/${h}`, dUrl);
+                const fastPackAsset = toFastDisplayUrl(dUrl);
+                _playableUrlRamCache.set(ref, fastPackAsset);
+                putLocalAssetMirrorDataUrl(`workshop_assets/${h}`, dUrl).catch(() => {});
               }
             }
             return packJson.assets;
@@ -26520,7 +26576,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     async function resolveTheaterPlayableUrl(rawUrl, fallbackMime = 'image/png') {
       if (!rawUrl || typeof rawUrl !== 'string') return '';
       if (rawUrl.startsWith('blob:') || rawUrl.startsWith('data:')) {
-        return toFastDisplayUrl(rawUrl);
+        const fast = toFastDisplayUrl(rawUrl);
+        if (fast && fast.startsWith('blob:')) {
+          _playableUrlRamCache.set(rawUrl, fast);
+        }
+        return fast;
       }
       if (_playableUrlRamCache.has(rawUrl)) {
         return _playableUrlRamCache.get(rawUrl);
@@ -26540,7 +26600,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             const mime = ext === 'mp3' ? 'audio/mpeg' : (ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : fallbackMime);
             const blob = new Blob([uint8], { type: mime });
             const bUrl = URL.createObjectURL(blob);
-            return cacheMountedBlobUrl(cacheKey, bUrl);
+            const cached = cacheMountedBlobUrl(cacheKey, bUrl);
+            _playableUrlRamCache.set(rawUrl, cached);
+            return cached;
           }
         }
         return '';
@@ -26564,36 +26626,12 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             _playableUrlRamCache.set(rawUrl, fastMirror);
             return fastMirror;
           }
-        }
-        const fullApiUrl = resolveBackendApiUrl(rawUrl);
-        if (_mountedZipAssetBlobCache.has(fullApiUrl)) {
-          return _mountedZipAssetBlobCache.get(fullApiUrl);
-        }
-        try {
-          const ctrl = new AbortController();
-          const timer = setTimeout(() => ctrl.abort(), 3500);
-          try {
-            const resp = await fetch(fullApiUrl, { signal: ctrl.signal });
-            if (resp.ok) {
-              const ct = String(resp.headers.get('content-type') || '');
-              if (!ct.includes('text/html')) {
-                const blob = await resp.blob();
-                if (blob && blob.size > 0) {
-                  const bUrl = URL.createObjectURL(blob);
-                  const cachedBUrl = cacheMountedBlobUrl(fullApiUrl, bUrl);
-                  _playableUrlRamCache.set(rawUrl, cachedBUrl);
-                  return cachedBUrl;
-                }
-              }
-            }
-          } finally {
-            clearTimeout(timer);
-          }
-        } catch (_) {}
-        if (assetHash) {
           const packPath = _workshopAssetPackIndexMap.get(assetHash);
           if (packPath) {
             await fetchAndUnpackWorkshopAssetPack(packPath);
+            if (_playableUrlRamCache.has(rawUrl)) {
+              return _playableUrlRamCache.get(rawUrl);
+            }
             if (typeof _localWorkshopAssetUrlMap === 'object' && _localWorkshopAssetUrlMap.has(rawUrl)) {
               const unpackedUrl = _localWorkshopAssetUrlMap.get(rawUrl);
               if (unpackedUrl && unpackedUrl.startsWith('data:')) {
@@ -26603,6 +26641,36 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               }
             }
           }
+        }
+        const fullApiUrl = resolveBackendApiUrl(rawUrl);
+        if (_mountedZipAssetBlobCache.has(fullApiUrl)) {
+          return _mountedZipAssetBlobCache.get(fullApiUrl);
+        }
+        const failAt = _failedPlayableUrlMap.get(rawUrl) || 0;
+        if (Date.now() - failAt > 30000) {
+          try {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), 900);
+            try {
+              const resp = await fetch(fullApiUrl, { signal: ctrl.signal });
+              if (resp.ok) {
+                const ct = String(resp.headers.get('content-type') || '');
+                if (!ct.includes('text/html')) {
+                  const blob = await resp.blob();
+                  if (blob && blob.size > 0) {
+                    const bUrl = URL.createObjectURL(blob);
+                    const cachedBUrl = cacheMountedBlobUrl(fullApiUrl, bUrl);
+                    _playableUrlRamCache.set(rawUrl, cachedBUrl);
+                    return cachedBUrl;
+                  }
+                }
+              }
+            } finally {
+              clearTimeout(timer);
+            }
+          } catch (_) {}
+        }
+        if (assetHash && Date.now() - failAt > 30000) {
           try {
             const ghAsset = await fetchGithubWorkshopJson(`assets/${assetHash}.json`);
             if (ghAsset && (ghAsset.base64 || ghAsset.dataUrl)) {
@@ -26610,12 +26678,13 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               if (typeof _localWorkshopAssetUrlMap === 'object') {
                 _localWorkshopAssetUrlMap.set(rawUrl, dataUrl);
               }
-              await putLocalAssetMirrorDataUrl(`workshop_assets/${assetHash}`, dataUrl);
+              putLocalAssetMirrorDataUrl(`workshop_assets/${assetHash}`, dataUrl).catch(() => {});
               const fastGh = toFastDisplayUrl(dataUrl);
               _playableUrlRamCache.set(rawUrl, fastGh);
               return fastGh;
             }
           } catch (_) {}
+          _failedPlayableUrlMap.set(rawUrl, Date.now());
         }
         return fullApiUrl;
       }
@@ -26630,18 +26699,21 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             return fastUrl;
           }
         }
+        const failAt = _failedPlayableUrlMap.get(rawUrl) || 0;
+        if (Date.now() - failAt < 30000) {
+          return '';
+        }
         const candidateUrls = [];
         if (rel) {
           if (_termuxBridgeOnlineState) candidateUrls.push(`${baseUrl}/${rel}`);
           candidateUrls.push(`/local-assets/${rel}`);
-          if (!_termuxBridgeOnlineState) candidateUrls.push(`${baseUrl}/${rel}`);
         } else {
           candidateUrls.push(rawUrl);
         }
         for (const cUrl of candidateUrls) {
           try {
             const ctrl = new AbortController();
-            const tid = setTimeout(() => ctrl.abort(), 1800);
+            const tid = setTimeout(() => ctrl.abort(), 700);
             try {
               const r = await fetch(cUrl, { signal: ctrl.signal });
               if (r.ok) {
@@ -26660,6 +26732,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             }
           } catch (_) {}
         }
+        _failedPlayableUrlMap.set(rawUrl, Date.now());
         if (rawUrl.startsWith(baseUrl + '/') && !_termuxBridgeOnlineState) {
           return '/local-assets/' + rawUrl.slice(baseUrl.length + 1);
         }
@@ -29921,7 +29994,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       openTheaterSelectorLobby();
     }
 
-    // 剧本语音内存预热池：将章节台词音频提前读入内存Blob与Audio实例，彻底消除保存到本地后每次点击读取本地HTTP文件的0.5秒延迟
+    // 剧本语音内存预热池：将章节台词音频提前同步转为内存Blob并预解码Audio实例，彻底消除首次播放与本地读取的0.5秒延迟
     const _theaterTtsRamCache = new Map();
 
     async function resolveInstantTtsPlayableUrl(cacheKey, rawUrl) {
@@ -29930,42 +30003,115 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         const entry = _theaterTtsRamCache.get(cacheKey);
         if (entry && entry.src === rawUrl && entry.blobUrl) return entry.blobUrl;
       }
-      if (String(rawUrl).startsWith('blob:')) return rawUrl;
+      const strUrl = String(rawUrl);
+      if (strUrl.startsWith('blob:')) {
+        const preAudio = new Audio(strUrl);
+        preAudio.preload = 'auto';
+        try { preAudio.load(); } catch (_) {}
+        _theaterTtsRamCache.set(cacheKey, { src: rawUrl, blobUrl: strUrl, preAudio });
+        return strUrl;
+      }
+      if (strUrl.startsWith('data:')) {
+        const fastBlobUrl = toFastDisplayUrl(strUrl);
+        if (fastBlobUrl) {
+          const preAudio = new Audio(fastBlobUrl);
+          preAudio.preload = 'auto';
+          try { preAudio.load(); } catch (_) {}
+          _theaterTtsRamCache.set(cacheKey, { src: rawUrl, blobUrl: fastBlobUrl, preAudio });
+          return fastBlobUrl;
+        }
+      }
       try {
-        const resp = await fetch(rawUrl);
-        if (resp.ok) {
-          const blob = await resp.blob();
-          if (blob && blob.size > 0) {
-            const blobUrl = URL.createObjectURL(blob);
-            const preAudio = new Audio(blobUrl);
-            preAudio.preload = 'auto';
-            _theaterTtsRamCache.set(cacheKey, { src: rawUrl, blobUrl, preAudio });
-            return blobUrl;
-          }
+        const resolved = await resolveTheaterPlayableUrl(strUrl, 'audio/mpeg');
+        if (resolved) {
+          const preAudio = new Audio(resolved);
+          preAudio.preload = 'auto';
+          try { preAudio.load(); } catch (_) {}
+          _theaterTtsRamCache.set(cacheKey, { src: rawUrl, blobUrl: resolved, preAudio });
+          return resolved;
         }
       } catch (_) {}
       return rawUrl;
     }
 
     function preloadChapterTtsAudioPool(chap, startIdx = 0) {
-      const playableChap = (chap && chap._isMergedStream) ? chap : (getActiveTheaterPlayableChapter() || chap);
+      const playableChap = (chap && (chap._isMergedStream || chap._isMergedPlayable))
+        ? chap
+        : (getActiveTheaterPlayableChapter() || chap);
       if (!playableChap || !Array.isArray(playableChap.scriptLines)) return;
       const lang = appState.theaterTtsLang || 'jp';
+      const altLang = lang === 'jp' ? 'zh' : 'jp';
       const begin = Math.max(0, Number(startIdx) || 0);
-      const end = Math.min(playableChap.scriptLines.length - 1, begin + 10);
+      const mountedBundle = typeof getActiveMountedBundle === 'function' ? getActiveMountedBundle() : null;
       (async () => {
-        for (let i = begin; i <= end; i++) {
+        let dialoguePreloaded = 0;
+        for (let i = begin; i < playableChap.scriptLines.length && dialoguePreloaded < 18; i++) {
           const l = playableChap.scriptLines[i];
-          if (!l || l.type === 'narration' || !l.speaker || l.speaker === '旁白' || l.speaker === '检定') continue;
+          if (!l || l.type === 'narration' || l.type === 'ooc' || l.type === 'dice' || !l.speaker || l.speaker === '旁白' || l.speaker === '检定') continue;
+          dialoguePreloaded += 1;
           const holderId = l._ttsHolderId || playableChap.id;
           const ck = `line_${holderId}_${l.id}_${lang}`;
-          if (_theaterTtsRamCache.has(ck)) continue;
+          const altCk = `line_${holderId}_${l.id}_${altLang}`;
+          if (_theaterTtsRamCache.has(ck) || _theaterTtsRamCache.has(altCk)) continue;
           try {
-            const rec = await db.ttsCache.get(ck);
+            if (mountedBundle && mountedBundle.ttsLookup instanceof Map) {
+              const extRaw = mountedBundle.ttsLookup.get(ck) || mountedBundle.ttsLookup.get(altCk) || (l.ttsKey ? mountedBundle.ttsLookup.get(l.ttsKey) : '');
+              if (extRaw) {
+                await resolveInstantTtsPlayableUrl(ck, extRaw);
+                continue;
+              }
+            }
+            let rec = await db.ttsCache.get(ck);
+            let targetKey = ck;
+            if (!rec || !rec.audioDataUrl) {
+              rec = await db.ttsCache.get(altCk);
+              if (rec && rec.audioDataUrl) targetKey = altCk;
+            }
             if (rec && rec.audioDataUrl) {
-              await resolveInstantTtsPlayableUrl(ck, rec.audioDataUrl);
+              await resolveInstantTtsPlayableUrl(targetKey, rec.audioDataUrl);
             }
           } catch (_) {}
+        }
+      })();
+    }
+
+    function preloadChapterStageSprites(chap, startIdx = 0) {
+      const playableChap = (chap && (chap._isMergedStream || chap._isMergedPlayable))
+        ? chap
+        : (getActiveTheaterPlayableChapter() || chap);
+      if (!playableChap || !Array.isArray(playableChap.scriptLines)) return;
+      const curProj = typeof getCurrentReplayProject === 'function' ? getCurrentReplayProject() : null;
+      const begin = Math.max(0, Number(startIdx) || 0);
+      const end = Math.min(playableChap.scriptLines.length - 1, begin + 25);
+      (async () => {
+        const seenSprites = new Set();
+        for (let i = begin; i <= end; i++) {
+          const l = playableChap.scriptLines[i];
+          if (!l) continue;
+          const names = [];
+          if (Array.isArray(l.presentSpeakers)) names.push(...l.presentSpeakers);
+          if (l.speaker && l.speaker !== '旁白' && l.speaker !== '检定') names.push(l.speaker);
+          for (const rawName of names) {
+            const charObj = findTheaterCharacterByName(rawName);
+            if (!charObj || charObj.trpgType === '旁白') continue;
+            const expKey = l.exp || '默认';
+            const candidates = [
+              charObj.tachieExpressions && charObj.tachieExpressions[expKey],
+              charObj.tachieExpressions && charObj.tachieExpressions['默认'],
+              charObj.tachieBase,
+              charObj.chibiImg
+            ].filter((u) => u && !String(u).startsWith('data:image/svg+xml'));
+            for (const rawSprite of candidates) {
+              if (seenSprites.has(rawSprite)) continue;
+              seenSprites.add(rawSprite);
+              try {
+                const playable = await resolveTheaterPlayableUrl(rawSprite, 'image/png');
+                if (playable && !_heightCroppedSpriteCache.has(playable)) {
+                  await getCroppedSpriteForHeightStage(playable);
+                }
+              } catch (_) {}
+            }
+          }
         }
       })();
     }
@@ -29980,6 +30126,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       openAppScreen('theater');
       const curChap = getActiveTheaterPlayableChapter();
       preloadChapterTtsAudioPool(curChap, 0);
+      preloadChapterStageSprites(curChap, 0);
       prewarmChapterBgmUrls(curChap);
       renderTheaterCurrentLine();
     }
@@ -30164,6 +30311,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         `;
         listBox.appendChild(item);
       });
+      const activeChap = curProj.chapters[appState.currentReplayChapterIdx || 0] || curProj.chapters[0];
+      if (activeChap) {
+        preloadChapterTtsAudioPool(activeChap, 0);
+        preloadChapterStageSprites(activeChap, 0);
+      }
     }
 
     function getBuiltinStageCssTemplate() {
@@ -30386,6 +30538,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       closeTheaterSelectorLobby();
       const curChap = getCurrentReplayChapter();
       preloadChapterTtsAudioPool(curChap, 0);
+      preloadChapterStageSprites(curChap, 0);
       prewarmChapterBgmUrls(curChap);
       renderTheaterCurrentLine();
     }
@@ -30586,6 +30739,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
       const curChap = getCurrentReplayChapter();
       preloadChapterTtsAudioPool(curChap, appState.theaterLineIdx || 0);
+      preloadChapterStageSprites(curChap, appState.theaterLineIdx || 0);
       prewarmChapterBgmUrls(curChap);
       renderTheaterCurrentLine();
     }
@@ -30609,6 +30763,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       appState.theaterLineIdx = 0;
       const curChap = getCurrentReplayChapter();
       preloadChapterTtsAudioPool(curChap, 0);
+      preloadChapterStageSprites(curChap, 0);
       prewarmChapterBgmUrls(curChap);
       renderTheaterCurrentLine();
     }
@@ -31203,6 +31358,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }, activeTextFx);
 
       // 优先立即启动本句语音播放与后续台词内存预热，不等待下方立绘Canvas裁切，彻底消除0.5秒延迟
+      preloadChapterStageSprites(chap, idx + 1);
       if (canPlayStageAudio && !appState.theaterSkipPlay && !appState.theaterEditMode) {
         preloadChapterTtsAudioPool(chap, idx + 1);
         if (isDialogueLine) {
@@ -31224,7 +31380,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                 if (mountedBundle && mountedBundle.ttsLookup instanceof Map) {
                   const extRaw = mountedBundle.ttsLookup.get(cacheKey) || mountedBundle.ttsLookup.get(altKey) || (line.ttsKey ? mountedBundle.ttsLookup.get(line.ttsKey) : '');
                   if (extRaw) {
-                    playUrl = await resolveTheaterPlayableUrl(extRaw, 'audio/mpeg');
+                    playUrl = await resolveInstantTtsPlayableUrl(cacheKey, extRaw);
                   }
                 }
               }
@@ -31236,12 +31392,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                 }
                 if (myRenderSeq !== _theaterRenderSeq) return;
                 if (cached && cached.audioDataUrl) {
-                  if (_theaterTtsRamCache.has(activeKey)) {
-                    playUrl = _theaterTtsRamCache.get(activeKey).blobUrl;
-                  } else {
-                    playUrl = cached.audioDataUrl;
-                    resolveInstantTtsPlayableUrl(activeKey, cached.audioDataUrl).catch(() => {});
-                  }
+                  playUrl = await resolveInstantTtsPlayableUrl(activeKey, cached.audioDataUrl);
                 }
               }
               if (!playUrl || myRenderSeq !== _theaterRenderSeq) {
@@ -31266,7 +31417,12 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                   }
                   resolve(ok);
                 };
-                const audio = new Audio(playUrl);
+                const ramEntry = _theaterTtsRamCache.get(activeKey);
+                const audio = (ramEntry && ramEntry.preAudio) ? ramEntry.preAudio : new Audio(playUrl);
+                try {
+                  audio.pause();
+                  audio.currentTime = 0;
+                } catch (_) {}
                 _activeReplayTtsAudio = audio;
                 audio.volume = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
                 setBgmDuckingActive(true);
@@ -31456,120 +31612,13 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
       }
 
-      // 3. 更新底层场所背景图：沿着台词向上回溯最近一次切换的地图，确保全程不断档
-      if (bgLayer) {
-        let activeSceneId = line.sceneId || '';
-        if (!activeSceneId || (activeSceneId === 'cg_only' && !line._explicitNoBg)) {
-          for (let k = idx - 1; k >= 0; k--) {
-            const candSc = chap.scriptLines[k]?.sceneId;
-            if (candSc && (candSc !== 'cg_only' || chap.scriptLines[k]?._explicitNoBg)) {
-              activeSceneId = candSc;
-              break;
-            }
-          }
-        }
-        const prevBgCss = bgLayer.getAttribute('data-bg-css') || '';
-        let nextBgCss = prevBgCss && prevBgCss.startsWith('url(')
-          ? prevBgCss
-          : 'linear-gradient(160deg, var(--text-primary) 0%, var(--background-color) 100%)';
-        if (activeSceneId === 'cg_only' && line._explicitNoBg) {
-          nextBgCss = 'none';
-        } else {
-          const allScenes = getAllModuleScenesPool(curProj, chap);
-          const sceneObj = allScenes.find((s) => s && (s.id === activeSceneId || s.name === activeSceneId))
-            || allScenes.find((s) => s && s.imageUrl)
-            || allScenes[0];
-          if (sceneObj && sceneObj.imageUrl) {
-            const resolvedSceneUrl = await resolveTheaterPlayableUrl(sceneObj.imageUrl, 'image/png');
-            if (myRenderSeq !== _theaterRenderSeq) return;
-            if (resolvedSceneUrl) {
-              nextBgCss = `url("${resolvedSceneUrl}")`;
-            }
-          }
-        }
-        if (bgLayer.getAttribute('data-bg-css') !== nextBgCss) {
-          bgLayer.setAttribute('data-bg-css', nextBgCss);
-          bgLayer.style.backgroundImage = nextBgCss;
-        }
-      }
-
-      // 4. 判断当前行是否处于某张已生成图片的CG节点的起止持续行范围内
-      const cgObj = (chap.cgNodes || []).find((g) => {
-        if (!g || !g.imageUrl) return false;
-        const s = Number(g.startLineIdx ?? g.lineIdx ?? 0);
-        const e = Number(g.endLineIdx ?? s);
-        return (line.cgId && g.id === line.cgId) || (idx >= s && idx <= e);
-      }) || null;
-      if (cgLayer && cgImg) {
-        if (cgObj && cgObj.imageUrl) {
-          const fastCgUrl = await resolveTheaterPlayableUrl(cgObj.imageUrl, 'image/png');
-          if (myRenderSeq !== _theaterRenderSeq) return;
-          if (fastCgUrl && cgImg.getAttribute('src') !== fastCgUrl) {
-            cgImg.src = fastCgUrl;
-          }
-          cgLayer.classList.add('active');
-        } else {
-          cgLayer.classList.remove('active');
-        }
-      }
-
-      // 4.5 判断当前行是否处于某张线索道具小卡片的起止展示范围内
+      // 3~6 并行渲染：立绘层、背景层、CG层、线索层与小头像各自独立并行加载，绝不因背景或Canvas裁切阻塞立绘上台
       const clueLayer = document.getElementById('vn-theater-clue-layer');
       const clueImg = document.getElementById('vn-theater-clue-img');
       const clueNameEl = document.getElementById('vn-theater-clue-name');
-      const clueObj = (chap.clueNodes || []).find((cl) => {
-        if (!cl) return false;
-        const s = Number(cl.startLineIdx ?? cl.lineIdx ?? 0);
-        const e = Number(cl.endLineIdx ?? s);
-        return (line.clueId && cl.id === line.clueId) || (idx >= s && idx <= e);
-      }) || null;
-      if (clueLayer && clueImg && clueNameEl) {
-        if (clueObj && (clueObj.imageUrl || clueObj.name)) {
-          if (clueObj.imageUrl) {
-            const fastClueUrl = await resolveTheaterPlayableUrl(clueObj.imageUrl, 'image/png');
-            if (myRenderSeq !== _theaterRenderSeq) return;
-            if (fastClueUrl && clueImg.getAttribute('src') !== fastClueUrl) {
-              clueImg.src = fastClueUrl;
-            }
-            clueImg.style.display = 'block';
-          } else {
-            clueImg.style.display = 'none';
-          }
-          clueNameEl.textContent = clueObj.name || '关键线索';
-          clueLayer.classList.add('active');
-        } else {
-          clueLayer.classList.remove('active');
-        }
-      }
 
-      // 5. 更新对话框左侧说话人小头像相框：若开启问号剪影则头像同步转为神秘黑影
-      if (sideBustBox && sideBustImg) {
-        sideBustBox.classList.toggle('mystery-shadow', activeMystery === 'full_shadow');
-        const showSideBust = localStorage.getItem('theater-show-side-bust') !== 'false';
-        const sideChk = document.getElementById('theater-show-side-bust-chk');
-        if (sideChk) sideChk.checked = showSideBust;
-        const avatarInfo = (showSideBust && isDialogueLine)
-          ? resolveCharacterMiniAvatarInfo(line.speaker, line.exp || '默认')
-          : null;
-        if (avatarInfo && avatarInfo.src && !String(avatarInfo.src).startsWith('data:image/svg+xml')) {
-          const resolvedBustUrl = await resolveTheaterPlayableUrl(avatarInfo.src, 'image/png');
-          if (myRenderSeq !== _theaterRenderSeq) return;
-          if (resolvedBustUrl) {
-            if (sideBustImg.getAttribute('src') !== resolvedBustUrl) {
-              sideBustImg.src = resolvedBustUrl;
-            }
-            sideBustImg.classList.toggle('crop-tachie-head', Boolean(avatarInfo.isFullTachieCrop));
-            sideBustBox.classList.remove('empty');
-          } else {
-            sideBustBox.classList.add('empty');
-          }
-        } else {
-          sideBustBox.classList.add('empty');
-        }
-      }
-
-      // 6. 渲染在场角色立绘及神秘人剪影、头顶SVG矢量情绪贴纸
-      if (tachieLayer) {
+      const renderTachiePromise = (async () => {
+        if (!tachieLayer) return;
         const allTheaterChars = getAllTheaterCharactersForCurrentProject();
         const spriteRosterSig = `${chap.scriptLines.length}_${allTheaterChars.filter((c) => c && (c.tachieBase || c.chibiImg || (c.tachieExpressions && Object.keys(c.tachieExpressions).length > 0))).map((c) => c.name).join(',')}`;
         if (chap._slotsComputedSig !== spriteRosterSig) {
@@ -31587,8 +31636,12 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             presentNames.push(cn);
           }
         });
+        if (currentCanonSpeaker && !presentNames.includes(currentCanonSpeaker)) {
+          if (presentNames.length < 3) presentNames.push(currentCanonSpeaker);
+          else presentNames[presentNames.length - 1] = currentCanonSpeaker;
+        }
 
-        // 从本章第0句一直回溯到当前句，确保未说话角色始终保持他自己上一次开口时的表情，绝不因超过12句而突变
+        // 从本章第0句一直回溯到当前句，确保未说话角色始终保持他自己上一次开口时的表情
         const lastExpBySpeaker = {};
         for (let k = 0; k <= idx; k++) {
           const prevL = chap.scriptLines[k];
@@ -31602,11 +31655,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         const maxScaleCm = 205;
         const globalOffsetY = parseInt(localStorage.getItem('global-stage-tachie-offset-y') || '0', 10) || 0;
         const globalScalePct = Math.max(30, Math.min(250, parseInt(localStorage.getItem('global-stage-tachie-scale-pct') || '100', 10) || 100));
-        const desiredActors = [];
 
-        for (const spkName of presentNames) {
+        const resolvedSpecs = await Promise.all(presentNames.map(async (spkName) => {
           const charObj = findTheaterCharacterByName(spkName);
-          if (!charObj || charObj.trpgType === '旁白') continue;
+          if (!charObj || charObj.trpgType === '旁白') return null;
           const actorCanonName = resolveCanonicalTheaterSpeakerName(charObj.name, curProj) || charObj.name;
           const netCm = charObj.heightCm || DEFAULT_HEIGHT_MAP[charObj.id] || 175;
           const earCm = charObj.earHatCm || 0;
@@ -31622,23 +31674,14 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             || (charObj.tachieExpressions && charObj.tachieExpressions['默认'])
             || charObj.tachieBase
             || charObj.chibiImg;
-          if (!rawSprite || String(rawSprite).startsWith('data:image/svg+xml')) continue;
+          if (!rawSprite || String(rawSprite).startsWith('data:image/svg+xml')) return null;
 
           const playableSprite = await resolveTheaterPlayableUrl(rawSprite, 'image/png');
-          if (myRenderSeq !== _theaterRenderSeq) return;
-          if (!playableSprite) continue;
+          if (!playableSprite || String(playableSprite).startsWith('data:image/svg+xml')) return null;
 
-          let croppedSprite = _heightCroppedSpriteCache.get(playableSprite) || '';
-          if (!croppedSprite) {
-            if (appState.theaterSkipPlay) {
-              croppedSprite = playableSprite;
-              getCroppedSpriteForHeightStage(playableSprite).catch(() => {});
-            } else {
-              croppedSprite = await getCroppedSpriteForHeightStage(playableSprite);
-            }
-          }
-          if (myRenderSeq !== _theaterRenderSeq) return;
-          if (!croppedSprite || String(croppedSprite).startsWith('data:image/svg+xml')) continue;
+          // 立即使用已缓存的裁切图或原图0毫秒直接上台展示，若尚未裁切则在后台异步裁切后原地无感替换
+          const cachedCropped = _heightCroppedSpriteCache.get(playableSprite) || '';
+          const immediateSprite = cachedCropped || playableSprite;
 
           let fxClass = '';
           if (isCurrentSpeaker) {
@@ -31654,19 +31697,22 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
           const expOffsetPx = Number((charObj.tachieExpOffsets && charObj.tachieExpOffsets[expKey]) || 0);
           const finalBottomPx = (-globalOffsetY) + expOffsetPx;
-          desiredActors.push({
+          return {
             key: actorCanonName,
             charName: charObj.name,
             className: 'vn-stage-actor ' + (isCurrentSpeaker ? 'speaking' : 'dimmed') + fxClass,
             heightStr: heightPct + '%',
             bottomStr: finalBottomPx + 'px',
             stickerHtml,
-            croppedSprite,
+            playableSprite,
+            croppedSprite: immediateSprite,
+            needsAsyncCrop: !cachedCropped,
             titleStr: `${activeMystery !== 'none' && isCurrentSpeaker ? '？？？' : charObj.name} · ${netCm}cm · ${expKey}`
-          });
-        }
+          };
+        }));
 
         if (myRenderSeq !== _theaterRenderSeq) return;
+        const desiredActors = resolvedSpecs.filter(Boolean);
         tachieLayer.setAttribute('data-actor-count', String(desiredActors.length));
 
         const existingMap = new Map();
@@ -31709,6 +31755,14 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           }
           imgEl.alt = spec.charName;
           imgEl.title = spec.titleStr;
+          if (spec.needsAsyncCrop && spec.playableSprite) {
+            getCroppedSpriteForHeightStage(spec.playableSprite).then((croppedUrl) => {
+              if (croppedUrl && imgEl.isConnected && imgEl.getAttribute('data-sprite-src') === spec.playableSprite) {
+                imgEl.setAttribute('data-sprite-src', croppedUrl);
+                imgEl.src = croppedUrl;
+              }
+            }).catch(() => {});
+          }
           return actorDiv;
         });
 
@@ -31722,7 +31776,124 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             tachieLayer.insertBefore(node, tachieLayer.children[idxPos] || null);
           }
         });
-      }
+      })();
+
+      const renderBgPromise = (async () => {
+        if (!bgLayer) return;
+        let activeSceneId = line.sceneId || '';
+        if (!activeSceneId || (activeSceneId === 'cg_only' && !line._explicitNoBg)) {
+          for (let k = idx - 1; k >= 0; k--) {
+            const candSc = chap.scriptLines[k]?.sceneId;
+            if (candSc && (candSc !== 'cg_only' || chap.scriptLines[k]?._explicitNoBg)) {
+              activeSceneId = candSc;
+              break;
+            }
+          }
+        }
+        const prevBgCss = bgLayer.getAttribute('data-bg-css') || '';
+        let nextBgCss = prevBgCss && prevBgCss.startsWith('url(')
+          ? prevBgCss
+          : 'linear-gradient(160deg, var(--text-primary) 0%, var(--background-color) 100%)';
+        if (activeSceneId === 'cg_only' && line._explicitNoBg) {
+          nextBgCss = 'none';
+        } else {
+          const allScenes = getAllModuleScenesPool(curProj, chap);
+          const sceneObj = allScenes.find((s) => s && (s.id === activeSceneId || s.name === activeSceneId))
+            || allScenes.find((s) => s && s.imageUrl)
+            || allScenes[0];
+          if (sceneObj && sceneObj.imageUrl) {
+            const resolvedSceneUrl = await resolveTheaterPlayableUrl(sceneObj.imageUrl, 'image/png');
+            if (myRenderSeq !== _theaterRenderSeq) return;
+            if (resolvedSceneUrl) {
+              nextBgCss = `url("${resolvedSceneUrl}")`;
+            }
+          }
+        }
+        if (bgLayer.getAttribute('data-bg-css') !== nextBgCss) {
+          bgLayer.setAttribute('data-bg-css', nextBgCss);
+          bgLayer.style.backgroundImage = nextBgCss;
+        }
+      })();
+
+      const renderCgPromise = (async () => {
+        if (!cgLayer || !cgImg) return;
+        const cgObj = (chap.cgNodes || []).find((g) => {
+          if (!g || !g.imageUrl) return false;
+          const s = Number(g.startLineIdx ?? g.lineIdx ?? 0);
+          const e = Number(g.endLineIdx ?? s);
+          return (line.cgId && g.id === line.cgId) || (idx >= s && idx <= e);
+        }) || null;
+        if (cgObj && cgObj.imageUrl) {
+          const fastCgUrl = await resolveTheaterPlayableUrl(cgObj.imageUrl, 'image/png');
+          if (myRenderSeq !== _theaterRenderSeq) return;
+          if (fastCgUrl && cgImg.getAttribute('src') !== fastCgUrl) {
+            cgImg.src = fastCgUrl;
+          }
+          cgLayer.classList.add('active');
+        } else {
+          cgLayer.classList.remove('active');
+        }
+      })();
+
+      const renderCluePromise = (async () => {
+        if (!clueLayer || !clueImg || !clueNameEl) return;
+        const clueObj = (chap.clueNodes || []).find((cl) => {
+          if (!cl) return false;
+          const s = Number(cl.startLineIdx ?? cl.lineIdx ?? 0);
+          const e = Number(cl.endLineIdx ?? s);
+          return (line.clueId && cl.id === line.clueId) || (idx >= s && idx <= e);
+        }) || null;
+        if (clueObj && (clueObj.imageUrl || clueObj.name)) {
+          if (clueObj.imageUrl) {
+            const fastClueUrl = await resolveTheaterPlayableUrl(clueObj.imageUrl, 'image/png');
+            if (myRenderSeq !== _theaterRenderSeq) return;
+            if (fastClueUrl && clueImg.getAttribute('src') !== fastClueUrl) {
+              clueImg.src = fastClueUrl;
+            }
+            clueImg.style.display = 'block';
+          } else {
+            clueImg.style.display = 'none';
+          }
+          clueNameEl.textContent = clueObj.name || '关键线索';
+          clueLayer.classList.add('active');
+        } else {
+          clueLayer.classList.remove('active');
+        }
+      })();
+
+      const renderSideBustPromise = (async () => {
+        if (!sideBustBox || !sideBustImg) return;
+        sideBustBox.classList.toggle('mystery-shadow', activeMystery === 'full_shadow');
+        const showSideBust = localStorage.getItem('theater-show-side-bust') !== 'false';
+        const sideChk = document.getElementById('theater-show-side-bust-chk');
+        if (sideChk) sideChk.checked = showSideBust;
+        const avatarInfo = (showSideBust && isDialogueLine)
+          ? resolveCharacterMiniAvatarInfo(line.speaker, line.exp || '默认')
+          : null;
+        if (avatarInfo && avatarInfo.src && !String(avatarInfo.src).startsWith('data:image/svg+xml')) {
+          const resolvedBustUrl = await resolveTheaterPlayableUrl(avatarInfo.src, 'image/png');
+          if (myRenderSeq !== _theaterRenderSeq) return;
+          if (resolvedBustUrl) {
+            if (sideBustImg.getAttribute('src') !== resolvedBustUrl) {
+              sideBustImg.src = resolvedBustUrl;
+            }
+            sideBustImg.classList.toggle('crop-tachie-head', Boolean(avatarInfo.isFullTachieCrop));
+            sideBustBox.classList.remove('empty');
+          } else {
+            sideBustBox.classList.add('empty');
+          }
+        } else {
+          sideBustBox.classList.add('empty');
+        }
+      })();
+
+      await Promise.all([
+        renderTachiePromise,
+        renderBgPromise,
+        renderCgPromise,
+        renderCluePromise,
+        renderSideBustPromise
+      ]);
     }
 
     function nextTheaterLine() {
