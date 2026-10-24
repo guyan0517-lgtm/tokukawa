@@ -2782,7 +2782,7 @@
             <div id="replay-cg-queue-status" style="font-size:11px;color:var(--accent-color);font-weight:700;">点上方写词可根据前后文补全提示词，每张插图内可单独输入修改意见并点改词</div>
           </div>
 
-          <div class="moe-card">
+          <div class="moe-card" style="display:none;">
             <div class="moe-card-header">
               <span class="moe-card-title">本章场景地图与起止句范围</span>
               <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -2987,10 +2987,7 @@
         <div class="vn-transition-layer" id="vn-theater-transition-layer"></div>
 
         <!-- 第5.5层：全屏黑幕层已停用，保持正常对话框衔接 -->
-        <div class="vn-blackout-overlay" id="vn-theater-blackout-layer" style="display:none !important;">
-          <div class="vn-blackout-text" id="vn-theater-blackout-text"></div>
-          <div class="vn-blackout-sub">点击屏幕继续</div>
-        </div>
+        <div class="vn-blackout-overlay" id="vn-theater-blackout-layer" style="display:none !important;"></div>
 
         <!-- 第5.6层：剧场内小群占位入口与返回主线浮层 -->
         <div id="vn-theater-subgroup-bar" style="display:none;position:absolute;left:50%;bottom:178px;transform:translateX(-50%);z-index:26;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;" onclick="event.stopPropagation()"></div>
@@ -3174,6 +3171,10 @@
                   <option value="jp">日语配音 画面显示中文字幕</option>
                   <option value="zh">中文原声配音</option>
                 </select>
+              </div>
+              <div class="form-group" style="margin-bottom:0;grid-column:1 / -1;">
+                <label>倍速 <span id="theater-skip-speed-val">2</span>x</label>
+                <input type="range" id="theater-skip-speed-slider" min="1" max="5" step="1" value="2" oninput="onTheaterSkipSpeedChange(this.value)" />
               </div>
               <div class="setting-item" style="margin-bottom:0;">
                 <div class="setting-item-center">
@@ -5277,6 +5278,7 @@
     // ==================== 安卓 Termux 与本地无损文件直存桥接 ====================
     const _fastBlobUrlCache = new Map();
     const _blobToOriginDataUrl = new Map();
+    const _localRelToBlobCache = new Map();
 
     function clearFastBlobUrlCache() {
       _fastBlobUrlCache.forEach((blobUrl) => {
@@ -5284,11 +5286,35 @@
       });
       _fastBlobUrlCache.clear();
       _blobToOriginDataUrl.clear();
+      _localRelToBlobCache.clear();
     }
 
     function toFastDisplayUrl(src) {
       if (!src || typeof src !== 'string') return '';
-      if (!src.startsWith('data:') || src.startsWith('data:image/svg+xml') || src.length < 4096) {
+      if (src.startsWith('blob:')) return src;
+      if (!src.startsWith('data:')) {
+        if (typeof _playableUrlRamCache !== 'undefined' && _playableUrlRamCache.has(src)) {
+          return _playableUrlRamCache.get(src);
+        }
+        if (src.includes(':8765/') || src.startsWith('/local-assets/')) {
+          const baseUrl = typeof getLocalBridgeBaseUrl === 'function' ? getLocalBridgeBaseUrl() : 'http://127.0.0.1:8765';
+          const rel = typeof extractRelativeAssetPath === 'function' ? extractRelativeAssetPath(src, baseUrl) : '';
+          if (rel && _localRelToBlobCache.has(rel)) {
+            return _localRelToBlobCache.get(rel);
+          }
+          if (rel && typeof getLocalAssetMirrorDataUrl === 'function') {
+            getLocalAssetMirrorDataUrl(rel).catch(() => {});
+          }
+        } else if (src.startsWith('/api/workshop/asset/')) {
+          const hash = src.replace('/api/workshop/asset/', '').split('?')[0].trim();
+          const wKey = `workshop_assets/${hash}`;
+          if (hash && _localRelToBlobCache.has(wKey)) {
+            return _localRelToBlobCache.get(wKey);
+          }
+        }
+        return src;
+      }
+      if (src.startsWith('data:image/svg+xml') || src.length < 4096) {
         return src;
       }
       if (_fastBlobUrlCache.has(src)) {
@@ -5328,6 +5354,10 @@
         if (db && db.localAssetMirror) {
           const rec = await db.localAssetMirror.get(cleanRel);
           if (rec && rec.dataUrl && typeof rec.dataUrl === 'string' && rec.dataUrl.startsWith('data:')) {
+            const bUrl = toFastDisplayUrl(rec.dataUrl);
+            if (bUrl && bUrl.startsWith('blob:')) {
+              _localRelToBlobCache.set(cleanRel, bUrl);
+            }
             return rec.dataUrl;
           }
         }
@@ -5340,6 +5370,10 @@
       if (dataUrl.startsWith('data:image/svg+xml')) return;
       const cleanRel = String(relPath).split('?')[0].replace(/^\/+/, '').replace(/\.\./g, '_').replace(/\.hknw$/, '');
       if (!cleanRel) return;
+      const bUrl = toFastDisplayUrl(dataUrl);
+      if (bUrl && bUrl.startsWith('blob:')) {
+        _localRelToBlobCache.set(cleanRel, bUrl);
+      }
       try {
         if (db && db.localAssetMirror) {
           await db.localAssetMirror.put({
@@ -5354,21 +5388,38 @@
     window.addEventListener('error', (e) => {
       const el = e.target;
       if (el && el.tagName === 'IMG' && el.src) {
-        const baseUrl = getLocalBridgeBaseUrl();
-        const relPath = extractRelativeAssetPath(el.src, baseUrl);
-        if (el.src.startsWith(baseUrl + '/') && !el.dataset.localFallbackTried) {
-          el.dataset.localFallbackTried = '1';
-          _termuxBridgeOnlineState = false;
-          el.src = '/local-assets/' + el.src.slice(baseUrl.length + 1);
+        const rawSrc = el.getAttribute('src') || el.src;
+        if (rawSrc.includes('/api/workshop/asset/') && !el.dataset.workshopFallbackTried) {
+          el.dataset.workshopFallbackTried = '1';
+          const assetHash = rawSrc.split('/api/workshop/asset/')[1]?.split('?')[0]?.trim();
+          if (assetHash && typeof resolveTheaterPlayableUrl === 'function') {
+            resolveTheaterPlayableUrl(`/api/workshop/asset/${assetHash}`).then((resolvedUrl) => {
+              if (resolvedUrl && resolvedUrl !== rawSrc) {
+                el.src = resolvedUrl;
+              }
+            }).catch(() => {});
+          }
           return;
         }
+        const baseUrl = getLocalBridgeBaseUrl();
+        const relPath = extractRelativeAssetPath(el.src, baseUrl);
         if (relPath && !el.dataset.mirrorFallbackTried) {
           el.dataset.mirrorFallbackTried = '1';
           getLocalAssetMirrorDataUrl(relPath).then((mirrorDataUrl) => {
             if (mirrorDataUrl) {
               el.src = toFastDisplayUrl(mirrorDataUrl);
+            } else if (el.src.startsWith(baseUrl + '/') && !el.dataset.localFallbackTried) {
+              el.dataset.localFallbackTried = '1';
+              _termuxBridgeOnlineState = false;
+              el.src = '/local-assets/' + el.src.slice(baseUrl.length + 1);
             }
           }).catch(() => {});
+          return;
+        }
+        if (el.src.startsWith(baseUrl + '/') && !el.dataset.localFallbackTried) {
+          el.dataset.localFallbackTried = '1';
+          _termuxBridgeOnlineState = false;
+          el.src = '/local-assets/' + el.src.slice(baseUrl.length + 1);
         }
       }
     }, true);
@@ -5456,6 +5507,17 @@
             _blobToOriginDataUrl.delete(bUrl);
           }
           _fastBlobUrlCache.delete(relOrUrl);
+        }
+      }
+      if (typeof _localRelToBlobCache !== 'undefined' && _localRelToBlobCache) {
+        _localRelToBlobCache.delete(cleanKey);
+      }
+      if (typeof _playableUrlRamCache !== 'undefined' && _playableUrlRamCache) {
+        for (const k of Array.from(_playableUrlRamCache.keys())) {
+          const kClean = String(k || '').split('?')[0];
+          if (k === relOrUrl || kClean.endsWith(cleanKey) || kClean.endsWith(encodedKey)) {
+            _playableUrlRamCache.delete(k);
+          }
         }
       }
     }
@@ -5626,7 +5688,6 @@
 
       if (!silentMode) {
         if (statusBox) statusBox.textContent = '正在扫描并清理所有未启用、已淘汰、被替换的历史残留图片与冗余未抠底原图...';
-        await syncAllAssetsToLocalBridgeUI(true).catch(() => {});
       }
 
       if (db?.characters) appState.characters = await db.characters.toArray();
@@ -5766,6 +5827,18 @@
             if (cl && cl.imageUrl) collectUrl(cl.imageUrl, `projects/${safeProj}/clues/${cl.id}.png`);
           });
         });
+        (proj.subGroups || []).forEach((sg) => {
+          (sg.scenes || []).forEach((sc) => {
+            if (sc && sc.imageUrl) collectUrl(sc.imageUrl, `projects/${safeProj}/scenes/${sc.id}.png`);
+          });
+          (sg.cgNodes || []).forEach((cg) => {
+            if (cg && cg.imageUrl) collectUrl(cg.imageUrl, `projects/${safeProj}/cgs/${cg.id}.png`);
+            if (cg && cg.customPadImg) collectUrl(cg.customPadImg, `projects/${safeProj}/cgs/pad_${cg.id}.png`);
+          });
+          (sg.clueNodes || []).forEach((cl) => {
+            if (cl && cl.imageUrl) collectUrl(cl.imageUrl, `projects/${safeProj}/clues/${cl.id}.png`);
+          });
+        });
       }
 
       (appState.styleRefList || []).forEach((item, idx) => {
@@ -5842,10 +5915,23 @@
         }
       } catch (_) {}
 
+      try {
+        if (db && db.localAssetMirror) {
+          const allMirrorRows = await db.localAssetMirror.toArray();
+          for (const row of allMirrorRows) {
+            if (row && row.path && !activePaths.has(row.path) && row.path !== 'fonts/custom_user_font') {
+              await db.localAssetMirror.delete(row.path);
+              dbCleanedCount += 1;
+            }
+          }
+        }
+      } catch (_) {}
+
+      const totalRemoved = diskRemovedCount + dbCleanedCount;
       if (!silentMode && statusBox) {
-        statusBox.textContent = `清理完成！已自动删除 ${diskRemovedCount} 个未启用或被替换的历史本地图片文件与 ${dbCleanedCount} 条冗余原图记录，所有正在使用的立绘与CG均已保留最新版本。`;
+        statusBox.textContent = `清理完成！共清理 ${totalRemoved} 张冗余图片，其中本地目录删除 ${diskRemovedCount} 张，缓存清理 ${dbCleanedCount} 条，所有正在使用的立绘与CG均已保留最新版本。`;
       }
-      return diskRemovedCount + dbCleanedCount;
+      return totalRemoved;
     }
 
     async function resolveImageToDataUrl(src) {
@@ -21468,17 +21554,23 @@ ${scriptText}`;
       if (Array.isArray(chap.cgNodes)) {
         chap.cgNodes = chap.cgNodes.filter((cg) => {
           if (!cg) return false;
-          let s = cg.startLineIdx ?? cg.lineIdx ?? 0;
-          let e = cg.endLineIdx ?? s;
-          if (s === lineIdx && e === lineIdx && chap.scriptLines.length === 0) return false;
+          if (chap.scriptLines.length === 0) return false;
+          let s = Number(cg.startLineIdx ?? cg.lineIdx ?? 0);
+          let e = Number(cg.endLineIdx ?? s);
+          if (e < s) e = s;
           if (lineIdx < s) {
             s = Math.max(0, s - 1);
             e = Math.max(s, e - 1);
           } else if (lineIdx <= e) {
-            e = Math.max(s, e - 1);
+            if (s < e) {
+              e = Math.max(s, e - 1);
+            } else {
+              s = Math.min(maxRemainingIdx, s);
+              e = s;
+            }
           }
-          cg.startLineIdx = Math.min(maxRemainingIdx, s);
-          cg.endLineIdx = Math.min(maxRemainingIdx, Math.max(cg.startLineIdx, e));
+          cg.startLineIdx = Math.max(0, Math.min(maxRemainingIdx, s));
+          cg.endLineIdx = Math.max(cg.startLineIdx, Math.min(maxRemainingIdx, e));
           cg.lineIdx = cg.startLineIdx;
           return true;
         });
@@ -21487,17 +21579,23 @@ ${scriptText}`;
       if (Array.isArray(chap.clueNodes)) {
         chap.clueNodes = chap.clueNodes.filter((cl) => {
           if (!cl) return false;
-          let s = cl.startLineIdx ?? cl.lineIdx ?? 0;
-          let e = cl.endLineIdx ?? s;
-          if (s === lineIdx && e === lineIdx && chap.scriptLines.length === 0) return false;
+          if (chap.scriptLines.length === 0) return false;
+          let s = Number(cl.startLineIdx ?? cl.lineIdx ?? 0);
+          let e = Number(cl.endLineIdx ?? s);
+          if (e < s) e = s;
           if (lineIdx < s) {
             s = Math.max(0, s - 1);
             e = Math.max(s, e - 1);
           } else if (lineIdx <= e) {
-            e = Math.max(s, e - 1);
+            if (s < e) {
+              e = Math.max(s, e - 1);
+            } else {
+              s = Math.min(maxRemainingIdx, s);
+              e = s;
+            }
           }
-          cl.startLineIdx = Math.min(maxRemainingIdx, s);
-          cl.endLineIdx = Math.min(maxRemainingIdx, Math.max(cl.startLineIdx, e));
+          cl.startLineIdx = Math.max(0, Math.min(maxRemainingIdx, s));
+          cl.endLineIdx = Math.max(cl.startLineIdx, Math.min(maxRemainingIdx, e));
           cl.lineIdx = cl.startLineIdx;
           return true;
         });
@@ -21520,6 +21618,8 @@ ${scriptText}`;
       }
       await saveReplayProjectToDB(proj);
       renderReplayScriptEditor();
+      renderReplayCgStudio();
+      renderReplayVoiceStudio();
       if (typeof renderReplaySubGroupStudio === 'function') renderReplaySubGroupStudio();
     }
 
@@ -23637,17 +23737,23 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
       if (Array.isArray(sg.cgNodes)) {
         sg.cgNodes = sg.cgNodes.filter((cg) => {
           if (!cg) return false;
-          let s = cg.startLineIdx ?? cg.lineIdx ?? 0;
-          let e = cg.endLineIdx ?? s;
-          if (s === lineIdx && e === lineIdx && sg.scriptLines.length === 0) return false;
+          if (sg.scriptLines.length === 0) return false;
+          let s = Number(cg.startLineIdx ?? cg.lineIdx ?? 0);
+          let e = Number(cg.endLineIdx ?? s);
+          if (e < s) e = s;
           if (lineIdx < s) {
             s = Math.max(0, s - 1);
             e = Math.max(s, e - 1);
           } else if (lineIdx <= e) {
-            e = Math.max(s, e - 1);
+            if (s < e) {
+              e = Math.max(s, e - 1);
+            } else {
+              s = Math.min(maxRemainingIdx, s);
+              e = s;
+            }
           }
-          cg.startLineIdx = Math.min(maxRemainingIdx, s);
-          cg.endLineIdx = Math.min(maxRemainingIdx, Math.max(cg.startLineIdx, e));
+          cg.startLineIdx = Math.max(0, Math.min(maxRemainingIdx, s));
+          cg.endLineIdx = Math.max(cg.startLineIdx, Math.min(maxRemainingIdx, e));
           cg.lineIdx = cg.startLineIdx;
           return true;
         });
@@ -23655,17 +23761,23 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
       if (Array.isArray(sg.clueNodes)) {
         sg.clueNodes = sg.clueNodes.filter((cl) => {
           if (!cl) return false;
-          let s = cl.startLineIdx ?? cl.lineIdx ?? 0;
-          let e = cl.endLineIdx ?? s;
-          if (s === lineIdx && e === lineIdx && sg.scriptLines.length === 0) return false;
+          if (sg.scriptLines.length === 0) return false;
+          let s = Number(cl.startLineIdx ?? cl.lineIdx ?? 0);
+          let e = Number(cl.endLineIdx ?? s);
+          if (e < s) e = s;
           if (lineIdx < s) {
             s = Math.max(0, s - 1);
             e = Math.max(s, e - 1);
           } else if (lineIdx <= e) {
-            e = Math.max(s, e - 1);
+            if (s < e) {
+              e = Math.max(s, e - 1);
+            } else {
+              s = Math.min(maxRemainingIdx, s);
+              e = s;
+            }
           }
-          cl.startLineIdx = Math.min(maxRemainingIdx, s);
-          cl.endLineIdx = Math.min(maxRemainingIdx, Math.max(cl.startLineIdx, e));
+          cl.startLineIdx = Math.max(0, Math.min(maxRemainingIdx, s));
+          cl.endLineIdx = Math.max(cl.startLineIdx, Math.min(maxRemainingIdx, e));
           cl.lineIdx = cl.startLineIdx;
           return true;
         });
@@ -26321,8 +26433,16 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       return appState.characters || [];
     }
 
+    const _playableUrlRamCache = new Map();
+
     async function resolveTheaterPlayableUrl(rawUrl, fallbackMime = 'image/png') {
       if (!rawUrl || typeof rawUrl !== 'string') return '';
+      if (rawUrl.startsWith('blob:') || rawUrl.startsWith('data:')) {
+        return toFastDisplayUrl(rawUrl);
+      }
+      if (_playableUrlRamCache.has(rawUrl)) {
+        return _playableUrlRamCache.get(rawUrl);
+      }
       if (rawUrl.startsWith('__ZIP_ASSET__:')) {
         const relPath = rawUrl.replace('__ZIP_ASSET__:', '');
         const bundle = getActiveMountedBundle();
@@ -26345,7 +26465,23 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
       if (rawUrl.startsWith('/api/workshop/asset/')) {
         if (typeof _localWorkshopAssetUrlMap === 'object' && _localWorkshopAssetUrlMap.has(rawUrl)) {
-          return await resolveTheaterPlayableUrl(_localWorkshopAssetUrlMap.get(rawUrl), fallbackMime);
+          const mapped = _localWorkshopAssetUrlMap.get(rawUrl);
+          if (mapped && mapped !== rawUrl) {
+            const resolvedMapped = await resolveTheaterPlayableUrl(mapped, fallbackMime);
+            if (resolvedMapped) {
+              _playableUrlRamCache.set(rawUrl, resolvedMapped);
+              return resolvedMapped;
+            }
+          }
+        }
+        const assetHash = rawUrl.replace('/api/workshop/asset/', '').split('?')[0].trim();
+        if (assetHash) {
+          const mirrorWorkshop = await getLocalAssetMirrorDataUrl(`workshop_assets/${assetHash}`);
+          if (mirrorWorkshop) {
+            const fastMirror = toFastDisplayUrl(mirrorWorkshop);
+            _playableUrlRamCache.set(rawUrl, fastMirror);
+            return fastMirror;
+          }
         }
         const fullApiUrl = resolveBackendApiUrl(rawUrl);
         if (_mountedZipAssetBlobCache.has(fullApiUrl)) {
@@ -26353,7 +26489,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
         try {
           const ctrl = new AbortController();
-          const timer = setTimeout(() => ctrl.abort(), 5000);
+          const timer = setTimeout(() => ctrl.abort(), 3500);
           try {
             const resp = await fetch(fullApiUrl, { signal: ctrl.signal });
             if (resp.ok) {
@@ -26362,7 +26498,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                 const blob = await resp.blob();
                 if (blob && blob.size > 0) {
                   const bUrl = URL.createObjectURL(blob);
-                  return cacheMountedBlobUrl(fullApiUrl, bUrl);
+                  const cachedBUrl = cacheMountedBlobUrl(fullApiUrl, bUrl);
+                  _playableUrlRamCache.set(rawUrl, cachedBUrl);
+                  return cachedBUrl;
                 }
               }
             }
@@ -26370,21 +26508,18 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             clearTimeout(timer);
           }
         } catch (_) {}
-        const assetHash = rawUrl.replace('/api/workshop/asset/', '').split('?')[0].trim();
         if (assetHash) {
           try {
             const ghAsset = await fetchGithubWorkshopJson(`assets/${assetHash}.json`);
-            if (ghAsset && ghAsset.base64) {
-              const dataUrl = `data:${ghAsset.mime || fallbackMime};base64,${ghAsset.base64}`;
+            if (ghAsset && (ghAsset.base64 || ghAsset.dataUrl)) {
+              const dataUrl = ghAsset.dataUrl || `data:${ghAsset.mime || fallbackMime};base64,${ghAsset.base64}`;
               if (typeof _localWorkshopAssetUrlMap === 'object') {
                 _localWorkshopAssetUrlMap.set(rawUrl, dataUrl);
               }
-              return toFastDisplayUrl(dataUrl);
-            } else if (ghAsset && ghAsset.dataUrl) {
-              if (typeof _localWorkshopAssetUrlMap === 'object') {
-                _localWorkshopAssetUrlMap.set(rawUrl, ghAsset.dataUrl);
-              }
-              return toFastDisplayUrl(ghAsset.dataUrl);
+              await putLocalAssetMirrorDataUrl(`workshop_assets/${assetHash}`, dataUrl);
+              const fastGh = toFastDisplayUrl(dataUrl);
+              _playableUrlRamCache.set(rawUrl, fastGh);
+              return fastGh;
             }
           } catch (_) {}
         }
@@ -26393,21 +26528,53 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const baseUrl = getLocalBridgeBaseUrl();
       if (rawUrl.startsWith(baseUrl + '/') || rawUrl.startsWith('/local-assets/') || rawUrl.includes(':8765/')) {
         const rel = extractRelativeAssetPath(rawUrl, baseUrl);
-        if (rawUrl.startsWith(baseUrl + '/') && !_termuxBridgeOnlineState) {
-          if (rel) {
-            const mirrorDataUrl = await getLocalAssetMirrorDataUrl(rel);
-            if (mirrorDataUrl) return toFastDisplayUrl(mirrorDataUrl);
-          }
-          return '/local-assets/' + rawUrl.slice(baseUrl.length + 1);
-        }
         if (rel) {
           const mirrorDataUrl = await getLocalAssetMirrorDataUrl(rel);
-          if (mirrorDataUrl && !_termuxBridgeOnlineState) {
-            return toFastDisplayUrl(mirrorDataUrl);
+          if (mirrorDataUrl) {
+            const fastUrl = toFastDisplayUrl(mirrorDataUrl);
+            _playableUrlRamCache.set(rawUrl, fastUrl);
+            return fastUrl;
           }
         }
+        const candidateUrls = [];
+        if (rel) {
+          if (_termuxBridgeOnlineState) candidateUrls.push(`${baseUrl}/${rel}`);
+          candidateUrls.push(`/local-assets/${rel}`);
+          if (!_termuxBridgeOnlineState) candidateUrls.push(`${baseUrl}/${rel}`);
+        } else {
+          candidateUrls.push(rawUrl);
+        }
+        for (const cUrl of candidateUrls) {
+          try {
+            const ctrl = new AbortController();
+            const tid = setTimeout(() => ctrl.abort(), 1800);
+            try {
+              const r = await fetch(cUrl, { signal: ctrl.signal });
+              if (r.ok) {
+                const ct = String(r.headers.get('content-type') || '');
+                if (!ct.includes('text/html')) {
+                  const blob = await r.blob();
+                  if (blob && blob.size > 0) {
+                    const bUrl = URL.createObjectURL(blob);
+                    _playableUrlRamCache.set(rawUrl, bUrl);
+                    return bUrl;
+                  }
+                }
+              }
+            } finally {
+              clearTimeout(tid);
+            }
+          } catch (_) {}
+        }
+        if (rawUrl.startsWith(baseUrl + '/') && !_termuxBridgeOnlineState) {
+          return '/local-assets/' + rawUrl.slice(baseUrl.length + 1);
+        }
       }
-      return toFastDisplayUrl(rawUrl);
+      const finalFast = toFastDisplayUrl(rawUrl);
+      if (finalFast && finalFast.startsWith('blob:')) {
+        _playableUrlRamCache.set(rawUrl, finalFast);
+      }
+      return finalFast;
     }
 
     function computeFastAssetFingerprint(str) {
@@ -26446,6 +26613,25 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       try {
         const arr = Array.from(hashSet).slice(-6000);
         localStorage.setItem('workshop-uploaded-asset-hashes-v1', JSON.stringify(arr));
+      } catch (_) {}
+    }
+
+    function getGithubWorkshopUploadedHashSet(repo) {
+      try {
+        const key = 'workshop-gh-uploaded-hashes-v2-' + String(repo || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const raw = localStorage.getItem(key);
+        const arr = raw ? JSON.parse(raw) : [];
+        return new Set(Array.isArray(arr) ? arr : []);
+      } catch (_) {
+        return new Set();
+      }
+    }
+
+    function saveGithubWorkshopUploadedHashSet(repo, hashSet) {
+      try {
+        const key = 'workshop-gh-uploaded-hashes-v2-' + String(repo || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const arr = Array.from(hashSet).slice(-6000);
+        localStorage.setItem(key, JSON.stringify(arr));
       } catch (_) {}
     }
 
@@ -27024,11 +27210,70 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           packedChapters.push(chapCopy);
         }
 
+        const packedSubGroups = [];
+        for (const sg of (proj.subGroups || [])) {
+          if (!sg) continue;
+          const sgCopy = JSON.parse(JSON.stringify(sg));
+          if (Array.isArray(sgCopy.scenes)) {
+            for (const sc of sgCopy.scenes) {
+              if (sc && sc.imageUrl) {
+                sc.imageUrl = await registerAssetForDedup(sc.imageUrl, `${sgCopy.title || '小群'} · 场景 ${sc.name || ''}`);
+              }
+            }
+          }
+          if (Array.isArray(sgCopy.cgNodes)) {
+            for (const cg of sgCopy.cgNodes) {
+              if (cg && cg.imageUrl) {
+                cg.imageUrl = await registerAssetForDedup(cg.imageUrl, `${sgCopy.title || '小群'} · 插图`);
+              }
+              if (cg && cg.customPadImg) {
+                cg.customPadImg = await registerAssetForDedup(cg.customPadImg, `${sgCopy.title || '小群'} · 插图垫图`);
+              }
+            }
+          }
+          if (Array.isArray(sgCopy.clueNodes)) {
+            for (const cl of sgCopy.clueNodes) {
+              if (cl && cl.imageUrl) {
+                cl.imageUrl = await registerAssetForDedup(cl.imageUrl, `${sgCopy.title || '小群'} · 线索 ${cl.name || ''}`);
+              }
+            }
+          }
+          const sgTtsArr = [];
+          const seenSgTtsKeys = new Set();
+          if (Array.isArray(sgCopy.scriptLines)) {
+            for (const l of sgCopy.scriptLines) {
+              if (!l) continue;
+              const keysToTry = [
+                l.ttsKey,
+                `line_${sgCopy.id}_${l.id}_jp`,
+                `line_${sgCopy.id}_${l.id}_zh`
+              ].filter(Boolean);
+              for (const k of keysToTry) {
+                if (seenSgTtsKeys.has(k)) continue;
+                const ttsRec = await db.ttsCache.get(k);
+                if (ttsRec && (ttsRec.audioDataUrl || ttsRec.audioData)) {
+                  seenSgTtsKeys.add(k);
+                  const audioRef = await registerAssetForDedup(ttsRec.audioDataUrl || ttsRec.audioData, `${sgCopy.title || '小群'} · 语音`);
+                  sgTtsArr.push({
+                    ...ttsRec,
+                    audioDataUrl: audioRef,
+                    audioData: audioRef
+                  });
+                }
+              }
+            }
+          }
+          if (sgCopy.id && sgTtsArr.length > 0) {
+            ttsByChapter[String(sgCopy.id)] = sgTtsArr;
+          }
+          packedSubGroups.push(sgCopy);
+        }
+
         const allHashes = Array.from(assetMapByHash.keys());
         setProgress(18, `共扫描到 ${allHashes.length} 个立绘场景配音素材，正在比对去重...`);
 
         const localUploadedSet = getWorkshopUploadedHashSet();
-        let missingHashes = allHashes.filter((h) => !localUploadedSet.has(h));
+        let cloudMissingHashes = allHashes.filter((h) => !localUploadedSet.has(h));
         let cloudReachable = false;
 
         if (allHashes.length > 0) {
@@ -27040,25 +27285,35 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             });
             if (checkRes && checkRes.data && checkRes.data.ok && Array.isArray(checkRes.data.missing)) {
               cloudReachable = true;
-              missingHashes = checkRes.data.missing;
+              cloudMissingHashes = checkRes.data.missing;
             }
           } catch (_) {
             cloudReachable = false;
           }
         }
 
-        const skippedCount = Math.max(0, allHashes.length - missingHashes.length);
         const ghCfg = getWorkshopSyncConfig();
         const canSyncGithub = Boolean(ghCfg.githubRepo && ghCfg.githubRepo.includes('/') && ghCfg.githubToken);
+        const ghUploadedSet = canSyncGithub ? getGithubWorkshopUploadedHashSet(ghCfg.githubRepo) : new Set();
         let githubSynced = false;
 
-        for (let i = 0; i < missingHashes.length; i++) {
-          const h = missingHashes[i];
+        const cloudMissingSet = new Set(cloudMissingHashes);
+        const unionUploadHashes = allHashes.filter((h) => {
+          const needCloud = cloudReachable && cloudMissingSet.has(h);
+          const needGh = canSyncGithub && !ghUploadedSet.has(h);
+          const needLocal = !cloudReachable && !canSyncGithub && !localUploadedSet.has(h);
+          return needCloud || needGh || needLocal;
+        });
+
+        const skippedCount = Math.max(0, allHashes.length - unionUploadHashes.length);
+
+        for (let i = 0; i < unionUploadHashes.length; i++) {
+          const h = unionUploadHashes[i];
           const item = assetMapByHash.get(h);
           if (!item) continue;
-          const pct = 22 + ((i + 1) / Math.max(1, missingHashes.length)) * 58;
-          setProgress(pct, `正在上传新增或修改素材 ${i + 1} / ${missingHashes.length}：${item.label}，已自动跳过 ${skippedCount} 个未改动素材`);
-          if (cloudReachable) {
+          const pct = 22 + ((i + 1) / Math.max(1, unionUploadHashes.length)) * 58;
+          setProgress(pct, `正在上传图片与语音素材 ${i + 1} / ${unionUploadHashes.length}：${item.label}，已跳过 ${skippedCount} 个未改动素材`);
+          if (cloudReachable && cloudMissingSet.has(h)) {
             try {
               const uploadUrl = resolveBackendApiUrl('/api/workshop/upload-asset');
               await sendWorkshopPayloadWithProgress(uploadUrl, JSON.stringify({ hash: item.hash, dataUrl: item.dataUrl }), null);
@@ -27066,7 +27321,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               cloudReachable = false;
             }
           }
-          if (canSyncGithub) {
+          if (canSyncGithub && !ghUploadedSet.has(h)) {
             try {
               const str = String(item.dataUrl || '');
               const commaIdx = str.indexOf(',');
@@ -27075,13 +27330,20 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               const mimeMatch = header.match(/^data:([^;]+)/i);
               const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
               const assetRecord = { hash: item.hash, mime, base64, sizeBytes: item.byteLen, updatedAt: Date.now() };
-              await putGithubWorkshopFile(`assets/${item.hash}.json`, JSON.stringify(assetRecord), `Upload workshop asset ${item.hash}`);
+              const okAsset = await putGithubWorkshopFile(`assets/${item.hash}.json`, JSON.stringify(assetRecord), `Upload workshop asset ${item.hash}`);
+              if (okAsset) {
+                ghUploadedSet.add(h);
+              }
             } catch (_) {}
           }
+          await putLocalAssetMirrorDataUrl(`workshop_assets/${h}`, item.dataUrl);
           localUploadedSet.add(h);
         }
         allHashes.forEach((h) => localUploadedSet.add(h));
         saveWorkshopUploadedHashSet(localUploadedSet);
+        if (canSyncGithub) {
+          saveGithubWorkshopUploadedHashSet(ghCfg.githubRepo, ghUploadedSet);
+        }
 
         assetMapByHash.clear();
 
@@ -27098,6 +27360,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           extractedSpeakers: proj.extractedSpeakers || [],
           characters: relatedChars,
           bgmTracks: appState.bgmTracks || [],
+          subGroups: packedSubGroups,
           mode: isFullModule ? 'full' : 'single',
           chapters: packedChapters,
           ttsByChapter,
@@ -27173,6 +27436,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           extractedSpeakers: proj.extractedSpeakers || [],
           characters: relatedChars,
           bgmTracks: appState.bgmTracks || [],
+          subGroups: packedSubGroups,
           chapters: finalChapters,
           chaptersMeta,
           ttsByChapter: finalTtsByChapter,
@@ -27331,6 +27595,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           stageStylePreset: remoteProj.uiTheme || 'ark_grad',
           globalScenes: remoteProj.globalScenes || [],
           extractedSpeakers: remoteProj.extractedSpeakers || [],
+          subGroups: remoteProj.subGroups || [],
           chapters: chaps,
           isOnlineStream: true
         };
@@ -27453,10 +27718,16 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           if (typeof dataUrl === 'string' && dataUrl.startsWith('data:') && dataUrl.includes(';base64,')) {
             const b64 = dataUrl.split(';base64,')[1];
             zip.file(zipPath, b64, { base64: true });
-            if (assetHash) existingAssetHashes.set(zipPath, assetHash);
+            if (assetHash) {
+              existingAssetHashes.set(zipPath, assetHash);
+              await putLocalAssetMirrorDataUrl(`workshop_assets/${assetHash}`, dataUrl);
+            }
+            if (refOrDataUrl.startsWith('/api/workshop/asset/') && typeof _localWorkshopAssetUrlMap === 'object') {
+              _localWorkshopAssetUrlMap.set(refOrDataUrl, dataUrl);
+            }
             fetchedAssets += 1;
             const pct = Math.min(88, 12 + fetchedAssets * 2);
-            setDlProgress(pct, `正在下载新增素材 ${fetchedAssets} 个，已去重跳过 ${reusedAssets} 个本地已有素材...`);
+            setDlProgress(pct, `正在下载图片与语音素材 ${fetchedAssets} 个至本地与浏览器，已去重跳过 ${reusedAssets} 个已有素材...`);
             return `__ZIP_ASSET__:${zipPath}`;
           }
           return refOrDataUrl;
@@ -27546,6 +27817,43 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           }
         }
 
+        const subGroupsCopy = JSON.parse(JSON.stringify(remoteProj.subGroups || []));
+        for (let sgIdx = 0; sgIdx < subGroupsCopy.length; sgIdx++) {
+          const sg = subGroupsCopy[sgIdx];
+          if (!sg) continue;
+          const sgId = sg.id || `sg_${sgIdx}`;
+          for (let sIdx = 0; sIdx < (sg.scenes || []).length; sIdx++) {
+            const sc = sg.scenes[sIdx];
+            if (sc && sc.imageUrl) {
+              sc.imageUrl = await pullAssetIntoZip(sc.imageUrl, `images/scenes/${sgId}_${sc.id || sIdx}.png`);
+            }
+          }
+          for (let gIdx = 0; gIdx < (sg.cgNodes || []).length; gIdx++) {
+            const cg = sg.cgNodes[gIdx];
+            if (cg && cg.imageUrl) {
+              cg.imageUrl = await pullAssetIntoZip(cg.imageUrl, `images/cgs/${sgId}_${cg.id || gIdx}.png`);
+            }
+            if (cg && cg.customPadImg) {
+              cg.customPadImg = await pullAssetIntoZip(cg.customPadImg, `images/cgs/${sgId}_${cg.id || gIdx}_pad.png`);
+            }
+          }
+          for (let clIdx = 0; clIdx < (sg.clueNodes || []).length; clIdx++) {
+            const cl = sg.clueNodes[clIdx];
+            if (cl && cl.imageUrl) {
+              cl.imageUrl = await pullAssetIntoZip(cl.imageUrl, `images/clues/${sgId}_${cl.id || clIdx}.png`);
+            }
+          }
+          const sgTts = (remoteProj.ttsByChapter && remoteProj.ttsByChapter[String(sgId)]) || [];
+          for (let tIdx = 0; tIdx < sgTts.length; tIdx++) {
+            const rec = sgTts[tIdx];
+            if (rec && rec.id && (rec.audioDataUrl || rec.audioData)) {
+              const safeKey = String(rec.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+              const zRef = await pullAssetIntoZip(rec.audioDataUrl || rec.audioData, `audio/${safeKey}.mp3`);
+              existingTtsMap.set(rec.id, { ...rec, audioDataUrl: zRef });
+            }
+          }
+        }
+
         mergedChaps.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
         existingTtsMap.forEach((v) => ttsListForPack.push(v));
 
@@ -27561,6 +27869,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           stageStylePreset: remoteProj.uiTheme || 'ark_grad',
           globalScenes: globalScenesCopy,
           extractedSpeakers: remoteProj.extractedSpeakers || [],
+          subGroups: subGroupsCopy,
           chapters: mergedChaps,
           workshopDesc: remoteProj.desc || '',
           updatedAt: remoteProj.updatedAt || Date.now()
@@ -27580,7 +27889,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         };
 
         zip.file('manifest.json', JSON.stringify(packManifest));
-        setDlProgress(94, '正在打包生成本地压缩包并弹出保存...');
+        setDlProgress(94, '正在打包生成本地压缩包并缓存至浏览器...');
         const zipBlob = await zip.generateAsync({ type: 'blob' });
         const dlUrl = URL.createObjectURL(zipBlob);
         const a = document.createElement('a');
@@ -27592,7 +27901,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         document.body.removeChild(a);
         setTimeout(() => URL.revokeObjectURL(dlUrl), 3000);
 
-        // 同时将该本地包挂载到舞台内存列表（0 MB IndexedDB 占用），方便立刻在舞台观看
         const ttsLookup = new Map();
         ttsListForPack.forEach((r) => {
           if (r && r.id && r.audioDataUrl) ttsLookup.set(r.id, r.audioDataUrl);
@@ -27608,7 +27916,25 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           syncedAt: remoteProj.updatedAt || Date.now()
         });
 
-        setDlProgress(100, `已下载到手机或电脑本地文件夹，并自动挂载至舞台列表 · 本次下载 ${fetchedAssets} 个新素材，去重复用 ${reusedAssets} 个素材`);
+        try {
+          if (db && db.workshopProjects) {
+            await db.workshopProjects.put(remoteProj);
+          }
+          if (db && db.replayProjects) {
+            const browserProj = JSON.parse(JSON.stringify(remoteProj));
+            browserProj.stageStylePreset = browserProj.uiTheme || 'ark_grad';
+            await db.replayProjects.put(browserProj);
+            appState.replayProjects = await db.replayProjects.toArray();
+          }
+          if (db && db.characters && Array.isArray(remoteProj.characters)) {
+            for (const rc of remoteProj.characters) {
+              if (rc && rc.id) await db.characters.put(rc);
+            }
+            appState.characters = await db.characters.toArray();
+          }
+        } catch (_) {}
+
+        setDlProgress(100, `已下载模组包并写入浏览器本地缓存，立绘、插图与语音均可直接读取 · 本次下载 ${fetchedAssets} 个素材`);
         renderReplayWorkshopList();
         renderTheaterSelectorLobby();
         setTimeout(() => {
@@ -29529,17 +29855,18 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const preset = targetProj?.stageStylePreset || 'ark_grad';
       const customCss = targetProj?.stageCustomCss || '';
       const stageRoot = document.getElementById('vn-theater-stage-root');
-      if (stageRoot) {
+      if (stageRoot && stageRoot.getAttribute('data-stage-style') !== preset) {
         stageRoot.setAttribute('data-stage-style', preset);
       }
       const styleTag = document.getElementById('vn-stage-custom-css-tag');
-      if (styleTag) {
-        styleTag.textContent = preset === 'custom' ? customCss : '';
+      const nextCssText = preset === 'custom' ? customCss : '';
+      if (styleTag && styleTag.textContent !== nextCssText) {
+        styleTag.textContent = nextCssText;
       }
       const lobbySel = document.getElementById('theater-lobby-style-select');
-      if (lobbySel) lobbySel.value = preset;
+      if (lobbySel && lobbySel.value !== preset) lobbySel.value = preset;
       const modalSel = document.getElementById('vn-stage-style-preset-select');
-      if (modalSel) modalSel.value = preset;
+      if (modalSel && modalSel.value !== preset) modalSel.value = preset;
     }
 
     async function onTheaterStageStyleQuickChange(val) {
@@ -29695,15 +30022,19 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         return Boolean(target.closest('button, select, input, textarea, .modal, .vn-selector-lobby, .vn-top-bar, .vn-stage-ctrl-bar, .vn-stage-edit-panel'));
       };
 
+      let _pressDownValidOnStage = false;
+
       const startLongPressSession = (ev) => {
         if (appState.theaterEditMode) return;
         const target = ev.target;
         if (isIgnoredStageTarget(target)) return;
+        _pressDownValidOnStage = true;
         if (_longPressStartTimer || _longPressActiveFlag) return;
         _longPressSuppressNextClick = false;
 
         _longPressStartTimer = setTimeout(() => {
           _longPressStartTimer = null;
+          if (!_pressDownValidOnStage) return;
           const hud = document.getElementById('vn-theater-longpress-hud');
           const circle = getRingCircleEl();
           const lbl = getRingLabelEl();
@@ -29723,7 +30054,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               _longPressRafId = requestAnimationFrame(stepRing);
             } else {
               hud.classList.add('fast-forwarding');
-              if (lbl) lbl.textContent = '快进中';
+              const spd = Math.max(1, Math.min(5, Number(appState.theaterSkipSpeed || localStorage.getItem('theater-skip-speed') || 2)));
+              if (lbl) lbl.textContent = `快进 ${spd}x`;
               if (!appState.theaterSkipPlay) {
                 appState.theaterSkipPlay = true;
                 appState.theaterAutoPlay = false;
@@ -29755,20 +30087,29 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         startLongPressSession(ev);
       }, { passive: true });
 
-      const handleRelease = () => {
+      const handleRelease = (ev) => {
+        const wasLongPressing = _longPressActiveFlag;
+        const wasValidTap = _pressDownValidOnStage && !wasLongPressing && !_longPressSuppressNextClick;
+        _pressDownValidOnStage = false;
         if (_longPressStartTimer || _longPressActiveFlag) {
           stopLongPressSession();
+        }
+        if (wasValidTap && ev && (ev.type === 'pointerup' || ev.type === 'touchend')) {
+          if (!isIgnoredStageTarget(ev.target)) {
+            handleTheaterDockClick();
+          }
         }
       };
 
       window.addEventListener('pointerup', handleRelease);
-      window.addEventListener('pointercancel', handleRelease);
+      window.addEventListener('pointercancel', () => {
+        _pressDownValidOnStage = false;
+        stopLongPressSession();
+      });
       window.addEventListener('touchend', handleRelease);
-      window.addEventListener('touchcancel', handleRelease);
-
-      stageRoot.addEventListener('click', (ev) => {
-        if (isIgnoredStageTarget(ev.target)) return;
-        handleTheaterDockClick();
+      window.addEventListener('touchcancel', () => {
+        _pressDownValidOnStage = false;
+        stopLongPressSession();
       });
     }
 
@@ -29802,8 +30143,13 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       renderTheaterSelectorLobby();
       const ttsSlider = document.getElementById('theater-tts-vol-slider');
       const bgmSlider = document.getElementById('theater-bgm-vol-slider');
+      const skipSlider = document.getElementById('theater-skip-speed-slider');
       if (ttsSlider) ttsSlider.value = appState.theaterTtsVolume;
       if (bgmSlider) bgmSlider.value = appState.theaterBgmVolume;
+      const savedSkipSpeed = Math.max(1, Math.min(5, Number(appState.theaterSkipSpeed || localStorage.getItem('theater-skip-speed') || 2)));
+      appState.theaterSkipSpeed = savedSkipSpeed;
+      if (skipSlider) skipSlider.value = String(savedSkipSpeed);
+      if (document.getElementById('theater-skip-speed-val')) document.getElementById('theater-skip-speed-val').textContent = String(savedSkipSpeed);
       if (document.getElementById('theater-tts-vol-val')) document.getElementById('theater-tts-vol-val').textContent = appState.theaterTtsVolume;
       if (document.getElementById('theater-bgm-vol-val')) document.getElementById('theater-bgm-vol-val').textContent = appState.theaterBgmVolume;
       ['vn-bottom-danmaku-btn', 'vn-ctrl-danmaku-text-btn'].forEach((id) => {
@@ -29973,6 +30319,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }, intervalMs);
     }
 
+    let _lastTheaterLineAdvanceAt = 0;
+
     function handleTheaterDockClick() {
       if (_longPressSuppressNextClick) {
         _longPressSuppressNextClick = false;
@@ -29981,7 +30329,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       if (appState.theaterEditMode) return;
       unlockBgmAudioPlayerOnUserGesture();
       const now = Date.now();
-      if (now - _lastTheaterDockClickAt < 110) return;
+      if (now - _lastTheaterDockClickAt < 180) return;
       _lastTheaterDockClickAt = now;
       if (_theaterIsTyping) {
         if (_theaterTypewriterTimer) {
@@ -30000,6 +30348,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
         return;
       }
+      if (now - _lastTheaterLineAdvanceAt < 160) return;
       nextTheaterLine();
     }
 
@@ -30312,9 +30661,20 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       let idx = Math.max(0, Math.min(chap.scriptLines.length - 1, appState.theaterLineIdx || 0));
       const oocToSpawn = [];
       if (!appState.theaterEditMode) {
-        while (idx < chap.scriptLines.length - 1 && chap.scriptLines[idx].type === 'ooc') {
-          oocToSpawn.push(`${chap.scriptLines[idx].speaker}：${chap.scriptLines[idx].text}`);
-          idx += 1;
+        while (idx < chap.scriptLines.length - 1) {
+          const candLine = chap.scriptLines[idx];
+          if (candLine && candLine.type === 'ooc') {
+            oocToSpawn.push(`${candLine.speaker}：${candLine.text}`);
+            idx += 1;
+            continue;
+          }
+          const cleanCandText = String(candLine?.text || '').trim();
+          const isChapterBannerLine = candLine && (candLine.effect === 'blackout' || (!candLine.speaker || candLine.speaker === '旁白') && /^第\s*[0-9一二三四五六七八九十百千万]+\s*[章节幕回][\s：:·—-]*.*$/.test(cleanCandText) && cleanCandText.length <= 24);
+          if (isChapterBannerLine && idx < chap.scriptLines.length - 1) {
+            idx += 1;
+            continue;
+          }
+          break;
         }
       }
       appState.theaterLineIdx = idx;
@@ -30398,9 +30758,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         if (myRenderSeq !== _theaterRenderSeq || appState.theaterLineIdx !== idx) return;
         if (appState.theaterSkipPlay === true) {
           if (_theaterStepTimer) clearTimeout(_theaterStepTimer);
+          const skipSpeed = Math.max(1, Math.min(5, Number(appState.theaterSkipSpeed || localStorage.getItem('theater-skip-speed') || 2)));
+          const skipDelayMs = Math.max(85, Math.round(440 / skipSpeed));
           _theaterStepTimer = setTimeout(() => {
             if (myRenderSeq === _theaterRenderSeq && appState.theaterSkipPlay === true) nextTheaterLine();
-          }, 360);
+          }, skipDelayMs);
           return;
         }
         if (appState.theaterAutoPlay === true && typewriterDone && voiceDone) {
@@ -30551,10 +30913,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
       }
 
-      // 0. 播放本行音效
-      if (canPlayStageAudio && line.sfxTag) {
-        playTheaterSfx(line.sfxTag);
-      }
+      // 0. 切换下一句话时不播放咚咚咚音效，保持安静顺滑
 
       // 0.5 全屏震动效果，不显示任何黑幕大字转场或小群跳转按钮
       if (stageRoot) {
@@ -30686,7 +31045,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             }
           }
         }
-        let nextBgCss = 'linear-gradient(160deg, var(--text-primary) 0%, var(--background-color) 100%)';
+        const prevBgCss = bgLayer.getAttribute('data-bg-css') || '';
+        let nextBgCss = prevBgCss && prevBgCss.startsWith('url(')
+          ? prevBgCss
+          : 'linear-gradient(160deg, var(--text-primary) 0%, var(--background-color) 100%)';
         if (activeSceneId === 'cg_only' && line._explicitNoBg) {
           nextBgCss = 'none';
         } else {
@@ -30843,7 +31205,15 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           if (myRenderSeq !== _theaterRenderSeq) return;
           if (!playableSprite) continue;
 
-          const croppedSprite = await getCroppedSpriteForHeightStage(playableSprite);
+          let croppedSprite = _heightCroppedSpriteCache.get(playableSprite) || '';
+          if (!croppedSprite) {
+            if (appState.theaterSkipPlay) {
+              croppedSprite = playableSprite;
+              getCroppedSpriteForHeightStage(playableSprite).catch(() => {});
+            } else {
+              croppedSprite = await getCroppedSpriteForHeightStage(playableSprite);
+            }
+          }
           if (myRenderSeq !== _theaterRenderSeq) return;
           if (!croppedSprite || String(croppedSprite).startsWith('data:image/svg+xml')) continue;
 
@@ -30933,6 +31303,16 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     }
 
     function nextTheaterLine() {
+      _lastTheaterLineAdvanceAt = Date.now();
+      if (_theaterStepTimer) {
+        clearTimeout(_theaterStepTimer);
+        _theaterStepTimer = null;
+      }
+      if (_theaterTypewriterTimer) {
+        clearInterval(_theaterTypewriterTimer);
+        _theaterTypewriterTimer = null;
+      }
+      _theaterIsTyping = false;
       const proj = getCurrentReplayProject();
       const chap = getActiveTheaterPlayableChapter();
       if (!chap || !Array.isArray(chap.scriptLines) || chap.scriptLines.length === 0) return;
@@ -31377,7 +31757,24 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       if (sideChk) {
         sideChk.checked = localStorage.getItem('theater-show-side-bust') !== 'false';
       }
+      const savedSpeed = Math.max(1, Math.min(5, Number(appState.theaterSkipSpeed || localStorage.getItem('theater-skip-speed') || 2)));
+      appState.theaterSkipSpeed = savedSpeed;
+      const skipSlider = document.getElementById('theater-skip-speed-slider');
+      if (skipSlider) skipSlider.value = String(savedSpeed);
+      const skipLbl = document.getElementById('theater-skip-speed-val');
+      if (skipLbl) skipLbl.textContent = String(savedSpeed);
       document.getElementById('theater-volume-modal').classList.add('active');
+    }
+
+    function onTheaterSkipSpeedChange(val) {
+      const parsed = Number(val);
+      const v = Math.max(1, Math.min(5, (!isNaN(parsed) && parsed >= 1) ? Math.round(parsed) : 2));
+      appState.theaterSkipSpeed = v;
+      localStorage.setItem('theater-skip-speed', String(v));
+      const lbl = document.getElementById('theater-skip-speed-val');
+      if (lbl) lbl.textContent = String(v);
+      const slider = document.getElementById('theater-skip-speed-slider');
+      if (slider && Number(slider.value) !== v) slider.value = String(v);
     }
 
     function onTheaterTtsVolumeChange(val) {
@@ -32357,7 +32754,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         if ('caches' in window) {
           caches.keys().then((keys) => {
             keys.forEach((k) => {
-              if (k !== 'ephone-tuk-cache-v30') caches.delete(k);
+              if (k !== 'ephone-tuk-cache-v35') caches.delete(k);
             });
           }).catch(() => {});
         }

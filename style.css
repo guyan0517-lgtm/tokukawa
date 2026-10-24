@@ -1572,7 +1572,15 @@ body.landscape-game-active #screen-theater.active {
   align-items: center;
   justify-content: center;
   background: var(--text-primary);
-  -webkit-tap-highlight-color: transparent;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0) !important;
+}
+
+#screen-theater,
+#screen-theater *,
+#vn-theater-stage-root,
+#vn-theater-stage-root * {
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0) !important;
+  -webkit-touch-callout: none !important;
 }
 
 .vn-theater-wrapper {
@@ -1587,7 +1595,7 @@ body.landscape-game-active #screen-theater.active {
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
-  -webkit-tap-highlight-color: transparent;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0) !important;
   outline: none;
   touch-action: manipulation;
   font-family: var(--custom-user-font, var(--font-sans)) !important;
@@ -1596,8 +1604,19 @@ body.landscape-game-active #screen-theater.active {
 .vn-theater-wrapper *,
 .vn-theater-wrapper *:active,
 .vn-theater-wrapper *:focus {
-  -webkit-tap-highlight-color: transparent !important;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0) !important;
   outline: none;
+}
+
+#vn-theater-stage-root:active,
+#vn-theater-stage-root:focus,
+.vn-theater-wrapper:active,
+.vn-theater-wrapper:focus,
+.vn-bg-layer:active,
+.vn-dialogue-dock:active {
+  filter: none !important;
+  opacity: 1 !important;
+  outline: none !important;
 }
 
 .vn-theater-wrapper img {
@@ -2002,60 +2021,12 @@ button {
   100% { transform: rotate(0deg) scale(1); }
 }
 
-/* 全屏黑幕中央缓慢浮现文字转场层 渐入渐出 */
+/* 全屏黑幕转场层 - 彻底隐藏，平滑过渡 */
 .vn-blackout-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 32;
-  background: var(--text-primary);
-  color: var(--card-bg);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 32px;
-  text-align: center;
-  cursor: pointer;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: opacity 0.68s ease, visibility 0.68s ease;
-}
-
-.vn-blackout-overlay.active {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-}
-
-.vn-blackout-text {
-  max-width: 76%;
-  font-size: 19px;
-  font-weight: 700;
-  line-height: 1.9;
-  letter-spacing: 0.14em;
-  color: var(--card-bg);
-  opacity: 0;
-  transform: translateY(8px);
-  transition: opacity 0.72s ease 0.14s, transform 0.72s ease 0.14s;
-}
-
-.vn-blackout-overlay.active .vn-blackout-text {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.vn-blackout-sub {
-  margin-top: 20px;
-  font-size: 11px;
-  letter-spacing: 0.2em;
-  color: var(--card-bg);
-  opacity: 0;
-  transition: opacity 0.72s ease 0.3s;
-}
-
-.vn-blackout-overlay.active .vn-blackout-sub {
-  opacity: 0.55;
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 /* 剧场角落极小纯SVG矢量图标栏 */
