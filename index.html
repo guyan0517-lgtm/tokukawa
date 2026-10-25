@@ -8593,7 +8593,71 @@
       });
     }
 
-    // 将去白底后的正比大立绘自动紧贴外边缘裁切并顶格缩放到标准高度，彻底消除左右与上下多余空白，使外边缘完全顶格
+    // 计算立绘人物躯干与头部的真实垂直中轴线，排除单侧平伸的手臂、武器或衣摆干扰，保证人物重心永远在画布正中 50%
+    function computeCharacterCoreCenterX(data, w, h, minX, minY, maxX, maxY) {
+      const segW = Math.max(1, maxX - minX + 1);
+      const segH = Math.max(1, maxY - minY + 1);
+      if (segW <= 8 || segH <= 8) return (minX + maxX) / 2;
+
+      const yTop = Math.min(maxY, minY + Math.round(segH * 0.04));
+      const yBot = Math.max(yTop, maxY - Math.round(segH * 0.04));
+      const colCounts = new Int32Array(w);
+      let maxColCnt = 0;
+
+      for (let x = minX; x <= maxX; x++) {
+        let cnt = 0;
+        for (let y = yTop; y <= yBot; y++) {
+          if (data[(y * w + x) * 4 + 3] > 35) cnt++;
+        }
+        colCounts[x] = cnt;
+        if (cnt > maxColCnt) maxColCnt = cnt;
+      }
+
+      let trunkSumX = 0;
+      let trunkWeight = 0;
+      const trunkThreshold = Math.max(2, Math.round(maxColCnt * 0.46));
+      for (let x = minX; x <= maxX; x++) {
+        if (colCounts[x] >= trunkThreshold) {
+          const wt = colCounts[x] * colCounts[x];
+          trunkSumX += x * wt;
+          trunkWeight += wt;
+        }
+      }
+      const trunkCenterX = trunkWeight > 0 ? (trunkSumX / trunkWeight) : ((minX + maxX) / 2);
+
+      const headY1 = Math.min(maxY, minY + Math.round(segH * 0.06));
+      const headY2 = Math.min(maxY, minY + Math.round(segH * 0.28));
+      const rowCenters = [];
+      for (let y = headY1; y <= headY2; y++) {
+        let rMin = -1;
+        let rMax = -1;
+        for (let x = minX; x <= maxX; x++) {
+          if (data[(y * w + x) * 4 + 3] > 45) {
+            if (rMin === -1) rMin = x;
+            rMax = x;
+          }
+        }
+        if (rMin !== -1 && rMax >= rMin && (rMax - rMin) <= segW * 0.62) {
+          rowCenters.push((rMin + rMax) / 2);
+        }
+      }
+
+      let coreX = trunkCenterX;
+      if (rowCenters.length >= 3) {
+        rowCenters.sort((a, b) => a - b);
+        const headMedX = rowCenters[Math.floor(rowCenters.length / 2)];
+        coreX = trunkCenterX * 0.65 + headMedX * 0.35;
+      }
+
+      const safeMin = minX + segW * 0.22;
+      const safeMax = maxX - segW * 0.22;
+      if (safeMax > safeMin) {
+        coreX = Math.max(safeMin, Math.min(safeMax, coreX));
+      }
+      return coreX;
+    }
+
+    // 将去白底后的正比大立绘自动紧贴上下边缘裁切，并以人物躯干中轴线做左右对称居中，确保单侧伸手或持握武器时人物绝不偏斜
     function normalizeTachieSpriteScale(transparentFullDataUrl, rawFullDataUrl) {
       return new Promise((resolve) => {
         if (!transparentFullDataUrl) return resolve(transparentFullDataUrl);
@@ -8612,13 +8676,18 @@
           const { minX, minY, maxX, maxY } = findCharacterTightBounds(data, w, h);
           const bboxW = Math.max(1, maxX - minX + 1);
           const bboxH = Math.max(1, maxY - minY + 1);
+          const coreCenterX = computeCharacterCoreCenterX(data, w, h, minX, minY, maxX, maxY);
+          const halfSpanSrc = Math.max(coreCenterX - minX, maxX - coreCenterX, bboxW / 2);
+
           const targetCharHeight = 1216;
           const scale = targetCharHeight / bboxH;
 
           const drawW = Math.max(1, Math.round(bboxW * scale));
           const drawH = Math.max(1, Math.round(bboxH * scale));
-          const canvasW = drawW;
+          const halfSpanDst = Math.max(Math.round(halfSpanSrc * scale), Math.ceil(drawW / 2));
+          const canvasW = Math.max(drawW, halfSpanDst * 2);
           const canvasH = drawH;
+          const offsetX = Math.max(0, Math.min(canvasW - drawW, Math.round(halfSpanDst - (coreCenterX - minX) * scale)));
 
           const canvas = document.createElement('canvas');
           canvas.width = canvasW;
@@ -8626,7 +8695,7 @@
           const ctx = canvas.getContext('2d');
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(img, minX, minY, bboxW, bboxH, 0, 0, drawW, drawH);
+          ctx.drawImage(img, minX, minY, bboxW, bboxH, offsetX, 0, drawW, drawH);
           const normalizedSprite = canvas.toDataURL('image/png');
 
           if (rawFullDataUrl) {
@@ -8647,7 +8716,7 @@
               const rctx = rawCanvas.getContext('2d');
               rctx.fillStyle = '#ffffff';
               rctx.fillRect(0, 0, canvasW, canvasH);
-              rctx.drawImage(rawImg, rMinX, rMinY, rBboxW, rBboxH, 0, 0, drawW, drawH);
+              rctx.drawImage(rawImg, rMinX, rMinY, rBboxW, rBboxH, offsetX, 0, drawW, drawH);
               appState.tachieAlignedRawDataUrl = rawCanvas.toDataURL('image/png');
               resolve(normalizedSprite);
             };
@@ -11980,6 +12049,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
               }
             }
 
+            const coreCenterSw = computeCharacterCoreCenterX(data, sw, sh, minX, minY, maxX, maxY);
             const invScaleX = w / sw;
             const invScaleY = h / sh;
             const padPx = Math.max(2, Math.ceil(invScaleX));
@@ -11987,13 +12057,18 @@ ZH: 修改后的纯客观中文服装配饰清单`
             const fullMaxX = Math.min(w - 1, Math.ceil((maxX + 1) * invScaleX) + padPx);
             const fullMinY = Math.max(0, Math.floor(minY * invScaleY) - padPx);
             const fullMaxY = Math.min(h - 1, Math.ceil((maxY + 1) * invScaleY));
+            const fullCoreCenterX = Math.max(fullMinX, Math.min(fullMaxX, coreCenterSw * invScaleX));
 
             const cw = Math.max(1, fullMaxX - fullMinX + 1);
             const ch = Math.max(1, fullMaxY - fullMinY + 1);
+            const halfSpanX = Math.max(Math.ceil(fullCoreCenterX - fullMinX), Math.ceil(fullMaxX - fullCoreCenterX), Math.ceil(cw / 2));
+            const outW = Math.max(cw, halfSpanX * 2);
+            const drawOffsetX = Math.max(0, Math.min(outW - cw, Math.round(halfSpanX - (fullCoreCenterX - fullMinX))));
+
             const out = document.createElement('canvas');
-            out.width = cw;
+            out.width = outW;
             out.height = ch;
-            out.getContext('2d').drawImage(img, fullMinX, fullMinY, cw, ch, 0, 0, cw, ch);
+            out.getContext('2d').drawImage(img, fullMinX, fullMinY, cw, ch, drawOffsetX, 0, cw, ch);
             if (typeof out.toBlob === 'function') {
               out.toBlob((blob) => {
                 if (blob) {
@@ -27621,6 +27696,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       return `${Math.max(1, Math.round(num / 1024))} KB`;
     }
 
+    const _workshopMetaHydratedIds = new Set();
+
     function renderReplayWorkshopList() {
       const box = document.getElementById('workshop-projects-list-container');
       if (!box) return;
@@ -27645,9 +27722,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       filtered.forEach((item) => {
         const localProj = (appState.replayProjects || []).find((p) => p.id === item.id);
         const mountedBundle = _mountedExternalProjects.get(item.id);
-        const isLocalOwner = Boolean(localProj);
-        const mountedChapCount = mountedBundle?.project?.chapters?.length || 0;
-        const hasNewUpdateForMounted = Boolean(mountedBundle && ((item.updatedAt || 0) > (mountedBundle.syncedAt || 0) || (item.chapterCount || 0) > mountedChapCount));
+        const isLocalOwner = Boolean(localProj && Array.isArray(localProj.chapters) && localProj.chapters.length > 0);
+        const isZipMounted = Boolean(mountedBundle && (mountedBundle.mode === 'zip' || mountedBundle.mode === 'json'));
 
         const timeStr = item.updatedAt ? new Date(item.updatedAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
         const sizeStr = formatWorkshopSizeText(item.sizeBytes);
@@ -27658,7 +27734,91 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         const avatarSrc = mappedAvatar && mappedAvatar.startsWith('/api/workshop/asset/')
           ? (_playableUrlRamCache.get(mappedAvatar) || '')
           : toFastDisplayUrl(mappedAvatar);
-        const chapsMeta = Array.isArray(item.chaptersMeta) ? item.chaptersMeta : [];
+
+        let effectiveChapsMeta = Array.isArray(item.chaptersMeta) && item.chaptersMeta.length > 0
+          ? item.chaptersMeta
+          : [];
+        if (effectiveChapsMeta.length === 0 && localProj && Array.isArray(localProj.chapters) && localProj.chapters.length > 0) {
+          effectiveChapsMeta = localProj.chapters.map((ch, idx) => ({
+            id: ch.id || `chap_${idx}`,
+            order: Number(ch.order ?? idx),
+            title: ch.title || `第 ${idx + 1} 章`,
+            lineCount: Array.isArray(ch.scriptLines) ? ch.scriptLines.length : 0
+          }));
+        } else if (effectiveChapsMeta.length === 0 && mountedBundle?.project?.chapters?.length > 0) {
+          effectiveChapsMeta = mountedBundle.project.chapters.map((ch, idx) => ({
+            id: ch.id || `chap_${idx}`,
+            order: Number(ch.order ?? idx),
+            title: ch.title || `第 ${idx + 1} 章`,
+            lineCount: Array.isArray(ch.scriptLines) ? ch.scriptLines.length : 0
+          }));
+        } else if (effectiveChapsMeta.length === 0 && Number(item.chapterCount) > 0) {
+          const fallbackCnt = Math.min(50, Math.max(1, Number(item.chapterCount) || 1));
+          effectiveChapsMeta = Array.from({ length: fallbackCnt }, (_, idx) => ({
+            id: `chap_${idx}`,
+            order: idx,
+            title: `第 ${idx + 1} 章`,
+            lineCount: 0
+          }));
+          if (!_workshopMetaHydratedIds.has(item.id)) {
+            _workshopMetaHydratedIds.add(item.id);
+            fetchWorkshopFullProjectById(item.id).then((remoteProj) => {
+              if (remoteProj && Array.isArray(remoteProj.chapters) && remoteProj.chapters.length > 0) {
+                item.chaptersMeta = remoteProj.chapters.map((ch, idx) => ({
+                  id: ch.id || `chap_${idx}`,
+                  order: Number(ch.order ?? idx),
+                  title: ch.title || `第 ${idx + 1} 章`,
+                  lineCount: Array.isArray(ch.scriptLines) ? ch.scriptLines.length : 0
+                }));
+                item.chapterCount = remoteProj.chapters.length;
+                renderReplayWorkshopList();
+              }
+            }).catch(() => {});
+          }
+        }
+
+        const localChaptersSet = new Set(
+          (localProj && Array.isArray(localProj.chapters) ? localProj.chapters : [])
+            .map((ch, idx) => Number(ch.order ?? idx))
+        );
+
+        const chaptersListHtml = effectiveChapsMeta.length > 0
+          ? `<div style="display:flex;flex-direction:column;gap:6px;margin-top:2px;padding-top:8px;border-top:1px dashed var(--border-color);">
+              <div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:700;color:var(--text-secondary);">
+                <span>分章目录 · 点击任意章节直接进入观看</span>
+                <span>共 ${effectiveChapsMeta.length} 章</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;padding-right:2px;">
+                ${effectiveChapsMeta.map((cm, cIdx) => {
+                  const ord = Number(cm.order ?? cIdx);
+                  const rawTitle = String(cm.title || `第 ${cIdx + 1} 章`).replace(/</g, '&lt;');
+                  const lineCnt = Number(cm.lineCount || 0);
+                  const chapDownloaded = isZipMounted || localChaptersSet.has(ord);
+                  return `
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border-radius:10px;border:1px solid var(--border-color);background:var(--secondary-bg);">
+                      <div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1;cursor:pointer;" onclick="openWorkshopModuleInTheater('${item.id}', ${ord})" title="点击直接观看本章">
+                        <span class="vn-console-badge ${chapDownloaded ? 'accent' : ''}" style="flex-shrink:0;">第${cIdx + 1}章</span>
+                        <span style="font-size:12px;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${rawTitle}</span>
+                        ${lineCnt > 0 ? `<span style="font-size:11px;color:var(--text-secondary);flex-shrink:0;">· ${lineCnt}句</span>` : ''}
+                        ${chapDownloaded ? `<span style="font-size:10px;color:var(--accent-color);font-weight:700;flex-shrink:0;">已存</span>` : ''}
+                      </div>
+                      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                        <button type="button" class="moe-btn secondary" id="workshop-dl-btn-${item.id}-${ord}" style="height:28px;min-height:28px;padding:0 10px;font-size:11px;flex-shrink:0;" onclick="event.stopPropagation();downloadOrUpdateWorkshopProject('${item.id}', ${ord})">下载</button>
+                        <button type="button" class="moe-btn secondary" id="workshop-zip-btn-${item.id}-${ord}" style="height:28px;min-height:28px;padding:0 10px;font-size:11px;flex-shrink:0;" onclick="event.stopPropagation();downloadWorkshopProjectAsZip('${item.id}', ${ord})">压缩</button>
+                        <button type="button" class="moe-btn" id="workshop-watch-btn-${item.id}-${ord}" style="height:28px;min-height:28px;padding:0 10px;font-size:11px;flex-shrink:0;" onclick="event.stopPropagation();openWorkshopModuleInTheater('${item.id}', ${ord})">观看</button>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>`
+          : '';
+
+        const statusBadgeHtml = isLocalOwner
+          ? '<span class="vn-console-badge accent" style="flex-shrink:0;">本机已存 · 点观看直读本地</span>'
+          : (isZipMounted
+              ? '<span class="vn-console-badge accent" style="flex-shrink:0;">已载入压缩包 · 点观看直读本地</span>'
+              : '<span class="vn-console-badge" style="flex-shrink:0;">未存本机 · 下载或压缩后秒开</span>');
 
         const card = document.createElement('div');
         card.className = 'setting-item';
@@ -27678,18 +27838,20 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;font-weight:800;color:var(--text-primary);line-height:1.4;">
                 <span>${item.title || '未命名模组'}</span>
                 <span style="font-size:11px;color:var(--accent-color);font-weight:700;">作者：${item.author || '跑团KP'}</span>
-                ${isLocalOwner ? '<span style="font-size:10px;color:var(--text-secondary);font-weight:600;">本机已有</span>' : ''}
+                ${statusBadgeHtml}
               </div>
               <div style="font-size:11px;color:var(--text-secondary);line-height:1.5;margin-top:3px;word-break:break-word;">
-                共 ${item.chapterCount || chapsMeta.length || 0} 章${sizeStr ? (' · 素材包 ' + sizeStr) : ''}${timeStr ? (' · 更新于 ' + timeStr) : ''}
+                共 ${item.chapterCount || effectiveChapsMeta.length || 0} 章${sizeStr ? (' · 素材包 ' + sizeStr) : ''}${timeStr ? (' · 更新于 ' + timeStr) : ''}
               </div>
               <div style="font-size:12px;color:var(--text-primary);line-height:1.5;margin-top:4px;word-break:break-word;">
                 ${item.desc || '包含全套角色立绘、场所地图、剧情插图、道具线索、背景音乐与角色配音'}
               </div>
             </div>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:8px;padding-top:8px;border-top:1px solid var(--border-color);">
+          ${chaptersListHtml}
+          <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:8px;padding-top:8px;border-top:1px solid var(--border-color);">
             <button type="button" class="moe-btn secondary" id="workshop-dl-btn-${item.id}" style="width:100%;justify-content:center;" onclick="downloadOrUpdateWorkshopProject('${item.id}', -1)">下载</button>
+            <button type="button" class="moe-btn secondary" id="workshop-zip-btn-${item.id}" style="width:100%;justify-content:center;" onclick="downloadWorkshopProjectAsZip('${item.id}', -1)">压缩</button>
             <button type="button" class="moe-btn" id="workshop-watch-btn-${item.id}" style="width:100%;justify-content:center;" onclick="openWorkshopModuleInTheater('${item.id}', 0)">观看</button>
           </div>
         `;
@@ -28463,7 +28625,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const scopeSel = document.getElementById('workshop-upload-chapter-select');
       const scopeVal = scopeSel ? scopeSel.value : _workshopUploadScope;
       const onlyOrder = scopeVal === 'all' ? -1 : (parseInt(scopeVal, 10) || 0);
-      await downloadOrUpdateWorkshopProject(proj.id, onlyOrder);
+      await downloadWorkshopProjectAsZip(proj.id, onlyOrder);
     }
 
     async function fetchWorkshopFullProjectById(projectId) {
@@ -28878,7 +29040,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           }
         };
         const ghPackWorkers = [];
-        for (let w = 0; w < Math.min(6, packList.length); w++) {
+        for (let w = 0; w < Math.min(12, packList.length); w++) {
           ghPackWorkers.push(runGhPackPullWorker());
         }
         await Promise.all(ghPackWorkers);
@@ -28918,7 +29080,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             }
           };
           const extraWorkers = [];
-          for (let w = 0; w < Math.min(6, extraPacks.length); w++) {
+          for (let w = 0; w < Math.min(12, extraPacks.length); w++) {
             extraWorkers.push(runExtraPackWorker());
           }
           await Promise.all(extraWorkers);
@@ -28929,7 +29091,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       // 通道 3：向云端服务器批量接口请求剩余素材
       if (stillMissingSet.size > 0) {
         const remainArr = Array.from(stillMissingSet);
-        const BATCH_PULL_SIZE = 40;
+        const BATCH_PULL_SIZE = 60;
         const batchChunks = [];
         for (let i = 0; i < remainArr.length; i += BATCH_PULL_SIZE) {
           batchChunks.push(remainArr.slice(i, i + BATCH_PULL_SIZE));
@@ -28963,7 +29125,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           }
         };
         const cloudWorkers = [];
-        for (let w = 0; w < Math.min(3, batchChunks.length); w++) {
+        for (let w = 0; w < Math.min(6, batchChunks.length); w++) {
           cloudWorkers.push(runCloudBatchWorker());
         }
         await Promise.all(cloudWorkers);
@@ -29005,7 +29167,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           }
         };
         const remWorkers = [];
-        for (let w = 0; w < Math.min(6, remainList.length); w++) {
+        for (let w = 0; w < Math.min(12, remainList.length); w++) {
           remWorkers.push(runRemainWorker());
         }
         await Promise.all(remWorkers);
@@ -29297,7 +29459,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           writtenDiskPathsInSession.add(cleanRel);
           pendingDiskBatch.push({ path: cleanRel, dataUrl });
           savedAssetCount += 1;
-          if (pendingDiskBatch.length >= 16) {
+          if (pendingDiskBatch.length >= 40) {
             await flushDiskBatch();
           }
         }
@@ -29871,13 +30033,16 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }, 2000);
     }
 
-    // 下载与恢复按钮统一入口：直接从云端恢复写入本机工程与本地磁盘目录，并在剧场打开选集大厅立即观看
+    // 下载与恢复按钮统一入口：直接从云端恢复写入本机工程与本地磁盘目录，并在剧场立即观看
     async function downloadOrUpdateWorkshopProject(projectId, onlyChapterOrder = -1) {
       unlockBgmAudioPlayerOnUserGesture();
       if (typeof ensureSharedTheaterVoicePlayerUnlocked === 'function') {
         ensureSharedTheaterVoicePlayerUnlocked();
       }
-      const btn = document.getElementById(`workshop-dl-btn-${projectId}`);
+      const btnId = onlyChapterOrder >= 0
+        ? `workshop-dl-chap-btn-${projectId}-${onlyChapterOrder}`
+        : `workshop-dl-btn-${projectId}`;
+      const btn = document.getElementById(btnId) || document.getElementById(`workshop-dl-btn-${projectId}`);
       if (btn) { btn.textContent = '下载中'; btn.disabled = true; }
       try {
         await restoreWorkshopProjectToLocalEngine(projectId, {
@@ -29890,6 +30055,16 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           onlyMissing: false,
           onlyChapterOrder
         });
+        if (onlyChapterOrder >= 0) {
+          const localProj = (appState.replayProjects || []).find((p) => p && p.id === projectId);
+          if (localProj) {
+            appState.currentReplayProjectId = localProj.id;
+            const foundIdx = (localProj.chapters || []).findIndex((c, idx) => Number(c.order ?? idx) === Number(onlyChapterOrder));
+            appState.currentReplayChapterIdx = foundIdx >= 0 ? foundIdx : 0;
+            openTheaterForCurrentChapter();
+            return;
+          }
+        }
         openTheaterStageSelectorLobby();
       } catch (err) {
         alert('下载工坊模组失败：' + err.message);
@@ -29898,12 +30073,430 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
     }
 
-    // 舞台「本地」按钮：直接读取手机或电脑本地文件夹里的 .zip 模组包并在舞台按需流式播放，绝不撑爆浏览器内存
+    // 压缩按钮统一入口：将整部模组或单章连同立绘、场景、插图、线索、音乐、配音高速打包为 .zip 压缩包下载，并自动挂载到本机立即观看
+    async function downloadWorkshopProjectAsZip(projectId, onlyChapterOrder = -1) {
+      unlockBgmAudioPlayerOnUserGesture();
+      if (typeof ensureSharedTheaterVoicePlayerUnlocked === 'function') {
+        ensureSharedTheaterVoicePlayerUnlocked();
+      }
+      if (typeof JSZip === 'undefined') {
+        alert('压缩组件尚未就绪，请稍候再试');
+        return;
+      }
+      const btnId = onlyChapterOrder >= 0
+        ? `workshop-zip-chap-btn-${projectId}-${onlyChapterOrder}`
+        : `workshop-zip-btn-${projectId}`;
+      const btn = document.getElementById(btnId) || document.getElementById(`workshop-zip-btn-${projectId}`);
+      if (btn) { btn.textContent = '打包中'; btn.disabled = true; }
+
+      const statusEl = document.getElementById('workshop-upload-status');
+      const progWrap = document.getElementById('workshop-upload-progress-wrap');
+      const progBar = document.getElementById('workshop-upload-progress-bar');
+      const setZipProg = (pct, msg) => {
+        if (progWrap) progWrap.style.display = 'block';
+        if (progBar) progBar.style.width = `${Math.max(4, Math.min(100, Math.round(pct)))}%`;
+        if (statusEl && msg) statusEl.textContent = msg;
+      };
+
+      try {
+        setZipProg(6, '正在读取模组剧本、角色立绘与章节目录...');
+        let sourceProj = null;
+        try {
+          sourceProj = await fetchWorkshopFullProjectById(projectId);
+          if (sourceProj) registerRemoteProjectPackIndex(sourceProj);
+        } catch (_) {}
+
+        if (!sourceProj) {
+          const localFallback = (appState.replayProjects || []).find((p) => p && p.id === projectId);
+          if (localFallback) {
+            sourceProj = JSON.parse(JSON.stringify(localFallback));
+            sourceProj.characters = JSON.parse(JSON.stringify((appState.characters || []).filter((c) => c && c.id !== 'narrator_kp' && c.name !== '旁白')));
+            sourceProj.bgmTracks = JSON.parse(JSON.stringify(appState.bgmTracks || []));
+          }
+        }
+        if (!sourceProj || !sourceProj.id) {
+          throw new Error('未找到该模组数据');
+        }
+
+        const allChaps = Array.isArray(sourceProj.chapters) ? JSON.parse(JSON.stringify(sourceProj.chapters)) : [];
+        allChaps.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
+        const targetChaps = onlyChapterOrder >= 0
+          ? allChaps.filter((c, idx) => Number(c.order ?? idx) === Number(onlyChapterOrder))
+          : allChaps;
+        if (targetChaps.length === 0 && allChaps.length > 0) {
+          targetChaps.push(allChaps[0]);
+        }
+
+        const requiredWorkshopHashes = new Set();
+        const collectWsHash = (ref) => {
+          if (ref && typeof ref === 'string' && ref.startsWith('/api/workshop/asset/')) {
+            const h = ref.replace('/api/workshop/asset/', '').split('?')[0].trim();
+            if (h) requiredWorkshopHashes.add(h);
+          }
+        };
+
+        collectWsHash(sourceProj.avatarUrl);
+        (sourceProj.characters || []).forEach((c) => {
+          if (!c) return;
+          collectWsHash(c.profileAvatar);
+          collectWsHash(c.stageBustAvatar);
+          collectWsHash(c.tachieBase);
+          collectWsHash(c.chibiImg);
+          if (c.tachieExpressions && typeof c.tachieExpressions === 'object') {
+            Object.values(c.tachieExpressions).forEach(collectWsHash);
+          }
+        });
+        (sourceProj.globalScenes || []).forEach((g) => g && collectWsHash(g.imageUrl));
+        (sourceProj.bgmTracks || []).forEach((bt) => bt && collectWsHash(bt.url));
+        targetChaps.forEach((ch, idx) => {
+          if (!ch) return;
+          (ch.scenes || []).forEach((s) => s && collectWsHash(s.imageUrl));
+          (ch.cgNodes || []).forEach((g) => {
+            if (!g) return;
+            collectWsHash(g.imageUrl);
+            collectWsHash(g.customPadImg);
+          });
+          (ch.clueNodes || []).forEach((cl) => cl && collectWsHash(cl.imageUrl));
+          const ord = Number(ch.order ?? idx);
+          const ttsKey = String(ch.id || `chap_${ord}`);
+          const chapTts = (sourceProj.ttsByChapter && sourceProj.ttsByChapter[ttsKey]) || [];
+          chapTts.forEach((rec) => rec && collectWsHash(rec.audioDataUrl || rec.audioData));
+        });
+        (sourceProj.subGroups || []).forEach((sg, sgIdx) => {
+          if (!sg) return;
+          (sg.scenes || []).forEach((s) => s && collectWsHash(s.imageUrl));
+          (sg.cgNodes || []).forEach((g) => {
+            if (!g) return;
+            collectWsHash(g.imageUrl);
+            collectWsHash(g.customPadImg);
+          });
+          (sg.clueNodes || []).forEach((cl) => cl && collectWsHash(cl.imageUrl));
+          const sgId = sg.id || `sg_${sgIdx}`;
+          const sgTts = (sourceProj.ttsByChapter && sourceProj.ttsByChapter[String(sgId)]) || [];
+          sgTts.forEach((rec) => rec && collectWsHash(rec.audioDataUrl || rec.audioData));
+        });
+
+        const missingToFetch = [];
+        for (const h of requiredWorkshopHashes) {
+          const refKey = `/api/workshop/asset/${h}`;
+          const rawCached = _workshopRawDataUrlByHash.get(h) || _workshopRawDataUrlByHash.get(refKey);
+          if (rawCached && rawCached.startsWith('data:')) continue;
+          if (typeof _localWorkshopAssetUrlMap === 'object' && _localWorkshopAssetUrlMap.has(refKey)) {
+            const mapped = _localWorkshopAssetUrlMap.get(refKey);
+            if (mapped && mapped.startsWith('data:')) {
+              _workshopRawDataUrlByHash.set(h, mapped);
+              _workshopRawDataUrlByHash.set(refKey, mapped);
+              continue;
+            }
+          }
+          missingToFetch.push(h);
+        }
+
+        if (missingToFetch.length > 0) {
+          setZipProg(12, `正在多线程高速拉取 ${missingToFetch.length} 个立绘场景与语音素材...`);
+          await fetchMissingWorkshopHashesFromAllChannels(missingToFetch, setZipProg);
+        }
+
+        setZipProg(80, '正在将立绘、场景、插图与配音封装进压缩包...');
+        const zip = new JSZip();
+        const writtenZipRelSet = new Set();
+        const refToZipAssetMap = new Map();
+
+        const dataUrlToBytesAndExt = (dUrl, fallbackExt = 'png') => {
+          if (!dUrl || typeof dUrl !== 'string' || !dUrl.startsWith('data:')) return null;
+          const commaIdx = dUrl.indexOf(',');
+          if (commaIdx < 0) return null;
+          const header = dUrl.slice(0, commaIdx);
+          const b64 = dUrl.slice(commaIdx + 1);
+          let ext = fallbackExt;
+          let mime = fallbackExt === 'mp3' ? 'audio/mpeg' : 'image/png';
+          if (header.includes('audio/')) {
+            ext = 'mp3';
+            mime = 'audio/mpeg';
+          } else if (header.includes('image/jpeg') || header.includes('image/jpg')) {
+            ext = 'jpg';
+            mime = 'image/jpeg';
+          } else if (header.includes('image/webp')) {
+            ext = 'webp';
+            mime = 'image/webp';
+          }
+          try {
+            const bin = atob(b64);
+            const bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            return { bytes, ext, mime };
+          } catch (_) {
+            return null;
+          }
+        };
+
+        const packRefIntoZip = async (rawRef, fallbackExt = 'png') => {
+          if (!rawRef || typeof rawRef !== 'string') return '';
+          if (rawRef.startsWith('__ZIP_ASSET__:')) return rawRef;
+          if (refToZipAssetMap.has(rawRef)) return refToZipAssetMap.get(rawRef);
+
+          let dataUrl = '';
+          let hashKey = '';
+          if (rawRef.startsWith('/api/workshop/asset/')) {
+            hashKey = rawRef.replace('/api/workshop/asset/', '').split('?')[0].trim();
+            dataUrl = _workshopRawDataUrlByHash.get(hashKey)
+              || _workshopRawDataUrlByHash.get(rawRef)
+              || (typeof _localWorkshopAssetUrlMap === 'object' ? (_localWorkshopAssetUrlMap.get(rawRef) || _localWorkshopAssetUrlMap.get(hashKey)) : '')
+              || '';
+            if (dataUrl && !dataUrl.startsWith('data:')) {
+              dataUrl = await resolveAssetToDataUrlForWorkshop(dataUrl);
+            }
+          } else if (rawRef.startsWith('data:')) {
+            dataUrl = rawRef;
+            hashKey = computeFastAssetFingerprint(rawRef);
+          } else if (rawRef.startsWith('blob:') || rawRef.startsWith('/local-assets/') || rawRef.includes(':8765/')) {
+            dataUrl = await resolveAssetToDataUrlForWorkshop(rawRef);
+            hashKey = computeFastAssetFingerprint(dataUrl || rawRef);
+          } else {
+            return rawRef;
+          }
+
+          if (!dataUrl || !dataUrl.startsWith('data:')) return rawRef;
+          const parsed = dataUrlToBytesAndExt(dataUrl, fallbackExt);
+          if (!parsed || !parsed.bytes) return rawRef;
+
+          const safeHash = (hashKey || computeFastAssetFingerprint(dataUrl)).replace(/[^a-zA-Z0-9_-]/g, '_');
+          const relPath = `assets/${safeHash}.${parsed.ext}`;
+          const zipRef = `__ZIP_ASSET__:${relPath}`;
+
+          if (!writtenZipRelSet.has(relPath)) {
+            writtenZipRelSet.add(relPath);
+            zip.file(relPath, parsed.bytes, { binary: true, compression: 'STORE' });
+          }
+
+          const blobObj = new Blob([parsed.bytes], { type: parsed.mime });
+          const blobUrl = URL.createObjectURL(blobObj);
+          const cacheKey = `${sourceProj.id}::${relPath}`;
+          cacheMountedBlobUrl(cacheKey, blobUrl);
+          _playableUrlRamCache.set(zipRef, blobUrl);
+          _playableUrlRamCache.set(rawRef, blobUrl);
+          if (hashKey) {
+            _playableUrlRamCache.set(`/api/workshop/asset/${hashKey}`, blobUrl);
+          }
+
+          refToZipAssetMap.set(rawRef, zipRef);
+          return zipRef;
+        };
+
+        const modTitle = String(sourceProj.title || '工坊模组').trim();
+        const packedChars = [];
+        for (const rc of (sourceProj.characters || [])) {
+          if (!rc || rc.id === 'narrator_kp' || rc.name === '旁白') continue;
+          const cCopy = JSON.parse(JSON.stringify(rc));
+          let cleanName = String(cCopy.name || '').trim();
+          if (modTitle && cleanName.endsWith(' ' + modTitle)) {
+            cleanName = cleanName.slice(0, -(' ' + modTitle).length).trim();
+          }
+          cleanName = cleanName.replace(/\s+\d+$/, '').trim();
+          cCopy.name = cleanName || cCopy.name;
+          if (cCopy.profileAvatar) cCopy.profileAvatar = await packRefIntoZip(cCopy.profileAvatar, 'png');
+          if (cCopy.stageBustAvatar) cCopy.stageBustAvatar = await packRefIntoZip(cCopy.stageBustAvatar, 'png');
+          if (cCopy.tachieBase) cCopy.tachieBase = await packRefIntoZip(cCopy.tachieBase, 'png');
+          if (cCopy.chibiImg) cCopy.chibiImg = await packRefIntoZip(cCopy.chibiImg, 'png');
+          if (cCopy.tachieExpressions && typeof cCopy.tachieExpressions === 'object') {
+            for (const [k, v] of Object.entries(cCopy.tachieExpressions)) {
+              if (v) cCopy.tachieExpressions[k] = await packRefIntoZip(v, 'png');
+            }
+          }
+          if (!cCopy.tachieBase && cCopy.tachieExpressions && Object.keys(cCopy.tachieExpressions).length > 0) {
+            cCopy.tachieBase = cCopy.tachieExpressions['默认'] || Object.values(cCopy.tachieExpressions)[0];
+          }
+          if (cCopy.tachieBase && (!cCopy.tachieExpressions || !cCopy.tachieExpressions['默认'])) {
+            if (!cCopy.tachieExpressions) cCopy.tachieExpressions = {};
+            cCopy.tachieExpressions['默认'] = cCopy.tachieBase;
+          }
+          packedChars.push(cCopy);
+        }
+
+        const packedGlobalScenes = [];
+        for (const gsc of (sourceProj.globalScenes || [])) {
+          if (!gsc) continue;
+          const gCopy = JSON.parse(JSON.stringify(gsc));
+          if (gCopy.imageUrl) gCopy.imageUrl = await packRefIntoZip(gCopy.imageUrl, 'png');
+          packedGlobalScenes.push(gCopy);
+        }
+
+        const ttsCacheList = [];
+        const ttsLookup = new Map();
+        const seenTtsIds = new Set();
+
+        const packTtsRecord = async (rec) => {
+          if (!rec || !rec.id || seenTtsIds.has(rec.id)) return;
+          const rawAudio = rec.audioDataUrl || rec.audioData || '';
+          if (!rawAudio) return;
+          seenTtsIds.add(rec.id);
+          const zipAudioRef = await packRefIntoZip(rawAudio, 'mp3');
+          const playBlobUrl = _playableUrlRamCache.get(zipAudioRef) || _playableUrlRamCache.get(rawAudio) || zipAudioRef;
+          ttsLookup.set(rec.id, playBlobUrl);
+          if (playBlobUrl && String(playBlobUrl).startsWith('blob:')) {
+            _theaterTtsRamCache.set(rec.id, { src: zipAudioRef, blobUrl: playBlobUrl });
+          }
+          if (typeof registerTtsItemInFastIndex === 'function') {
+            registerTtsItemInFastIndex({
+              id: rec.id,
+              speaker: rec.speaker || '',
+              text: rec.text || '',
+              audioDataUrl: playBlobUrl
+            });
+          }
+          ttsCacheList.push({
+            id: rec.id,
+            speaker: rec.speaker || '',
+            text: rec.text || '',
+            audioDataUrl: zipAudioRef
+          });
+        };
+
+        const packedChapters = [];
+        for (let idx = 0; idx < targetChaps.length; idx++) {
+          const ch = JSON.parse(JSON.stringify(targetChaps[idx]));
+          for (const sc of (ch.scenes || [])) {
+            if (sc && sc.imageUrl) sc.imageUrl = await packRefIntoZip(sc.imageUrl, 'png');
+          }
+          for (const cg of (ch.cgNodes || [])) {
+            if (cg && cg.imageUrl) cg.imageUrl = await packRefIntoZip(cg.imageUrl, 'png');
+            if (cg && cg.customPadImg) cg.customPadImg = await packRefIntoZip(cg.customPadImg, 'png');
+          }
+          for (const cl of (ch.clueNodes || [])) {
+            if (cl && cl.imageUrl) cl.imageUrl = await packRefIntoZip(cl.imageUrl, 'png');
+          }
+          const ord = Number(ch.order ?? idx);
+          const ttsKey = String(ch.id || `chap_${ord}`);
+          const chapTts = (sourceProj.ttsByChapter && sourceProj.ttsByChapter[ttsKey]) || [];
+          for (const rec of chapTts) {
+            await packTtsRecord(rec);
+          }
+          syncChapterCgLineBindings(ch);
+          syncChapterClueLineBindings(ch);
+          if (Array.isArray(ch.scriptLines)) {
+            computeChapterStageSlots(ch.scriptLines);
+          }
+          packedChapters.push(ch);
+        }
+
+        const packedSubGroups = [];
+        for (let sgIdx = 0; sgIdx < (sourceProj.subGroups || []).length; sgIdx++) {
+          const sg = JSON.parse(JSON.stringify(sourceProj.subGroups[sgIdx]));
+          if (!sg) continue;
+          for (const sc of (sg.scenes || [])) {
+            if (sc && sc.imageUrl) sc.imageUrl = await packRefIntoZip(sc.imageUrl, 'png');
+          }
+          for (const cg of (sg.cgNodes || [])) {
+            if (cg && cg.imageUrl) cg.imageUrl = await packRefIntoZip(cg.imageUrl, 'png');
+            if (cg && cg.customPadImg) cg.customPadImg = await packRefIntoZip(cg.customPadImg, 'png');
+          }
+          for (const cl of (sg.clueNodes || [])) {
+            if (cl && cl.imageUrl) cl.imageUrl = await packRefIntoZip(cl.imageUrl, 'png');
+          }
+          const sgId = sg.id || `sg_${sgIdx}`;
+          const sgTts = (sourceProj.ttsByChapter && sourceProj.ttsByChapter[String(sgId)]) || [];
+          for (const rec of sgTts) {
+            await packTtsRecord(rec);
+          }
+          syncChapterCgLineBindings(sg);
+          syncChapterClueLineBindings(sg);
+          if (Array.isArray(sg.scriptLines)) {
+            computeChapterStageSlots(sg.scriptLines);
+          }
+          packedSubGroups.push(sg);
+        }
+
+        const packedBgmTracks = [];
+        for (const bt of (sourceProj.bgmTracks || [])) {
+          if (!bt) continue;
+          const btCopy = JSON.parse(JSON.stringify(bt));
+          if (btCopy.url) btCopy.url = await packRefIntoZip(btCopy.url, 'mp3');
+          packedBgmTracks.push(btCopy);
+        }
+
+        const zipAvatarUrl = sourceProj.avatarUrl ? await packRefIntoZip(sourceProj.avatarUrl, 'jpg') : '';
+        const zipProj = {
+          id: sourceProj.id,
+          title: modTitle,
+          avatarUrl: zipAvatarUrl,
+          uiTheme: sourceProj.uiTheme || 'ark_grad',
+          stageStylePreset: sourceProj.uiTheme || 'ark_grad',
+          globalScenes: packedGlobalScenes,
+          extractedSpeakers: sourceProj.extractedSpeakers || [],
+          subGroups: packedSubGroups,
+          chapters: packedChapters,
+          updatedAt: sourceProj.updatedAt || Date.now()
+        };
+
+        const manifestObj = {
+          version: 2,
+          exportedAt: Date.now(),
+          project: zipProj,
+          characters: packedChars,
+          bgmTracks: packedBgmTracks,
+          ttsCache: ttsCacheList
+        };
+        zip.file('manifest.json', JSON.stringify(manifestObj));
+
+        setZipProg(92, '正在生成本地免安装压缩包文件...');
+        const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+        const safeTitle = modTitle.replace(/[\\/:*?"<>|]/g, '_');
+        const chapSuffix = onlyChapterOrder >= 0 && packedChapters[0]
+          ? `_${String(packedChapters[0].title || ('第' + (onlyChapterOrder + 1) + '章')).replace(/[\\/:*?"<>|]/g, '_')}`
+          : '';
+        const dlFileName = `${safeTitle}${chapSuffix}.zip`;
+
+        const dlUrl = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = dlUrl;
+        a.download = dlFileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => {
+          try { URL.revokeObjectURL(dlUrl); } catch (_) {}
+        }, 15000);
+
+        // 同时将该压缩包直接挂载到当前浏览器本地高速池，点击观看即刻零延迟播放
+        _mountedExternalProjects.set(zipProj.id, {
+          mode: 'zip',
+          project: zipProj,
+          characters: packedChars,
+          bgmTracks: packedBgmTracks,
+          ttsLookup,
+          zip,
+          assetHashes: new Map(),
+          syncedAt: zipProj.updatedAt || Date.now()
+        });
+
+        appState.currentReplayProjectId = zipProj.id;
+        appState.currentReplayChapterIdx = 0;
+        appState.theaterLineIdx = 0;
+        appState.theaterPureStageMode = true;
+        appState.theaterEditMode = false;
+        renderReplayWorkshopList();
+        renderTheaterSelectorLobby();
+
+        setZipProg(100, `已导出压缩包「${dlFileName}」并挂载至本机，现在点击观看即可零延迟流畅播放`);
+        setTimeout(() => {
+          if (progWrap) progWrap.style.display = 'none';
+        }, 2200);
+      } catch (err) {
+        alert('打包下载压缩包失败：' + err.message);
+      } finally {
+        if (btn) { btn.textContent = '压缩'; btn.disabled = false; }
+      }
+    }
+
+    // 舞台「本地」按钮：直接读取手机或电脑本地文件夹里的 .zip 模组包并在内存高速池预热全部立绘场景与语音，零延迟流畅播放
     async function mountLocalZipPackForTheater(event) {
       const file = event.target?.files?.[0];
       if (!file) return;
       try {
         unlockBgmAudioPlayerOnUserGesture();
+        if (typeof ensureSharedTheaterVoicePlayerUnlocked === 'function') {
+          ensureSharedTheaterVoicePlayerUnlocked();
+        }
         const isZip = file.name.toLowerCase().endsWith('.zip');
         if (isZip && typeof JSZip !== 'undefined') {
           const zip = await JSZip.loadAsync(file);
@@ -29912,17 +30505,71 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           const pack = JSON.parse(await manifestFile.async('string'));
           const proj = pack.project;
           if (!proj || !proj.id) throw new Error('压缩包内未找到有效的模组工程');
-          (proj.chapters || []).forEach((ch) => {
-            syncChapterCgLineBindings(ch);
-            syncChapterClueLineBindings(ch);
-          });
+
+          // 预先将压缩包内的图片与音频全部解压为高速内存 Blob 地址，彻底消除播放途中的解压顿挫
+          const zipFileEntries = Object.keys(zip.files || {}).filter((rel) => rel && !zip.files[rel].dir && rel !== 'manifest.json');
+          for (const relPath of zipFileEntries) {
+            const zf = zip.file(relPath);
+            if (!zf) continue;
+            const uint8 = await zf.async('uint8array');
+            const ext = relPath.split('.').pop().toLowerCase();
+            const mime = ext === 'mp3'
+              ? 'audio/mpeg'
+              : (ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : (ext === 'webp' ? 'image/webp' : 'image/png'));
+            const blob = new Blob([uint8], { type: mime });
+            const bUrl = URL.createObjectURL(blob);
+            const zipRef = `__ZIP_ASSET__:${relPath}`;
+            const cacheKey = `${proj.id}::${relPath}`;
+            cacheMountedBlobUrl(cacheKey, bUrl);
+            _playableUrlRamCache.set(zipRef, bUrl);
+          }
+
+          const modTitle = String(proj.title || '').trim();
+          const normChars = (Array.isArray(pack.characters) ? pack.characters : []).map((rc) => {
+            if (!rc) return null;
+            let cleanName = String(rc.name || '').trim();
+            if (modTitle && cleanName.endsWith(' ' + modTitle)) {
+              cleanName = cleanName.slice(0, -(' ' + modTitle).length).trim();
+            }
+            cleanName = cleanName.replace(/\s+\d+$/, '').trim();
+            rc.name = cleanName || rc.name;
+            if (!rc.tachieBase && rc.tachieExpressions && Object.keys(rc.tachieExpressions).length > 0) {
+              rc.tachieBase = rc.tachieExpressions['默认'] || Object.values(rc.tachieExpressions)[0];
+            }
+            if (rc.tachieBase && (!rc.tachieExpressions || !rc.tachieExpressions['默认'])) {
+              if (!rc.tachieExpressions) rc.tachieExpressions = {};
+              rc.tachieExpressions['默认'] = rc.tachieBase;
+            }
+            return rc;
+          }).filter(Boolean);
 
           const ttsLookup = new Map();
-          (pack.ttsCache || []).forEach((item) => {
-            if (item && item.id && (item.audioDataUrl || item.audioData)) {
-              ttsLookup.set(item.id, item.audioDataUrl || item.audioData);
+          const registerZipTtsItem = (item) => {
+            if (!item || !item.id) return;
+            const rawAudio = item.audioDataUrl || item.audioData || '';
+            if (!rawAudio) return;
+            const resolvedBlobUrl = _playableUrlRamCache.get(rawAudio) || rawAudio;
+            ttsLookup.set(item.id, resolvedBlobUrl);
+            if (resolvedBlobUrl && String(resolvedBlobUrl).startsWith('blob:')) {
+              _theaterTtsRamCache.set(item.id, { src: rawAudio, blobUrl: resolvedBlobUrl });
             }
-          });
+            if (typeof registerTtsItemInFastIndex === 'function') {
+              registerTtsItemInFastIndex({
+                id: item.id,
+                speaker: item.speaker || '',
+                text: item.text || '',
+                audioDataUrl: resolvedBlobUrl
+              });
+            }
+          };
+
+          (pack.ttsCache || []).forEach(registerZipTtsItem);
+          if (proj.ttsByChapter && typeof proj.ttsByChapter === 'object') {
+            Object.values(proj.ttsByChapter).forEach((arr) => {
+              if (Array.isArray(arr)) arr.forEach(registerZipTtsItem);
+            });
+          }
+
           const assetHashes = new Map();
           if (pack.assetHashes && typeof pack.assetHashes === 'object') {
             Object.entries(pack.assetHashes).forEach(([k, v]) => assetHashes.set(k, v));
@@ -29931,7 +30578,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           _mountedExternalProjects.set(proj.id, {
             mode: 'zip',
             project: proj,
-            characters: Array.isArray(pack.characters) ? pack.characters : [],
+            characters: normChars,
             bgmTracks: Array.isArray(pack.bgmTracks) ? pack.bgmTracks : [],
             ttsLookup,
             zip,
@@ -29940,6 +30587,21 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           });
 
           appState.currentReplayProjectId = proj.id;
+          (proj.chapters || []).forEach((ch) => {
+            syncChapterCgLineBindings(ch);
+            syncChapterClueLineBindings(ch);
+            if (Array.isArray(ch.scriptLines)) {
+              computeChapterStageSlots(ch.scriptLines);
+            }
+          });
+          (proj.subGroups || []).forEach((sg) => {
+            syncChapterCgLineBindings(sg);
+            syncChapterClueLineBindings(sg);
+            if (Array.isArray(sg.scriptLines)) {
+              computeChapterStageSlots(sg.scriptLines);
+            }
+          });
+
           appState.currentReplayChapterIdx = 0;
           appState.theaterLineIdx = 0;
           appState.theaterPureStageMode = true;
@@ -29952,14 +30614,23 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           const pack = JSON.parse(text);
           const proj = pack.project;
           if (!proj || !proj.id) throw new Error('未找到有效的模组数据');
-          (proj.chapters || []).forEach((ch) => {
-            syncChapterCgLineBindings(ch);
-            syncChapterClueLineBindings(ch);
-          });
           const ttsLookup = new Map();
           (pack.ttsCache || []).forEach((item) => {
             if (item && item.id && (item.audioDataUrl || item.audioData)) {
-              ttsLookup.set(item.id, item.audioDataUrl || item.audioData);
+              const rawAudio = item.audioDataUrl || item.audioData;
+              const fastAudio = toFastDisplayUrl(rawAudio);
+              ttsLookup.set(item.id, fastAudio || rawAudio);
+              if (fastAudio && String(fastAudio).startsWith('blob:')) {
+                _theaterTtsRamCache.set(item.id, { src: rawAudio, blobUrl: fastAudio });
+              }
+              if (typeof registerTtsItemInFastIndex === 'function') {
+                registerTtsItemInFastIndex({
+                  id: item.id,
+                  speaker: item.speaker || '',
+                  text: item.text || '',
+                  audioDataUrl: fastAudio || rawAudio
+                });
+              }
             }
           });
           _mountedExternalProjects.set(proj.id, {
@@ -29973,6 +30644,13 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             syncedAt: proj.updatedAt || Date.now()
           });
           appState.currentReplayProjectId = proj.id;
+          (proj.chapters || []).forEach((ch) => {
+            syncChapterCgLineBindings(ch);
+            syncChapterClueLineBindings(ch);
+            if (Array.isArray(ch.scriptLines)) {
+              computeChapterStageSlots(ch.scriptLines);
+            }
+          });
           appState.currentReplayChapterIdx = 0;
           appState.theaterLineIdx = 0;
           appState.theaterPureStageMode = true;
@@ -29990,16 +30668,33 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
     async function openWorkshopModuleInTheater(projectId, chapterOrder = 0) {
       unlockBgmAudioPlayerOnUserGesture();
-      const localProj = (appState.replayProjects || []).find((p) => p.id === projectId);
-      if (localProj) {
-        // 作者本人或本地已有该模组：直接打开，绝不重复下载
-        appState.currentReplayProjectId = localProj.id;
-        const foundIdx = (localProj.chapters || []).findIndex((c, idx) => Number(c.order ?? idx) === Number(chapterOrder));
-        appState.currentReplayChapterIdx = foundIdx >= 0 ? foundIdx : 0;
-        openTheaterForCurrentChapter();
-        return;
+      if (typeof ensureSharedTheaterVoicePlayerUnlocked === 'function') {
+        ensureSharedTheaterVoicePlayerUnlocked();
       }
-      // 朋友点击观看：直接开启零内存占用的在线流式阅读
+      // 1. 若已通过压缩包挂载在本机内存，点击观看直接零延迟打开本地压缩包内容
+      const mountedBundle = typeof _mountedExternalProjects !== 'undefined' ? _mountedExternalProjects.get(projectId) : null;
+      if (mountedBundle && (mountedBundle.mode === 'zip' || mountedBundle.mode === 'json') && mountedBundle.project) {
+        const mProj = mountedBundle.project;
+        const foundMountedIdx = (mProj.chapters || []).findIndex((c, idx) => Number(c.order ?? idx) === Number(chapterOrder));
+        if (foundMountedIdx >= 0 || (mProj.chapters || []).length === 1) {
+          appState.currentReplayProjectId = mProj.id;
+          appState.currentReplayChapterIdx = foundMountedIdx >= 0 ? foundMountedIdx : 0;
+          openTheaterForCurrentChapter();
+          return;
+        }
+      }
+      // 2. 若已下载保存在本机数据库，点击观看直接打开本机已下载的章节，绝不重复联网下载
+      const localProj = (appState.replayProjects || []).find((p) => p && p.id === projectId && Array.isArray(p.chapters) && p.chapters.length > 0);
+      if (localProj) {
+        const foundIdx = (localProj.chapters || []).findIndex((c, idx) => Number(c.order ?? idx) === Number(chapterOrder));
+        if (foundIdx >= 0) {
+          appState.currentReplayProjectId = localProj.id;
+          appState.currentReplayChapterIdx = foundIdx;
+          openTheaterForCurrentChapter();
+          return;
+        }
+      }
+      // 3. 本地未下载时，开启多线程预热的在线流式观看
       await openWorkshopOnlineStream(projectId, chapterOrder);
     }
 
@@ -33725,7 +34420,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           if (!actorDiv) {
             actorDiv = document.createElement('div');
             actorDiv.setAttribute('data-actor-key', spec.key);
-            actorDiv.innerHTML = `<div class="vn-actor-sticker-slot"></div><img decoding="sync" style="height:100%;width:auto;max-width:none;margin:0 auto;align-self:center;" />`;
+            actorDiv.innerHTML = `<div class="vn-actor-sticker-slot"></div><img decoding="sync" style="display:block;position:absolute;bottom:0;left:50%;transform:translateX(-50%);height:100%;width:auto;max-width:none;margin:0;" />`;
           } else {
             existingMap.delete(spec.key);
           }
@@ -33747,7 +34442,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           if (!imgEl) {
             imgEl = document.createElement('img');
             imgEl.setAttribute('decoding', 'sync');
-            imgEl.style.cssText = 'height:100%;width:auto;max-width:none;margin:0 auto;align-self:center;';
+            imgEl.style.cssText = 'display:block;position:absolute;bottom:0;left:50%;transform:translateX(-50%);height:100%;width:auto;max-width:none;margin:0;';
             actorDiv.appendChild(imgEl);
           }
           imgEl.alt = spec.charName;
@@ -33757,6 +34452,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           if (spec.syncCropped) {
             setActorSpriteWithoutWhiteFlash(imgEl, spec.syncCropped);
           } else if (spec.syncPlayable) {
+            if (!imgEl.getAttribute('src')) {
+              setActorSpriteWithoutWhiteFlash(imgEl, spec.syncPlayable);
+            }
             getCroppedSpriteForHeightStage(spec.syncPlayable).then((croppedUrl) => {
               const finalUrl = croppedUrl || spec.syncPlayable;
               if (finalUrl) {
@@ -33775,6 +34473,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               if (cachedCrop) {
                 setActorSpriteWithoutWhiteFlash(imgEl, cachedCrop);
                 return;
+              }
+              if (!imgEl.getAttribute('src')) {
+                setActorSpriteWithoutWhiteFlash(imgEl, resolvedPlayable);
               }
               getCroppedSpriteForHeightStage(resolvedPlayable).then((croppedUrl) => {
                 const finalUrl = croppedUrl || resolvedPlayable;
