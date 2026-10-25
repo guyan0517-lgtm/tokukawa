@@ -2879,15 +2879,14 @@
 
       <div id="replay-sub-workshop" class="app-subpage active">
         <div class="moe-card">
-          <div class="moe-card-header">
+          <div class="moe-card-header" style="margin-bottom:8px;">
             <span class="moe-card-title">一、 我的模组增量去重上传</span>
-            <div style="display:flex;gap:6px;">
-              <button type="button" class="moe-btn secondary" onclick="toggleWorkshopSyncConfigBox()">配置</button>
-              <button type="button" class="moe-btn secondary" onclick="openWorkshopRestoreModal()">恢复</button>
-              <button type="button" class="moe-btn secondary" onclick="exportCurrentProjectWorkshopZip()">导出</button>
-              <button type="button" class="moe-btn secondary" onclick="document.getElementById('theater-mount-local-pack-input').click()">本地</button>
-              <button type="button" class="moe-btn" id="workshop-upload-chap-btn" onclick="uploadReplayChapterToWorkshop()">上传</button>
-            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4, minmax(0, 1fr));gap:6px;margin-bottom:10px;">
+            <button type="button" class="moe-btn secondary" style="width:100%;justify-content:center;" onclick="toggleWorkshopSyncConfigBox()">配置</button>
+            <button type="button" class="moe-btn secondary" style="width:100%;justify-content:center;" onclick="openWorkshopRestoreModal()">恢复</button>
+            <button type="button" class="moe-btn secondary" style="width:100%;justify-content:center;" onclick="document.getElementById('theater-mount-local-pack-input').click()">本地</button>
+            <button type="button" class="moe-btn" id="workshop-upload-chap-btn" style="width:100%;justify-content:center;" onclick="uploadReplayChapterToWorkshop()">上传</button>
           </div>
           <div id="workshop-sync-config-box" style="display:none;margin-bottom:8px;padding:10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
@@ -27302,6 +27301,21 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             }
           } catch (_) {}
         }
+        if (rel) {
+          const curProj = typeof getCurrentReplayProject === 'function' ? getCurrentReplayProject() : null;
+          if (curProj && curProj.assetPackIndex && typeof registerRemoteProjectPackIndex === 'function') {
+            registerRemoteProjectPackIndex(curProj);
+          }
+          const fallbackHash = (curProj && curProj.relPathToWorkshopHash && curProj.relPathToWorkshopHash[rel]) || '';
+          if (fallbackHash) {
+            const wsResolved = await resolveTheaterPlayableUrl(`/api/workshop/asset/${fallbackHash}`, fallbackMime);
+            if (wsResolved && wsResolved.startsWith('blob:')) {
+              if (typeof _localRelToBlobCache !== 'undefined') _localRelToBlobCache.set(rel, wsResolved);
+              _playableUrlRamCache.set(rawUrl, wsResolved);
+              return wsResolved;
+            }
+          }
+        }
         if (encodedRel) {
           return isLocalBridgeEnabled() && (rawUrl.includes(':8765/') || _termuxBridgeOnlineState)
             ? `${baseUrl}/${encodedRel}`
@@ -27584,85 +27598,57 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           ? _localWorkshopAssetUrlMap.get(rawAvatar)
           : rawAvatar;
         const avatarSrc = mappedAvatar && mappedAvatar.startsWith('/api/workshop/asset/')
-          ? resolveBackendApiUrl(mappedAvatar)
+          ? (_playableUrlRamCache.get(mappedAvatar) || '')
           : toFastDisplayUrl(mappedAvatar);
         const chapsMeta = Array.isArray(item.chaptersMeta) ? item.chaptersMeta : [];
-
-        const chapRowsHtml = chapsMeta.length > 0
-          ? chapsMeta.map((cm, idx) => {
-              const cOrder = Number(cm.order ?? idx);
-              const lineCnt = Number(cm.lineCount || 0);
-              const cgCnt = Number(cm.cgCount || 0);
-              const clueCnt = Number(cm.clueCount || 0);
-              const metaParts = [`共 ${lineCnt} 句`];
-              if (cgCnt > 0) metaParts.push(`插图 ${cgCnt}`);
-              if (clueCnt > 0) metaParts.push(`线索 ${clueCnt}`);
-              metaParts.push(`第 ${cm.version || 1} 版`);
-              const chapRightBtns = isLocalOwner
-                ? `<button type="button" class="moe-btn secondary" onclick="downloadOrUpdateWorkshopProject('${item.id}', ${cOrder})">单章</button>
-                   <button type="button" class="moe-btn" onclick="openWorkshopModuleInTheater('${item.id}', ${cOrder})">观看</button>`
-                : `<button type="button" class="moe-btn secondary" onclick="downloadOrUpdateWorkshopProject('${item.id}', ${cOrder})">单章</button>
-                   <button type="button" class="moe-btn" onclick="openWorkshopOnlineStream('${item.id}', ${cOrder})">在线</button>`;
-              return `
-                <div class="setting-item" style="padding:7px 10px;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:8px;">
-                  <div class="setting-item-left" style="font-size:11px;font-weight:800;color:var(--accent-color);width:42px;flex-shrink:0;">第${idx + 1}章</div>
-                  <div class="setting-item-center" style="min-width:0;">
-                    <div class="setting-item-title" style="font-size:12px;">${cm.title || ('第' + (idx + 1) + '章')}</div>
-                    <div class="setting-item-sub" style="font-size:10px;">${metaParts.join(' · ')}</div>
-                  </div>
-                  <div class="setting-item-right" style="display:flex;gap:6px;flex-shrink:0;">
-                    ${chapRightBtns}
-                  </div>
-                </div>
-              `;
-            }).join('')
-          : '<div style="font-size:11px;color:var(--text-secondary);padding:6px 0;">暂无章节明细</div>';
-
-        const topActionBtnsHtml = isLocalOwner
-          ? `<button type="button" class="moe-btn secondary" onclick="openWorkshopRestoreModal('${item.id}')">恢复</button>
-             <button type="button" class="moe-btn secondary" id="workshop-dl-btn-${item.id}" onclick="downloadOrUpdateWorkshopProject('${item.id}', -1)">下载</button>
-             <button type="button" class="moe-btn" onclick="openWorkshopModuleInTheater('${item.id}', 0)">观看</button>`
-          : `<button type="button" class="moe-btn secondary" onclick="openWorkshopRestoreModal('${item.id}')">恢复</button>
-             <button type="button" class="moe-btn secondary" id="workshop-dl-btn-${item.id}" onclick="downloadOrUpdateWorkshopProject('${item.id}', -1)">${hasNewUpdateForMounted ? '追更' : '下载'}</button>
-             <button type="button" class="moe-btn" onclick="openWorkshopOnlineStream('${item.id}', 0)">在线</button>`;
 
         const card = document.createElement('div');
         card.className = 'setting-item';
         card.style.flexDirection = 'column';
         card.style.alignItems = 'stretch';
-        card.style.gap = '8px';
+        card.style.gap = '10px';
         card.style.padding = '12px';
         card.innerHTML = `
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div style="display:flex;align-items:flex-start;gap:12px;">
             <div style="width:52px;height:52px;border-radius:12px;border:1px solid var(--border-color);background:var(--secondary-bg);overflow:hidden;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
               ${avatarSrc
-                ? `<img src="${avatarSrc}" alt="模组封面" style="width:100%;height:100%;object-fit:cover;display:block;" />`
-                : `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent-color);"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`
+                ? `<img class="ws-mod-avatar-img" src="${avatarSrc}" alt="模组封面" style="width:100%;height:100%;object-fit:cover;display:block;" />`
+                : `<img class="ws-mod-avatar-img" alt="模组封面" style="width:100%;height:100%;object-fit:cover;display:none;" /><svg class="ws-mod-avatar-svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent-color);"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`
               }
             </div>
-            <div class="setting-item-center" style="min-width:0;flex:1;">
-              <div class="setting-item-title" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:14px;">
+            <div style="min-width:0;flex:1;">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;font-weight:800;color:var(--text-primary);line-height:1.4;">
                 <span>${item.title || '未命名模组'}</span>
                 <span style="font-size:11px;color:var(--accent-color);font-weight:700;">作者：${item.author || '跑团KP'}</span>
-                ${isLocalOwner ? '<span style="font-size:10px;color:var(--text-secondary);">本机已有</span>' : ''}
+                ${isLocalOwner ? '<span style="font-size:10px;color:var(--text-secondary);font-weight:600;">本机已有</span>' : ''}
               </div>
-              <div class="setting-item-sub" style="white-space:normal;margin-top:2px;">
+              <div style="font-size:11px;color:var(--text-secondary);line-height:1.5;margin-top:3px;word-break:break-word;">
                 共 ${item.chapterCount || chapsMeta.length || 0} 章${sizeStr ? (' · 素材包 ' + sizeStr) : ''}${timeStr ? (' · 更新于 ' + timeStr) : ''}
               </div>
-              <div class="setting-item-sub" style="white-space:normal;margin-top:2px;color:var(--text-primary);">
+              <div style="font-size:12px;color:var(--text-primary);line-height:1.5;margin-top:4px;word-break:break-word;">
                 ${item.desc || '包含全套角色立绘、场所地图、剧情插图、道具线索、背景音乐与角色配音'}
               </div>
             </div>
-            <div class="setting-item-right" style="display:flex;gap:6px;flex-shrink:0;">
-              ${topActionBtnsHtml}
-            </div>
           </div>
-          <div style="display:flex;flex-direction:column;gap:6px;padding-top:6px;border-top:1px solid var(--border-color);">
-            <div style="font-size:11px;font-weight:800;color:var(--text-secondary);">模组章节列表 共 ${chapsMeta.length} 章：</div>
-            ${chapRowsHtml}
+          <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:8px;padding-top:8px;border-top:1px solid var(--border-color);">
+            <button type="button" class="moe-btn secondary" id="workshop-dl-btn-${item.id}" style="width:100%;justify-content:center;" onclick="downloadOrUpdateWorkshopProject('${item.id}', -1)">下载</button>
+            <button type="button" class="moe-btn" id="workshop-watch-btn-${item.id}" style="width:100%;justify-content:center;" onclick="openWorkshopModuleInTheater('${item.id}', 0)">观看</button>
           </div>
         `;
         box.appendChild(card);
+
+        if (!avatarSrc && mappedAvatar && mappedAvatar.startsWith('/api/workshop/asset/')) {
+          resolveTheaterPlayableUrl(mappedAvatar, 'image/jpeg').then((resolvedAv) => {
+            if (!resolvedAv || !card.isConnected) return;
+            const imgEl = card.querySelector('.ws-mod-avatar-img');
+            const svgEl = card.querySelector('.ws-mod-avatar-svg');
+            if (imgEl) {
+              imgEl.src = resolvedAv;
+              imgEl.style.display = 'block';
+            }
+            if (svgEl) svgEl.style.display = 'none';
+          }).catch(() => {});
+        }
       });
     }
 
@@ -28513,16 +28499,175 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       throw new Error('未找到该线上工坊模组数据');
     }
 
-    // 在线阅读：拉取轻量剧本清单并注册分包索引，在舞台按需流式解压加载
+    async function prewarmOnlineProjectChapterAssets(remoteProj, chapterIdx = 0, onProgress = null) {
+      if (!remoteProj || typeof remoteProj !== 'object') return;
+      registerRemoteProjectPackIndex(remoteProj);
+      const chaps = Array.isArray(remoteProj.chapters) ? remoteProj.chapters : [];
+      const targetChap = chaps[chapterIdx] || chaps[0];
+      const requiredHashes = new Set();
+      const collectHash = (ref) => {
+        if (ref && typeof ref === 'string' && ref.startsWith('/api/workshop/asset/')) {
+          const h = ref.replace('/api/workshop/asset/', '').split('?')[0].trim();
+          if (h) requiredHashes.add(h);
+        }
+      };
+
+      collectHash(remoteProj.avatarUrl);
+      (remoteProj.characters || []).forEach((c) => {
+        if (!c) return;
+        collectHash(c.profileAvatar);
+        collectHash(c.stageBustAvatar);
+        collectHash(c.tachieBase);
+        collectHash(c.chibiImg);
+        if (c.tachieExpressions && typeof c.tachieExpressions === 'object') {
+          Object.values(c.tachieExpressions).forEach(collectHash);
+        }
+      });
+      (remoteProj.globalScenes || []).forEach((g) => g && collectHash(g.imageUrl));
+
+      if (targetChap) {
+        (targetChap.scenes || []).forEach((s) => s && collectHash(s.imageUrl));
+        (targetChap.cgNodes || []).forEach((g) => {
+          if (!g) return;
+          collectHash(g.imageUrl);
+          collectHash(g.customPadImg);
+        });
+        (targetChap.clueNodes || []).forEach((cl) => cl && collectHash(cl.imageUrl));
+        const ord = Number(targetChap.order ?? chapterIdx);
+        const ttsKey = String(targetChap.id || `chap_${ord}`);
+        const chapTts = (remoteProj.ttsByChapter && remoteProj.ttsByChapter[ttsKey]) || [];
+        chapTts.forEach((rec) => rec && collectHash(rec.audioDataUrl || rec.audioData));
+      }
+
+      (remoteProj.subGroups || []).forEach((sg, sgIdx) => {
+        if (!sg) return;
+        (sg.scenes || []).forEach((s) => s && collectHash(s.imageUrl));
+        (sg.cgNodes || []).forEach((g) => {
+          if (!g) return;
+          collectHash(g.imageUrl);
+          collectHash(g.customPadImg);
+        });
+        (sg.clueNodes || []).forEach((cl) => cl && collectHash(cl.imageUrl));
+        const sgId = sg.id || `sg_${sgIdx}`;
+        const sgTts = (remoteProj.ttsByChapter && remoteProj.ttsByChapter[String(sgId)]) || [];
+        sgTts.forEach((rec) => rec && collectHash(rec.audioDataUrl || rec.audioData));
+      });
+
+      const missingToFetch = [];
+      for (const h of requiredHashes) {
+        const refKey = `/api/workshop/asset/${h}`;
+        if (_playableUrlRamCache.has(refKey)) continue;
+        const rawCached = _workshopRawDataUrlByHash.get(h) || _workshopRawDataUrlByHash.get(refKey);
+        if (rawCached && rawCached.startsWith('data:')) continue;
+        if (typeof _localWorkshopAssetUrlMap === 'object' && _localWorkshopAssetUrlMap.has(refKey)) {
+          const mapped = _localWorkshopAssetUrlMap.get(refKey);
+          if (mapped && mapped.startsWith('data:')) {
+            _workshopRawDataUrlByHash.set(h, mapped);
+            _workshopRawDataUrlByHash.set(refKey, mapped);
+            continue;
+          }
+        }
+        missingToFetch.push(h);
+      }
+
+      if (missingToFetch.length > 0) {
+        await fetchMissingWorkshopHashesFromAllChannels(missingToFetch, onProgress);
+      }
+
+      for (const h of requiredHashes) {
+        const refKey = `/api/workshop/asset/${h}`;
+        if (_playableUrlRamCache.has(refKey)) continue;
+        const rawData = _workshopRawDataUrlByHash.get(h) || _workshopRawDataUrlByHash.get(refKey)
+          || (typeof _localWorkshopAssetUrlMap === 'object' ? (_localWorkshopAssetUrlMap.get(refKey) || _localWorkshopAssetUrlMap.get(h)) : '');
+        if (rawData && rawData.startsWith('data:')) {
+          const fastBlob = toFastDisplayUrl(rawData);
+          if (fastBlob && fastBlob.startsWith('blob:')) {
+            _playableUrlRamCache.set(refKey, fastBlob);
+            _failedPlayableUrlMap.delete(refKey);
+          }
+        }
+      }
+
+      const mountedBundle = _mountedExternalProjects.get(remoteProj.id);
+      if (remoteProj.ttsByChapter && typeof remoteProj.ttsByChapter === 'object') {
+        Object.values(remoteProj.ttsByChapter).forEach((arr) => {
+          if (!Array.isArray(arr)) return;
+          arr.forEach((rec) => {
+            if (!rec || !rec.id) return;
+            const rawRef = rec.audioDataUrl || rec.audioData || '';
+            if (!rawRef) return;
+            const blobUrl = _playableUrlRamCache.get(rawRef) || (rawRef.startsWith('blob:') ? rawRef : '');
+            const finalAudioUrl = blobUrl || rawRef;
+            if (blobUrl) {
+              _theaterTtsRamCache.set(rec.id, { src: rawRef, blobUrl });
+            }
+            if (mountedBundle && mountedBundle.ttsLookup instanceof Map) {
+              mountedBundle.ttsLookup.set(rec.id, finalAudioUrl);
+            }
+            if (typeof registerTtsItemInFastIndex === 'function') {
+              registerTtsItemInFastIndex({
+                id: rec.id,
+                speaker: rec.speaker || '',
+                text: rec.text || '',
+                audioDataUrl: finalAudioUrl
+              });
+            }
+          });
+        });
+      }
+    }
+
+    // 在线阅读：预热当前章节立绘、背景、插图与配音至内存高速池，确保与本机完全一致的零延迟音画同步体验
     async function openWorkshopOnlineStream(projectId, chapterOrder = 0) {
       unlockBgmAudioPlayerOnUserGesture();
+      if (typeof ensureSharedTheaterVoicePlayerUnlocked === 'function') {
+        ensureSharedTheaterVoicePlayerUnlocked();
+      }
+      const watchBtn = document.getElementById(`workshop-watch-btn-${projectId}`);
+      if (watchBtn) { watchBtn.textContent = '加载中'; watchBtn.disabled = true; }
       const statusEl = document.getElementById('workshop-upload-status');
-      if (statusEl) statusEl.textContent = '正在连接线上工坊并开启按需流式阅读...';
+      const progWrap = document.getElementById('workshop-upload-progress-wrap');
+      const progBar = document.getElementById('workshop-upload-progress-bar');
+      const setStreamProg = (pct, msg) => {
+        if (progWrap) progWrap.style.display = 'block';
+        if (progBar) progBar.style.width = `${Math.max(5, Math.min(100, Math.round(pct)))}%`;
+        if (statusEl && msg) statusEl.textContent = msg;
+      };
+      setStreamProg(8, '正在连接线上工坊并同步模组剧本与角色配置...');
       try {
         const remoteProj = await fetchWorkshopFullProjectById(projectId);
         registerRemoteProjectPackIndex(remoteProj);
-        const chaps = Array.isArray(remoteProj.chapters) ? remoteProj.chapters : [];
+        const chaps = Array.isArray(remoteProj.chapters) ? JSON.parse(JSON.stringify(remoteProj.chapters)) : [];
         chaps.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
+        chaps.forEach((ch) => {
+          syncChapterCgLineBindings(ch);
+          syncChapterClueLineBindings(ch);
+        });
+
+        const subGroups = Array.isArray(remoteProj.subGroups) ? JSON.parse(JSON.stringify(remoteProj.subGroups)) : [];
+        subGroups.forEach((sg) => {
+          syncChapterCgLineBindings(sg);
+          syncChapterClueLineBindings(sg);
+        });
+
+        const modTitle = String(remoteProj.title || '').trim();
+        const normChars = (Array.isArray(remoteProj.characters) ? JSON.parse(JSON.stringify(remoteProj.characters)) : []).map((rc) => {
+          if (!rc) return null;
+          let cleanName = String(rc.name || '').trim();
+          if (modTitle && cleanName.endsWith(' ' + modTitle)) {
+            cleanName = cleanName.slice(0, -(' ' + modTitle).length).trim();
+          }
+          cleanName = cleanName.replace(/\s+\d+$/, '').trim();
+          rc.name = cleanName || rc.name;
+          if (!rc.tachieBase && rc.tachieExpressions && Object.keys(rc.tachieExpressions).length > 0) {
+            rc.tachieBase = rc.tachieExpressions['默认'] || Object.values(rc.tachieExpressions)[0];
+          }
+          if (rc.tachieBase && (!rc.tachieExpressions || !rc.tachieExpressions['默认'])) {
+            if (!rc.tachieExpressions) rc.tachieExpressions = {};
+            rc.tachieExpressions['默认'] = rc.tachieBase;
+          }
+          return rc;
+        }).filter(Boolean);
 
         const streamProj = {
           id: remoteProj.id,
@@ -28532,8 +28677,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           stageStylePreset: remoteProj.uiTheme || 'ark_grad',
           globalScenes: remoteProj.globalScenes || [],
           extractedSpeakers: remoteProj.extractedSpeakers || [],
-          subGroups: remoteProj.subGroups || [],
+          subGroups,
           chapters: chaps,
+          assetPackIndex: remoteProj.assetPackIndex || {},
+          _remoteProjRef: remoteProj,
           isOnlineStream: true
         };
 
@@ -28553,7 +28700,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         _mountedExternalProjects.set(streamProj.id, {
           mode: 'online',
           project: streamProj,
-          characters: Array.isArray(remoteProj.characters) ? remoteProj.characters : [],
+          characters: normChars,
           bgmTracks: Array.isArray(remoteProj.bgmTracks) ? remoteProj.bgmTracks : [],
           ttsLookup,
           zip: null,
@@ -28561,12 +28708,24 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           syncedAt: remoteProj.updatedAt || Date.now()
         });
 
-        appState.currentReplayProjectId = streamProj.id;
         const foundIdx = chaps.findIndex((c, idx) => Number(c.order ?? idx) === Number(chapterOrder));
-        appState.currentReplayChapterIdx = foundIdx >= 0 ? foundIdx : 0;
+        const targetIdx = foundIdx >= 0 ? foundIdx : 0;
+
+        setStreamProg(18, '正在预热本章节角色立绘、背景、插图与配音素材，确保音画完全同步...');
+        await prewarmOnlineProjectChapterAssets(remoteProj, targetIdx, setStreamProg);
+
+        setStreamProg(100, '素材预热完成，正在进入剧场舞台...');
+        setTimeout(() => {
+          if (progWrap) progWrap.style.display = 'none';
+        }, 1200);
+
+        appState.currentReplayProjectId = streamProj.id;
+        appState.currentReplayChapterIdx = targetIdx;
         openTheaterForCurrentChapter();
       } catch (err) {
         alert('开启在线阅读失败：' + err.message);
+      } finally {
+        if (watchBtn) { watchBtn.textContent = '观看'; watchBtn.disabled = false; }
       }
     }
 
@@ -29010,6 +29169,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       };
 
       let savedAssetCount = 0;
+      const relPathToWorkshopHash = {};
       const materializeWorkshopRefToLocalUrl = async (refOrUrl, relDiskPath) => {
         if (!refOrUrl || typeof refOrUrl !== 'string') return '';
         const cleanRel = String(relDiskPath || '').replace(/^\/+/, '').replace(/\.\./g, '_');
@@ -29021,6 +29181,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         let hash = '';
         if (refOrUrl.startsWith('/api/workshop/asset/')) {
           hash = refOrUrl.replace('/api/workshop/asset/', '').split('?')[0].trim();
+          if (hash && cleanRel) {
+            relPathToWorkshopHash[cleanRel] = hash;
+          }
           const rawData = _workshopRawDataUrlByHash.get(hash) || _workshopRawDataUrlByHash.get(refOrUrl);
           if (rawData && rawData.startsWith('data:')) {
             dataUrl = rawData;
@@ -29373,6 +29536,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               const safeKey = String(rec.id).replace(/[^a-zA-Z0-9_-]/g, '_');
               const localAudioUrl = await materializeWorkshopRefToLocalUrl(rec.audioDataUrl || rec.audioData, `audio/${safeKey}.mp3`);
               if (localAudioUrl && db && db.ttsCache) {
+                const fastAudioBlob = _playableUrlRamCache.get(localAudioUrl);
+                if (fastAudioBlob) {
+                  _theaterTtsRamCache.set(rec.id, { src: localAudioUrl, blobUrl: fastAudioBlob });
+                }
                 const ttsRow = {
                   id: rec.id,
                   speaker: rec.speaker || '',
@@ -29515,6 +29682,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                 const safeKey = String(rec.id).replace(/[^a-zA-Z0-9_-]/g, '_');
                 const localAudioUrl = await materializeWorkshopRefToLocalUrl(rec.audioDataUrl || rec.audioData, `audio/${safeKey}.mp3`);
                 if (localAudioUrl && db && db.ttsCache) {
+                  const fastAudioBlob = _playableUrlRamCache.get(localAudioUrl);
+                  if (fastAudioBlob) {
+                    _theaterTtsRamCache.set(rec.id, { src: localAudioUrl, blobUrl: fastAudioBlob });
+                  }
                   const ttsRow = {
                     id: rec.id,
                     speaker: rec.speaker || '',
@@ -29565,8 +29736,20 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
       await flushDiskBatch();
 
+      localProj.assetPackIndex = {
+        ...(localProj.assetPackIndex || {}),
+        ...(remoteProj.assetPackIndex || {})
+      };
+      localProj.relPathToWorkshopHash = {
+        ...(localProj.relPathToWorkshopHash || {}),
+        ...relPathToWorkshopHash
+      };
       localProj.updatedAt = Date.now();
       await db.replayProjects.put(localProj);
+
+      if (typeof _mountedExternalProjects !== 'undefined') {
+        _mountedExternalProjects.delete(localProj.id);
+      }
 
       // 删除默认空白占位模组，保证恢复的模组成为当前工程
       const allProjs = await db.replayProjects.toArray();
@@ -29612,10 +29795,14 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }, 2000);
     }
 
-    // 下载与恢复按钮统一入口：直接从云端恢复写入本机工程与本地磁盘目录，立即可用，不产生冗余缓存
+    // 下载与恢复按钮统一入口：直接从云端恢复写入本机工程与本地磁盘目录，并在剧场打开选集大厅立即观看
     async function downloadOrUpdateWorkshopProject(projectId, onlyChapterOrder = -1) {
+      unlockBgmAudioPlayerOnUserGesture();
+      if (typeof ensureSharedTheaterVoicePlayerUnlocked === 'function') {
+        ensureSharedTheaterVoicePlayerUnlocked();
+      }
       const btn = document.getElementById(`workshop-dl-btn-${projectId}`);
-      if (btn) { btn.textContent = '恢复中'; btn.disabled = true; }
+      if (btn) { btn.textContent = '下载中'; btn.disabled = true; }
       try {
         await restoreWorkshopProjectToLocalEngine(projectId, {
           restoreChapters: true,
@@ -29627,8 +29814,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           onlyMissing: false,
           onlyChapterOrder
         });
+        openTheaterStageSelectorLobby();
       } catch (err) {
-        alert('恢复工坊模组失败：' + err.message);
+        alert('下载工坊模组失败：' + err.message);
       } finally {
         if (btn) { btn.textContent = '下载'; btn.disabled = false; }
       }
@@ -32084,12 +32272,20 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       renderTheaterSelectorLobby();
     }
 
-    function selectTheaterLobbyChapterAndPlay(projId, chapIdx) {
+    async function selectTheaterLobbyChapterAndPlay(projId, chapIdx) {
       unlockBgmAudioPlayerOnUserGesture();
+      if (typeof ensureSharedTheaterVoicePlayerUnlocked === 'function') {
+        ensureSharedTheaterVoicePlayerUnlocked();
+      }
       stopTheaterAutoAndSkip();
       if (projId) appState.currentReplayProjectId = projId;
-      appState.currentReplayChapterIdx = Number(chapIdx) || 0;
+      const targetChapIdx = Number(chapIdx) || 0;
+      appState.currentReplayChapterIdx = targetChapIdx;
       appState.theaterLineIdx = 0;
+      const curProj = getCurrentReplayProject();
+      if (curProj && curProj.isOnlineStream && curProj._remoteProjRef && typeof prewarmOnlineProjectChapterAssets === 'function') {
+        await prewarmOnlineProjectChapterAssets(curProj._remoteProjRef, targetChapIdx);
+      }
       renderReplayProjectSelectors();
       closeTheaterSelectorLobby();
       const curChap = getCurrentReplayChapter();
@@ -33363,7 +33559,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
           const strRaw = String(rawSprite);
           let syncPlayable = _playableUrlRamCache.get(strRaw) || '';
-          if (!syncPlayable && (strRaw.startsWith('blob:') || strRaw.startsWith('http://') || strRaw.startsWith('https://') || strRaw.startsWith('/'))) {
+          if (!syncPlayable && !strRaw.startsWith('/api/workshop/asset/') && (strRaw.startsWith('blob:') || strRaw.startsWith('http://') || strRaw.startsWith('https://') || strRaw.startsWith('/'))) {
             syncPlayable = strRaw;
           } else if (!syncPlayable && strRaw.startsWith('data:')) {
             syncPlayable = toFastDisplayUrl(strRaw) || strRaw;
@@ -33602,7 +33798,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       ]);
     }
 
-    function nextTheaterLine() {
+    async function nextTheaterLine() {
       _lastTheaterLineAdvanceAt = Date.now();
       if (_theaterStepTimer) {
         clearTimeout(_theaterStepTimer);
@@ -33630,6 +33826,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         if (proj && nextChapIdx < totalChapters) {
           appState.currentReplayChapterIdx = nextChapIdx;
           appState.theaterLineIdx = 0;
+          if (proj.isOnlineStream && proj._remoteProjRef && typeof prewarmOnlineProjectChapterAssets === 'function') {
+            await prewarmOnlineProjectChapterAssets(proj._remoteProjRef, nextChapIdx);
+          }
           saveCurrentSessionNavState();
           renderReplayProjectSelectors();
           renderTheaterSelectorLobby();
