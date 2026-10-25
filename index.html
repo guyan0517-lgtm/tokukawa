@@ -6012,6 +6012,14 @@
         collectUrl(item.audioDataUrl, `audio/${safeId}.mp3`);
         activePaths.add(`tts/${safeId}.mp3`);
       });
+      const bgmList = await db.bgmTracks.toArray();
+      bgmList.forEach((t) => {
+        if (!t || !t.url) return;
+        const safeBgmId = String(t.id || 'bgm').replace(/[\\/:*?"<>|]/g, '_');
+        if (t.url.startsWith('data:') || t.url.includes('/local-assets/') || t.url.includes(':8765/')) {
+          collectUrl(t.url, `audio/bgm_${safeBgmId}.mp3`);
+        }
+      });
       if (typeof getCustomAppIconsConfig === 'function') {
         const iconCfg = getCustomAppIconsConfig() || {};
         Object.entries(iconCfg).forEach(([appKey, info]) => {
@@ -6079,16 +6087,6 @@
               await db.localAssetMirror.delete(row.path);
               dbCleanedCount += 1;
             }
-          }
-        }
-      } catch (_) {}
-
-      try {
-        if (db && db.workshopProjects) {
-          const wpCount = await db.workshopProjects.count();
-          if (wpCount > 0) {
-            await db.workshopProjects.clear();
-            dbCleanedCount += wpCount;
           }
         }
       } catch (_) {}
@@ -6746,6 +6744,21 @@
         const latestTts = await db.ttsCache.toArray();
         latestTts.forEach((it) => registerTtsItemInFastIndex(it));
       }
+
+      const bgmList = await db.bgmTracks.toArray();
+      for (const track of bgmList) {
+        if (!track || !track.url) continue;
+        if (isAssetNeedsLocalMigration(track.url, termuxOnline, baseUrl)) {
+          const safeBgmId = String(track.id || 'bgm').replace(/[\\/:*?"<>|]/g, '_');
+          const newBgmUrl = await saveAssetToLocalBridge(`audio/bgm_${safeBgmId}.mp3`, track.url, termuxOnline);
+          if (newBgmUrl && newBgmUrl !== track.url) {
+            track.url = newBgmUrl;
+            await db.bgmTracks.put(track);
+            count++;
+          }
+        }
+      }
+      appState.bgmTracks = await db.bgmTracks.toArray();
 
       try {
         if (db && db.localAssetMirror) {
@@ -11491,7 +11504,6 @@ ZH: 修改后的纯客观中文服装配饰清单`
           appState.tachieRawDataUrl = dataUrl;
           appState.tachieAlignedRawDataUrl = dataUrl;
           await db.characters.put(charObj);
-          cleanupUnusedAssetsUI(true).catch(() => {});
         }
 
         appState.selectedTachieExp = '默认';
@@ -11595,7 +11607,6 @@ ZH: 修改后的纯客观中文服装配饰清单`
           charObj.tachieExpressions[expName] = savedExpUrl;
           charObj.tachieRawExpressions[expName] = savedRawUrl;
           await db.characters.put(charObj);
-          cleanupUnusedAssetsUI(true).catch(() => {});
         }
         setTachieBrushMode('none');
         renderTachieActionPlanList();
@@ -11661,7 +11672,6 @@ ZH: 修改后的纯客观中文服装配饰清单`
             if (thumbEl) thumbEl.innerHTML = `<img src="${toFastDisplayUrl(savedLockUrl)}" style="width:100%;height:100%;object-fit:cover;" />`;
           }
           await db.characters.put(charObj);
-          cleanupUnusedAssetsUI(true).catch(() => {});
         }
         appState.selectedTachieExp = targetExp;
         setTachieBrushMode('none');
@@ -11819,7 +11829,6 @@ ZH: 修改后的纯客观中文服装配饰清单`
       }
 
       await db.characters.put(charObj);
-      cleanupUnusedAssetsUI(true).catch(() => {});
       renderTachieActionPlanList();
       renderTachieExpButtons();
       renderHeightStage();
@@ -20120,7 +20129,6 @@ SCENE_ITEM: 场景编号|2到5字简短场景名|NovelAI英文提示词|基底�
         });
       }
       await saveReplayProjectToDB(proj);
-      cleanupUnusedAssetsUI(true).catch(() => {});
       renderExtractedModuleScenesList();
       renderReplayCgStudio();
     }
@@ -26584,7 +26592,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       if (entry.isSubGroup) syncSubGroupCgLineBindings(targetHolder);
       else syncChapterCgLineBindings(chap);
       await saveReplayProjectToDB(proj);
-      cleanupUnusedAssetsUI(true).catch(() => {});
       renderReplayScriptEditor();
       renderReplayCgStudio();
       renderReplaySubGroupStudio();
@@ -28021,6 +28028,16 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           packedSubGroups.push(sgCopy);
         }
 
+        const packedBgmTracks = [];
+        for (const bt of (appState.bgmTracks || [])) {
+          if (!bt) continue;
+          const btCopy = { ...bt };
+          if (btCopy.url && (btCopy.url.startsWith('data:') || btCopy.url.includes('/local-assets/') || btCopy.url.includes(':8765/'))) {
+            btCopy.url = await registerAssetForDedup(btCopy.url, `音乐 · ${btCopy.name || btCopy.id || 'BGM'}`);
+          }
+          packedBgmTracks.push(btCopy);
+        }
+
         const allHashes = Array.from(assetMapByHash.keys());
         setProgress(16, `共扫描到 ${allHashes.length} 个立绘场景配音素材，正在比对去重并聚合打包...`);
 
@@ -28213,7 +28230,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           globalScenes: packedGlobalScenes,
           extractedSpeakers: proj.extractedSpeakers || [],
           characters: relatedChars,
-          bgmTracks: appState.bgmTracks || [],
+          bgmTracks: packedBgmTracks,
           subGroups: packedSubGroups,
           assetPackIndex: finalAssetPackIndex,
           mode: isFullModule ? 'full' : 'single',
@@ -28293,7 +28310,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           globalScenes: packedGlobalScenes,
           extractedSpeakers: proj.extractedSpeakers || [],
           characters: relatedChars,
-          bgmTracks: appState.bgmTracks || [],
+          bgmTracks: packedBgmTracks,
           subGroups: packedSubGroups,
           assetPackIndex: finalAssetPackIndex,
           chapters: finalChapters,
@@ -28524,6 +28541,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
       });
       (remoteProj.globalScenes || []).forEach((g) => g && collectHash(g.imageUrl));
+      (remoteProj.bgmTracks || []).forEach((bt) => bt && collectHash(bt.url));
 
       if (targetChap) {
         (targetChap.scenes || []).forEach((s) => s && collectHash(s.imageUrl));
@@ -29729,7 +29747,14 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
       if (opts.restoreBgm && Array.isArray(remoteProj.bgmTracks) && remoteProj.bgmTracks.length > 0 && db && db.bgmTracks) {
         for (const t of remoteProj.bgmTracks) {
-          if (t && t.id) await db.bgmTracks.put(t);
+          if (t && t.id) {
+            const tCopy = { ...t };
+            if (typeof tCopy.url === 'string' && tCopy.url.startsWith('/api/workshop/asset/')) {
+              const safeBgmId = String(tCopy.id || 'bgm').replace(/[\\/:*?"<>|]/g, '_');
+              tCopy.url = await materializeWorkshopRefToLocalUrl(tCopy.url, `audio/bgm_${safeBgmId}.mp3`);
+            }
+            await db.bgmTracks.put(tCopy);
+          }
         }
         appState.bgmTracks = await db.bgmTracks.toArray();
       }
@@ -30135,7 +30160,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     function getSpeakerVoiceId(speakerName) {
       let norm = normalizeSpeakerName(speakerName);
       if (!norm) return '';
-      let found = appState.characters.find((c) => normalizeSpeakerName(c.name) === norm);
+      let found = appState.characters.find((c) => normalizeSpeakerName(c.name) === norm) || findTheaterCharacterByName(speakerName);
       if (!found) {
         const proj = getCurrentReplayProject();
         const mappedSpk = (proj?.extractedSpeakers || []).find(
@@ -30143,7 +30168,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         );
         if (mappedSpk && (mappedSpk.trueName || mappedSpk.name)) {
           norm = normalizeSpeakerName(mappedSpk.trueName || mappedSpk.name);
-          found = appState.characters.find((c) => normalizeSpeakerName(c.name) === norm);
+          found = appState.characters.find((c) => normalizeSpeakerName(c.name) === norm) || findTheaterCharacterByName(mappedSpk.trueName || mappedSpk.name);
         }
       }
       if (found && found.voiceId && String(found.voiceId).trim()) {
@@ -32511,11 +32536,17 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       openDesktopHomeScreen();
     }
 
-    function onTheaterChapterSelectChange(val) {
+    async function onTheaterChapterSelectChange(val) {
       unlockBgmAudioPlayerOnUserGesture();
       stopTheaterAutoAndSkip();
       appState.currentReplayChapterIdx = parseInt(val, 10) || 0;
       appState.theaterLineIdx = 0;
+      const proj = getCurrentReplayProject();
+      if (proj && proj.isOnlineStream && proj._remoteProjRef && typeof prewarmOnlineProjectChapterAssets === 'function') {
+        try {
+          await prewarmOnlineProjectChapterAssets(proj._remoteProjRef, appState.currentReplayChapterIdx);
+        } catch (_) {}
+      }
       const curChap = getCurrentReplayChapter();
       preloadChapterTtsAudioPool(curChap, 0);
       preloadChapterStageSprites(curChap, 0);
@@ -32947,7 +32978,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           return cand;
         }
       }
-      const firstCustomTrack = (appState.bgmTracks || []).find((t) => t && t.url && !LEGACY_SYSTEM_BGM_IDS.has(t.id));
+      const mountedTracks = typeof getActiveMountedBundle === 'function' ? (getActiveMountedBundle()?.bgmTracks || []) : [];
+      const combinedTracks = [...mountedTracks, ...(appState.bgmTracks || [])];
+      const firstCustomTrack = combinedTracks.find((t) => t && t.url && !LEGACY_SYSTEM_BGM_IDS.has(t.id));
       if (firstCustomTrack) {
         return {
           bgmTag: firstCustomTrack.name || firstCustomTrack.tag || '日常',
@@ -33444,13 +33477,28 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
                 const resolveFreshBgmUrl = async (forceSearch = false) => {
                   if (!forceSearch && activeBgmLine._bgmLyricVerified && activeBgmLine.bgmUrl && !activeBgmLine.bgmUrl.includes('id=139774.mp3') && !activeBgmLine.bgmUrl.includes('id=26113988.mp3') && !activeBgmLine.bgmUrl.includes('id=22707008.mp3')) {
-                    return normalizeMusicTrackUrl(activeBgmLine.bgmUrl);
+                    const rawBgmU = String(activeBgmLine.bgmUrl).trim();
+                    if (rawBgmU.startsWith('/api/workshop/asset/') || rawBgmU.startsWith('__ZIP_ASSET__:')) {
+                      const resolvedRemote = await resolveTheaterPlayableUrl(rawBgmU, 'audio/mpeg');
+                      if (resolvedRemote) return resolvedRemote;
+                    }
+                    return normalizeMusicTrackUrl(rawBgmU);
                   }
                   const { sName, aName } = parseSongAndArtist(activeBgmLine);
                   if (!forceSearch) {
-                    const matchedTrack = (appState.bgmTracks || []).find((t) => t && t.url && t.verifiedInstrumental && !LEGACY_SYSTEM_BGM_IDS.has(t.id) && (t.name === bgmTagStr || (sName && t.name && t.name.includes(sName))));
+                    const mountedBgms = getActiveMountedBundle()?.bgmTracks || [];
+                    const allBgms = [...mountedBgms, ...(appState.bgmTracks || [])];
+                    const matchedTrack = allBgms.find((t) => t && t.url && t.verifiedInstrumental && !LEGACY_SYSTEM_BGM_IDS.has(t.id) && (t.name === bgmTagStr || (sName && t.name && t.name.includes(sName))));
                     if (matchedTrack && matchedTrack.url) {
-                      activeBgmLine.bgmUrl = normalizeMusicTrackUrl(matchedTrack.url);
+                      const rawTrackU = String(matchedTrack.url).trim();
+                      if (rawTrackU.startsWith('/api/workshop/asset/') || rawTrackU.startsWith('__ZIP_ASSET__:')) {
+                        const resolvedRemote = await resolveTheaterPlayableUrl(rawTrackU, 'audio/mpeg');
+                        if (resolvedRemote) {
+                          activeBgmLine._bgmLyricVerified = true;
+                          return resolvedRemote;
+                        }
+                      }
+                      activeBgmLine.bgmUrl = normalizeMusicTrackUrl(rawTrackU);
                       activeBgmLine._bgmLyricVerified = true;
                       return activeBgmLine.bgmUrl;
                     }
@@ -33937,17 +33985,36 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       grid.innerHTML = '';
       const proj = getCurrentReplayProject();
       const items = [];
+      const seenUrls = new Set();
+      const pushItem = (title, url) => {
+        if (!url || seenUrls.has(url)) return;
+        seenUrls.add(url);
+        items.push({ title, url });
+      };
+      (proj?.globalScenes || []).forEach((sc) => {
+        if (sc && sc.imageUrl) pushItem(`通用场景 · ${sc.name || '背景'}`, sc.imageUrl);
+      });
       (proj?.chapters || []).forEach((ch) => {
         (ch.scenes || []).forEach((sc) => {
-          if (sc.imageUrl) items.push({ title: `${ch.title} · 场景 ${sc.name}`, url: sc.imageUrl });
+          if (sc && sc.imageUrl) pushItem(`${ch.title} · 场景 ${sc.name || ''}`, sc.imageUrl);
         });
         (ch.cgNodes || []).forEach((cg, idx) => {
-          if (cg.imageUrl) items.push({ title: `${ch.title} · CG #${idx + 1} ${cg.zhDesc}`, url: cg.imageUrl });
+          if (cg && cg.imageUrl) pushItem(`${ch.title} · CG #${idx + 1} ${cg.zhDesc || cg.title || ''}`, cg.imageUrl);
+        });
+        (ch.clueNodes || []).forEach((cl, idx) => {
+          if (cl && cl.imageUrl) pushItem(`${ch.title} · 线索 #${idx + 1} ${cl.name || cl.title || ''}`, cl.imageUrl);
         });
       });
       (proj?.subGroups || []).forEach((sg) => {
+        const sgTitle = sg.title || '小群';
+        (sg.scenes || []).forEach((sc) => {
+          if (sc && sc.imageUrl) pushItem(`${sgTitle} · 场景 ${sc.name || ''}`, sc.imageUrl);
+        });
         (sg.cgNodes || []).forEach((cg, idx) => {
-          if (cg.imageUrl) items.push({ title: `${sg.title || '小群'} · CG #${idx + 1} ${cg.zhDesc}`, url: cg.imageUrl });
+          if (cg && cg.imageUrl) pushItem(`${sgTitle} · CG #${idx + 1} ${cg.zhDesc || cg.title || ''}`, cg.imageUrl);
+        });
+        (sg.clueNodes || []).forEach((cl, idx) => {
+          if (cl && cl.imageUrl) pushItem(`${sgTitle} · 线索 #${idx + 1} ${cl.name || cl.title || ''}`, cl.imageUrl);
         });
       });
 
@@ -33959,11 +34026,18 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           cell.className = 'moe-card';
           cell.style.marginBottom = '0';
           cell.style.padding = '8px';
+          const initialSrc = String(it.url).startsWith('__ZIP_ASSET__:') ? '' : it.url;
           cell.innerHTML = `
-            <img src="${it.url}" alt="${it.title}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;cursor:pointer;" title="连续点击三下下载图片" onclick="handleStageImgTripleClick(event, '${it.title}')" />
+            <img src="${initialSrc}" alt="${it.title}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;cursor:pointer;" title="连续点击三下下载图片" onclick="handleStageImgTripleClick(event, '${it.title}')" onerror="handleLocalAssetImgError(this)" />
             <div style="font-size:11px;font-weight:700;margin-top:6px;color:var(--text-primary);">${it.title}</div>
           `;
           grid.appendChild(cell);
+          if (String(it.url).startsWith('__ZIP_ASSET__:') || String(it.url).startsWith('/api/workshop/asset/')) {
+            const imgEl = cell.querySelector('img');
+            resolveTheaterPlayableUrl(it.url, 'image/png').then((resolved) => {
+              if (imgEl && resolved) imgEl.src = resolved;
+            }).catch(() => {});
+          }
         });
       }
       document.getElementById('theater-album-modal').classList.add('active');
@@ -34009,7 +34083,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           const item = document.createElement('div');
           item.className = 'vn-backlog-row' + (isNarr ? ' is-narration' : '') + (isCurrent ? ' is-current' : '');
 
-          const canPlayVoice = !isNarr && Boolean(getSpeakerVoiceId(l.speaker));
+          const cachedVoiceHit = !isNarr ? lookupTheaterLineVoiceSync(l._ttsHolderId || l._fromSubGroupId || chap.id, l) : { url: '' };
+          const canPlayVoice = !isNarr && Boolean((cachedVoiceHit && cachedVoiceHit.url) || getSpeakerVoiceId(l.speaker));
           const voiceClickAction = (l._isSubGroupLine && l._subGroupId)
             ? `playSingleSubGroupLineTts('${l._subGroupId}', ${Number(l._origIdx) || 0}, false)`
             : `playSingleScriptLineTts(${l._origIdx !== undefined ? l._origIdx : actualIdx}, false)`;
@@ -34020,11 +34095,15 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           const jumpBtnHtml = `<button type="button" class="vn-backlog-icon-btn" title="回到此句" onclick="event.stopPropagation(); rewindTheaterToLine(${actualIdx});"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg></button>`;
 
           let avatarHtml = '';
+          let asyncAvatarSrc = '';
           if (showSideBust && !isNarr) {
             const avInfo = resolveCharacterMiniAvatarInfo(l.speaker, l.exp || '默认');
             const validSrc = avInfo && avInfo.src && !String(avInfo.src).startsWith('data:image/svg+xml') ? avInfo.src : '';
             if (validSrc) {
-              avatarHtml = `<div class="vn-backlog-avatar"><img src="${validSrc}" class="${avInfo.isFullTachieCrop ? 'is-full-crop' : ''}" alt="" /></div>`;
+              const isDeferredSrc = String(validSrc).startsWith('__ZIP_ASSET__:') || String(validSrc).startsWith('/api/workshop/asset/');
+              if (isDeferredSrc) asyncAvatarSrc = validSrc;
+              const initSrc = String(validSrc).startsWith('__ZIP_ASSET__:') ? '' : validSrc;
+              avatarHtml = `<div class="vn-backlog-avatar"><img src="${initSrc}" class="${avInfo.isFullTachieCrop ? 'is-full-crop' : ''}" onerror="handleLocalAssetImgError(this)" alt="" /></div>`;
             } else {
               const firstChar = String(l.speaker || '').trim().slice(0, 1) || '角';
               avatarHtml = `<div class="vn-backlog-avatar is-monogram"><span>${firstChar}</span></div>`;
@@ -34058,6 +34137,12 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             `;
           }
           box.appendChild(item);
+          if (asyncAvatarSrc) {
+            const avImg = item.querySelector('.vn-backlog-avatar img');
+            resolveTheaterPlayableUrl(asyncAvatarSrc, 'image/png').then((resolved) => {
+              if (avImg && resolved) avImg.src = resolved;
+            }).catch(() => {});
+          }
         });
       }
       document.getElementById('theater-backlog-modal').classList.add('active');
@@ -34215,8 +34300,20 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const saves = getGlobalTheaterSaves();
       const sv = saves[slotIdx];
       if (!sv) return;
-      const targetProj = (appState.replayProjects || []).find((p) => p.id === sv.projectId)
+      let targetProj = (appState.replayProjects || []).find((p) => p.id === sv.projectId)
         || (appState.replayProjects || []).find((p) => p.title === sv.projectTitle);
+      if (!targetProj && typeof _mountedExternalProjects !== 'undefined') {
+        if (sv.projectId && _mountedExternalProjects.has(sv.projectId)) {
+          targetProj = _mountedExternalProjects.get(sv.projectId)?.project || null;
+        } else {
+          for (const bundle of _mountedExternalProjects.values()) {
+            if (bundle?.project && (bundle.project.id === sv.projectId || bundle.project.title === sv.projectTitle)) {
+              targetProj = bundle.project;
+              break;
+            }
+          }
+        }
+      }
       if (!targetProj) {
         alert('未找到该存档对应的模组工程');
         return;
@@ -34229,6 +34326,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const targetChap = targetProj.chapters?.[appState.currentReplayChapterIdx];
       const maxLine = Math.max(0, (targetChap?.scriptLines?.length || 1) - 1);
       appState.theaterLineIdx = Math.max(0, Math.min(maxLine, Number(sv.lineIdx) || 0));
+      if (targetProj.isOnlineStream && targetProj._remoteProjRef && typeof prewarmOnlineProjectChapterAssets === 'function') {
+        await prewarmOnlineProjectChapterAssets(targetProj._remoteProjRef, appState.currentReplayChapterIdx);
+      }
       saveCurrentSessionNavState();
       renderReplayStudioUI();
       closeModal('theater-saveload-modal');
@@ -34360,6 +34460,32 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           }
         }
 
+        for (let sgIdx = 0; sgIdx < (pack.project?.subGroups || []).length; sgIdx++) {
+          const sg = pack.project.subGroups[sgIdx];
+          if (!sg) continue;
+          for (let sIdx = 0; sIdx < (sg.scenes || []).length; sIdx++) {
+            const sc = sg.scenes[sIdx];
+            if (sc && sc.imageUrl) sc.imageUrl = await extractDataUrlToZip(sc.imageUrl, `images/scenes/sg${sgIdx}_${sc.id || sIdx}.png`);
+          }
+          for (let gIdx = 0; gIdx < (sg.cgNodes || []).length; gIdx++) {
+            const cg = sg.cgNodes[gIdx];
+            if (cg && cg.imageUrl) cg.imageUrl = await extractDataUrlToZip(cg.imageUrl, `images/cgs/sg${sgIdx}_${cg.id || gIdx}.png`);
+            if (cg && cg.customPadImg) cg.customPadImg = await extractDataUrlToZip(cg.customPadImg, `images/cgs/sg${sgIdx}_${cg.id || gIdx}_pad.png`);
+          }
+          for (let clIdx = 0; clIdx < (sg.clueNodes || []).length; clIdx++) {
+            const cl = sg.clueNodes[clIdx];
+            if (cl && cl.imageUrl) cl.imageUrl = await extractDataUrlToZip(cl.imageUrl, `images/clues/sg${sgIdx}_${cl.id || clIdx}.png`);
+          }
+        }
+
+        for (let bIdx = 0; bIdx < (pack.bgmTracks || []).length; bIdx++) {
+          const bt = pack.bgmTracks[bIdx];
+          if (bt && bt.url && !/^https?:\/\//i.test(bt.url)) {
+            const safeBgmId = String(bt.id || `bgm_${bIdx}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+            bt.url = await extractDataUrlToZip(bt.url, `audio/bgm_${safeBgmId}.mp3`);
+          }
+        }
+
         for (let tIdx = 0; tIdx < (pack.ttsCache || []).length; tIdx++) {
           const item = pack.ttsCache[tIdx];
           if (item && item.audioDataUrl) {
@@ -34397,6 +34523,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         (pack.project.chapters || []).forEach((ch) => {
           syncChapterCgLineBindings(ch);
           syncChapterClueLineBindings(ch);
+        });
+        (pack.project.subGroups || []).forEach((sg) => {
+          syncChapterCgLineBindings(sg);
+          syncChapterClueLineBindings(sg);
         });
         await db.replayProjects.put(pack.project);
         appState.currentReplayProjectId = pack.project.id;
@@ -34489,6 +34619,28 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               }
               syncChapterCgLineBindings(ch);
               syncChapterClueLineBindings(ch);
+            }
+
+            for (const sg of (pack.project?.subGroups || [])) {
+              for (const sc of (sg.scenes || [])) {
+                if (sc && sc.imageUrl) sc.imageUrl = await restoreZipAsset(sc.imageUrl, 'image/png', `projects/${safeProj}/scenes/${sc.id}.png`);
+              }
+              for (const cg of (sg.cgNodes || [])) {
+                if (cg && cg.imageUrl) cg.imageUrl = await restoreZipAsset(cg.imageUrl, 'image/png', `projects/${safeProj}/cgs/${cg.id}.png`);
+                if (cg && cg.customPadImg) cg.customPadImg = await restoreZipAsset(cg.customPadImg, 'image/png', `projects/${safeProj}/cgs/pad_${cg.id}.png`);
+              }
+              for (const cl of (sg.clueNodes || [])) {
+                if (cl && cl.imageUrl) cl.imageUrl = await restoreZipAsset(cl.imageUrl, 'image/png', `projects/${safeProj}/clues/${cl.id}.png`);
+              }
+              syncChapterCgLineBindings(sg);
+              syncChapterClueLineBindings(sg);
+            }
+
+            for (const bt of (pack.bgmTracks || [])) {
+              if (bt && bt.url) {
+                const safeBgmId = String(bt.id || 'bgm').replace(/[\\/:*?"<>|]/g, '_');
+                bt.url = await restoreZipAsset(bt.url, 'audio/mp3', `audio/bgm_${safeBgmId}.mp3`);
+              }
             }
 
             for (const item of (pack.ttsCache || [])) {
@@ -35105,20 +35257,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         if (isLocalBridgeEnabled()) {
           await probeAndAutoSyncLocalBridge().catch(() => {});
         }
-        try {
-          const hasRealChaps = (appState.replayProjects || []).some((p) => Array.isArray(p?.chapters) && p.chapters.length > 0);
-          if (!hasRealChaps && (appState.characters || []).length === 0) {
-            await restoreWorkshopProjectToLocalEngine('proj_1773732842559', {
-              restoreChapters: true,
-              restoreChars: true,
-              restoreScenes: true,
-              restoreCgsAndClues: true,
-              restoreTts: true,
-              restoreBgm: true,
-              onlyMissing: false
-            }).catch(() => {});
-          }
-        } catch (_) {}
         if (isLocalBridgeEnabled()) {
           setInterval(() => {
             probeAndAutoSyncLocalBridge().catch(() => {});
@@ -35382,7 +35520,13 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         const relations = await db.relations.toArray();
         const memories = await db.memories.toArray();
         const forumPosts = await db.forumPosts.toArray();
-        const bgmTracks = await db.bgmTracks.toArray();
+        const bgmTracks = JSON.parse(JSON.stringify(await db.bgmTracks.toArray()));
+        for (const bt of bgmTracks) {
+          if (bt && bt.url && !/^https?:\/\//i.test(bt.url)) {
+            const safeBgmId = String(bt.id || 'bgm').replace(/[\\/:*?"<>|]/g, '_');
+            bt.url = await packSingleAsset(bt.url, `audio/bgm_${safeBgmId}.mp3`);
+          }
+        }
 
         const localStorageData = {};
         for (let i = 0; i < localStorage.length; i++) {
