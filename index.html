@@ -9,8 +9,14 @@
   <meta property="og:description" content="虚拟手机模拟与角色聊天互动应用" />
   <link rel="manifest" href="manifest.json?v=2.1.0" />
   <link rel="icon" type="image/png" href="icon.png?v=2.1.0" />
-  <link rel="stylesheet" href="style.css?v=20261023" />
+  <link rel="stylesheet" href="style.css?v=20261026" />
   <style id="core-layout-compat-style">
+    *, *::before, *::after,
+    #phone-screen, #phone-screen *,
+    #screen-theater, #screen-theater *,
+    #vn-theater-stage-root, #vn-theater-stage-root * {
+      -webkit-tap-highlight-color: transparent !important;
+    }
     #screen-home {
       padding: 20px 18px 24px !important;
       display: none;
@@ -203,6 +209,19 @@
       top: auto !important;
       height: 170% !important;
       bottom: -43% !important;
+    }
+    #vn-theater-tachie-layer .vn-stage-actor {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: flex-end !important;
+    }
+    #vn-theater-tachie-layer .vn-stage-actor img {
+      display: block !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
+      align-self: center !important;
+      object-position: bottom center !important;
     }
     #vn-theater-cg-layer {
       background: #000000 !important;
@@ -3041,7 +3060,7 @@
 
     <!-- ==================== 14. 横屏 16:9 视觉小说剧本剧场 ==================== -->
     <section id="screen-theater" class="screen">
-      <div class="vn-theater-wrapper" id="vn-theater-stage-root" data-stage-style="ark_grad" oncontextmenu="if(!event.target.closest('input,textarea'))event.preventDefault();">
+      <div class="vn-theater-wrapper" id="vn-theater-stage-root" data-stage-style="ark_grad">
         <!-- 第1层：当前场所背景层 -->
         <div class="vn-bg-layer" id="vn-theater-bg-layer"></div>
 
@@ -11843,24 +11862,39 @@ ZH: 修改后的纯客观中文服装配饰清单`
 
     // 多角色同屏身高与差分预览舞台（自动紧贴主体裁切透明边距让脚底严丝合缝踩在0cm地面线，支持兽耳高帽额外高度补偿）
     const _heightCroppedSpriteCache = new Map();
+    const _heightCroppedSpriteInflight = new Map();
     function getCroppedSpriteForHeightStage(srcUrl) {
       if (!srcUrl) return Promise.resolve('');
       if (srcUrl.startsWith('data:image/svg+xml')) return Promise.resolve(srcUrl);
       if (_heightCroppedSpriteCache.has(srcUrl)) {
         return Promise.resolve(_heightCroppedSpriteCache.get(srcUrl));
       }
-      return new Promise((resolve) => {
+      const fastFallbackUrl = toFastDisplayUrl(srcUrl);
+      if (_heightCroppedSpriteCache.has(fastFallbackUrl)) {
+        const hit = _heightCroppedSpriteCache.get(fastFallbackUrl);
+        _heightCroppedSpriteCache.set(srcUrl, hit);
+        return Promise.resolve(hit);
+      }
+      if (_heightCroppedSpriteInflight.has(fastFallbackUrl)) {
+        return _heightCroppedSpriteInflight.get(fastFallbackUrl);
+      }
+      const jobPromise = new Promise((resolve) => {
         let settled = false;
         const finishResolve = (val) => {
           if (settled) return;
           settled = true;
           if (safetyTimer) clearTimeout(safetyTimer);
+          _heightCroppedSpriteInflight.delete(fastFallbackUrl);
+          _heightCroppedSpriteInflight.delete(srcUrl);
+          if (val) {
+            _heightCroppedSpriteCache.set(srcUrl, val);
+            _heightCroppedSpriteCache.set(fastFallbackUrl, val);
+          }
           resolve(val);
         };
-        const fastFallbackUrl = toFastDisplayUrl(srcUrl);
         const safetyTimer = setTimeout(() => {
           finishResolve(fastFallbackUrl);
-        }, 2500);
+        }, 2000);
 
         const img = new Image();
         if (!fastFallbackUrl.startsWith('data:') && !fastFallbackUrl.startsWith('blob:')) {
@@ -11868,27 +11902,30 @@ ZH: 修改后的纯客观中文服装配饰清单`
         }
         img.onload = () => {
           try {
-            const w = img.width || 512;
-            const h = img.height || 512;
+            const w = img.naturalWidth || img.width || 512;
+            const h = img.naturalHeight || img.height || 512;
+            const maxScanDim = 256;
+            const scale = Math.min(1, maxScanDim / Math.max(w, h));
+            const sw = Math.max(16, Math.round(w * scale));
+            const sh = Math.max(16, Math.round(h * scale));
             const c = document.createElement('canvas');
-            c.width = w;
-            c.height = h;
-            const ctx = c.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            const data = ctx.getImageData(0, 0, w, h).data;
-            const bounds = findCharacterTightBounds(data, w, h);
+            c.width = sw;
+            c.height = sh;
+            const ctx = c.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(img, 0, 0, sw, sh);
+            const data = ctx.getImageData(0, 0, sw, sh).data;
+            const bounds = findCharacterTightBounds(data, sw, sh);
             if (!bounds) {
-              _heightCroppedSpriteCache.set(srcUrl, fastFallbackUrl);
               return finishResolve(fastFallbackUrl);
             }
             let { minX, minY, maxX, maxY } = bounds;
 
-            const colHasPixel = new Uint8Array(w);
-            const colMinY = new Int32Array(w).fill(h);
-            const colMaxY = new Int32Array(w).fill(0);
+            const colHasPixel = new Uint8Array(sw);
+            const colMinY = new Int32Array(sw).fill(sh);
+            const colMaxY = new Int32Array(sw).fill(0);
             for (let x = minX; x <= maxX; x++) {
               for (let y = minY; y <= maxY; y++) {
-                if (data[(y * w + x) * 4 + 3] > 28) {
+                if (data[(y * sw + x) * 4 + 3] > 28) {
                   colHasPixel[x] = 1;
                   if (y < colMinY[x]) colMinY[x] = y;
                   if (y > colMaxY[x]) colMaxY[x] = y;
@@ -11898,13 +11935,14 @@ ZH: 修改后的纯客观中文服装配饰清单`
             const segments = [];
             let segStart = -1;
             let gapCount = 0;
+            const minGapCols = Math.max(2, Math.round(sw * 0.02));
             for (let x = minX; x <= maxX; x++) {
               if (colHasPixel[x]) {
                 if (segStart === -1) segStart = x;
                 gapCount = 0;
               } else if (segStart !== -1) {
                 gapCount++;
-                if (gapCount >= Math.max(6, Math.round(w * 0.02))) {
+                if (gapCount >= minGapCols) {
                   segments.push({ start: segStart, end: x - gapCount });
                   segStart = -1;
                   gapCount = 0;
@@ -11918,7 +11956,7 @@ ZH: 修改后的纯客观中文服装配饰清单`
               let bestSeg = segments[0];
               let bestSpan = -1;
               segments.forEach((seg) => {
-                let sMinY = h;
+                let sMinY = sh;
                 let sMaxY = 0;
                 for (let x = seg.start; x <= seg.end; x++) {
                   if (colHasPixel[x]) {
@@ -11942,36 +11980,49 @@ ZH: 修改后的纯客观中文服装配饰清单`
               }
             }
 
-            const cw = Math.max(1, maxX - minX + 1);
-            const ch = Math.max(1, maxY - minY + 1);
+            const invScaleX = w / sw;
+            const invScaleY = h / sh;
+            const padPx = Math.max(2, Math.ceil(invScaleX));
+            const fullMinX = Math.max(0, Math.floor(minX * invScaleX) - padPx);
+            const fullMaxX = Math.min(w - 1, Math.ceil((maxX + 1) * invScaleX) + padPx);
+            const fullMinY = Math.max(0, Math.floor(minY * invScaleY) - padPx);
+            const fullMaxY = Math.min(h - 1, Math.ceil((maxY + 1) * invScaleY));
+
+            const cw = Math.max(1, fullMaxX - fullMinX + 1);
+            const ch = Math.max(1, fullMaxY - fullMinY + 1);
             const out = document.createElement('canvas');
             out.width = cw;
             out.height = ch;
-            out.getContext('2d').drawImage(img, minX, minY, cw, ch, 0, 0, cw, ch);
+            out.getContext('2d').drawImage(img, fullMinX, fullMinY, cw, ch, 0, 0, cw, ch);
             if (typeof out.toBlob === 'function') {
               out.toBlob((blob) => {
                 if (blob) {
                   const blobUrl = URL.createObjectURL(blob);
-                  _heightCroppedSpriteCache.set(srcUrl, blobUrl);
                   finishResolve(blobUrl);
                 } else {
-                  _heightCroppedSpriteCache.set(srcUrl, fastFallbackUrl);
-                  finishResolve(fastFallbackUrl);
+                  out.toBlob((pngBlob) => {
+                    if (pngBlob) {
+                      finishResolve(URL.createObjectURL(pngBlob));
+                    } else {
+                      finishResolve(fastFallbackUrl);
+                    }
+                  }, 'image/png');
                 }
-              }, 'image/png');
+              }, 'image/webp', 0.92);
             } else {
               const croppedUrl = toFastDisplayUrl(out.toDataURL('image/png'));
-              _heightCroppedSpriteCache.set(srcUrl, croppedUrl);
               finishResolve(croppedUrl);
             }
           } catch (_) {
-            _heightCroppedSpriteCache.set(srcUrl, fastFallbackUrl);
             finishResolve(fastFallbackUrl);
           }
         };
         img.onerror = () => finishResolve(fastFallbackUrl);
         img.src = fastFallbackUrl;
       });
+      _heightCroppedSpriteInflight.set(fastFallbackUrl, jobPromise);
+      _heightCroppedSpriteInflight.set(srcUrl, jobPromise);
+      return jobPromise;
     }
 
     function populateHeightStageExpSelect(charObj, preferredExpName = '') {
@@ -31843,7 +31894,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       if (!playableChap || !Array.isArray(playableChap.scriptLines)) return;
       const mySeq = ++_spritePreloadSeq;
       const begin = Math.max(0, Number(startIdx) || 0);
-      const end = Math.min(playableChap.scriptLines.length - 1, begin + 12);
+      const end = Math.min(playableChap.scriptLines.length - 1, begin + 18);
       (async () => {
         const seenSprites = new Set();
         for (let i = begin; i <= end; i++) {
@@ -31865,15 +31916,21 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               charObj.chibiImg
             ].filter((u) => u && !String(u).startsWith('data:image/svg+xml'));
             for (const rawSprite of candidates.slice(0, 2)) {
-              if (seenSprites.has(rawSprite)) continue;
-              seenSprites.add(rawSprite);
+              const strRaw = String(rawSprite);
+              if (seenSprites.has(strRaw)) continue;
+              seenSprites.add(strRaw);
               try {
-                const playable = await resolveTheaterPlayableUrl(rawSprite, 'image/png');
+                const playable = await resolveTheaterPlayableUrl(strRaw, 'image/png');
+                if (mySeq !== _spritePreloadSeq || !playable) continue;
+                const cropped = await getCroppedSpriteForHeightStage(playable);
                 if (mySeq !== _spritePreloadSeq) return;
-                if (playable && !_decodedSpriteBitmapSet.has(playable)) {
-                  _decodedSpriteBitmapSet.add(playable);
+                const finalSprite = cropped || playable;
+                _heightCroppedSpriteCache.set(strRaw, finalSprite);
+                _heightCroppedSpriteCache.set(playable, finalSprite);
+                if (!_decodedSpriteBitmapSet.has(finalSprite)) {
+                  _decodedSpriteBitmapSet.add(finalSprite);
                   const preImg = new Image();
-                  preImg.src = playable;
+                  preImg.src = finalSprite;
                   if (typeof preImg.decode === 'function') {
                     await preImg.decode().catch(() => {});
                   }
@@ -32422,21 +32479,32 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }, holdDelayMs);
       };
 
-      stageRoot.addEventListener('contextmenu', (ev) => {
+      const isInsideTheaterStage = (target) => {
+        const curStageRoot = document.getElementById('vn-theater-stage-root');
+        const curTheaterScreen = document.getElementById('screen-theater');
+        if (!curStageRoot || !curTheaterScreen || !curTheaterScreen.classList.contains('active')) return false;
+        return Boolean(target && curStageRoot.contains(target));
+      };
+
+      window.addEventListener('contextmenu', (ev) => {
+        if (!isInsideTheaterStage(ev.target)) return;
         if (ev.target && typeof ev.target.closest === 'function' && ev.target.closest('input, textarea')) return;
         ev.preventDefault();
       });
 
-      stageRoot.addEventListener('dragstart', (ev) => {
+      window.addEventListener('dragstart', (ev) => {
+        if (!isInsideTheaterStage(ev.target)) return;
         ev.preventDefault();
       });
 
-      stageRoot.addEventListener('pointerdown', (ev) => {
+      window.addEventListener('pointerdown', (ev) => {
+        if (!isInsideTheaterStage(ev.target)) return;
         if (ev.button && ev.button !== 0) return;
         startLongPressSession(ev);
       });
 
-      stageRoot.addEventListener('touchstart', (ev) => {
+      window.addEventListener('touchstart', (ev) => {
+        if (!isInsideTheaterStage(ev.target)) return;
         startLongPressSession(ev);
       }, { passive: true });
 
@@ -32448,7 +32516,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           stopLongPressSession();
         }
         if (wasValidTap && ev && (ev.type === 'pointerup' || ev.type === 'touchend')) {
-          if (!isIgnoredStageTarget(ev.target)) {
+          if (isInsideTheaterStage(ev.target) && !isIgnoredStageTarget(ev.target)) {
             handleTheaterDockClick();
           }
         }
@@ -33613,7 +33681,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             syncPlayable = toFastDisplayUrl(strRaw) || strRaw;
             _playableUrlRamCache.set(strRaw, syncPlayable);
           }
-          const syncCropped = syncPlayable ? (_heightCroppedSpriteCache.get(syncPlayable) || syncPlayable) : '';
+          const syncCropped = _heightCroppedSpriteCache.get(strRaw)
+            || (syncPlayable ? (_heightCroppedSpriteCache.get(syncPlayable) || '') : '');
 
           let fxClass = '';
           if (isCurrentSpeaker) {
@@ -33656,7 +33725,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           if (!actorDiv) {
             actorDiv = document.createElement('div');
             actorDiv.setAttribute('data-actor-key', spec.key);
-            actorDiv.innerHTML = `<div class="vn-actor-sticker-slot"></div><img decoding="sync" style="height:100%;width:auto;max-width:none;" />`;
+            actorDiv.innerHTML = `<div class="vn-actor-sticker-slot"></div><img decoding="sync" style="height:100%;width:auto;max-width:none;margin:0 auto;align-self:center;" />`;
           } else {
             existingMap.delete(spec.key);
           }
@@ -33678,7 +33747,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           if (!imgEl) {
             imgEl = document.createElement('img');
             imgEl.setAttribute('decoding', 'sync');
-            imgEl.style.cssText = 'height:100%;width:auto;max-width:none;';
+            imgEl.style.cssText = 'height:100%;width:auto;max-width:none;margin:0 auto;align-self:center;';
             actorDiv.appendChild(imgEl);
           }
           imgEl.alt = spec.charName;
@@ -33687,26 +33756,36 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
           if (spec.syncCropped) {
             setActorSpriteWithoutWhiteFlash(imgEl, spec.syncCropped);
-            if (spec.syncPlayable && !_heightCroppedSpriteCache.has(spec.syncPlayable)) {
-              getCroppedSpriteForHeightStage(spec.syncPlayable).then((croppedUrl) => {
-                if (croppedUrl && actorDiv.isConnected && actorDiv.getAttribute('data-target-raw-sprite') === spec.rawSprite) {
-                  setActorSpriteWithoutWhiteFlash(imgEl, croppedUrl);
-                }
-              }).catch(() => {});
-            }
+          } else if (spec.syncPlayable) {
+            getCroppedSpriteForHeightStage(spec.syncPlayable).then((croppedUrl) => {
+              const finalUrl = croppedUrl || spec.syncPlayable;
+              if (finalUrl) {
+                _heightCroppedSpriteCache.set(spec.rawSprite, finalUrl);
+                _heightCroppedSpriteCache.set(spec.syncPlayable, finalUrl);
+              }
+              if (finalUrl && actorDiv.isConnected && actorDiv.getAttribute('data-target-raw-sprite') === spec.rawSprite) {
+                setActorSpriteWithoutWhiteFlash(imgEl, finalUrl);
+              }
+            }).catch(() => {});
           } else {
             resolveTheaterPlayableUrl(spec.rawSprite, 'image/png').then((resolvedPlayable) => {
               if (!resolvedPlayable || String(resolvedPlayable).startsWith('data:image/svg+xml')) return;
               if (!actorDiv.isConnected || actorDiv.getAttribute('data-target-raw-sprite') !== spec.rawSprite) return;
-              const immediate = _heightCroppedSpriteCache.get(resolvedPlayable) || resolvedPlayable;
-              setActorSpriteWithoutWhiteFlash(imgEl, immediate);
-              if (!_heightCroppedSpriteCache.has(resolvedPlayable)) {
-                getCroppedSpriteForHeightStage(resolvedPlayable).then((croppedUrl) => {
-                  if (croppedUrl && actorDiv.isConnected && actorDiv.getAttribute('data-target-raw-sprite') === spec.rawSprite) {
-                    setActorSpriteWithoutWhiteFlash(imgEl, croppedUrl);
-                  }
-                }).catch(() => {});
+              const cachedCrop = _heightCroppedSpriteCache.get(spec.rawSprite) || _heightCroppedSpriteCache.get(resolvedPlayable);
+              if (cachedCrop) {
+                setActorSpriteWithoutWhiteFlash(imgEl, cachedCrop);
+                return;
               }
+              getCroppedSpriteForHeightStage(resolvedPlayable).then((croppedUrl) => {
+                const finalUrl = croppedUrl || resolvedPlayable;
+                if (finalUrl) {
+                  _heightCroppedSpriteCache.set(spec.rawSprite, finalUrl);
+                  _heightCroppedSpriteCache.set(resolvedPlayable, finalUrl);
+                }
+                if (finalUrl && actorDiv.isConnected && actorDiv.getAttribute('data-target-raw-sprite') === spec.rawSprite) {
+                  setActorSpriteWithoutWhiteFlash(imgEl, finalUrl);
+                }
+              }).catch(() => {});
             }).catch(() => {});
           }
           return actorDiv;
@@ -33756,7 +33835,17 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             const resolvedSceneUrl = await resolveTheaterPlayableUrl(sceneObj.imageUrl, 'image/png');
             if (myRenderSeq !== _theaterRenderSeq) return;
             if (resolvedSceneUrl) {
-              nextBgCss = `url("${resolvedSceneUrl}")`;
+              const candCss = `url("${resolvedSceneUrl}")`;
+              if (prevBgCss !== candCss && !_decodedSpriteBitmapSet.has(resolvedSceneUrl)) {
+                _decodedSpriteBitmapSet.add(resolvedSceneUrl);
+                const preBg = new Image();
+                preBg.src = resolvedSceneUrl;
+                if (typeof preBg.decode === 'function') {
+                  await preBg.decode().catch(() => {});
+                }
+                if (myRenderSeq !== _theaterRenderSeq) return;
+              }
+              nextBgCss = candCss;
             }
           }
         }

@@ -1575,7 +1575,7 @@ body.landscape-game-active #screen-theater.active {
   align-items: center;
   justify-content: center;
   background: var(--text-primary);
-  -webkit-tap-highlight-color: rgba(0, 0, 0, 0) !important;
+  -webkit-tap-highlight-color: transparent !important;
 }
 
 #phone-screen,
@@ -1584,7 +1584,7 @@ body.landscape-game-active #screen-theater.active {
 #screen-theater *,
 #vn-theater-stage-root,
 #vn-theater-stage-root * {
-  -webkit-tap-highlight-color: rgba(0, 0, 0, 0) !important;
+  -webkit-tap-highlight-color: transparent !important;
   -webkit-touch-callout: none !important;
 }
 
@@ -1600,7 +1600,7 @@ body.landscape-game-active #screen-theater.active {
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
-  -webkit-tap-highlight-color: rgba(0, 0, 0, 0) !important;
+  -webkit-tap-highlight-color: transparent !important;
   outline: none;
   touch-action: manipulation;
   backface-visibility: hidden;
@@ -1611,28 +1611,23 @@ body.landscape-game-active #screen-theater.active {
 
 .vn-theater-wrapper *,
 .vn-theater-wrapper *:active,
-.vn-theater-wrapper *:focus {
-  -webkit-tap-highlight-color: rgba(0, 0, 0, 0) !important;
+.vn-theater-wrapper *:focus,
+.vn-theater-wrapper *:focus-visible {
+  -webkit-tap-highlight-color: transparent !important;
   outline: none !important;
 }
 
-#phone-screen:active {
-  filter: none !important;
-  opacity: 1 !important;
-  outline: none !important;
-}
-
+#phone-screen:active,
 #screen-theater:active,
 #vn-theater-stage-root:active,
 #vn-theater-stage-root:focus,
 .vn-theater-wrapper:active,
 .vn-theater-wrapper:focus,
 .vn-bg-layer:active,
+.vn-bottom-dock:active,
 .vn-dialogue-dock:active {
-  filter: none !important;
-  opacity: 1 !important;
   outline: none !important;
-  background-color: var(--text-primary);
+  -webkit-tap-highlight-color: transparent !important;
 }
 
 .vn-theater-wrapper img {
@@ -1722,7 +1717,7 @@ button {
   flex: 0 0 56%;
   width: 56%;
   max-width: 56%;
-  margin: 0;
+  margin: 0 auto;
 }
 
 .vn-tachie-layer[data-actor-count="2"] {
@@ -1762,11 +1757,10 @@ button {
   transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), filter 0.24s ease, opacity 0.24s ease;
   transform-origin: bottom center;
   pointer-events: none;
-  will-change: transform, filter;
 }
 
 .vn-stage-actor.speaking {
-  filter: brightness(1.02) drop-shadow(0 8px 22px rgba(0, 0, 0, 0.18));
+  filter: brightness(1);
   transform: translateY(-6px) scale(1.02);
   z-index: 7;
 }
@@ -1809,6 +1803,9 @@ button {
   height: 100%;
   width: auto;
   max-width: none;
+  margin-left: auto;
+  margin-right: auto;
+  align-self: center;
   object-fit: contain;
   object-position: bottom center;
   pointer-events: none !important;
