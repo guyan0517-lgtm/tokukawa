@@ -3869,6 +3869,8 @@
       } catch (_) {}
     }
 
+    let _programmaticFullscreenExit = false;
+
     function exitTheaterNativeFullscreen() {
       try {
         const isFull = Boolean(
@@ -3878,6 +3880,10 @@
           document.msFullscreenElement
         );
         if (!isFull) return;
+        _programmaticFullscreenExit = true;
+        setTimeout(() => {
+          _programmaticFullscreenExit = false;
+        }, 400);
         const exitFn =
           document.exitFullscreen ||
           document.webkitExitFullscreen ||
@@ -3890,11 +3896,18 @@
             res.catch(() => {});
           }
         }
-      } catch (_) {}
+      } catch (_) {
+        _programmaticFullscreenExit = false;
+      }
     }
 
     function openAppScreen(appName) {
       const normalizedApp = appName === 'chibi' ? 'tachie' : appName;
+      const currentActiveScreen = document.querySelector('.screen.active');
+      const prevScreenId = currentActiveScreen ? currentActiveScreen.id : '';
+      if (normalizedApp === 'theater' && prevScreenId && prevScreenId !== 'screen-theater') {
+        appState._theaterSourceScreen = prevScreenId.replace(/^screen-/, '');
+      }
       document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
       const target = document.getElementById('screen-' + normalizedApp);
       if (target) target.classList.add('active');
@@ -3949,6 +3962,7 @@
         }
       }
       saveCurrentSessionNavState();
+      ensureBackGestureHistoryGuard();
     }
 
     function openWorkshopFromHome() {
@@ -4013,6 +4027,7 @@
       const homeEl = document.getElementById('screen-home');
       if (homeEl) homeEl.classList.add('active');
       saveCurrentSessionNavState();
+      ensureBackGestureHistoryGuard();
     }
 
     function switchSubPage(screenId, subPageId) {
@@ -4033,6 +4048,7 @@
         b.classList.toggle('active', b.dataset.sub === effectiveSubId);
       });
       saveCurrentSessionNavState();
+      ensureBackGestureHistoryGuard();
     }
 
     function toggleStudioLeftSidebar() {
@@ -4046,6 +4062,162 @@
       const m = document.getElementById(modalId);
       if (m) m.classList.remove('active');
     }
+
+    let _backGestureGuardInitialized = false;
+    let _lastBackStepTimestamp = 0;
+
+    function ensureBackGestureHistoryGuard() {
+      try {
+        if (!window.history || typeof window.history.pushState !== 'function') return;
+        const st = window.history.state;
+        if (!_backGestureGuardInitialized) {
+          _backGestureGuardInitialized = true;
+          window.history.replaceState({ vnAppGuard: 'root', depth: 1 }, '', window.location.href);
+          window.history.pushState({ vnAppGuard: 'active', depth: 2 }, '', window.location.href);
+          return;
+        }
+        if (!st || st.vnAppGuard !== 'active') {
+          window.history.pushState({ vnAppGuard: 'active', depth: 2 }, '', window.location.href);
+        }
+      } catch (_) {}
+    }
+
+    function handleMobileBackGestureNavigation() {
+      const now = Date.now();
+      if (now - _lastBackStepTimestamp < 260) {
+        ensureBackGestureHistoryGuard();
+        return;
+      }
+      _lastBackStepTimestamp = now;
+
+      // 1. 优先关闭当前打开的弹窗或浮层
+      const restoreModal = document.getElementById('modal-workshop-restore');
+      if (restoreModal && restoreModal.style.display && restoreModal.style.display !== 'none') {
+        if (typeof closeWorkshopRestoreModal === 'function') {
+          closeWorkshopRestoreModal();
+        } else {
+          restoreModal.style.display = 'none';
+        }
+        ensureBackGestureHistoryGuard();
+        return;
+      }
+
+      const scanModal = document.getElementById('modal-char-image-scan');
+      if (scanModal && scanModal.style.display && scanModal.style.display !== 'none') {
+        if (typeof closeScanCharacterImagesModal === 'function') {
+          closeScanCharacterImagesModal();
+        } else {
+          scanModal.style.display = 'none';
+        }
+        ensureBackGestureHistoryGuard();
+        return;
+      }
+
+      const importCharModal = document.getElementById('modal-replay-import-char');
+      if (importCharModal && importCharModal.style.display && importCharModal.style.display !== 'none') {
+        if (typeof closeImportCharacterToReplayModal === 'function') {
+          closeImportCharacterToReplayModal();
+        } else {
+          importCharModal.style.display = 'none';
+        }
+        ensureBackGestureHistoryGuard();
+        return;
+      }
+
+      const activeModals = Array.from(document.querySelectorAll('.modal.active'));
+      if (activeModals.length > 0) {
+        const topModal = activeModals[activeModals.length - 1];
+        topModal.classList.remove('active');
+        ensureBackGestureHistoryGuard();
+        return;
+      }
+
+      // 2. 判断当前所在的屏幕与层级，逐级后退
+      const activeScreen = document.querySelector('.screen.active');
+      const screenId = activeScreen ? activeScreen.id : 'screen-home';
+
+      // 主屏幕保护：在桌面主屏触发返回手势时，原地拦截，不退出软件
+      if (screenId === 'screen-home') {
+        ensureBackGestureHistoryGuard();
+        return;
+      }
+
+      // 剧场模式逐级返回：分群分支 -> 剧场章节大厅 -> 来源页面或桌面
+      if (screenId === 'screen-theater') {
+        const lobby = document.getElementById('vn-theater-selector-lobby');
+        const isLobbyOpen = lobby && lobby.classList.contains('active');
+        if (!isLobbyOpen) {
+          if (appState.activeTheaterSubGroupId && typeof exitTheaterSubGroupToMain === 'function') {
+            exitTheaterSubGroupToMain();
+          } else if (typeof openTheaterSelectorLobby === 'function') {
+            openTheaterSelectorLobby();
+          } else if (typeof exitTheaterToHome === 'function') {
+            exitTheaterToHome();
+          } else {
+            openDesktopHomeScreen();
+          }
+          ensureBackGestureHistoryGuard();
+          return;
+        }
+
+        const sourceApp = appState._theaterSourceScreen || '';
+        appState._theaterSourceScreen = '';
+        if (sourceApp === 'workshop') {
+          openAppScreen('workshop');
+        } else if (sourceApp === 'replay') {
+          openAppScreen('replay');
+        } else if (typeof exitTheaterToHome === 'function') {
+          exitTheaterToHome();
+        } else {
+          openDesktopHomeScreen();
+        }
+        ensureBackGestureHistoryGuard();
+        return;
+      }
+
+      // 人设档案页：如果在详情编辑子页，先保存并退回人设列表
+      if (screenId === 'screen-persona') {
+        const basicPage = document.getElementById('persona-basic');
+        if (basicPage && basicPage.classList.contains('active') && typeof handlePersonaBackBtn === 'function') {
+          handlePersonaBackBtn();
+          ensureBackGestureHistoryGuard();
+          return;
+        }
+      }
+
+      // 其他应用页面统一退回小手机主屏幕
+      openDesktopHomeScreen();
+      ensureBackGestureHistoryGuard();
+    }
+
+    window.addEventListener('popstate', () => {
+      handleMobileBackGestureNavigation();
+    });
+
+    function onNativeFullscreenChangeForBackGuard() {
+      const isFull = Boolean(
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement
+      );
+      if (!isFull && !_programmaticFullscreenExit) {
+        const activeScreen = document.querySelector('.screen.active');
+        if (activeScreen && activeScreen.id === 'screen-theater') {
+          const lobby = document.getElementById('vn-theater-selector-lobby');
+          const isLobbyOpen = lobby && lobby.classList.contains('active');
+          if (!isLobbyOpen) {
+            handleMobileBackGestureNavigation();
+          }
+        }
+      }
+    }
+
+    document.addEventListener('fullscreenchange', onNativeFullscreenChangeForBackGuard);
+    document.addEventListener('webkitfullscreenchange', onNativeFullscreenChangeForBackGuard);
+    document.addEventListener('pointerdown', ensureBackGestureHistoryGuard, { passive: true });
+    document.addEventListener('touchstart', ensureBackGestureHistoryGuard, { passive: true });
+    ensureBackGestureHistoryGuard();
 
     // =========================================================================
     // 三、 原样提取并照抄旧仓库的三大 API 底层通信函数 + 预设管理 + 副API + 控制台日志
@@ -32987,6 +33159,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     }
 
     function openTheaterSelectorLobby() {
+      exitTheaterNativeFullscreen();
       stopTheaterAutoAndSkip();
       stopAllTheaterStageAudio();
       appState.inLandscapeGame = false;
@@ -32994,6 +33167,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       renderTheaterSelectorLobby();
       const lobby = document.getElementById('vn-theater-selector-lobby');
       if (lobby) lobby.classList.add('active');
+      ensureBackGestureHistoryGuard();
     }
 
     function closeTheaterSelectorLobby() {
@@ -33002,6 +33176,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       if (lobby) lobby.classList.remove('active');
       appState.inLandscapeGame = true;
       document.body.classList.add('landscape-game-active');
+      ensureBackGestureHistoryGuard();
     }
 
     function renderTheaterSelectorLobby() {
