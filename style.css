@@ -440,7 +440,12 @@ body.landscape-game-active .screen {
 .app-subpage {
   display: none;
   flex: 1;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 14px;
   flex-direction: column;
   gap: 12px;
@@ -452,6 +457,11 @@ body.landscape-game-active .screen {
 
 /* ==================== 复用标准组件类 (.moe-card, .moe-btn, .moe-input, .form-group, .setting-item) ==================== */
 .moe-card {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
   background-color: var(--card-bg);
   background-image: var(--custom-card-bg, none);
   background-size: cover;

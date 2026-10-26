@@ -3843,6 +3843,56 @@
       } catch (_) {}
     }
 
+    function requestTheaterNativeFullscreen() {
+      try {
+        const docEl = document.documentElement;
+        if (!docEl) return;
+        const isAlreadyFull = Boolean(
+          document.fullscreenElement ||
+          document.webkitFullscreenElement ||
+          document.mozFullScreenElement ||
+          document.msFullscreenElement
+        );
+        if (isAlreadyFull) return;
+        const reqFn =
+          docEl.requestFullscreen ||
+          docEl.webkitRequestFullscreen ||
+          docEl.webkitRequestFullScreen ||
+          docEl.mozRequestFullScreen ||
+          docEl.msRequestFullscreen;
+        if (typeof reqFn === 'function') {
+          const res = reqFn.call(docEl, { navigationUI: 'hide' });
+          if (res && typeof res.catch === 'function') {
+            res.catch(() => {});
+          }
+        }
+      } catch (_) {}
+    }
+
+    function exitTheaterNativeFullscreen() {
+      try {
+        const isFull = Boolean(
+          document.fullscreenElement ||
+          document.webkitFullscreenElement ||
+          document.mozFullScreenElement ||
+          document.msFullscreenElement
+        );
+        if (!isFull) return;
+        const exitFn =
+          document.exitFullscreen ||
+          document.webkitExitFullscreen ||
+          document.webkitCancelFullScreen ||
+          document.mozCancelFullScreen ||
+          document.msExitFullscreen;
+        if (typeof exitFn === 'function') {
+          const res = exitFn.call(document);
+          if (res && typeof res.catch === 'function') {
+            res.catch(() => {});
+          }
+        }
+      } catch (_) {}
+    }
+
     function openAppScreen(appName) {
       const normalizedApp = appName === 'chibi' ? 'tachie' : appName;
       document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
@@ -3854,6 +3904,7 @@
         document.body.classList.add('landscape-game-active');
         renderMapStage();
       } else if (normalizedApp === 'theater') {
+        requestTheaterNativeFullscreen();
         const lobby = document.getElementById('vn-theater-selector-lobby');
         const isLobbyOpen = lobby && lobby.classList.contains('active');
         if (isLobbyOpen) {
@@ -3865,6 +3916,7 @@
         }
         initTheaterScreen();
       } else {
+        exitTheaterNativeFullscreen();
         appState.inLandscapeGame = false;
         document.body.classList.remove('landscape-game-active');
         if (normalizedApp === 'builder') {
@@ -3954,6 +4006,7 @@
     }
 
     function openDesktopHomeScreen() {
+      exitTheaterNativeFullscreen();
       appState.inLandscapeGame = false;
       document.body.classList.remove('landscape-game-active');
       document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
@@ -16242,6 +16295,15 @@ ${BUILTIN_CSS_TEMPLATE}`;
     async function fetchGithubWorkshopJson(relPath) {
       const cleanRel = String(relPath || '').replace(/^\/+/, '');
       const { githubRepo, githubToken } = getWorkshopSyncConfig();
+      const fetchWithTimeout = async (url, opts = {}, timeoutMs = 12000) => {
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), timeoutMs);
+        try {
+          return await fetch(url, { ...opts, signal: ctrl.signal });
+        } finally {
+          clearTimeout(tid);
+        }
+      };
       const urlsToTry = [];
       if (githubRepo && githubRepo.includes('/')) {
         urlsToTry.push(`https://raw.githubusercontent.com/${githubRepo}/main/workshop-store/${cleanRel}?t=${Date.now()}`);
@@ -16249,7 +16311,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
       }
       for (const u of urlsToTry) {
         try {
-          const res = await fetch(u, { cache: 'no-store' });
+          const res = await fetchWithTimeout(u, { cache: 'no-store' }, 12000);
           if (res.ok) {
             const text = await res.text();
             if (text && !text.trim().startsWith('<')) {
@@ -16262,7 +16324,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
         try {
           const headers = { Accept: 'application/vnd.github.v3+json' };
           if (githubToken) headers.Authorization = `Bearer ${githubToken}`;
-          const apiRes = await fetch(`https://api.github.com/repos/${githubRepo}/contents/workshop-store/${cleanRel}?t=${Date.now()}`, { headers });
+          const apiRes = await fetchWithTimeout(`https://api.github.com/repos/${githubRepo}/contents/workshop-store/${cleanRel}?t=${Date.now()}`, { headers }, 12000);
           if (apiRes.ok) {
             const meta = await apiRes.json();
             if (meta && meta.content) {
@@ -16272,7 +16334,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
               const decoded = new TextDecoder('utf-8').decode(bytes);
               return JSON.parse(decoded);
             } else if (meta && meta.download_url) {
-              const dlRes = await fetch(meta.download_url + `?t=${Date.now()}`);
+              const dlRes = await fetchWithTimeout(meta.download_url + `?t=${Date.now()}`, { cache: 'no-store' }, 12000);
               if (dlRes.ok) return await dlRes.json();
             }
           }
@@ -24751,39 +24813,53 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
       const pool = [];
       const seenIds = new Set();
       const seenNames = new Set();
-      const registerScene = (sc) => {
+      const registerScene = (sc, isPriorityChap = false) => {
         if (!sc || (!sc.id && !sc.name)) return;
         const sid = String(sc.id || sc.name).trim();
         const sname = String(sc.name || sc.id).trim();
         if (!sid || sid === 'cg_only') return;
-        const existing = pool.find((x) => x.id === sid || (sname && x.name === sname));
+        const hasDistinctName = Boolean(sname && sname !== sid && !/^scene_\d+$/i.test(sname));
+        const existing = pool.find((x) => {
+          if (!x) return false;
+          const xHasDistinctName = Boolean(x.name && x.name !== x.id && !/^scene_\d+$/i.test(x.name));
+          if (hasDistinctName && xHasDistinctName) {
+            return x.name === sname;
+          }
+          return x.id === sid || (sname && x.name === sname);
+        });
         if (existing) {
-          if (!existing.imageUrl && sc.imageUrl) existing.imageUrl = sc.imageUrl;
+          if (isPriorityChap && sc.imageUrl) existing.imageUrl = sc.imageUrl;
+          else if (!existing.imageUrl && sc.imageUrl) existing.imageUrl = sc.imageUrl;
           if ((!existing.prompt || existing.prompt.length < 20) && sc.prompt) existing.prompt = sc.prompt;
           if (!existing.baseSceneId && sc.baseSceneId) existing.baseSceneId = sc.baseSceneId;
           return;
         }
-        seenIds.add(sid);
+        const effectiveId = (!isPriorityChap && seenIds.has(sid) && hasDistinctName)
+          ? sname
+          : sid;
+        seenIds.add(effectiveId);
         if (sname) seenNames.add(sname);
         pool.push({
-          id: sid,
-          name: sname || sid,
+          id: effectiveId,
+          name: sname || effectiveId,
           prompt: sc.prompt || 'no humans, nobody, scenery, masterpiece, best quality, anime visual novel background art, wide angle 16:9 interior, atmospheric lighting',
           imageUrl: sc.imageUrl || '',
           baseSceneId: sc.baseSceneId || ''
         });
       };
+      if (fallbackChap) {
+        (fallbackChap.scenes || []).forEach((sc) => registerScene(sc, true));
+      }
       if (targetProj) {
-        (targetProj.globalScenes || []).forEach(registerScene);
         (targetProj.chapters || []).forEach((ch) => {
-          (ch?.scenes || []).forEach(registerScene);
+          if (ch === fallbackChap) return;
+          (ch?.scenes || []).forEach((sc) => registerScene(sc, false));
         });
         (targetProj.subGroups || []).forEach((sg) => {
-          (sg?.scenes || []).forEach(registerScene);
+          if (sg === fallbackChap) return;
+          (sg?.scenes || []).forEach((sc) => registerScene(sc, false));
         });
-      }
-      if (fallbackChap) {
-        (fallbackChap.scenes || []).forEach(registerScene);
+        (targetProj.globalScenes || []).forEach((sc) => registerScene(sc, false));
       }
       if (pool.length === 0) {
         pool.push({
@@ -24798,7 +24874,7 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
         targetProj.globalScenes = pool.map((s) => ({ ...s }));
       } else if (targetProj && Array.isArray(targetProj.globalScenes)) {
         pool.forEach((p) => {
-          const gf = targetProj.globalScenes.find((g) => g && (g.id === p.id || g.name === p.name));
+          const gf = targetProj.globalScenes.find((g) => g && ((p.name && g.name === p.name) || (!p.name && g.id === p.id)));
           if (!gf) {
             targetProj.globalScenes.push({ ...p });
           } else {
@@ -24813,15 +24889,16 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
     function rebuildHolderScenesFromLines(holder, proj = null, fallbackChap = null) {
       if (!holder || !Array.isArray(holder.scriptLines) || holder.scriptLines.length === 0) return;
       const targetProj = proj || getCurrentReplayProject();
+      const oldScenes = Array.isArray(holder.scenes) ? holder.scenes : [];
+      const chapScenes = (fallbackChap && Array.isArray(fallbackChap.scenes)) ? fallbackChap.scenes : [];
       const pool = getAllModuleScenesPool(targetProj, fallbackChap || holder);
-      const fallbackScene = pool[0] || {
+      const fallbackScene = oldScenes[0] || chapScenes[0] || pool[0] || {
         id: 'scene_1',
         name: '默认跑团舞台',
         prompt: 'no humans, nobody, scenery, masterpiece, best quality, anime visual novel background art, mysterious room, cinematic lighting, 16:9 wide shot',
         imageUrl: ''
       };
 
-      const oldScenes = Array.isArray(holder.scenes) ? holder.scenes : [];
       const findSceneMeta = (sid) => {
         if (sid === 'cg_only') {
           return {
@@ -24832,14 +24909,18 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
             baseSceneId: ''
           };
         }
-        const fromOld = oldScenes.find((x) => x && (x.id === sid || x.name === sid));
-        const fromPool = pool.find((x) => x && (x.id === sid || x.name === sid));
-        const base = fromPool || fromOld || fallbackScene;
+        const fromOld = oldScenes.find((x) => x && (x.id === sid || x.name === sid))
+          || chapScenes.find((x) => x && (x.id === sid || x.name === sid));
+        const fromPool = pool.find((x) => x && (
+          (fromOld?.name && x.name === fromOld.name) ||
+          (!fromOld && (x.id === sid || x.name === sid))
+        ));
+        const base = fromOld || fromPool || fallbackScene;
         return {
-          id: base.id || sid || fallbackScene.id,
+          id: fromOld?.id || base.id || sid || fallbackScene.id,
           name: fromOld?.name || base.name || sid || fallbackScene.name,
           prompt: fromOld?.prompt || base.prompt || fallbackScene.prompt,
-          imageUrl: fromOld?.imageUrl || base.imageUrl || '',
+          imageUrl: fromOld?.imageUrl || fromPool?.imageUrl || base.imageUrl || '',
           baseSceneId: fromOld?.baseSceneId || base.baseSceneId || ''
         };
       };
@@ -24862,7 +24943,7 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
         runningSceneId = canonicalId;
 
         const prevSeg = segments[segments.length - 1];
-        if (prevSeg && prevSeg.id === canonicalId) {
+        if (prevSeg && prevSeg.id === canonicalId && prevSeg.name === resolvedMeta.name) {
           prevSeg.endLineIdx = i;
         } else {
           segments.push({
@@ -24888,7 +24969,7 @@ EXP_UPDATE: L行号|角色姓名|差分池中的准确差分名称`;
       }
       const maxIdx = holder.scriptLines.length - 1;
       const pool = getAllModuleScenesPool(proj || getCurrentReplayProject(), fallbackChap || holder);
-      const fallbackId = pool[0]?.id || 'scene_1';
+      const fallbackId = holder.scenes[0]?.id || pool[0]?.id || 'scene_1';
 
       const order = holder.scenes.map((_, idx) => idx);
       if (prioritySegIdx >= 0 && prioritySegIdx < holder.scenes.length) {
@@ -25711,7 +25792,17 @@ CG_PROMPT: CG序号数字如0|起始行号数字|结束行号数字|中文画面
 
     function syncSceneMetaAcrossProject(proj, sceneId, sceneName, patch = {}) {
       if (!proj) return;
-      const matchFn = (s) => s && ((sceneId && s.id === sceneId) || (sceneName && s.name === sceneName));
+      const cleanName = String(sceneName || '').trim();
+      const hasDistinctTargetName = Boolean(cleanName && cleanName !== sceneId && !/^scene_\d+$/i.test(cleanName));
+      const matchFn = (s) => {
+        if (!s) return false;
+        const sName = String(s.name || '').trim();
+        const sHasDistinctName = Boolean(sName && sName !== s.id && !/^scene_\d+$/i.test(sName));
+        if (hasDistinctTargetName && sHasDistinctName) {
+          return sName === cleanName;
+        }
+        return (cleanName && sName === cleanName) || (!hasDistinctTargetName && sceneId && s.id === sceneId);
+      };
       (proj.globalScenes || []).forEach((s) => {
         if (matchFn(s)) Object.assign(s, patch);
       });
@@ -27783,29 +27874,27 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         );
 
         const chaptersListHtml = effectiveChapsMeta.length > 0
-          ? `<div style="display:flex;flex-direction:column;gap:6px;margin-top:2px;padding-top:8px;border-top:1px dashed var(--border-color);">
+          ? `<div style="display:flex;flex-direction:column;gap:6px;margin-top:2px;padding-top:8px;border-top:1px dashed var(--border-color);min-width:0;width:100%;">
               <div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:700;color:var(--text-secondary);">
                 <span>分章目录 · 点击任意章节直接进入观看</span>
                 <span>共 ${effectiveChapsMeta.length} 章</span>
               </div>
-              <div style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;padding-right:2px;">
+              <div style="display:flex;flex-direction:column;gap:6px;max-height:210px;overflow-y:auto;overflow-x:hidden;padding-right:2px;min-width:0;width:100%;">
                 ${effectiveChapsMeta.map((cm, cIdx) => {
                   const ord = Number(cm.order ?? cIdx);
                   const rawTitle = String(cm.title || `第 ${cIdx + 1} 章`).replace(/</g, '&lt;');
                   const lineCnt = Number(cm.lineCount || 0);
                   const chapDownloaded = isZipMounted || localChaptersSet.has(ord);
                   return `
-                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border-radius:10px;border:1px solid var(--border-color);background:var(--secondary-bg);">
-                      <div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1;cursor:pointer;" onclick="openWorkshopModuleInTheater('${item.id}', ${ord})" title="点击直接观看本章">
-                        <span class="vn-console-badge ${chapDownloaded ? 'accent' : ''}" style="flex-shrink:0;">第${cIdx + 1}章</span>
-                        <span style="font-size:12px;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${rawTitle}</span>
-                        ${lineCnt > 0 ? `<span style="font-size:11px;color:var(--text-secondary);flex-shrink:0;">· ${lineCnt}句</span>` : ''}
-                        ${chapDownloaded ? `<span style="font-size:10px;color:var(--accent-color);font-weight:700;flex-shrink:0;">已存</span>` : ''}
+                    <div class="setting-item" style="padding:8px 10px;border-radius:10px;background:var(--secondary-bg);cursor:pointer;min-width:0;width:100%;box-sizing:border-box;" onclick="openWorkshopModuleInTheater('${item.id}', ${ord})">
+                      <div class="setting-item-left" style="width:auto;height:auto;background:transparent;flex-shrink:0;">
+                        <span class="vn-console-badge ${chapDownloaded ? 'accent' : ''}">第${cIdx + 1}章</span>
                       </div>
-                      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-                        <button type="button" class="moe-btn secondary" id="workshop-dl-btn-${item.id}-${ord}" style="height:28px;min-height:28px;padding:0 10px;font-size:11px;flex-shrink:0;" onclick="event.stopPropagation();downloadOrUpdateWorkshopProject('${item.id}', ${ord})">下载</button>
-                        <button type="button" class="moe-btn secondary" id="workshop-zip-btn-${item.id}-${ord}" style="height:28px;min-height:28px;padding:0 10px;font-size:11px;flex-shrink:0;" onclick="event.stopPropagation();downloadWorkshopProjectAsZip('${item.id}', ${ord})">压缩</button>
-                        <button type="button" class="moe-btn" id="workshop-watch-btn-${item.id}-${ord}" style="height:28px;min-height:28px;padding:0 10px;font-size:11px;flex-shrink:0;" onclick="event.stopPropagation();openWorkshopModuleInTheater('${item.id}', ${ord})">观看</button>
+                      <div class="setting-item-center" style="min-width:0;flex:1;">
+                        <div class="setting-item-title" style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${rawTitle}</div>
+                      </div>
+                      <div class="setting-item-right" style="flex-shrink:0;">
+                        <span style="font-size:11px;color:${chapDownloaded ? 'var(--accent-color)' : 'var(--text-secondary)'};font-weight:700;">${lineCnt > 0 ? lineCnt + '句 · ' : ''}${chapDownloaded ? '已存直看' : '点看'}</span>
                       </div>
                     </div>
                   `;
@@ -27814,10 +27903,25 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             </div>`
           : '';
 
+        const scopeSelectHtml = effectiveChapsMeta.length > 0
+          ? `<div style="display:flex;align-items:center;gap:8px;padding-top:6px;border-top:1px solid var(--border-color);min-width:0;width:100%;">
+              <span style="font-size:11px;font-weight:700;color:var(--text-secondary);flex-shrink:0;">范围</span>
+              <select class="moe-input" id="workshop-card-scope-${item.id}" style="flex:1;min-width:0;">
+                <option value="-1">整部模组 · 全部 ${effectiveChapsMeta.length} 章</option>
+                ${effectiveChapsMeta.map((cm, cIdx) => {
+                  const ord = Number(cm.order ?? cIdx);
+                  const rawTitle = String(cm.title || `第 ${cIdx + 1} 章`).replace(/</g, '&lt;');
+                  const chapDownloaded = isZipMounted || localChaptersSet.has(ord);
+                  return `<option value="${ord}">第 ${cIdx + 1} 章 · ${rawTitle}${chapDownloaded ? ' · 已存' : ''}</option>`;
+                }).join('')}
+              </select>
+            </div>`
+          : '';
+
         const statusBadgeHtml = isLocalOwner
-          ? '<span class="vn-console-badge accent" style="flex-shrink:0;">本机已存 · 点观看直读本地</span>'
+          ? '<span class="vn-console-badge accent" style="flex-shrink:0;">本机已存 · 点观看直读</span>'
           : (isZipMounted
-              ? '<span class="vn-console-badge accent" style="flex-shrink:0;">已载入压缩包 · 点观看直读本地</span>'
+              ? '<span class="vn-console-badge accent" style="flex-shrink:0;">已载入包 · 点观看直读</span>'
               : '<span class="vn-console-badge" style="flex-shrink:0;">未存本机 · 下载或压缩后秒开</span>');
 
         const card = document.createElement('div');
@@ -27826,17 +27930,22 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         card.style.alignItems = 'stretch';
         card.style.gap = '10px';
         card.style.padding = '12px';
+        card.style.minWidth = '0';
+        card.style.width = '100%';
+        card.style.maxWidth = '100%';
+        card.style.boxSizing = 'border-box';
+        card.style.overflow = 'hidden';
         card.innerHTML = `
-          <div style="display:flex;align-items:flex-start;gap:12px;">
-            <div style="width:52px;height:52px;border-radius:12px;border:1px solid var(--border-color);background:var(--secondary-bg);overflow:hidden;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <div style="display:flex;align-items:flex-start;gap:10px;min-width:0;width:100%;">
+            <div style="width:50px;height:50px;border-radius:12px;border:1px solid var(--border-color);background:var(--secondary-bg);overflow:hidden;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
               ${avatarSrc
                 ? `<img class="ws-mod-avatar-img" src="${avatarSrc}" alt="模组封面" style="width:100%;height:100%;object-fit:cover;display:block;" />`
                 : `<img class="ws-mod-avatar-img" alt="模组封面" style="width:100%;height:100%;object-fit:cover;display:none;" /><svg class="ws-mod-avatar-svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent-color);"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`
               }
             </div>
-            <div style="min-width:0;flex:1;">
-              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;font-weight:800;color:var(--text-primary);line-height:1.4;">
-                <span>${item.title || '未命名模组'}</span>
+            <div style="min-width:0;flex:1;overflow:hidden;">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:14px;font-weight:800;color:var(--text-primary);line-height:1.4;">
+                <span style="word-break:break-word;">${item.title || '未命名模组'}</span>
                 <span style="font-size:11px;color:var(--accent-color);font-weight:700;">作者：${item.author || '跑团KP'}</span>
                 ${statusBadgeHtml}
               </div>
@@ -27849,10 +27958,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             </div>
           </div>
           ${chaptersListHtml}
-          <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:8px;padding-top:8px;border-top:1px solid var(--border-color);">
-            <button type="button" class="moe-btn secondary" id="workshop-dl-btn-${item.id}" style="width:100%;justify-content:center;" onclick="downloadOrUpdateWorkshopProject('${item.id}', -1)">下载</button>
-            <button type="button" class="moe-btn secondary" id="workshop-zip-btn-${item.id}" style="width:100%;justify-content:center;" onclick="downloadWorkshopProjectAsZip('${item.id}', -1)">压缩</button>
-            <button type="button" class="moe-btn" id="workshop-watch-btn-${item.id}" style="width:100%;justify-content:center;" onclick="openWorkshopModuleInTheater('${item.id}', 0)">观看</button>
+          ${scopeSelectHtml}
+          <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:8px;min-width:0;width:100%;">
+            <button type="button" class="moe-btn secondary" id="workshop-dl-btn-${item.id}" style="width:100%;justify-content:center;" onclick="downloadOrUpdateWorkshopProject('${item.id}', getWorkshopCardSelectedOrder('${item.id}'))">下载</button>
+            <button type="button" class="moe-btn secondary" id="workshop-zip-btn-${item.id}" style="width:100%;justify-content:center;" onclick="downloadWorkshopProjectAsZip('${item.id}', getWorkshopCardSelectedOrder('${item.id}'))">压缩</button>
+            <button type="button" class="moe-btn" id="workshop-watch-btn-${item.id}" style="width:100%;justify-content:center;" onclick="openWorkshopModuleInTheater('${item.id}', Math.max(0, getWorkshopCardSelectedOrder('${item.id}')))">观看</button>
           </div>
         `;
         box.appendChild(card);
@@ -27870,6 +27980,13 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           }).catch(() => {});
         }
       });
+    }
+
+    function getWorkshopCardSelectedOrder(projectId) {
+      const sel = document.getElementById(`workshop-card-scope-${projectId}`);
+      if (!sel) return -1;
+      const val = parseInt(sel.value, 10);
+      return Number.isNaN(val) ? -1 : val;
     }
 
     async function packAssetUrlToPortableDataUrl(rawUrl) {
@@ -28734,6 +28851,19 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       registerRemoteProjectPackIndex(remoteProj);
       const chaps = Array.isArray(remoteProj.chapters) ? remoteProj.chapters : [];
       const targetChap = chaps[chapterIdx] || chaps[0];
+      const targetOrd = Number(targetChap?.order ?? chapterIdx);
+      const targetSubGroups = (remoteProj.subGroups || []).filter((sg) => sg && Number(sg.targetChapterIdx ?? 0) === targetOrd);
+      const usedSceneNames = new Set();
+      const usedExps = new Set(['默认']);
+      if (targetChap) {
+        (targetChap.scenes || []).forEach((s) => { if (s && s.name) usedSceneNames.add(s.name); });
+        (targetChap.scriptLines || []).forEach((l) => { if (l && l.exp) usedExps.add(l.exp); });
+      }
+      targetSubGroups.forEach((sg) => {
+        (sg.scenes || []).forEach((s) => { if (s && s.name) usedSceneNames.add(s.name); });
+        (sg.scriptLines || []).forEach((l) => { if (l && l.exp) usedExps.add(l.exp); });
+      });
+
       const requiredHashes = new Set();
       const collectHash = (ref) => {
         if (ref && typeof ref === 'string' && ref.startsWith('/api/workshop/asset/')) {
@@ -28750,10 +28880,18 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         collectHash(c.tachieBase);
         collectHash(c.chibiImg);
         if (c.tachieExpressions && typeof c.tachieExpressions === 'object') {
-          Object.values(c.tachieExpressions).forEach(collectHash);
+          Object.entries(c.tachieExpressions).forEach(([expKey, expUrl]) => {
+            if (usedExps.has(expKey) || expKey === '默认') {
+              collectHash(expUrl);
+            }
+          });
         }
       });
-      (remoteProj.globalScenes || []).forEach((g) => g && collectHash(g.imageUrl));
+      (remoteProj.globalScenes || []).forEach((g) => {
+        if (g && (usedSceneNames.size === 0 || (g.name && usedSceneNames.has(g.name)))) {
+          collectHash(g.imageUrl);
+        }
+      });
       (remoteProj.bgmTracks || []).forEach((bt) => bt && collectHash(bt.url));
 
       if (targetChap) {
@@ -28770,7 +28908,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         chapTts.forEach((rec) => rec && collectHash(rec.audioDataUrl || rec.audioData));
       }
 
-      (remoteProj.subGroups || []).forEach((sg, sgIdx) => {
+      targetSubGroups.forEach((sg, sgIdx) => {
         if (!sg) return;
         (sg.scenes || []).forEach((s) => s && collectHash(s.imageUrl));
         (sg.cgNodes || []).forEach((g) => {
@@ -28850,6 +28988,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
     // 在线阅读：预热当前章节立绘、背景、插图与配音至内存高速池，确保与本机完全一致的零延迟音画同步体验
     async function openWorkshopOnlineStream(projectId, chapterOrder = 0) {
+      requestTheaterNativeFullscreen();
       unlockBgmAudioPlayerOnUserGesture();
       if (typeof ensureSharedTheaterVoicePlayerUnlocked === 'function') {
         ensureSharedTheaterVoicePlayerUnlocked();
@@ -28972,10 +29111,13 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const headers = { Accept: 'application/vnd.github.v3+json' };
       if (githubToken) headers.Authorization = `Bearer ${githubToken}`;
       const names = [];
-      for (let page = 1; page <= 3; page++) {
+      for (let page = 1; page <= 2; page++) {
         try {
+          const ctrl = new AbortController();
+          const tid = setTimeout(() => ctrl.abort(), 10000);
           const url = `https://api.github.com/repos/${githubRepo}/contents/workshop-store/packs?per_page=100&page=${page}`;
-          const res = await fetch(url, { headers });
+          const res = await fetch(url, { headers, signal: ctrl.signal });
+          clearTimeout(tid);
           if (!res.ok) break;
           const arr = await res.json();
           if (!Array.isArray(arr) || arr.length === 0) break;
@@ -29034,69 +29176,29 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             finishedPacks += 1;
             if (typeof onProgress === 'function') {
               const doneCnt = missingHashesToFetch.length - stillMissingSet.size;
-              const pct = 12 + (finishedPacks / Math.max(1, packList.length)) * 40;
+              const pct = 12 + (finishedPacks / Math.max(1, packList.length)) * 42;
               onProgress(pct, `正在并发拉取云端资源包 第 ${finishedPacks} / ${packList.length} 包，已就绪 ${doneCnt} 个素材...`);
             }
           }
         };
         const ghPackWorkers = [];
-        for (let w = 0; w < Math.min(12, packList.length); w++) {
+        for (let w = 0; w < Math.min(6, packList.length); w++) {
           ghPackWorkers.push(runGhPackPullWorker());
         }
         await Promise.all(ghPackWorkers);
         saveGithubAssetPackIndex(githubRepo, savedPackIdx);
       }
 
-      // 通道 2：若仍有缺失，扫描 GitHub 仓库 workshop-store/packs 下全部历史分包并补齐
-      if (stillMissingSet.size > 0) {
-        const allRepoPacks = await discoverAllGithubWorkshopPacks();
-        const extraPacks = allRepoPacks.filter((p) => !unpackedPacks.has(p));
-        if (extraPacks.length > 0) {
-          let extraCursor = 0;
-          let scannedCnt = 0;
-          const runExtraPackWorker = async () => {
-            while (extraCursor < extraPacks.length && stillMissingSet.size > 0) {
-              const eIdx = extraCursor++;
-              const pPath = extraPacks[eIdx];
-              if (!pPath) continue;
-              const assetsObj = await fetchAndUnpackWorkshopAssetPack(pPath);
-              if (assetsObj && typeof assetsObj === 'object') {
-                Object.keys(assetsObj).forEach((k) => {
-                  _workshopAssetPackIndexMap.set(k, pPath);
-                  savedPackIdx[k] = pPath;
-                });
-              }
-              for (const h of Array.from(stillMissingSet)) {
-                if (_workshopRawDataUrlByHash.has(h) || _workshopRawDataUrlByHash.has(`/api/workshop/asset/${h}`)) {
-                  stillMissingSet.delete(h);
-                }
-              }
-              scannedCnt += 1;
-              if (typeof onProgress === 'function') {
-                const doneCnt = missingHashesToFetch.length - stillMissingSet.size;
-                const pct = 52 + (scannedCnt / Math.max(1, extraPacks.length)) * 22;
-                onProgress(pct, `正在深度检索云端历史资源包 ${scannedCnt} / ${extraPacks.length}，已找回 ${doneCnt} 个素材...`);
-              }
-            }
-          };
-          const extraWorkers = [];
-          for (let w = 0; w < Math.min(12, extraPacks.length); w++) {
-            extraWorkers.push(runExtraPackWorker());
-          }
-          await Promise.all(extraWorkers);
-          saveGithubAssetPackIndex(githubRepo, savedPackIdx);
-        }
-      }
-
-      // 通道 3：向云端服务器批量接口请求剩余素材
+      // 通道 2：向云端服务器批量接口请求剩余素材
       if (stillMissingSet.size > 0) {
         const remainArr = Array.from(stillMissingSet);
-        const BATCH_PULL_SIZE = 60;
+        const BATCH_PULL_SIZE = 50;
         const batchChunks = [];
         for (let i = 0; i < remainArr.length; i += BATCH_PULL_SIZE) {
           batchChunks.push(remainArr.slice(i, i + BATCH_PULL_SIZE));
         }
         let chunkCursor = 0;
+        let finishedChunks = 0;
         const runCloudBatchWorker = async () => {
           while (chunkCursor < batchChunks.length) {
             const cIdx = chunkCursor++;
@@ -29122,6 +29224,12 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                 }
               }
             } catch (_) {}
+            finishedChunks += 1;
+            if (typeof onProgress === 'function') {
+              const doneCnt = missingHashesToFetch.length - stillMissingSet.size;
+              const pct = 54 + (finishedChunks / Math.max(1, batchChunks.length)) * 16;
+              onProgress(pct, `正在同步云端服务器素材库 ${finishedChunks} / ${batchChunks.length}，已就绪 ${doneCnt} 个素材...`);
+            }
           }
         };
         const cloudWorkers = [];
@@ -29131,9 +29239,50 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         await Promise.all(cloudWorkers);
       }
 
+      // 通道 3：若仍有缺失，扫描有限数量的历史分包补齐
+      if (stillMissingSet.size > 0) {
+        const allRepoPacks = await discoverAllGithubWorkshopPacks();
+        const extraPacks = allRepoPacks.filter((p) => !unpackedPacks.has(p)).slice(0, 16);
+        if (extraPacks.length > 0) {
+          let extraCursor = 0;
+          let scannedCnt = 0;
+          const runExtraPackWorker = async () => {
+            while (extraCursor < extraPacks.length && stillMissingSet.size > 0) {
+              const eIdx = extraCursor++;
+              const pPath = extraPacks[eIdx];
+              if (!pPath) continue;
+              const assetsObj = await fetchAndUnpackWorkshopAssetPack(pPath);
+              if (assetsObj && typeof assetsObj === 'object') {
+                Object.keys(assetsObj).forEach((k) => {
+                  _workshopAssetPackIndexMap.set(k, pPath);
+                  savedPackIdx[k] = pPath;
+                });
+              }
+              for (const h of Array.from(stillMissingSet)) {
+                if (_workshopRawDataUrlByHash.has(h) || _workshopRawDataUrlByHash.has(`/api/workshop/asset/${h}`)) {
+                  stillMissingSet.delete(h);
+                }
+              }
+              scannedCnt += 1;
+              if (typeof onProgress === 'function') {
+                const doneCnt = missingHashesToFetch.length - stillMissingSet.size;
+                const pct = 70 + (scannedCnt / Math.max(1, extraPacks.length)) * 6;
+                onProgress(pct, `正在检索云端备用资源包 ${scannedCnt} / ${extraPacks.length}，已找回 ${doneCnt} 个素材...`);
+              }
+            }
+          };
+          const extraWorkers = [];
+          for (let w = 0; w < Math.min(6, extraPacks.length); w++) {
+            extraWorkers.push(runExtraPackWorker());
+          }
+          await Promise.all(extraWorkers);
+          saveGithubAssetPackIndex(githubRepo, savedPackIdx);
+        }
+      }
+
       // 通道 4：单文件兜底补齐
       if (stillMissingSet.size > 0) {
-        const remainList = Array.from(stillMissingSet);
+        const remainList = Array.from(stillMissingSet).slice(0, 60);
         let remCursor = 0;
         const runRemainWorker = async () => {
           while (remCursor < remainList.length) {
@@ -29167,7 +29316,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           }
         };
         const remWorkers = [];
-        for (let w = 0; w < Math.min(12, remainList.length); w++) {
+        for (let w = 0; w < Math.min(6, remainList.length); w++) {
           remWorkers.push(runRemainWorker());
         }
         await Promise.all(remWorkers);
@@ -29268,9 +29417,26 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
       const remoteChaps = JSON.parse(JSON.stringify(remoteProj.chapters || []));
       remoteChaps.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
-      const targetChaps = (opts.onlyChapterOrder >= 0)
+      const isSingleChapterMode = opts.onlyChapterOrder >= 0;
+      const targetChaps = isSingleChapterMode
         ? remoteChaps.filter((c, idx) => Number(c.order ?? idx) === opts.onlyChapterOrder)
         : remoteChaps;
+      const targetSubGroups = isSingleChapterMode
+        ? (remoteProj.subGroups || []).filter((sg) => sg && Number(sg.targetChapterIdx ?? 0) === opts.onlyChapterOrder)
+        : (remoteProj.subGroups || []);
+
+      const activeSceneNamesInScope = new Set();
+      const activeExpsInScope = new Set(['默认']);
+      if (isSingleChapterMode) {
+        targetChaps.forEach((ch) => {
+          (ch.scenes || []).forEach((s) => { if (s && s.name) activeSceneNamesInScope.add(s.name); });
+          (ch.scriptLines || []).forEach((l) => { if (l && l.exp) activeExpsInScope.add(l.exp); });
+        });
+        targetSubGroups.forEach((sg) => {
+          (sg.scenes || []).forEach((s) => { if (s && s.name) activeSceneNamesInScope.add(s.name); });
+          (sg.scriptLines || []).forEach((l) => { if (l && l.exp) activeExpsInScope.add(l.exp); });
+        });
+      }
 
       // 收集本次勾选范围内需要用到的全部工坊素材哈希
       const requiredWorkshopHashes = new Set();
@@ -29290,12 +29456,23 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           collectRefHash(c.tachieBase);
           collectRefHash(c.chibiImg);
           if (c.tachieExpressions && typeof c.tachieExpressions === 'object') {
-            Object.values(c.tachieExpressions).forEach(collectRefHash);
+            Object.entries(c.tachieExpressions).forEach(([expKey, expVal]) => {
+              if (!isSingleChapterMode || activeExpsInScope.has(expKey) || expKey === '默认') {
+                collectRefHash(expVal);
+              }
+            });
           }
         });
       }
       if (opts.restoreScenes) {
-        (remoteProj.globalScenes || []).forEach((g) => g && collectRefHash(g.imageUrl));
+        (remoteProj.globalScenes || []).forEach((g) => {
+          if (g && (!isSingleChapterMode || activeSceneNamesInScope.size === 0 || (g.name && activeSceneNamesInScope.has(g.name)))) {
+            collectRefHash(g.imageUrl);
+          }
+        });
+      }
+      if (opts.restoreBgm) {
+        (remoteProj.bgmTracks || []).forEach((bt) => bt && collectRefHash(bt.url));
       }
       targetChaps.forEach((ch, idx) => {
         if (!ch) return;
@@ -29317,7 +29494,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           chapTts.forEach((rec) => rec && collectRefHash(rec.audioDataUrl || rec.audioData));
         }
       });
-      (remoteProj.subGroups || []).forEach((sg, sgIdx) => {
+      targetSubGroups.forEach((sg, sgIdx) => {
         if (!sg) return;
         if (opts.restoreScenes) {
           (sg.scenes || []).forEach((s) => s && collectRefHash(s.imageUrl));
@@ -29370,11 +29547,15 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         if (pendingDiskBatch.length === 0) return;
         const chunk = pendingDiskBatch.splice(0, pendingDiskBatch.length);
         try {
+          const ctrl = new AbortController();
+          const tid = setTimeout(() => ctrl.abort(), 12000);
           await fetch('/api/local-assets/save-batch', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items: chunk })
+            body: JSON.stringify({ items: chunk }),
+            signal: ctrl.signal
           });
+          clearTimeout(tid);
         } catch (_) {}
         if (termuxOnline) {
           let tCursor = 0;
@@ -29383,16 +29564,20 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               const it = chunk[tCursor++];
               if (!it) continue;
               try {
+                const tCtrl = new AbortController();
+                const tTid = setTimeout(() => tCtrl.abort(), 8000);
                 await fetch(`${baseUrl}/save`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(it)
+                  body: JSON.stringify(it),
+                  signal: tCtrl.signal
                 });
+                clearTimeout(tTid);
               } catch (_) {}
             }
           };
           const tWorkers = [];
-          for (let w = 0; w < Math.min(6, chunk.length); w++) {
+          for (let w = 0; w < Math.min(4, chunk.length); w++) {
             tWorkers.push(runTermuxSaveWorker());
           }
           await Promise.all(tWorkers);
@@ -29459,7 +29644,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           writtenDiskPathsInSession.add(cleanRel);
           pendingDiskBatch.push({ path: cleanRel, dataUrl });
           savedAssetCount += 1;
-          if (pendingDiskBatch.length >= 40) {
+          if (pendingDiskBatch.length >= 30) {
             await flushDiskBatch();
           }
         }
@@ -29556,6 +29741,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           if (mergedRemote.tachieExpressions && typeof mergedRemote.tachieExpressions === 'object') {
             const nextExps = {};
             for (const [expKey, expVal] of Object.entries(mergedRemote.tachieExpressions)) {
+              if (isSingleChapterMode && !activeExpsInScope.has(expKey) && expKey !== '默认') {
+                continue;
+              }
               const safeExp = String(expKey).replace(/[\\/:*?"<>|]/g, '_');
               const localExpUrl = await materializeWorkshopRefToLocalUrl(expVal, `characters/${safeCharName}/${safeExp}.png`);
               if (localExpUrl) {
@@ -29654,8 +29842,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         const nextGlobalScenes = JSON.parse(JSON.stringify(remoteProj.globalScenes));
         for (let gIdx = 0; gIdx < nextGlobalScenes.length; gIdx++) {
           const gsc = nextGlobalScenes[gIdx];
-          if (gsc && gsc.imageUrl) {
-            const localScUrl = await materializeWorkshopRefToLocalUrl(gsc.imageUrl, `projects/${safeProj}/scenes/${gsc.id || gIdx}.png`);
+          if (gsc && gsc.imageUrl && (!isSingleChapterMode || activeSceneNamesInScope.size === 0 || (gsc.name && activeSceneNamesInScope.has(gsc.name)))) {
+            const safeGName = String(gsc.name || gsc.id || gIdx).replace(/[\\/:*?"<>|]/g, '_');
+            const localScUrl = await materializeWorkshopRefToLocalUrl(gsc.imageUrl, `projects/${safeProj}/scenes/global_${gIdx}_${safeGName}.png`);
             if (localScUrl) gsc.imageUrl = localScUrl;
           }
         }
@@ -29663,7 +29852,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           localProj.globalScenes = nextGlobalScenes;
         } else {
           nextGlobalScenes.forEach((gsc) => {
-            const ex = localProj.globalScenes.find((x) => x.id === gsc.id || x.name === gsc.name);
+            const ex = localProj.globalScenes.find((x) => (gsc.name && x.name === gsc.name) || (!gsc.name && x.id === gsc.id));
             if (!ex) {
               localProj.globalScenes.push(gsc);
             } else {
@@ -29685,9 +29874,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           if (!rNode) return;
           const matchIdx = prevArr.findIndex((pNode, pIdx) => {
             if (!pNode) return false;
-            if (rNode.id && pNode.id && rNode.id === pNode.id) return true;
             if (rNode.name && pNode.name && rNode.name === pNode.name) return true;
             if (rNode.title && pNode.title && rNode.title === pNode.title) return true;
+            if (rNode.id && pNode.id && rNode.id === pNode.id && (!rNode.name || !pNode.name || rNode.name === pNode.name)) return true;
             if (rNode.startLineIdx !== undefined && pNode.startLineIdx !== undefined && Number(rNode.startLineIdx) === Number(pNode.startLineIdx)) return true;
             return pIdx === rIdx;
           });
@@ -29723,7 +29912,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           for (let sIdx = 0; sIdx < ch.scenes.length; sIdx++) {
             const sc = ch.scenes[sIdx];
             if (sc && sc.imageUrl) {
-              const localUrl = await materializeWorkshopRefToLocalUrl(sc.imageUrl, `projects/${safeProj}/scenes/${sc.id || `ch${ord}_${sIdx}`}.png`);
+              const safeScKey = String(sc.id || `sc${sIdx}`).replace(/[\\/:*?"<>|]/g, '_');
+              const localUrl = await materializeWorkshopRefToLocalUrl(sc.imageUrl, `projects/${safeProj}/scenes/ch${ord}_${sIdx}_${safeScKey}.png`);
               if (localUrl) sc.imageUrl = localUrl;
             }
           }
@@ -29734,11 +29924,13 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             for (let gIdx = 0; gIdx < ch.cgNodes.length; gIdx++) {
               const cg = ch.cgNodes[gIdx];
               if (cg && cg.imageUrl) {
-                const localUrl = await materializeWorkshopRefToLocalUrl(cg.imageUrl, `projects/${safeProj}/cgs/${cg.id || `ch${ord}_${gIdx}`}.png`);
+                const safeCgKey = String(cg.id || `cg${gIdx}`).replace(/[\\/:*?"<>|]/g, '_');
+                const localUrl = await materializeWorkshopRefToLocalUrl(cg.imageUrl, `projects/${safeProj}/cgs/ch${ord}_${gIdx}_${safeCgKey}.png`);
                 if (localUrl) cg.imageUrl = localUrl;
               }
               if (cg && cg.customPadImg) {
-                const localPad = await materializeWorkshopRefToLocalUrl(cg.customPadImg, `projects/${safeProj}/cgs/pad_${cg.id || `ch${ord}_${gIdx}`}.png`);
+                const safeCgKey = String(cg.id || `cg${gIdx}`).replace(/[\\/:*?"<>|]/g, '_');
+                const localPad = await materializeWorkshopRefToLocalUrl(cg.customPadImg, `projects/${safeProj}/cgs/pad_ch${ord}_${gIdx}_${safeCgKey}.png`);
                 if (localPad) cg.customPadImg = localPad;
               }
             }
@@ -29747,7 +29939,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             for (let clIdx = 0; clIdx < ch.clueNodes.length; clIdx++) {
               const cl = ch.clueNodes[clIdx];
               if (cl && cl.imageUrl) {
-                const localUrl = await materializeWorkshopRefToLocalUrl(cl.imageUrl, `projects/${safeProj}/clues/${cl.id || `ch${ord}_${clIdx}`}.png`);
+                const safeClKey = String(cl.id || `cl${clIdx}`).replace(/[\\/:*?"<>|]/g, '_');
+                const localUrl = await materializeWorkshopRefToLocalUrl(cl.imageUrl, `projects/${safeProj}/clues/ch${ord}_${clIdx}_${safeClKey}.png`);
                 if (localUrl) cl.imageUrl = localUrl;
               }
             }
@@ -29822,13 +30015,20 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       existingChaps.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
       localProj.chapters = existingChaps;
 
-      // 将章节场景图与全局场景库双向同步，确保任何一处有图则全模组同步生效
+      // 仅按明确的同名场所名称将章节场景图与全局场景库同步，绝不因通用 scene_1 编号互相覆盖不同章节场景
       if (opts.restoreScenes) {
         if (!Array.isArray(localProj.globalScenes)) localProj.globalScenes = [];
         localProj.chapters.forEach((ch) => {
           (ch.scenes || []).forEach((sc) => {
             if (!sc) return;
-            const gMatch = localProj.globalScenes.find((g) => (sc.id && g.id === sc.id) || (sc.name && g.name === sc.name));
+            const scName = String(sc.name || '').trim();
+            const hasDistinctName = Boolean(scName && scName !== sc.id && !/^scene_\d+$/i.test(scName));
+            const gMatch = localProj.globalScenes.find((g) => {
+              if (!g) return false;
+              const gName = String(g.name || '').trim();
+              if (hasDistinctName && gName) return gName === scName;
+              return !hasDistinctName && !gName && sc.id && g.id === sc.id;
+            });
             if (!gMatch) {
               localProj.globalScenes.push(JSON.parse(JSON.stringify(sc)));
             } else if (isUsableLocalUrl(sc.imageUrl) && (!opts.onlyMissing || !isUsableLocalUrl(gMatch.imageUrl))) {
@@ -29838,13 +30038,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             }
           });
         });
-        if (typeof syncSceneMetaAcrossProject === 'function') {
-          localProj.globalScenes.forEach((gsc) => {
-            if (gsc && isUsableLocalUrl(gsc.imageUrl)) {
-              syncSceneMetaAcrossProject(localProj, gsc.id, gsc.name, { imageUrl: gsc.imageUrl });
-            }
-          });
-        }
       }
 
       // 仅在恢复章节数据或本地总日志为空时，根据章节原文拼接恢复分章页总日志文本
@@ -29865,8 +30058,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
       }
 
-      if (Array.isArray(remoteProj.subGroups) && remoteProj.subGroups.length > 0) {
-        const subGroupsCopy = JSON.parse(JSON.stringify(remoteProj.subGroups));
+      if (Array.isArray(targetSubGroups) && targetSubGroups.length > 0) {
+        const subGroupsCopy = JSON.parse(JSON.stringify(targetSubGroups));
         const existingSgs = Array.isArray(localProj.subGroups) ? [...localProj.subGroups] : [];
         for (let sgIdx = 0; sgIdx < subGroupsCopy.length; sgIdx++) {
           const sg = subGroupsCopy[sgIdx];
@@ -29876,7 +30069,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             for (let sIdx = 0; sIdx < sg.scenes.length; sIdx++) {
               const sc = sg.scenes[sIdx];
               if (sc && sc.imageUrl) {
-                const localUrl = await materializeWorkshopRefToLocalUrl(sc.imageUrl, `projects/${safeProj}/scenes/${sc.id || `${sgId}_${sIdx}`}.png`);
+                const localUrl = await materializeWorkshopRefToLocalUrl(sc.imageUrl, `projects/${safeProj}/scenes/${sgId}_${sIdx}_${sc.id || 'sc'}.png`);
                 if (localUrl) sc.imageUrl = localUrl;
               }
             }
@@ -29885,18 +30078,18 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             for (let gIdx = 0; gIdx < (sg.cgNodes || []).length; gIdx++) {
               const cg = sg.cgNodes[gIdx];
               if (cg && cg.imageUrl) {
-                const localUrl = await materializeWorkshopRefToLocalUrl(cg.imageUrl, `projects/${safeProj}/cgs/${cg.id || `${sgId}_${gIdx}`}.png`);
+                const localUrl = await materializeWorkshopRefToLocalUrl(cg.imageUrl, `projects/${safeProj}/cgs/${sgId}_${gIdx}_${cg.id || 'cg'}.png`);
                 if (localUrl) cg.imageUrl = localUrl;
               }
               if (cg && cg.customPadImg) {
-                const localPad = await materializeWorkshopRefToLocalUrl(cg.customPadImg, `projects/${safeProj}/cgs/pad_${cg.id || `${sgId}_${gIdx}`}.png`);
+                const localPad = await materializeWorkshopRefToLocalUrl(cg.customPadImg, `projects/${safeProj}/cgs/pad_${sgId}_${gIdx}_${cg.id || 'cg'}.png`);
                 if (localPad) cg.customPadImg = localPad;
               }
             }
             for (let clIdx = 0; clIdx < (sg.clueNodes || []).length; clIdx++) {
               const cl = sg.clueNodes[clIdx];
               if (cl && cl.imageUrl) {
-                const localUrl = await materializeWorkshopRefToLocalUrl(cl.imageUrl, `projects/${safeProj}/clues/${cl.id || `${sgId}_${clIdx}`}.png`);
+                const localUrl = await materializeWorkshopRefToLocalUrl(cl.imageUrl, `projects/${safeProj}/clues/${sgId}_${clIdx}_${cl.id || 'cl'}.png`);
                 if (localUrl) cl.imageUrl = localUrl;
               }
             }
@@ -29999,7 +30192,12 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
       appState.replayProjects = await db.replayProjects.toArray();
       appState.currentReplayProjectId = localProj.id;
-      appState.currentReplayChapterIdx = opts.onlyChapterOrder >= 0 ? opts.onlyChapterOrder : 0;
+      if (opts.onlyChapterOrder >= 0) {
+        const foundChapIdx = (localProj.chapters || []).findIndex((c, idx) => Number(c.order ?? idx) === Number(opts.onlyChapterOrder));
+        appState.currentReplayChapterIdx = foundChapIdx >= 0 ? foundChapIdx : 0;
+      } else {
+        appState.currentReplayChapterIdx = 0;
+      }
       appState.tachieFilterModule = localProj.id;
       localStorage.setItem('last-tachie-module-id', localProj.id);
 
@@ -30120,11 +30318,28 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
         const allChaps = Array.isArray(sourceProj.chapters) ? JSON.parse(JSON.stringify(sourceProj.chapters)) : [];
         allChaps.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
-        const targetChaps = onlyChapterOrder >= 0
+        const isSingleChapZip = onlyChapterOrder >= 0;
+        const targetChaps = isSingleChapZip
           ? allChaps.filter((c, idx) => Number(c.order ?? idx) === Number(onlyChapterOrder))
           : allChaps;
         if (targetChaps.length === 0 && allChaps.length > 0) {
           targetChaps.push(allChaps[0]);
+        }
+        const targetSubGroups = isSingleChapZip
+          ? (sourceProj.subGroups || []).filter((sg) => sg && Number(sg.targetChapterIdx ?? 0) === Number(onlyChapterOrder))
+          : (sourceProj.subGroups || []);
+
+        const zipSceneNames = new Set();
+        const zipExps = new Set(['默认']);
+        if (isSingleChapZip) {
+          targetChaps.forEach((ch) => {
+            (ch.scenes || []).forEach((s) => { if (s && s.name) zipSceneNames.add(s.name); });
+            (ch.scriptLines || []).forEach((l) => { if (l && l.exp) zipExps.add(l.exp); });
+          });
+          targetSubGroups.forEach((sg) => {
+            (sg.scenes || []).forEach((s) => { if (s && s.name) zipSceneNames.add(s.name); });
+            (sg.scriptLines || []).forEach((l) => { if (l && l.exp) zipExps.add(l.exp); });
+          });
         }
 
         const requiredWorkshopHashes = new Set();
@@ -30143,10 +30358,18 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           collectWsHash(c.tachieBase);
           collectWsHash(c.chibiImg);
           if (c.tachieExpressions && typeof c.tachieExpressions === 'object') {
-            Object.values(c.tachieExpressions).forEach(collectWsHash);
+            Object.entries(c.tachieExpressions).forEach(([expKey, expVal]) => {
+              if (!isSingleChapZip || zipExps.has(expKey) || expKey === '默认') {
+                collectWsHash(expVal);
+              }
+            });
           }
         });
-        (sourceProj.globalScenes || []).forEach((g) => g && collectWsHash(g.imageUrl));
+        (sourceProj.globalScenes || []).forEach((g) => {
+          if (g && (!isSingleChapZip || zipSceneNames.size === 0 || (g.name && zipSceneNames.has(g.name)))) {
+            collectWsHash(g.imageUrl);
+          }
+        });
         (sourceProj.bgmTracks || []).forEach((bt) => bt && collectWsHash(bt.url));
         targetChaps.forEach((ch, idx) => {
           if (!ch) return;
@@ -30162,7 +30385,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           const chapTts = (sourceProj.ttsByChapter && sourceProj.ttsByChapter[ttsKey]) || [];
           chapTts.forEach((rec) => rec && collectWsHash(rec.audioDataUrl || rec.audioData));
         });
-        (sourceProj.subGroups || []).forEach((sg, sgIdx) => {
+        targetSubGroups.forEach((sg, sgIdx) => {
           if (!sg) return;
           (sg.scenes || []).forEach((s) => s && collectWsHash(s.imageUrl));
           (sg.cgNodes || []).forEach((g) => {
@@ -30299,9 +30522,12 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           if (cCopy.tachieBase) cCopy.tachieBase = await packRefIntoZip(cCopy.tachieBase, 'png');
           if (cCopy.chibiImg) cCopy.chibiImg = await packRefIntoZip(cCopy.chibiImg, 'png');
           if (cCopy.tachieExpressions && typeof cCopy.tachieExpressions === 'object') {
+            const nextExps = {};
             for (const [k, v] of Object.entries(cCopy.tachieExpressions)) {
-              if (v) cCopy.tachieExpressions[k] = await packRefIntoZip(v, 'png');
+              if (isSingleChapZip && !zipExps.has(k) && k !== '默认') continue;
+              if (v) nextExps[k] = await packRefIntoZip(v, 'png');
             }
+            cCopy.tachieExpressions = nextExps;
           }
           if (!cCopy.tachieBase && cCopy.tachieExpressions && Object.keys(cCopy.tachieExpressions).length > 0) {
             cCopy.tachieBase = cCopy.tachieExpressions['默认'] || Object.values(cCopy.tachieExpressions)[0];
@@ -30316,6 +30542,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         const packedGlobalScenes = [];
         for (const gsc of (sourceProj.globalScenes || [])) {
           if (!gsc) continue;
+          if (isSingleChapZip && zipSceneNames.size > 0 && gsc.name && !zipSceneNames.has(gsc.name)) continue;
           const gCopy = JSON.parse(JSON.stringify(gsc));
           if (gCopy.imageUrl) gCopy.imageUrl = await packRefIntoZip(gCopy.imageUrl, 'png');
           packedGlobalScenes.push(gCopy);
@@ -30380,8 +30607,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
 
         const packedSubGroups = [];
-        for (let sgIdx = 0; sgIdx < (sourceProj.subGroups || []).length; sgIdx++) {
-          const sg = JSON.parse(JSON.stringify(sourceProj.subGroups[sgIdx]));
+        for (let sgIdx = 0; sgIdx < targetSubGroups.length; sgIdx++) {
+          const sg = JSON.parse(JSON.stringify(targetSubGroups[sgIdx]));
           if (!sg) continue;
           for (const sc of (sg.scenes || [])) {
             if (sc && sc.imageUrl) sc.imageUrl = await packRefIntoZip(sc.imageUrl, 'png');
@@ -30667,6 +30894,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     }
 
     async function openWorkshopModuleInTheater(projectId, chapterOrder = 0) {
+      requestTheaterNativeFullscreen();
       unlockBgmAudioPlayerOnUserGesture();
       if (typeof ensureSharedTheaterVoicePlayerUnlocked === 'function') {
         ensureSharedTheaterVoicePlayerUnlocked();
@@ -32638,6 +32866,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     }
 
     function openTheaterForCurrentChapter() {
+      requestTheaterNativeFullscreen();
       unlockBgmAudioPlayerOnUserGesture();
       appState.activeTheaterSubGroupId = '';
       appState.theaterLineIdx = 0;
@@ -32768,6 +32997,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     }
 
     function closeTheaterSelectorLobby() {
+      requestTheaterNativeFullscreen();
       const lobby = document.getElementById('vn-theater-selector-lobby');
       if (lobby) lobby.classList.remove('active');
       appState.inLandscapeGame = true;
@@ -33050,6 +33280,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     }
 
     async function selectTheaterLobbyChapterAndPlay(projId, chapIdx) {
+      requestTheaterNativeFullscreen();
       unlockBgmAudioPlayerOnUserGesture();
       if (typeof ensureSharedTheaterVoicePlayerUnlocked === 'function') {
         ensureSharedTheaterVoicePlayerUnlocked();
@@ -33483,6 +33714,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         return;
       }
       if (appState.theaterEditMode) return;
+      requestTheaterNativeFullscreen();
       unlockBgmAudioPlayerOnUserGesture();
       const now = Date.now();
       if (now - _lastTheaterDockClickAt < 140) return;
@@ -34511,27 +34743,70 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
       const renderBgPromise = (async () => {
         if (!bgLayer) return;
+        const mainChap = getCurrentReplayChapter();
+        const origHolder = (line._isSubGroupLine && line._subGroupId)
+          ? (findSubGroupById(line._subGroupId, curProj) || mainChap || chap)
+          : (mainChap || chap);
+        const origIdx = typeof line._origLineIdx === 'number' ? line._origLineIdx : idx;
+        const chapKey = `${curProj?.id || ''}_${mainChap?.id || appState.currentReplayChapterIdx || 0}_${origHolder?.id || ''}`;
+        const prevChapKey = bgLayer.getAttribute('data-bg-chap-key') || '';
+        const isSameChapHolder = prevChapKey === chapKey;
+
         let activeSceneId = line.sceneId || '';
         if (!activeSceneId || (activeSceneId === 'cg_only' && !line._explicitNoBg)) {
           for (let k = idx - 1; k >= 0; k--) {
-            const candSc = chap.scriptLines[k]?.sceneId;
-            if (candSc && (candSc !== 'cg_only' || chap.scriptLines[k]?._explicitNoBg)) {
+            const prevLine = chap.scriptLines[k];
+            if (prevLine && Boolean(prevLine._isSubGroupLine) !== Boolean(line._isSubGroupLine)) continue;
+            if (prevLine && prevLine._subGroupId !== line._subGroupId) continue;
+            const candSc = prevLine?.sceneId;
+            if (candSc && (candSc !== 'cg_only' || prevLine?._explicitNoBg)) {
               activeSceneId = candSc;
               break;
             }
           }
         }
         const prevBgCss = bgLayer.getAttribute('data-bg-css') || '';
-        let nextBgCss = prevBgCss && prevBgCss.startsWith('url(')
+        let nextBgCss = (isSameChapHolder && prevBgCss && prevBgCss.startsWith('url('))
           ? prevBgCss
           : 'linear-gradient(160deg, var(--text-primary) 0%, var(--background-color) 100%)';
         if (activeSceneId === 'cg_only' && line._explicitNoBg) {
           nextBgCss = 'none';
         } else {
-          const allScenes = getAllModuleScenesPool(curProj, chap);
-          const sceneObj = allScenes.find((s) => s && (s.id === activeSceneId || s.name === activeSceneId))
-            || allScenes.find((s) => s && s.imageUrl)
-            || allScenes[0];
+          const holderScenes = Array.isArray(origHolder?.scenes) ? origHolder.scenes : [];
+          const mainScenes = (mainChap && mainChap !== origHolder && Array.isArray(mainChap.scenes)) ? mainChap.scenes : [];
+          const localChapScenes = [...holderScenes, ...mainScenes];
+
+          // 优先按当前章节或小分队自身的台词区间和场景ID精准匹配，避免不同章节同名 scene_1 串图
+          let sceneObj = holderScenes.find((s) => {
+            if (!s || !s.imageUrl) return false;
+            const st = Number(s.startLineIdx);
+            const ed = Number(s.endLineIdx);
+            return Number.isFinite(st) && Number.isFinite(ed) && origIdx >= st && origIdx <= ed;
+          }) || null;
+
+          if (!sceneObj && activeSceneId) {
+            sceneObj = localChapScenes.find((s) => s && s.imageUrl && (s.id === activeSceneId || s.name === activeSceneId))
+              || localChapScenes.find((s) => s && (s.id === activeSceneId || s.name === activeSceneId))
+              || null;
+          }
+
+          const allScenes = getAllModuleScenesPool(curProj, origHolder);
+          if (sceneObj && !sceneObj.imageUrl) {
+            const fallbackImgSc = allScenes.find((s) => s && s.imageUrl && (
+              (sceneObj.name && s.name === sceneObj.name) ||
+              (sceneObj.id && s.id === sceneObj.id && (!sceneObj.name || !s.name || s.name === sceneObj.name))
+            ));
+            if (fallbackImgSc) sceneObj = fallbackImgSc;
+          }
+
+          if (!sceneObj) {
+            sceneObj = allScenes.find((s) => s && s.imageUrl && (s.id === activeSceneId || s.name === activeSceneId))
+              || localChapScenes.find((s) => s && s.imageUrl)
+              || allScenes.find((s) => s && s.imageUrl)
+              || localChapScenes[0]
+              || allScenes[0];
+          }
+
           if (sceneObj && sceneObj.imageUrl) {
             const resolvedSceneUrl = await resolveTheaterPlayableUrl(sceneObj.imageUrl, 'image/png');
             if (myRenderSeq !== _theaterRenderSeq) return;
@@ -34550,6 +34825,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             }
           }
         }
+        bgLayer.setAttribute('data-bg-chap-key', chapKey);
         if (bgLayer.getAttribute('data-bg-css') !== nextBgCss) {
           bgLayer.setAttribute('data-bg-css', nextBgCss);
           bgLayer.style.backgroundImage = nextBgCss;
@@ -35051,8 +35327,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
     function saveTheaterProgressSlot(slotIdx = -1, confirmed = false) {
       const proj = getCurrentReplayProject();
-      const chap = getCurrentReplayChapter();
-      if (!proj || !chap) {
+      const baseChap = getCurrentReplayChapter();
+      const playChap = getActiveTheaterPlayableChapter() || baseChap;
+      if (!proj || !baseChap) {
         alert('请先进入一个已生成的模组章节再存档');
         return;
       }
@@ -35063,15 +35340,23 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
       _pendingOverwriteSlotIdx = -1;
       const lineIdx = Math.max(0, appState.theaterLineIdx || 0);
-      const curLine = (chap.scriptLines && chap.scriptLines[lineIdx]) || {};
+      const curLine = (playChap?.scriptLines && playChap.scriptLines[lineIdx])
+        || (baseChap.scriptLines && baseChap.scriptLines[lineIdx])
+        || {};
       const now = new Date();
       const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const chapIdx = appState.currentReplayChapterIdx || 0;
+      const chapOrder = Number(baseChap.order) || (chapIdx + 1);
       const record = {
         id: 'save_' + Date.now(),
         projectId: proj.id,
         projectTitle: proj.title || '跑团模组',
-        chapterIdx: appState.currentReplayChapterIdx || 0,
-        chapterTitle: chap.title || `第${(appState.currentReplayChapterIdx || 0) + 1}章`,
+        chapterIdx: chapIdx,
+        chapterId: baseChap.id || '',
+        chapterOrder: chapOrder,
+        chapterTitle: playChap?.title || baseChap.title || `第${chapOrder}章`,
+        subGroupId: appState.activeTheaterSubGroupId || null,
+        returnLineIdx: appState.theaterReturnLineIdx || 0,
         lineIdx,
         speaker: curLine.speaker || '旁白',
         text: curLine.text || '',
@@ -35084,6 +35369,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
       setGlobalTheaterSaves(saves);
       renderTheaterSaveLoadList();
+      if (typeof showToast === 'function') {
+        showToast('存档已保存');
+      }
     }
 
     async function loadTheaterProgressSlot(slotIdx) {
@@ -35104,26 +35392,94 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           }
         }
       }
+      // 若该存档来自工坊在线模组且当前会话尚未挂载，自动从工坊拉取挂载
+      if (!targetProj && typeof fetchWorkshopFullProjectById === 'function') {
+        try {
+          if (typeof showToast === 'function') showToast('正在加载存档所属工坊模组...');
+          let remoteEntry = null;
+          if (sv.projectId) {
+            remoteEntry = await fetchWorkshopFullProjectById(sv.projectId);
+          }
+          if (!remoteEntry && Array.isArray(_workshopProjectsCache)) {
+            const matchedMeta = _workshopProjectsCache.find((it) => it && (it.id === sv.projectId || it.title === sv.projectTitle));
+            if (matchedMeta?.id) {
+              remoteEntry = await fetchWorkshopFullProjectById(matchedMeta.id);
+            }
+          }
+          const remoteProj = remoteEntry?.project || (remoteEntry?.chapters ? remoteEntry : null);
+          if (remoteProj && Array.isArray(remoteProj.chapters)) {
+            const streamProj = JSON.parse(JSON.stringify(remoteProj));
+            streamProj.isOnlineStream = true;
+            streamProj._remoteProjRef = remoteProj;
+            mountExternalWorkshopBundle({
+              project: streamProj,
+              characterTemplates: Array.isArray(remoteEntry?.characterTemplates) ? remoteEntry.characterTemplates : [],
+              bgmTracks: Array.isArray(remoteEntry?.bgmTracks) ? remoteEntry.bgmTracks : []
+            });
+            targetProj = _mountedExternalProjects.get(streamProj.id)?.project || streamProj;
+          }
+        } catch (err) {
+          console.warn('自动挂载存档工坊模组失败:', err);
+        }
+      }
       if (!targetProj) {
-        alert('未找到该存档对应的模组工程');
+        alert('未找到该存档对应的模组工程，请先在工坊打开或下载对应模组');
         return;
       }
       _pendingOverwriteSlotIdx = -1;
       stopTheaterAutoAndSkip();
       appState.currentReplayProjectId = targetProj.id;
-      const maxChap = Math.max(0, (targetProj.chapters?.length || 1) - 1);
-      appState.currentReplayChapterIdx = Math.max(0, Math.min(maxChap, Number(sv.chapterIdx) || 0));
-      const targetChap = targetProj.chapters?.[appState.currentReplayChapterIdx];
-      const maxLine = Math.max(0, (targetChap?.scriptLines?.length || 1) - 1);
+
+      // 优先按 chapterId 或 chapterOrder 定位章节，防止只下载单章时索引偏移
+      let resolvedChapIdx = -1;
+      const chapList = Array.isArray(targetProj.chapters) ? targetProj.chapters : [];
+      if (sv.chapterId) {
+        resolvedChapIdx = chapList.findIndex((c) => c && c.id === sv.chapterId);
+      }
+      if (resolvedChapIdx < 0 && sv.chapterOrder) {
+        resolvedChapIdx = chapList.findIndex((c, idx) => (Number(c?.order) || (idx + 1)) === Number(sv.chapterOrder));
+      }
+      if (resolvedChapIdx < 0 && sv.chapterTitle) {
+        resolvedChapIdx = chapList.findIndex((c) => c && c.title === sv.chapterTitle);
+      }
+      const maxChap = Math.max(0, (chapList.length || 1) - 1);
+      if (resolvedChapIdx < 0) {
+        resolvedChapIdx = Math.max(0, Math.min(maxChap, Number(sv.chapterIdx) || 0));
+      }
+      appState.currentReplayChapterIdx = resolvedChapIdx;
+      appState.activeTheaterSubGroupId = sv.subGroupId || null;
+      appState.theaterReturnLineIdx = Number(sv.returnLineIdx) || 0;
+
+      const playChap = getActiveTheaterPlayableChapter() || chapList[appState.currentReplayChapterIdx];
+      const maxLine = Math.max(0, (playChap?.scriptLines?.length || 1) - 1);
       appState.theaterLineIdx = Math.max(0, Math.min(maxLine, Number(sv.lineIdx) || 0));
+
       if (targetProj.isOnlineStream && targetProj._remoteProjRef && typeof prewarmOnlineProjectChapterAssets === 'function') {
-        await prewarmOnlineProjectChapterAssets(targetProj._remoteProjRef, appState.currentReplayChapterIdx);
+        const targetOrd = Number(chapList[appState.currentReplayChapterIdx]?.order) || (appState.currentReplayChapterIdx + 1);
+        await prewarmOnlineProjectChapterAssets(targetProj._remoteProjRef, targetOrd);
+      }
+      if (typeof preloadChapterTtsAudioPool === 'function') {
+        preloadChapterTtsAudioPool(playChap);
+      }
+      if (typeof preloadChapterStageSprites === 'function') {
+        preloadChapterStageSprites(playChap);
+      }
+      if (typeof prewarmChapterBgmUrls === 'function') {
+        prewarmChapterBgmUrls(playChap);
       }
       saveCurrentSessionNavState();
       renderReplayStudioUI();
       closeModal('theater-saveload-modal');
       closeTheaterSelectorLobby();
+      const bgLayer = document.getElementById('vn-theater-bg-layer');
+      if (bgLayer) {
+        bgLayer.removeAttribute('data-bg-chap-key');
+        bgLayer.removeAttribute('data-bg-css');
+      }
       await renderTheaterCurrentLine();
+      if (typeof showToast === 'function') {
+        showToast('读档成功');
+      }
     }
 
     function deleteTheaterProgressSlot(slotIdx) {
