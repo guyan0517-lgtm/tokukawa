@@ -409,17 +409,14 @@ body.landscape-game-active .screen {
   padding: 8px 14px;
   background: var(--card-bg);
   border-bottom: 1px solid var(--border-color);
-  overflow-x: auto;
+  overflow: visible;
+  flex-wrap: wrap;
   flex-shrink: 0;
-  scrollbar-width: none;
-}
-.sub-tab-bar::-webkit-scrollbar {
-  display: none;
 }
 
 .sub-tab-btn {
   height: 30px;
-  padding: 0 12px;
+  padding: 0 10px;
   border-radius: 7px;
   border: 1px solid var(--border-color);
   background: var(--secondary-bg);
@@ -428,7 +425,11 @@ body.landscape-game-active .screen {
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  flex-shrink: 0;
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .sub-tab-btn.active {
@@ -455,13 +456,19 @@ body.landscape-game-active .screen {
   display: flex;
 }
 
+.app-subpage > * {
+  flex-shrink: 0;
+}
+
 /* ==================== 复用标准组件类 (.moe-card, .moe-btn, .moe-input, .form-group, .setting-item) ==================== */
 .moe-card {
   min-width: 0;
   width: 100%;
   max-width: 100%;
+  height: auto;
+  flex-shrink: 0;
   box-sizing: border-box;
-  overflow-x: hidden;
+  overflow: visible;
   background-color: var(--card-bg);
   background-image: var(--custom-card-bg, none);
   background-size: cover;

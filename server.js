@@ -1660,10 +1660,65 @@ app.get('/api/workshop/asset/:hash', (req, res) => {
   }
 });
 
-app.get('/api/workshop/list', (req, res) => {
+const DEFAULT_GH_WORKSHOP_REPO = 'guyan0517-lgtm/the-inn-predator';
+
+async function fetchGithubWorkshopFileFromServer(repo, relPath) {
+  const cleanRepo = String(repo || DEFAULT_GH_WORKSHOP_REPO).trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/i, '').replace(/^\/+|\/+$/g, '') || DEFAULT_GH_WORKSHOP_REPO;
+  const cleanRel = String(relPath || '').replace(/^\/+/, '');
+  if (!cleanRel || cleanRel.includes('..')) return null;
+  const urls = [
+    `https://raw.githubusercontent.com/${cleanRepo}/main/workshop-store/${cleanRel}?t=${Date.now()}`,
+    `https://cdn.jsdelivr.net/gh/${cleanRepo}@main/workshop-store/${cleanRel}`,
+    `https://testingcf.jsdelivr.net/gh/${cleanRepo}@main/workshop-store/${cleanRel}`,
+    `https://gcore.jsdelivr.net/gh/${cleanRepo}@main/workshop-store/${cleanRel}`
+  ];
+  for (const u of urls) {
+    try {
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 25000);
+      try {
+        const r = await fetch(u, { signal: ctrl.signal, headers: { 'User-Agent': 'QuarterCentury-Workshop/1.0' } });
+        if (r.ok) {
+          const text = await r.text();
+          if (text && !text.trim().startsWith('<')) {
+            return JSON.parse(text);
+          }
+        }
+      } finally {
+        clearTimeout(tid);
+      }
+    } catch (_) {}
+  }
+  return null;
+}
+
+app.get('/api/workshop/gh-json', async (req, res) => {
   try {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    const repo = req.query.repo || DEFAULT_GH_WORKSHOP_REPO;
+    const relPath = req.query.path || '';
+    const data = await fetchGithubWorkshopFileFromServer(repo, relPath);
+    if (!data) {
+      return res.status(404).json({ ok: false, error: '未找到远端文件' });
+    }
+    return res.json(data);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get('/api/workshop/list', async (req, res) => {
+  try {
+    res.setHeader('Access-Control-Allow-Origin', '*');
     const q = String(req.query.q || '').trim().toLowerCase();
-    const list = readWorkshopIndex();
+    let list = readWorkshopIndex();
+    if (!Array.isArray(list) || list.length === 0) {
+      const ghIdx = await fetchGithubWorkshopFileFromServer(DEFAULT_GH_WORKSHOP_REPO, 'workshop-index.json');
+      if (Array.isArray(ghIdx) && ghIdx.length > 0) {
+        list = ghIdx;
+        writeWorkshopIndex(list);
+      }
+    }
     const filtered = q
       ? list.filter((item) =>
           String(item.title || '').toLowerCase().includes(q) ||
@@ -1708,7 +1763,7 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
 
     const now = Date.now();
     let storedProj = readWorkshopProjectData(projectId);
-    if (!storedProj) {
+    if (!storedProj || mode === 'full') {
       storedProj = {
         id: projectId,
         title: title || '未命名跑团剧本',
@@ -1724,7 +1779,7 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
         assetPackIndex: {},
         chapters: [],
         ttsByChapter: {},
-        createdAt: now,
+        createdAt: storedProj?.createdAt || now,
         updatedAt: now
       };
     }
@@ -1737,38 +1792,48 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
       storedProj.avatarUrl = extractInlineDataUrlsInObject(avatarUrl, assetHashes);
     }
     if (uiTheme) storedProj.uiTheme = uiTheme;
-    if (Array.isArray(globalScenes) && globalScenes.length > 0) {
+    if (Array.isArray(globalScenes)) {
       storedProj.globalScenes = extractInlineDataUrlsInObject(globalScenes, assetHashes);
     }
-    if (Array.isArray(extractedSpeakers) && extractedSpeakers.length > 0) {
+    if (Array.isArray(extractedSpeakers)) {
       storedProj.extractedSpeakers = extractedSpeakers;
     }
-    if (Array.isArray(subGroups) && subGroups.length > 0) {
+    if (Array.isArray(subGroups)) {
       storedProj.subGroups = extractInlineDataUrlsInObject(subGroups, assetHashes);
     }
     if (assetPackIndex && typeof assetPackIndex === 'object') {
-      storedProj.assetPackIndex = { ...(storedProj.assetPackIndex || {}), ...assetPackIndex };
+      storedProj.assetPackIndex = mode === 'full'
+        ? { ...assetPackIndex }
+        : { ...(storedProj.assetPackIndex || {}), ...assetPackIndex };
     }
     if (Array.isArray(characters) && characters.length > 0) {
       const cleanedChars = extractInlineDataUrlsInObject(characters, assetHashes);
-      const charMap = new Map();
-      (storedProj.characters || []).forEach((c) => {
-        if (c && c.id) charMap.set(c.id, c);
-      });
-      cleanedChars.forEach((c) => {
-        if (c && c.id) charMap.set(c.id, c);
-      });
-      storedProj.characters = Array.from(charMap.values());
+      if (mode === 'full') {
+        storedProj.characters = cleanedChars;
+      } else {
+        const charMap = new Map();
+        (storedProj.characters || []).forEach((c) => {
+          if (c && c.id) charMap.set(c.id, c);
+        });
+        cleanedChars.forEach((c) => {
+          if (c && c.id) charMap.set(c.id, c);
+        });
+        storedProj.characters = Array.from(charMap.values());
+      }
     }
     if (Array.isArray(bgmTracks) && bgmTracks.length > 0) {
-      const bgmMap = new Map();
-      (storedProj.bgmTracks || []).forEach((b) => {
-        if (b && (b.id || b.name)) bgmMap.set(b.id || b.name, b);
-      });
-      bgmTracks.forEach((b) => {
-        if (b && (b.id || b.name)) bgmMap.set(b.id || b.name, b);
-      });
-      storedProj.bgmTracks = Array.from(bgmMap.values());
+      if (mode === 'full') {
+        storedProj.bgmTracks = bgmTracks;
+      } else {
+        const bgmMap = new Map();
+        (storedProj.bgmTracks || []).forEach((b) => {
+          if (b && (b.id || b.name)) bgmMap.set(b.id || b.name, b);
+        });
+        bgmTracks.forEach((b) => {
+          if (b && (b.id || b.name)) bgmMap.set(b.id || b.name, b);
+        });
+        storedProj.bgmTracks = Array.from(bgmMap.values());
+      }
     }
 
     if (!Array.isArray(storedProj.chapters)) storedProj.chapters = [];
@@ -1781,11 +1846,10 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
 
     if (mode === 'full' && Array.isArray(chapters) && chapters.length > 0) {
       const cleanedChaps = extractInlineDataUrlsInObject(chapters, assetHashes);
-      isOverwrite = storedProj.chapters.length > 0;
+      isOverwrite = true;
       storedProj.chapters = cleanedChaps.map((ch, idx) => {
         const orderNum = Number(ch.order ?? idx);
-        const prev = (storedProj.chapters || []).find((oldC) => (ch.id && oldC.id === ch.id) || Number(oldC.order ?? -1) === orderNum);
-        const ver = (Number(prev?.version) || 0) + 1;
+        const ver = Number(ch.version || 1);
         latestVersion = Math.max(latestVersion, ver);
         return {
           ...ch,
@@ -1797,6 +1861,7 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
       storedProj.chapters.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
       if (ttsByChapter && typeof ttsByChapter === 'object') {
         const cleanedTtsMap = extractInlineDataUrlsInObject(ttsByChapter, assetHashes);
+        storedProj.ttsByChapter = {};
         Object.entries(cleanedTtsMap).forEach(([k, v]) => {
           if (Array.isArray(v)) storedProj.ttsByChapter[k] = v;
         });
@@ -1833,7 +1898,9 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
     collectWorkshopAssetHashesInObject(storedProj, assetHashes);
     const computedAssetBytes = computeTotalSizeOfHashes(assetHashes);
     storedProj.updatedAt = now;
-    storedProj.sizeBytes = Math.max(computedAssetBytes, Number(payloadSizeBytes) || 0, Number(storedProj.sizeBytes) || 0);
+    storedProj.sizeBytes = mode === 'full'
+      ? Math.max(computedAssetBytes, Number(payloadSizeBytes) || 0)
+      : Math.max(computedAssetBytes, Number(payloadSizeBytes) || 0, Number(storedProj.sizeBytes) || 0);
     writeWorkshopProjectData(projectId, storedProj);
 
     const indexList = readWorkshopIndex();
@@ -1882,10 +1949,18 @@ app.post('/api/workshop/upload-chapter', (req, res) => {
   }
 });
 
-app.get('/api/workshop/project/:id', (req, res) => {
+app.get('/api/workshop/project/:id', async (req, res) => {
   try {
+    res.setHeader('Access-Control-Allow-Origin', '*');
     const projectId = req.params.id;
-    const storedProj = readWorkshopProjectData(projectId);
+    let storedProj = readWorkshopProjectData(projectId);
+    if (!storedProj) {
+      const ghProj = await fetchGithubWorkshopFileFromServer(DEFAULT_GH_WORKSHOP_REPO, `projects/${projectId}.json`);
+      if (ghProj && ghProj.id) {
+        storedProj = ghProj;
+        writeWorkshopProjectData(projectId, storedProj);
+      }
+    }
     if (!storedProj) {
       return res.status(404).json({ error: '工坊中未找到该剧本' });
     }
