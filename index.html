@@ -2911,6 +2911,8 @@
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
               <span style="font-size:12px;font-weight:800;color:var(--text-primary);">跨设备云端与仓库同步配置</span>
               <div style="display:flex;gap:6px;">
+                <button type="button" class="moe-btn secondary" onclick="copyWorkshopTermuxCmd(this)">命令</button>
+                <button type="button" class="moe-btn secondary" onclick="syncWorkshopAssetsToTermux(this)">同步</button>
                 <button type="button" class="moe-btn secondary" onclick="resetWorkshopSyncConfig()">恢复</button>
                 <button type="button" class="moe-btn" onclick="saveWorkshopSyncConfig(this)">保存</button>
               </div>
@@ -5709,8 +5711,13 @@
           if (rec && rec.dataUrl && typeof rec.dataUrl === 'string' && rec.dataUrl.startsWith('data:')) {
             const bUrl = toFastDisplayUrl(rec.dataUrl);
             if (bUrl && bUrl.startsWith('blob:')) {
+              const encodedRel = cleanRel.split('/').map((s) => encodeURIComponent(s)).join('/');
+              const baseUrl = typeof getLocalBridgeBaseUrl === 'function' ? getLocalBridgeBaseUrl() : 'http://127.0.0.1:8765';
               _localRelToBlobCache.set(cleanRel, bUrl);
               _playableUrlRamCache.set(`/local-assets/${cleanRel}`, bUrl);
+              _playableUrlRamCache.set(`/local-assets/${encodedRel}`, bUrl);
+              _playableUrlRamCache.set(`${baseUrl}/${cleanRel}`, bUrl);
+              _playableUrlRamCache.set(`${baseUrl}/${encodedRel}`, bUrl);
             }
             return rec.dataUrl;
           }
@@ -5727,8 +5734,13 @@
       if (!skipEagerBlob) {
         const bUrl = toFastDisplayUrl(dataUrl);
         if (bUrl && bUrl.startsWith('blob:')) {
+          const encodedRel = cleanRel.split('/').map((s) => encodeURIComponent(s)).join('/');
+          const baseUrl = typeof getLocalBridgeBaseUrl === 'function' ? getLocalBridgeBaseUrl() : 'http://127.0.0.1:8765';
           _localRelToBlobCache.set(cleanRel, bUrl);
           _playableUrlRamCache.set(`/local-assets/${cleanRel}`, bUrl);
+          _playableUrlRamCache.set(`/local-assets/${encodedRel}`, bUrl);
+          _playableUrlRamCache.set(`${baseUrl}/${cleanRel}`, bUrl);
+          _playableUrlRamCache.set(`${baseUrl}/${encodedRel}`, bUrl);
         }
       }
       try {
@@ -5950,7 +5962,11 @@
       let resolvedDataUrl = dataUrl;
       if (!resolvedDataUrl.startsWith('data:')) {
         if (preferTermuxOnly && (resolvedDataUrl.startsWith('/local-assets/') || resolvedDataUrl.startsWith('blob:') || resolvedDataUrl.startsWith(baseUrl + '/'))) {
+          const srcRel = extractRelativeAssetPath(dataUrl, baseUrl);
           resolvedDataUrl = await resolveImageToDataUrl(resolvedDataUrl);
+          if (!resolvedDataUrl || !resolvedDataUrl.startsWith('data:')) {
+            if (srcRel) resolvedDataUrl = await getLocalAssetMirrorDataUrl(srcRel);
+          }
           if (!resolvedDataUrl || !resolvedDataUrl.startsWith('data:')) {
             resolvedDataUrl = await getLocalAssetMirrorDataUrl(cleanRel);
           }
@@ -5964,6 +5980,8 @@
       const memBlobUrl = toFastDisplayUrl(resolvedDataUrl);
       if (memBlobUrl && memBlobUrl.startsWith('blob:')) {
         _localRelToBlobCache.set(cleanRel, memBlobUrl);
+        _playableUrlRamCache.set(`/local-assets/${encodedRel}`, memBlobUrl);
+        _playableUrlRamCache.set(`${baseUrl}/${encodedRel}`, memBlobUrl);
       }
 
       let savedTermuxUrl = '';
@@ -6859,58 +6877,80 @@
           const newUrl = await saveAssetToLocalBridge(`projects/${safeProj}/avatar.jpg`, proj.avatarUrl, termuxOnline);
           if (newUrl !== proj.avatarUrl) { proj.avatarUrl = newUrl; projChanged = true; count++; }
         }
-        for (const gsc of (proj.globalScenes || [])) {
-          if (isAssetNeedsLocalMigration(gsc.imageUrl, termuxOnline, baseUrl)) {
-            const newUrl = await saveAssetToLocalBridge(`projects/${safeProj}/scenes/${gsc.id}.png`, gsc.imageUrl, termuxOnline);
+        for (let gIdx = 0; gIdx < (proj.globalScenes || []).length; gIdx++) {
+          const gsc = proj.globalScenes[gIdx];
+          if (gsc && isAssetNeedsLocalMigration(gsc.imageUrl, termuxOnline, baseUrl)) {
+            const relGsc = extractRelativeAssetPath(gsc.imageUrl, baseUrl) || `projects/${safeProj}/scenes/global_${gIdx}_${gsc.id || gIdx}.png`;
+            const newUrl = await saveAssetToLocalBridge(relGsc, gsc.imageUrl, termuxOnline);
             if (newUrl !== gsc.imageUrl) { gsc.imageUrl = newUrl; projChanged = true; count++; }
           }
         }
-        for (const ch of (proj.chapters || [])) {
-          for (const sc of (ch.scenes || [])) {
-            if (isAssetNeedsLocalMigration(sc.imageUrl, termuxOnline, baseUrl)) {
-              const newUrl = await saveAssetToLocalBridge(`projects/${safeProj}/scenes/${sc.id}.png`, sc.imageUrl, termuxOnline);
+        for (let cIdx = 0; cIdx < (proj.chapters || []).length; cIdx++) {
+          const ch = proj.chapters[cIdx];
+          if (!ch) continue;
+          const ord = Number(ch.order ?? cIdx);
+          for (let sIdx = 0; sIdx < (ch.scenes || []).length; sIdx++) {
+            const sc = ch.scenes[sIdx];
+            if (sc && isAssetNeedsLocalMigration(sc.imageUrl, termuxOnline, baseUrl)) {
+              const relSc = extractRelativeAssetPath(sc.imageUrl, baseUrl) || `projects/${safeProj}/scenes/ch${ord}_${sIdx}_${sc.id || sIdx}.png`;
+              const newUrl = await saveAssetToLocalBridge(relSc, sc.imageUrl, termuxOnline);
               if (newUrl !== sc.imageUrl) { sc.imageUrl = newUrl; projChanged = true; count++; }
             }
           }
-          for (const cg of (ch.cgNodes || [])) {
+          for (let gIdx = 0; gIdx < (ch.cgNodes || []).length; gIdx++) {
+            const cg = ch.cgNodes[gIdx];
+            if (!cg) continue;
             if (isAssetNeedsLocalMigration(cg.imageUrl, termuxOnline, baseUrl)) {
-              const newUrl = await saveAssetToLocalBridge(`projects/${safeProj}/cgs/${cg.id}.png`, cg.imageUrl, termuxOnline);
+              const relCg = extractRelativeAssetPath(cg.imageUrl, baseUrl) || `projects/${safeProj}/cgs/ch${ord}_${gIdx}_${cg.id || gIdx}.png`;
+              const newUrl = await saveAssetToLocalBridge(relCg, cg.imageUrl, termuxOnline);
               if (newUrl !== cg.imageUrl) { cg.imageUrl = newUrl; projChanged = true; count++; }
             }
             if (isAssetNeedsLocalMigration(cg.customPadImg, termuxOnline, baseUrl)) {
-              const newUrl = await saveAssetToLocalBridge(`projects/${safeProj}/cgs/pad_${cg.id}.png`, cg.customPadImg, termuxOnline);
+              const relPad = extractRelativeAssetPath(cg.customPadImg, baseUrl) || `projects/${safeProj}/cgs/pad_ch${ord}_${gIdx}_${cg.id || gIdx}.png`;
+              const newUrl = await saveAssetToLocalBridge(relPad, cg.customPadImg, termuxOnline);
               if (newUrl !== cg.customPadImg) { cg.customPadImg = newUrl; projChanged = true; count++; }
             }
           }
-          for (const cl of (ch.clueNodes || [])) {
+          for (let clIdx = 0; clIdx < (ch.clueNodes || []).length; clIdx++) {
+            const cl = ch.clueNodes[clIdx];
             if (cl && isAssetNeedsLocalMigration(cl.imageUrl, termuxOnline, baseUrl)) {
-              const newUrl = await saveAssetToLocalBridge(`projects/${safeProj}/clues/${cl.id}.png`, cl.imageUrl, termuxOnline);
+              const relCl = extractRelativeAssetPath(cl.imageUrl, baseUrl) || `projects/${safeProj}/clues/ch${ord}_${clIdx}_${cl.id || clIdx}.png`;
+              const newUrl = await saveAssetToLocalBridge(relCl, cl.imageUrl, termuxOnline);
               if (newUrl !== cl.imageUrl) { cl.imageUrl = newUrl; projChanged = true; count++; }
             }
           }
         }
-        for (const sg of (proj.subGroups || [])) {
+        for (let sgIdx = 0; sgIdx < (proj.subGroups || []).length; sgIdx++) {
+          const sg = proj.subGroups[sgIdx];
           if (!sg) continue;
-          const sgId = sg.id || 'sg';
-          for (const sc of (sg.scenes || [])) {
+          const sgId = sg.id || `sg_${sgIdx}`;
+          for (let sIdx = 0; sIdx < (sg.scenes || []).length; sIdx++) {
+            const sc = sg.scenes[sIdx];
             if (sc && isAssetNeedsLocalMigration(sc.imageUrl, termuxOnline, baseUrl)) {
-              const newUrl = await saveAssetToLocalBridge(`projects/${safeProj}/scenes/${sc.id || sgId}.png`, sc.imageUrl, termuxOnline);
+              const relSc = extractRelativeAssetPath(sc.imageUrl, baseUrl) || `projects/${safeProj}/scenes/${sgId}_${sIdx}_${sc.id || 'sc'}.png`;
+              const newUrl = await saveAssetToLocalBridge(relSc, sc.imageUrl, termuxOnline);
               if (newUrl !== sc.imageUrl) { sc.imageUrl = newUrl; projChanged = true; count++; }
             }
           }
-          for (const cg of (sg.cgNodes || [])) {
-            if (cg && isAssetNeedsLocalMigration(cg.imageUrl, termuxOnline, baseUrl)) {
-              const newUrl = await saveAssetToLocalBridge(`projects/${safeProj}/cgs/${cg.id || sgId}.png`, cg.imageUrl, termuxOnline);
+          for (let gIdx = 0; gIdx < (sg.cgNodes || []).length; gIdx++) {
+            const cg = sg.cgNodes[gIdx];
+            if (!cg) continue;
+            if (isAssetNeedsLocalMigration(cg.imageUrl, termuxOnline, baseUrl)) {
+              const relCg = extractRelativeAssetPath(cg.imageUrl, baseUrl) || `projects/${safeProj}/cgs/${sgId}_${gIdx}_${cg.id || 'cg'}.png`;
+              const newUrl = await saveAssetToLocalBridge(relCg, cg.imageUrl, termuxOnline);
               if (newUrl !== cg.imageUrl) { cg.imageUrl = newUrl; projChanged = true; count++; }
             }
-            if (cg && isAssetNeedsLocalMigration(cg.customPadImg, termuxOnline, baseUrl)) {
-              const newUrl = await saveAssetToLocalBridge(`projects/${safeProj}/cgs/pad_${cg.id || sgId}.png`, cg.customPadImg, termuxOnline);
+            if (isAssetNeedsLocalMigration(cg.customPadImg, termuxOnline, baseUrl)) {
+              const relPad = extractRelativeAssetPath(cg.customPadImg, baseUrl) || `projects/${safeProj}/cgs/pad_${sgId}_${gIdx}_${cg.id || 'cg'}.png`;
+              const newUrl = await saveAssetToLocalBridge(relPad, cg.customPadImg, termuxOnline);
               if (newUrl !== cg.customPadImg) { cg.customPadImg = newUrl; projChanged = true; count++; }
             }
           }
-          for (const cl of (sg.clueNodes || [])) {
+          for (let clIdx = 0; clIdx < (sg.clueNodes || []).length; clIdx++) {
+            const cl = sg.clueNodes[clIdx];
             if (cl && isAssetNeedsLocalMigration(cl.imageUrl, termuxOnline, baseUrl)) {
-              const newUrl = await saveAssetToLocalBridge(`projects/${safeProj}/clues/${cl.id || sgId}.png`, cl.imageUrl, termuxOnline);
+              const relCl = extractRelativeAssetPath(cl.imageUrl, baseUrl) || `projects/${safeProj}/clues/${sgId}_${clIdx}_${cl.id || 'cl'}.png`;
+              const newUrl = await saveAssetToLocalBridge(relCl, cl.imageUrl, termuxOnline);
               if (newUrl !== cl.imageUrl) { cl.imageUrl = newUrl; projChanged = true; count++; }
             }
           }
@@ -16526,6 +16566,53 @@ ${BUILTIN_CSS_TEMPLATE}`;
       return _cachedGhBranchShaRepo === githubRepo ? _cachedGhBranchSha : '';
     }
 
+    function copyWorkshopTermuxCmd(btnEl) {
+      const cmdStr = typeof buildTermuxLocalBridgeCommandString === 'function' ? buildTermuxLocalBridgeCommandString() : '';
+      if (!cmdStr) return;
+      const ta = document.getElementById('termux-local-bridge-cmd');
+      if (ta) ta.value = cmdStr;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(cmdStr).catch(() => {});
+      } else if (ta) {
+        ta.select();
+        try { document.execCommand('copy'); } catch (_) {}
+      }
+      if (btnEl) {
+        const orig = btnEl.textContent;
+        btnEl.textContent = '已复';
+        setTimeout(() => { btnEl.textContent = orig; }, 1200);
+      }
+      const statusEl = document.getElementById('workshop-upload-status');
+      if (statusEl) {
+        statusEl.textContent = '已复制 Termux 本地常驻命令，去 Termux 粘贴回车运行一次后点同步即可无损直读';
+      }
+    }
+
+    async function syncWorkshopAssetsToTermux(btnEl) {
+      if (btnEl) { btnEl.disabled = true; btnEl.textContent = '同步'; }
+      const statusEl = document.getElementById('workshop-upload-status');
+      try {
+        const baseUrl = getLocalBridgeBaseUrl();
+        const info = await checkLocalBridgeEndpointAlive(baseUrl, 1200);
+        if (!info) {
+          copyWorkshopTermuxCmd();
+          if (statusEl) {
+            statusEl.textContent = '未检测到 Termux 本地服务，已为您自动复制启动命令，请去 Termux 粘贴回车运行后再点同步';
+          }
+          return;
+        }
+        if (statusEl) statusEl.textContent = '已连接 Termux，正在将本机模组立绘、场景、CG与配音同步至 Termux 本地目录...';
+        const cnt = await syncAllAssetsToLocalBridgeUI(false);
+        if (statusEl) statusEl.textContent = `Termux 本地同步完成，共写入 ${cnt} 个文件，现在去剧本阅读与本机完全一致`;
+      } catch (err) {
+        if (statusEl) statusEl.textContent = `Termux 同步出错：${err.message}`;
+      } finally {
+        if (btnEl) { btnEl.disabled = false; btnEl.textContent = '同步'; }
+      }
+    }
+
+    let _preferredWorkshopCdnHost = '';
+
     async function fetchGithubWorkshopJson(relPath) {
       const cleanRel = String(relPath || '').replace(/^\/+/, '');
       if (!cleanRel) return null;
@@ -16533,8 +16620,8 @@ ${BUILTIN_CSS_TEMPLATE}`;
       const isImmutablePack = cleanRel.startsWith('packs/') || cleanRel.startsWith('assets/');
       const timeoutMs = cleanRel.startsWith('projects/') ? 45000 : 25000;
 
-      const fetchJsonFromUrl = async (url, opts = {}, ms = timeoutMs) => {
-        const ctrl = new AbortController();
+      const fetchJsonFromUrl = async (url, opts = {}, ms = timeoutMs, externalCtrl = null) => {
+        const ctrl = externalCtrl || new AbortController();
         const tid = setTimeout(() => ctrl.abort(), ms);
         try {
           const res = await fetch(url, { ...opts, signal: ctrl.signal });
@@ -16546,6 +16633,38 @@ ${BUILTIN_CSS_TEMPLATE}`;
           return parsed;
         } finally {
           clearTimeout(tid);
+        }
+      };
+
+      const raceFetchJsonWithAbort = async (hosts, buildUrlFn, opts, ms) => {
+        if (_preferredWorkshopCdnHost && hosts.includes(_preferredWorkshopCdnHost)) {
+          try {
+            const res = await fetchJsonFromUrl(buildUrlFn(_preferredWorkshopCdnHost), opts, Math.min(ms, 14000));
+            if (res) return res;
+          } catch (_) {
+            _preferredWorkshopCdnHost = '';
+          }
+        }
+        const ctrls = hosts.map(() => new AbortController());
+        try {
+          const winner = await Promise.any(
+            hosts.map((host, idx) =>
+              fetchJsonFromUrl(buildUrlFn(host), opts, ms, ctrls[idx]).then((data) => {
+                _preferredWorkshopCdnHost = host;
+                ctrls.forEach((c, cIdx) => {
+                  if (cIdx !== idx) {
+                    try { c.abort(); } catch (_) {}
+                  }
+                });
+                return data;
+              })
+            )
+          );
+          return winner;
+        } finally {
+          ctrls.forEach((c) => {
+            try { c.abort(); } catch (_) {}
+          });
         }
       };
 
@@ -16564,30 +16683,36 @@ ${BUILTIN_CSS_TEMPLATE}`;
         'https://fastly.jsdelivr.net/gh'
       ];
 
-      // 2. 针对固定哈希素材包 packs/ 与 assets/：多路国内可达 CDN 并发竞速拉取，谁最快用谁
+      // 2. 针对固定哈希素材包 packs/ 与 assets/：优先单节点直连，若竞速则立即中断其余冗余下载，消除 4 倍流量拥塞
       if (isImmutablePack && githubRepo && githubRepo.includes('/')) {
         try {
-          const fastPack = await Promise.any(
-            cdnHosts.map((host) => fetchJsonFromUrl(`${host}/${githubRepo}@main/workshop-store/${cleanRel}`, { cache: 'force-cache' }, 18000))
+          const fastPack = await raceFetchJsonWithAbort(
+            cdnHosts,
+            (host) => `${host}/${githubRepo}@main/workshop-store/${cleanRel}`,
+            { cache: 'force-cache' },
+            20000
           );
           if (fastPack) return fastPack;
         } catch (_) {}
       }
 
-      // 3. 针对模组清单与工程 JSON：先通过最新 Commit SHA 锁定最新版本的 CDN 镜像（彻底绕过 CDN 旧缓存且国内秒开）
+      // 3. 针对模组清单与工程 JSON：先通过最新 Commit SHA 锁定最新版本的 CDN 镜像
       if (githubRepo && githubRepo.includes('/')) {
         const latestSha = await resolveLatestGithubCommitSha(githubRepo, githubToken);
         if (latestSha) {
           try {
-            const shaJson = await Promise.any(
-              cdnHosts.map((host) => fetchJsonFromUrl(`${host}/${githubRepo}@${latestSha}/workshop-store/${cleanRel}`, { cache: 'no-store' }, timeoutMs))
+            const shaJson = await raceFetchJsonWithAbort(
+              cdnHosts,
+              (host) => `${host}/${githubRepo}@${latestSha}/workshop-store/${cleanRel}`,
+              { cache: 'no-store' },
+              timeoutMs
             );
             if (shaJson) return shaJson;
           } catch (_) {}
         }
       }
 
-      // 4. 云端代理接口兜底（支持跨网段代拉取 GitHub 文件）
+      // 4. 云端代理接口兜底
       try {
         const proxyPath = `/api/workshop/gh-json?path=${encodeURIComponent(cleanRel)}&repo=${encodeURIComponent(githubRepo || DEFAULT_WORKSHOP_GITHUB_REPO)}`;
         const { res, data } = await fetchBackendJsonSafe(proxyPath);
@@ -16599,8 +16724,11 @@ ${BUILTIN_CSS_TEMPLATE}`;
       // 5. 多路 CDN @main 分支兜底与 GitHub Raw 直连
       if (githubRepo && githubRepo.includes('/')) {
         try {
-          const mainCdnJson = await Promise.any(
-            cdnHosts.map((host) => fetchJsonFromUrl(`${host}/${githubRepo}@main/workshop-store/${cleanRel}?t=${Date.now()}`, { cache: 'no-store' }, timeoutMs))
+          const mainCdnJson = await raceFetchJsonWithAbort(
+            cdnHosts,
+            (host) => `${host}/${githubRepo}@main/workshop-store/${cleanRel}?t=${Date.now()}`,
+            { cache: 'no-store' },
+            timeoutMs
           );
           if (mainCdnJson) return mainCdnJson;
         } catch (_) {}
@@ -16616,7 +16744,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
           } catch (_) {}
         }
 
-        // 6. GitHub Contents API 与 Git Blobs API 终极兜底（支持超过 1MB 的大型工程文件）
+        // 6. GitHub Contents API 与 Git Blobs API 终极兜底
         try {
           const headers = { Accept: 'application/vnd.github.v3+json' };
           if (githubToken) headers.Authorization = `Bearer ${githubToken}`;
@@ -27551,15 +27679,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         _mountedZipAssetBlobCache.delete(cacheKey);
       }
       _mountedZipAssetBlobCache.set(cacheKey, blobUrl);
-      while (_mountedZipAssetBlobCache.size > MAX_MOUNTED_ASSET_BLOB_CACHE) {
-        const oldestKey = _mountedZipAssetBlobCache.keys().next().value;
-        const oldestUrl = _mountedZipAssetBlobCache.get(oldestKey);
-        _mountedZipAssetBlobCache.delete(oldestKey);
-        if (oldestUrl && oldestUrl.startsWith('blob:')) {
-          evictCroppedSpriteCacheForSourceUrl(oldestUrl);
-          try { URL.revokeObjectURL(oldestUrl); } catch (_) {}
-        }
-      }
       return blobUrl;
     }
 
@@ -27611,11 +27730,28 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     const _fetchingWorkshopPackPromises = new Map();
     const _workshopRawDataUrlByHash = new Map();
 
+    function normalizeWorkshopPackRelPath(packPath) {
+      if (!packPath || typeof packPath !== 'string') return '';
+      let cleanPack = packPath.replace(/^\/+/, '').trim();
+      if (!cleanPack) return '';
+      if (!cleanPack.startsWith('packs/')) {
+        const baseName = cleanPack.endsWith('.json') ? cleanPack.slice(0, -5) : cleanPack;
+        cleanPack = `packs/${baseName.startsWith('pack_') ? baseName : 'pack_' + baseName}.json`;
+      } else if (!cleanPack.endsWith('.json')) {
+        cleanPack = `${cleanPack}.json`;
+      }
+      return cleanPack;
+    }
+
     function registerRemoteProjectPackIndex(projObj) {
       if (!projObj || !projObj.assetPackIndex || typeof projObj.assetPackIndex !== 'object') return;
       Object.entries(projObj.assetPackIndex).forEach(([hash, packPath]) => {
         if (hash && packPath && typeof packPath === 'string') {
-          _workshopAssetPackIndexMap.set(hash, packPath);
+          const normPack = normalizeWorkshopPackRelPath(packPath);
+          if (normPack) {
+            _workshopAssetPackIndexMap.set(hash, normPack);
+            projObj.assetPackIndex[hash] = normPack;
+          }
         }
       });
     }
@@ -29553,8 +29689,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const neededPacks = new Set();
       const unpackedPacks = new Set();
       for (const h of stillMissingSet) {
-        const pHash = _workshopAssetPackIndexMap.get(h) || savedPackIdx[h];
-        if (pHash) neededPacks.add(pHash);
+        const rawPack = _workshopAssetPackIndexMap.get(h) || savedPackIdx[h];
+        const normPack = normalizeWorkshopPackRelPath(rawPack);
+        if (normPack) neededPacks.add(normPack);
       }
       const packList = Array.from(neededPacks);
       if (packList.length > 0) {
@@ -29565,7 +29702,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             const pIdx = packCursor++;
             const pHash = packList[pIdx];
             if (!pHash) continue;
-            unpackedPacks.add(pHash.startsWith('packs/') ? pHash : `packs/${pHash.endsWith('.json') ? pHash : pHash + '.json'}`);
+            unpackedPacks.add(pHash);
             const assetsObj = await fetchAndUnpackWorkshopAssetPack(pHash);
             if (assetsObj && typeof assetsObj === 'object') {
               Object.keys(assetsObj).forEach((k) => {
@@ -29587,7 +29724,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           }
         };
         const ghPackWorkers = [];
-        for (let w = 0; w < Math.min(6, packList.length); w++) {
+        for (let w = 0; w < Math.min(4, packList.length); w++) {
           ghPackWorkers.push(runGhPackPullWorker());
         }
         await Promise.all(ghPackWorkers);
@@ -30055,7 +30192,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
 
         if (!dataUrl || !dataUrl.startsWith('data:')) {
-          return hash ? targetLocalUrl : '';
+          return hash ? refOrUrl : '';
         }
 
         if (createImmediateBlob || isSingleChapterMode) {
@@ -30064,6 +30201,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             _localRelToBlobCache.set(cleanRel, fastBlob);
             _playableUrlRamCache.set(targetLocalUrl, fastBlob);
             _playableUrlRamCache.set(altLocalUrl, fastBlob);
+            _playableUrlRamCache.set(`/local-assets/${cleanRel}`, fastBlob);
+            _playableUrlRamCache.set(`${baseUrl}/${cleanRel}`, fastBlob);
             if (hash) {
               _playableUrlRamCache.set(`/api/workshop/asset/${hash}`, fastBlob);
             }
@@ -30185,7 +30324,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                 continue;
               }
               const safeExp = String(expKey).replace(/[\\/:*?"<>|]/g, '_');
-              const localExpUrl = await materializeWorkshopRefToLocalUrl(expVal, `characters/${safeCharName}/${safeExp}.png`, expKey === '默认');
+              const localExpUrl = await materializeWorkshopRefToLocalUrl(expVal, `characters/${safeCharName}/${safeExp}.png`, true);
               if (localExpUrl) {
                 nextExps[expKey] = localExpUrl;
               }
@@ -30284,7 +30423,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           const gsc = nextGlobalScenes[gIdx];
           if (gsc && gsc.imageUrl && (!isSingleChapterMode || activeSceneNamesInScope.size === 0 || (gsc.name && activeSceneNamesInScope.has(gsc.name)))) {
             const safeGName = String(gsc.name || gsc.id || gIdx).replace(/[\\/:*?"<>|]/g, '_');
-            const localScUrl = await materializeWorkshopRefToLocalUrl(gsc.imageUrl, `projects/${safeProj}/scenes/global_${gIdx}_${safeGName}.png`, false);
+            const localScUrl = await materializeWorkshopRefToLocalUrl(gsc.imageUrl, `projects/${safeProj}/scenes/global_${gIdx}_${safeGName}.png`, true);
             if (localScUrl) gsc.imageUrl = localScUrl;
           }
         }
@@ -30365,7 +30504,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             const sc = ch.scenes[sIdx];
             if (sc && sc.imageUrl) {
               const safeScKey = String(sc.id || `sc${sIdx}`).replace(/[\\/:*?"<>|]/g, '_');
-              const localUrl = await materializeWorkshopRefToLocalUrl(sc.imageUrl, `projects/${safeProj}/scenes/ch${ord}_${sIdx}_${safeScKey}.png`, isFirstOrActiveChap);
+              const localUrl = await materializeWorkshopRefToLocalUrl(sc.imageUrl, `projects/${safeProj}/scenes/ch${ord}_${sIdx}_${safeScKey}.png`, true);
               if (localUrl) sc.imageUrl = localUrl;
             }
           }
@@ -30377,12 +30516,12 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               const cg = ch.cgNodes[gIdx];
               if (cg && cg.imageUrl) {
                 const safeCgKey = String(cg.id || `cg${gIdx}`).replace(/[\\/:*?"<>|]/g, '_');
-                const localUrl = await materializeWorkshopRefToLocalUrl(cg.imageUrl, `projects/${safeProj}/cgs/ch${ord}_${gIdx}_${safeCgKey}.png`, isFirstOrActiveChap);
+                const localUrl = await materializeWorkshopRefToLocalUrl(cg.imageUrl, `projects/${safeProj}/cgs/ch${ord}_${gIdx}_${safeCgKey}.png`, true);
                 if (localUrl) cg.imageUrl = localUrl;
               }
               if (cg && cg.customPadImg) {
                 const safeCgKey = String(cg.id || `cg${gIdx}`).replace(/[\\/:*?"<>|]/g, '_');
-                const localPad = await materializeWorkshopRefToLocalUrl(cg.customPadImg, `projects/${safeProj}/cgs/pad_ch${ord}_${gIdx}_${safeCgKey}.png`, isFirstOrActiveChap);
+                const localPad = await materializeWorkshopRefToLocalUrl(cg.customPadImg, `projects/${safeProj}/cgs/pad_ch${ord}_${gIdx}_${safeCgKey}.png`, true);
                 if (localPad) cg.customPadImg = localPad;
               }
             }
@@ -30392,7 +30531,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               const cl = ch.clueNodes[clIdx];
               if (cl && cl.imageUrl) {
                 const safeClKey = String(cl.id || `cl${clIdx}`).replace(/[\\/:*?"<>|]/g, '_');
-                const localUrl = await materializeWorkshopRefToLocalUrl(cl.imageUrl, `projects/${safeProj}/clues/ch${ord}_${clIdx}_${safeClKey}.png`, isFirstOrActiveChap);
+                const localUrl = await materializeWorkshopRefToLocalUrl(cl.imageUrl, `projects/${safeProj}/clues/ch${ord}_${clIdx}_${safeClKey}.png`, true);
                 if (localUrl) cl.imageUrl = localUrl;
               }
             }
@@ -30694,6 +30833,12 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         localStorage.setItem('last-tachie-char-id', firstModChar.id);
       }
 
+      if (termuxOnline) {
+        try {
+          await syncAllAssetsToLocalBridgeUI(true);
+        } catch (_) {}
+      }
+
       populateCharacterSelects();
       renderPersonaGrid();
       if (appState.selectedPersonaId) selectPersonaForEdit(appState.selectedPersonaId);
@@ -30792,19 +30937,57 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       try {
         setZipProg(6, '正在读取模组剧本、角色立绘与章节目录...');
         let sourceProj = null;
-        try {
-          sourceProj = await fetchWorkshopFullProjectById(projectId);
-          if (sourceProj) registerRemoteProjectPackIndex(sourceProj);
-        } catch (_) {}
+
+        // 优先直接读取本机已有的完整模组与本地立绘语音，无需重新从 GitHub 下载 800MB
+        const localCandidate = (appState.replayProjects || []).find((p) => p && p.id === projectId && Array.isArray(p.chapters) && p.chapters.length > 0);
+        if (localCandidate) {
+          sourceProj = JSON.parse(JSON.stringify(localCandidate));
+          sourceProj.characters = JSON.parse(JSON.stringify((appState.characters || []).filter((c) => c && c.id !== 'narrator_kp' && c.name !== '旁白')));
+          sourceProj.bgmTracks = JSON.parse(JSON.stringify(appState.bgmTracks || []));
+          if (!sourceProj.ttsByChapter || typeof sourceProj.ttsByChapter !== 'object') {
+            sourceProj.ttsByChapter = {};
+          }
+          if (db && db.ttsCache) {
+            const allLocalTts = await db.ttsCache.toArray();
+            const chapIds = new Set((sourceProj.chapters || []).map((c, idx) => String(c.id || `chap_${c.order ?? idx}`)));
+            const sgIds = new Set((sourceProj.subGroups || []).map((sg, idx) => String(sg.id || `sg_${idx}`)));
+            for (const row of allLocalTts) {
+              if (!row || !row.id || !(row.audioDataUrl || row.audioData)) continue;
+              let matchedHolder = '';
+              for (const cid of chapIds) {
+                if (row.id.startsWith(`line_${cid}_`)) { matchedHolder = cid; break; }
+              }
+              if (!matchedHolder) {
+                for (const sid of sgIds) {
+                  if (row.id.startsWith(`line_${sid}_`)) { matchedHolder = sid; break; }
+                }
+              }
+              if (!matchedHolder && sourceProj.chapters && sourceProj.chapters[0]) {
+                matchedHolder = String(sourceProj.chapters[0].id || 'chap_0');
+              }
+              if (matchedHolder) {
+                if (!Array.isArray(sourceProj.ttsByChapter[matchedHolder])) {
+                  sourceProj.ttsByChapter[matchedHolder] = [];
+                }
+                sourceProj.ttsByChapter[matchedHolder].push({
+                  id: row.id,
+                  speaker: row.speaker || '',
+                  text: row.text || '',
+                  audioDataUrl: row.audioDataUrl || row.audioData
+                });
+              }
+            }
+          }
+          if (sourceProj.assetPackIndex) registerRemoteProjectPackIndex(sourceProj);
+        }
 
         if (!sourceProj) {
-          const localFallback = (appState.replayProjects || []).find((p) => p && p.id === projectId);
-          if (localFallback) {
-            sourceProj = JSON.parse(JSON.stringify(localFallback));
-            sourceProj.characters = JSON.parse(JSON.stringify((appState.characters || []).filter((c) => c && c.id !== 'narrator_kp' && c.name !== '旁白')));
-            sourceProj.bgmTracks = JSON.parse(JSON.stringify(appState.bgmTracks || []));
-          }
+          try {
+            sourceProj = await fetchWorkshopFullProjectById(projectId);
+            if (sourceProj) registerRemoteProjectPackIndex(sourceProj);
+          } catch (_) {}
         }
+
         if (!sourceProj || !sourceProj.id) {
           throw new Error('未找到该模组数据');
         }
@@ -30909,14 +31092,15 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
 
         if (missingToFetch.length > 0) {
-          setZipProg(12, `正在多线程高速拉取 ${missingToFetch.length} 个立绘场景与语音素材...`);
+          setZipProg(12, `正在高速拉取 ${missingToFetch.length} 个云端素材...`);
           await fetchMissingWorkshopHashesFromAllChannels(missingToFetch, setZipProg);
         }
 
-        setZipProg(80, '正在将立绘、场景、插图与配音封装进压缩包...');
+        setZipProg(76, '正在将立绘、场景、插图与配音封装进压缩包...');
         const zip = new JSZip();
         const writtenZipRelSet = new Set();
         const refToZipAssetMap = new Map();
+        const baseUrl = getLocalBridgeBaseUrl();
 
         const dataUrlToBytesAndExt = (dUrl, fallbackExt = 'png') => {
           if (!dUrl || typeof dUrl !== 'string' || !dUrl.startsWith('data:')) return null;
@@ -30946,53 +31130,62 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           }
         };
 
-        const packRefIntoZip = async (rawRef, fallbackExt = 'png') => {
+        const packRefIntoZip = async (rawRef, fallbackExt = 'png', defaultRelHint = '') => {
           if (!rawRef || typeof rawRef !== 'string') return '';
           if (rawRef.startsWith('__ZIP_ASSET__:')) return rawRef;
           if (refToZipAssetMap.has(rawRef)) return refToZipAssetMap.get(rawRef);
 
-          let dataUrl = '';
+          let parsed = null;
           let hashKey = '';
+
           if (rawRef.startsWith('/api/workshop/asset/')) {
             hashKey = rawRef.replace('/api/workshop/asset/', '').split('?')[0].trim();
-            dataUrl = _workshopRawDataUrlByHash.get(hashKey)
+            let dataUrl = _workshopRawDataUrlByHash.get(hashKey)
               || _workshopRawDataUrlByHash.get(rawRef)
               || (typeof _localWorkshopAssetUrlMap === 'object' ? (_localWorkshopAssetUrlMap.get(rawRef) || _localWorkshopAssetUrlMap.get(hashKey)) : '')
               || '';
             if (dataUrl && !dataUrl.startsWith('data:')) {
               dataUrl = await resolveAssetToDataUrlForWorkshop(dataUrl);
             }
+            if (dataUrl && dataUrl.startsWith('data:')) {
+              parsed = dataUrlToBytesAndExt(dataUrl, fallbackExt);
+            }
           } else if (rawRef.startsWith('data:')) {
-            dataUrl = rawRef;
             hashKey = computeFastAssetFingerprint(rawRef);
+            parsed = dataUrlToBytesAndExt(rawRef, fallbackExt);
           } else if (rawRef.startsWith('blob:') || rawRef.startsWith('/local-assets/') || rawRef.includes(':8765/')) {
-            dataUrl = await resolveAssetToDataUrlForWorkshop(rawRef);
-            hashKey = computeFastAssetFingerprint(dataUrl || rawRef);
+            const rel = extractRelativeAssetPath(rawRef, baseUrl) || defaultRelHint;
+            const blob = await fetchLocalOrMemoryAssetBlobForFullBackup(rawRef, rel);
+            if (blob && blob.size > 0) {
+              const ab = await blob.arrayBuffer();
+              const bytes = new Uint8Array(ab);
+              let ext = fallbackExt;
+              let mime = blob.type || (fallbackExt === 'mp3' ? 'audio/mpeg' : 'image/png');
+              if (mime.includes('audio')) ext = 'mp3';
+              else if (mime.includes('jpeg') || mime.includes('jpg')) ext = 'jpg';
+              else if (mime.includes('webp')) ext = 'webp';
+              hashKey = rel ? rel.replace(/[^a-zA-Z0-9_-]/g, '_') : `loc_${bytes.length}_${Date.now()}`;
+              parsed = { bytes, ext, mime };
+            } else {
+              const dataUrl = await resolveAssetToDataUrlForWorkshop(rawRef);
+              if (dataUrl && dataUrl.startsWith('data:')) {
+                hashKey = computeFastAssetFingerprint(dataUrl);
+                parsed = dataUrlToBytesAndExt(dataUrl, fallbackExt);
+              }
+            }
           } else {
             return rawRef;
           }
 
-          if (!dataUrl || !dataUrl.startsWith('data:')) return rawRef;
-          const parsed = dataUrlToBytesAndExt(dataUrl, fallbackExt);
           if (!parsed || !parsed.bytes) return rawRef;
 
-          const safeHash = (hashKey || computeFastAssetFingerprint(dataUrl)).replace(/[^a-zA-Z0-9_-]/g, '_');
+          const safeHash = (hashKey || `asset_${writtenZipRelSet.size}`).replace(/[^a-zA-Z0-9_-]/g, '_');
           const relPath = `assets/${safeHash}.${parsed.ext}`;
           const zipRef = `__ZIP_ASSET__:${relPath}`;
 
           if (!writtenZipRelSet.has(relPath)) {
             writtenZipRelSet.add(relPath);
             zip.file(relPath, parsed.bytes, { binary: true, compression: 'STORE' });
-          }
-
-          const blobObj = new Blob([parsed.bytes], { type: parsed.mime });
-          const blobUrl = URL.createObjectURL(blobObj);
-          const cacheKey = `${sourceProj.id}::${relPath}`;
-          cacheMountedBlobUrl(cacheKey, blobUrl);
-          _playableUrlRamCache.set(zipRef, blobUrl);
-          _playableUrlRamCache.set(rawRef, blobUrl);
-          if (hashKey) {
-            _playableUrlRamCache.set(`/api/workshop/asset/${hashKey}`, blobUrl);
           }
 
           refToZipAssetMap.set(rawRef, zipRef);
@@ -31010,15 +31203,17 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           }
           cleanName = cleanName.replace(/\s+\d+$/, '').trim();
           cCopy.name = cleanName || cCopy.name;
-          if (cCopy.profileAvatar) cCopy.profileAvatar = await packRefIntoZip(cCopy.profileAvatar, 'png');
-          if (cCopy.stageBustAvatar) cCopy.stageBustAvatar = await packRefIntoZip(cCopy.stageBustAvatar, 'png');
-          if (cCopy.tachieBase) cCopy.tachieBase = await packRefIntoZip(cCopy.tachieBase, 'png');
-          if (cCopy.chibiImg) cCopy.chibiImg = await packRefIntoZip(cCopy.chibiImg, 'png');
+          const safeName = (cCopy.name || cCopy.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
+          if (cCopy.profileAvatar) cCopy.profileAvatar = await packRefIntoZip(cCopy.profileAvatar, 'png', `characters/${safeName}/profile_avatar.png`);
+          if (cCopy.stageBustAvatar) cCopy.stageBustAvatar = await packRefIntoZip(cCopy.stageBustAvatar, 'png', `characters/${safeName}/stage_bust.png`);
+          if (cCopy.tachieBase) cCopy.tachieBase = await packRefIntoZip(cCopy.tachieBase, 'png', `characters/${safeName}/base.png`);
+          if (cCopy.chibiImg) cCopy.chibiImg = await packRefIntoZip(cCopy.chibiImg, 'png', `characters/${safeName}/chibiImg.png`);
           if (cCopy.tachieExpressions && typeof cCopy.tachieExpressions === 'object') {
             const nextExps = {};
             for (const [k, v] of Object.entries(cCopy.tachieExpressions)) {
               if (isSingleChapZip && !zipExps.has(k) && k !== '默认') continue;
-              if (v) nextExps[k] = await packRefIntoZip(v, 'png');
+              const safeExp = String(k).replace(/[\\/:*?"<>|]/g, '_');
+              if (v) nextExps[k] = await packRefIntoZip(v, 'png', `characters/${safeName}/${safeExp}.png`);
             }
             cCopy.tachieExpressions = nextExps;
           }
@@ -31032,17 +31227,18 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           packedChars.push(cCopy);
         }
 
+        const safeProj = (modTitle || sourceProj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
         const packedGlobalScenes = [];
-        for (const gsc of (sourceProj.globalScenes || [])) {
+        for (let gIdx = 0; gIdx < (sourceProj.globalScenes || []).length; gIdx++) {
+          const gsc = sourceProj.globalScenes[gIdx];
           if (!gsc) continue;
           if (isSingleChapZip && zipSceneNames.size > 0 && gsc.name && !zipSceneNames.has(gsc.name)) continue;
           const gCopy = JSON.parse(JSON.stringify(gsc));
-          if (gCopy.imageUrl) gCopy.imageUrl = await packRefIntoZip(gCopy.imageUrl, 'png');
+          if (gCopy.imageUrl) gCopy.imageUrl = await packRefIntoZip(gCopy.imageUrl, 'png', `projects/${safeProj}/scenes/global_${gIdx}_${gCopy.id || gIdx}.png`);
           packedGlobalScenes.push(gCopy);
         }
 
         const ttsCacheList = [];
-        const ttsLookup = new Map();
         const seenTtsIds = new Set();
 
         const packTtsRecord = async (rec) => {
@@ -31050,20 +31246,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           const rawAudio = rec.audioDataUrl || rec.audioData || '';
           if (!rawAudio) return;
           seenTtsIds.add(rec.id);
-          const zipAudioRef = await packRefIntoZip(rawAudio, 'mp3');
-          const playBlobUrl = _playableUrlRamCache.get(zipAudioRef) || _playableUrlRamCache.get(rawAudio) || zipAudioRef;
-          ttsLookup.set(rec.id, playBlobUrl);
-          if (playBlobUrl && String(playBlobUrl).startsWith('blob:')) {
-            _theaterTtsRamCache.set(rec.id, { src: zipAudioRef, blobUrl: playBlobUrl });
-          }
-          if (typeof registerTtsItemInFastIndex === 'function') {
-            registerTtsItemInFastIndex({
-              id: rec.id,
-              speaker: rec.speaker || '',
-              text: rec.text || '',
-              audioDataUrl: playBlobUrl
-            });
-          }
+          const safeKey = String(rec.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+          const zipAudioRef = await packRefIntoZip(rawAudio, 'mp3', `audio/${safeKey}.mp3`);
           ttsCacheList.push({
             id: rec.id,
             speaker: rec.speaker || '',
@@ -31075,17 +31259,21 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         const packedChapters = [];
         for (let idx = 0; idx < targetChaps.length; idx++) {
           const ch = JSON.parse(JSON.stringify(targetChaps[idx]));
-          for (const sc of (ch.scenes || [])) {
-            if (sc && sc.imageUrl) sc.imageUrl = await packRefIntoZip(sc.imageUrl, 'png');
-          }
-          for (const cg of (ch.cgNodes || [])) {
-            if (cg && cg.imageUrl) cg.imageUrl = await packRefIntoZip(cg.imageUrl, 'png');
-            if (cg && cg.customPadImg) cg.customPadImg = await packRefIntoZip(cg.customPadImg, 'png');
-          }
-          for (const cl of (ch.clueNodes || [])) {
-            if (cl && cl.imageUrl) cl.imageUrl = await packRefIntoZip(cl.imageUrl, 'png');
-          }
           const ord = Number(ch.order ?? idx);
+          setZipProg(78 + Math.round(((idx + 1) / Math.max(1, targetChaps.length)) * 14), `正在打包第 ${ord + 1} 章场景、插图与语音 (${idx + 1} / ${targetChaps.length})...`);
+          for (let sIdx = 0; sIdx < (ch.scenes || []).length; sIdx++) {
+            const sc = ch.scenes[sIdx];
+            if (sc && sc.imageUrl) sc.imageUrl = await packRefIntoZip(sc.imageUrl, 'png', `projects/${safeProj}/scenes/ch${ord}_${sIdx}_${sc.id || sIdx}.png`);
+          }
+          for (let gIdx = 0; gIdx < (ch.cgNodes || []).length; gIdx++) {
+            const cg = ch.cgNodes[gIdx];
+            if (cg && cg.imageUrl) cg.imageUrl = await packRefIntoZip(cg.imageUrl, 'png', `projects/${safeProj}/cgs/ch${ord}_${gIdx}_${cg.id || gIdx}.png`);
+            if (cg && cg.customPadImg) cg.customPadImg = await packRefIntoZip(cg.customPadImg, 'png', `projects/${safeProj}/cgs/pad_ch${ord}_${gIdx}_${cg.id || gIdx}.png`);
+          }
+          for (let clIdx = 0; clIdx < (ch.clueNodes || []).length; clIdx++) {
+            const cl = ch.clueNodes[clIdx];
+            if (cl && cl.imageUrl) cl.imageUrl = await packRefIntoZip(cl.imageUrl, 'png', `projects/${safeProj}/clues/ch${ord}_${clIdx}_${cl.id || clIdx}.png`);
+          }
           const ttsKey = String(ch.id || `chap_${ord}`);
           const chapTts = (sourceProj.ttsByChapter && sourceProj.ttsByChapter[ttsKey]) || [];
           for (const rec of chapTts) {
@@ -31103,17 +31291,20 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         for (let sgIdx = 0; sgIdx < targetSubGroups.length; sgIdx++) {
           const sg = JSON.parse(JSON.stringify(targetSubGroups[sgIdx]));
           if (!sg) continue;
-          for (const sc of (sg.scenes || [])) {
-            if (sc && sc.imageUrl) sc.imageUrl = await packRefIntoZip(sc.imageUrl, 'png');
-          }
-          for (const cg of (sg.cgNodes || [])) {
-            if (cg && cg.imageUrl) cg.imageUrl = await packRefIntoZip(cg.imageUrl, 'png');
-            if (cg && cg.customPadImg) cg.customPadImg = await packRefIntoZip(cg.customPadImg, 'png');
-          }
-          for (const cl of (sg.clueNodes || [])) {
-            if (cl && cl.imageUrl) cl.imageUrl = await packRefIntoZip(cl.imageUrl, 'png');
-          }
           const sgId = sg.id || `sg_${sgIdx}`;
+          for (let sIdx = 0; sIdx < (sg.scenes || []).length; sIdx++) {
+            const sc = sg.scenes[sIdx];
+            if (sc && sc.imageUrl) sc.imageUrl = await packRefIntoZip(sc.imageUrl, 'png', `projects/${safeProj}/scenes/${sgId}_${sIdx}_${sc.id || 'sc'}.png`);
+          }
+          for (let gIdx = 0; gIdx < (sg.cgNodes || []).length; gIdx++) {
+            const cg = sg.cgNodes[gIdx];
+            if (cg && cg.imageUrl) cg.imageUrl = await packRefIntoZip(cg.imageUrl, 'png', `projects/${safeProj}/cgs/${sgId}_${gIdx}_${cg.id || 'cg'}.png`);
+            if (cg && cg.customPadImg) cg.customPadImg = await packRefIntoZip(cg.customPadImg, 'png', `projects/${safeProj}/cgs/pad_${sgId}_${gIdx}_${cg.id || 'cg'}.png`);
+          }
+          for (let clIdx = 0; clIdx < (sg.clueNodes || []).length; clIdx++) {
+            const cl = sg.clueNodes[clIdx];
+            if (cl && cl.imageUrl) cl.imageUrl = await packRefIntoZip(cl.imageUrl, 'png', `projects/${safeProj}/clues/${sgId}_${clIdx}_${cl.id || 'cl'}.png`);
+          }
           const sgTts = (sourceProj.ttsByChapter && sourceProj.ttsByChapter[String(sgId)]) || [];
           for (const rec of sgTts) {
             await packTtsRecord(rec);
@@ -31130,11 +31321,12 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         for (const bt of (sourceProj.bgmTracks || [])) {
           if (!bt) continue;
           const btCopy = JSON.parse(JSON.stringify(bt));
-          if (btCopy.url) btCopy.url = await packRefIntoZip(btCopy.url, 'mp3');
+          const safeBgmId = String(btCopy.id || 'bgm').replace(/[\\/:*?"<>|]/g, '_');
+          if (btCopy.url) btCopy.url = await packRefIntoZip(btCopy.url, 'mp3', `audio/bgm_${safeBgmId}.mp3`);
           packedBgmTracks.push(btCopy);
         }
 
-        const zipAvatarUrl = sourceProj.avatarUrl ? await packRefIntoZip(sourceProj.avatarUrl, 'jpg') : '';
+        const zipAvatarUrl = sourceProj.avatarUrl ? await packRefIntoZip(sourceProj.avatarUrl, 'jpg', `projects/${safeProj}/avatar.jpg`) : '';
         const zipProj = {
           id: sourceProj.id,
           title: modTitle,
@@ -31158,7 +31350,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         };
         zip.file('manifest.json', JSON.stringify(manifestObj));
 
-        setZipProg(92, '正在生成本地免安装压缩包文件...');
+        setZipProg(94, '正在生成全量模组压缩包文件...');
         const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
         const safeTitle = modTitle.replace(/[\\/:*?"<>|]/g, '_');
         const chapSuffix = onlyChapterOrder >= 0 && packedChapters[0]
@@ -31177,31 +31369,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           try { URL.revokeObjectURL(dlUrl); } catch (_) {}
         }, 15000);
 
-        // 同时将该压缩包直接挂载到当前浏览器本地高速池，点击观看即刻零延迟播放
-        _mountedExternalProjects.set(zipProj.id, {
-          mode: 'zip',
-          project: zipProj,
-          characters: packedChars,
-          bgmTracks: packedBgmTracks,
-          ttsLookup,
-          zip,
-          assetHashes: new Map(),
-          syncedAt: zipProj.updatedAt || Date.now()
-        });
-
-        appState.currentReplayProjectId = zipProj.id;
-        appState.currentReplayChapterIdx = 0;
-        appState.theaterLineIdx = 0;
-        appState.theaterPureStageMode = true;
-        appState.theaterEditMode = false;
-        renderReplayWorkshopList();
-        renderTheaterSelectorLobby();
-
-        setZipProg(100, `已导出压缩包「${dlFileName}」并挂载至本机，现在点击观看即可零延迟流畅播放`);
+        setZipProg(100, `已导出全量模组压缩包「${dlFileName}」，发给朋友后点击「本地」即可一键导入至剧本观看`);
         setTimeout(() => {
           if (progWrap) progWrap.style.display = 'none';
           setWorkshopCardProgress(projectId, 100, '', true);
-        }, 2200);
+        }, 2500);
       } catch (err) {
         setWorkshopCardProgress(projectId, 0, '', true);
         alert('打包下载压缩包失败：' + err.message);
@@ -31210,10 +31382,20 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
     }
 
-    // 舞台「本地」按钮：直接读取手机或电脑本地文件夹里的 .zip 模组包并在内存高速池预热全部立绘场景与语音，零延迟流畅播放
+    // 「本地」按钮：直接读取手机或电脑本地 .zip 模组压缩包，将全部章节、立绘、场景、CG与配音完整安装进本机「剧本」数据库并同步 Termux，与本机观看 100% 一致
     async function mountLocalZipPackForTheater(event) {
       const file = event.target?.files?.[0];
       if (!file) return;
+      const statusEl = document.getElementById('workshop-upload-status');
+      const progWrap = document.getElementById('workshop-upload-progress-wrap');
+      const progBar = document.getElementById('workshop-upload-progress-bar');
+      const setImportProg = (pct, msg) => {
+        const safePct = Math.max(4, Math.min(100, Math.round(pct)));
+        if (progWrap) progWrap.style.display = 'block';
+        if (progBar) progBar.style.width = `${safePct}%`;
+        if (statusEl && msg) statusEl.textContent = `${safePct}% · ${msg}`;
+      };
+
       try {
         unlockBgmAudioPlayerOnUserGesture();
         if (typeof ensureSharedTheaterVoicePlayerUnlocked === 'function') {
@@ -31221,16 +31403,37 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
         const isZip = file.name.toLowerCase().endsWith('.zip');
         if (isZip && typeof JSZip !== 'undefined') {
+          setImportProg(6, '正在解压本地模组压缩包...');
           const zip = await JSZip.loadAsync(file);
+          if (zip.file('phone_full_backup.json') && !zip.file('manifest.json')) {
+            await importFullPhoneBackupZip(event);
+            return;
+          }
           const manifestFile = zip.file('manifest.json');
           if (!manifestFile) throw new Error('该压缩包内未找到 manifest.json');
           const pack = JSON.parse(await manifestFile.async('string'));
           const proj = pack.project;
           if (!proj || !proj.id) throw new Error('压缩包内未找到有效的模组工程');
 
-          // 预先将压缩包内的图片与音频全部解压为高速内存 Blob 地址，彻底消除播放途中的解压顿挫
+          const baseUrl = getLocalBridgeBaseUrl();
+          const termuxInfo = await checkLocalBridgeEndpointAlive(baseUrl).catch(() => null);
+          const termuxOnline = Boolean(termuxInfo);
+          const onStaticHost = isStaticHostWithoutLocalAssets();
+          const safeProj = String(proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
+
+          const uint8ToBase64 = (u8) => {
+            let binary = '';
+            const chunkSize = 0x8000;
+            for (let i = 0; i < u8.length; i += chunkSize) {
+              binary += String.fromCharCode.apply(null, u8.subarray(i, i + chunkSize));
+            }
+            return btoa(binary);
+          };
+
+          const zipEntryBytesMap = new Map();
           const zipFileEntries = Object.keys(zip.files || {}).filter((rel) => rel && !zip.files[rel].dir && rel !== 'manifest.json');
-          for (const relPath of zipFileEntries) {
+          for (let idx = 0; idx < zipFileEntries.length; idx++) {
+            const relPath = zipFileEntries[idx];
             const zf = zip.file(relPath);
             if (!zf) continue;
             const uint8 = await zf.async('uint8array');
@@ -31238,99 +31441,330 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             const mime = ext === 'mp3'
               ? 'audio/mpeg'
               : (ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : (ext === 'webp' ? 'image/webp' : 'image/png'));
-            const blob = new Blob([uint8], { type: mime });
-            const bUrl = URL.createObjectURL(blob);
-            const zipRef = `__ZIP_ASSET__:${relPath}`;
-            const cacheKey = `${proj.id}::${relPath}`;
-            cacheMountedBlobUrl(cacheKey, bUrl);
-            _playableUrlRamCache.set(zipRef, bUrl);
+            zipEntryBytesMap.set(relPath, { uint8, mime, ext });
+            if (idx % 25 === 0) {
+              setImportProg(8 + Math.round(((idx + 1) / Math.max(1, zipFileEntries.length)) * 32), `正在解压模组素材 (${idx + 1} / ${zipFileEntries.length})...`);
+            }
           }
 
+          const pendingDiskBatch = [];
+          const writtenDiskPaths = new Set();
+          const flushZipDiskBatch = async () => {
+            if (pendingDiskBatch.length === 0) return;
+            const chunk = pendingDiskBatch.splice(0, pendingDiskBatch.length);
+            await bulkPutLocalAssetMirror(chunk);
+            if (!onStaticHost) {
+              try {
+                await fetch('/api/local-assets/save-batch', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ items: chunk.map((it) => ({ path: it.path, dataUrl: it.dataUrl })) })
+                });
+              } catch (_) {}
+            }
+            if (termuxOnline) {
+              let tCursor = 0;
+              const runWorker = async () => {
+                while (tCursor < chunk.length) {
+                  const it = chunk[tCursor++];
+                  if (!it) continue;
+                  try {
+                    await fetch(`${baseUrl}/save`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ path: it.path, dataUrl: it.dataUrl })
+                    });
+                  } catch (_) {}
+                }
+              };
+              const workers = [];
+              for (let w = 0; w < Math.min(4, chunk.length); w++) workers.push(runWorker());
+              await Promise.all(workers);
+            }
+          };
+
+          const installZipRefToLocalPath = async (rawRef, relDiskPath) => {
+            if (!rawRef || typeof rawRef !== 'string') return '';
+            const cleanRel = String(relDiskPath || '').replace(/^\/+/, '').replace(/\.\./g, '_');
+            const encodedRel = cleanRel.split('/').map((s) => encodeURIComponent(s)).join('/');
+            const targetLocalUrl = termuxOnline ? `${baseUrl}/${encodedRel}` : `/local-assets/${encodedRel}`;
+            const altLocalUrl = termuxOnline ? `/local-assets/${encodedRel}` : `${baseUrl}/${encodedRel}`;
+
+            let dataUrl = '';
+            let blobUrl = '';
+            if (rawRef.startsWith('__ZIP_ASSET__:')) {
+              const zipRel = rawRef.slice('__ZIP_ASSET__:'.length);
+              const entry = zipEntryBytesMap.get(zipRel);
+              if (!entry) return '';
+              const blob = new Blob([entry.uint8], { type: entry.mime });
+              blobUrl = URL.createObjectURL(blob);
+              dataUrl = `data:${entry.mime};base64,${uint8ToBase64(entry.uint8)}`;
+            } else if (rawRef.startsWith('data:')) {
+              dataUrl = rawRef;
+              blobUrl = toFastDisplayUrl(rawRef);
+            } else {
+              return rawRef;
+            }
+
+            if (blobUrl && blobUrl.startsWith('blob:')) {
+              _localRelToBlobCache.set(cleanRel, blobUrl);
+              _playableUrlRamCache.set(targetLocalUrl, blobUrl);
+              _playableUrlRamCache.set(altLocalUrl, blobUrl);
+              _playableUrlRamCache.set(`/local-assets/${cleanRel}`, blobUrl);
+              _playableUrlRamCache.set(`${baseUrl}/${cleanRel}`, blobUrl);
+              _playableUrlRamCache.set(rawRef, blobUrl);
+            }
+
+            if (dataUrl && !writtenDiskPaths.has(cleanRel)) {
+              writtenDiskPaths.add(cleanRel);
+              pendingDiskBatch.push({ path: cleanRel, dataUrl });
+              if (pendingDiskBatch.length >= 25) {
+                await flushZipDiskBatch();
+              }
+            }
+            return targetLocalUrl;
+          };
+
+          setImportProg(44, '正在将角色立绘与表情差分安装至本机...');
           const modTitle = String(proj.title || '').trim();
-          const normChars = (Array.isArray(pack.characters) ? pack.characters : []).map((rc) => {
-            if (!rc) return null;
-            let cleanName = String(rc.name || '').trim();
+          const currentChars = await db.characters.toArray();
+          for (const rc of (Array.isArray(pack.characters) ? pack.characters : [])) {
+            if (!rc || rc.id === 'narrator_kp' || rc.name === '旁白') continue;
+            const cCopy = JSON.parse(JSON.stringify(rc));
+            let cleanName = String(cCopy.name || '').trim();
             if (modTitle && cleanName.endsWith(' ' + modTitle)) {
               cleanName = cleanName.slice(0, -(' ' + modTitle).length).trim();
             }
             cleanName = cleanName.replace(/\s+\d+$/, '').trim();
-            rc.name = cleanName || rc.name;
-            if (!rc.tachieBase && rc.tachieExpressions && Object.keys(rc.tachieExpressions).length > 0) {
-              rc.tachieBase = rc.tachieExpressions['默认'] || Object.values(rc.tachieExpressions)[0];
-            }
-            if (rc.tachieBase && (!rc.tachieExpressions || !rc.tachieExpressions['默认'])) {
-              if (!rc.tachieExpressions) rc.tachieExpressions = {};
-              rc.tachieExpressions['默认'] = rc.tachieBase;
-            }
-            return rc;
-          }).filter(Boolean);
+            cCopy.name = cleanName || cCopy.name;
+            const safeCharName = (cCopy.name || cCopy.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
 
-          const ttsLookup = new Map();
-          const registerZipTtsItem = (item) => {
-            if (!item || !item.id) return;
-            const rawAudio = item.audioDataUrl || item.audioData || '';
-            if (!rawAudio) return;
-            const resolvedBlobUrl = _playableUrlRamCache.get(rawAudio) || rawAudio;
-            ttsLookup.set(item.id, resolvedBlobUrl);
-            if (resolvedBlobUrl && String(resolvedBlobUrl).startsWith('blob:')) {
-              _theaterTtsRamCache.set(item.id, { src: rawAudio, blobUrl: resolvedBlobUrl });
+            if (cCopy.profileAvatar) cCopy.profileAvatar = await installZipRefToLocalPath(cCopy.profileAvatar, `characters/${safeCharName}/profile_avatar.png`);
+            if (cCopy.stageBustAvatar) cCopy.stageBustAvatar = await installZipRefToLocalPath(cCopy.stageBustAvatar, `characters/${safeCharName}/stage_bust.png`);
+            if (cCopy.tachieBase) cCopy.tachieBase = await installZipRefToLocalPath(cCopy.tachieBase, `characters/${safeCharName}/base.png`);
+            if (cCopy.chibiImg) cCopy.chibiImg = await installZipRefToLocalPath(cCopy.chibiImg, `characters/${safeCharName}/chibiImg.png`);
+            if (cCopy.tachieExpressions && typeof cCopy.tachieExpressions === 'object') {
+              const nextExps = {};
+              for (const [expKey, expVal] of Object.entries(cCopy.tachieExpressions)) {
+                const safeExp = String(expKey).replace(/[\\/:*?"<>|]/g, '_');
+                const localExpUrl = await installZipRefToLocalPath(expVal, `characters/${safeCharName}/${safeExp}.png`);
+                if (localExpUrl) nextExps[expKey] = localExpUrl;
+              }
+              cCopy.tachieExpressions = nextExps;
             }
-            if (typeof registerTtsItemInFastIndex === 'function') {
-              registerTtsItemInFastIndex({
-                id: item.id,
-                speaker: item.speaker || '',
-                text: item.text || '',
-                audioDataUrl: resolvedBlobUrl
+            if (!cCopy.tachieBase && cCopy.tachieExpressions && Object.keys(cCopy.tachieExpressions).length > 0) {
+              cCopy.tachieBase = cCopy.tachieExpressions['默认'] || Object.values(cCopy.tachieExpressions)[0];
+            }
+            if (cCopy.tachieBase && (!cCopy.tachieExpressions || !cCopy.tachieExpressions['默认'])) {
+              if (!cCopy.tachieExpressions) cCopy.tachieExpressions = {};
+              cCopy.tachieExpressions['默认'] = cCopy.tachieBase;
+            }
+            cCopy.moduleId = proj.id;
+            cCopy.moduleTitle = proj.title || '跑团模组';
+
+            const ns = normalizeCharNameNoSpace(cCopy.name);
+            const existChar = currentChars.find((c) => c.id === cCopy.id) || currentChars.find((c) => normalizeCharNameNoSpace(c.name) === ns);
+            if (existChar) {
+              const keepId = existChar.id;
+              Object.assign(existChar, cCopy, {
+                id: keepId,
+                tachieExpressions: { ...(existChar.tachieExpressions || {}), ...(cCopy.tachieExpressions || {}) }
               });
+              await db.characters.put(existChar);
+            } else {
+              await db.characters.put(cCopy);
+              currentChars.push(cCopy);
             }
-          };
-
-          (pack.ttsCache || []).forEach(registerZipTtsItem);
-          if (proj.ttsByChapter && typeof proj.ttsByChapter === 'object') {
-            Object.values(proj.ttsByChapter).forEach((arr) => {
-              if (Array.isArray(arr)) arr.forEach(registerZipTtsItem);
-            });
           }
 
-          const assetHashes = new Map();
-          if (pack.assetHashes && typeof pack.assetHashes === 'object') {
-            Object.entries(pack.assetHashes).forEach(([k, v]) => assetHashes.set(k, v));
+          if (proj.avatarUrl) {
+            proj.avatarUrl = await installZipRefToLocalPath(proj.avatarUrl, `projects/${safeProj}/avatar.jpg`);
+          }
+          for (let gIdx = 0; gIdx < (proj.globalScenes || []).length; gIdx++) {
+            const gsc = proj.globalScenes[gIdx];
+            if (gsc && gsc.imageUrl) {
+              const safeGName = String(gsc.name || gsc.id || gIdx).replace(/[\\/:*?"<>|]/g, '_');
+              gsc.imageUrl = await installZipRefToLocalPath(gsc.imageUrl, `projects/${safeProj}/scenes/global_${gIdx}_${safeGName}.png`);
+            }
           }
 
-          _mountedExternalProjects.set(proj.id, {
-            mode: 'zip',
-            project: proj,
-            characters: normChars,
-            bgmTracks: Array.isArray(pack.bgmTracks) ? pack.bgmTracks : [],
-            ttsLookup,
-            zip,
-            assetHashes,
-            syncedAt: proj.updatedAt || pack.exportedAt || Date.now()
-          });
-
-          appState.currentReplayProjectId = proj.id;
-          (proj.chapters || []).forEach((ch) => {
+          const chaps = Array.isArray(proj.chapters) ? proj.chapters : [];
+          for (let cIdx = 0; cIdx < chaps.length; cIdx++) {
+            const ch = chaps[cIdx];
+            if (!ch) continue;
+            const ord = Number(ch.order ?? cIdx);
+            setImportProg(54 + Math.round(((cIdx + 1) / Math.max(1, chaps.length)) * 22), `正在安装第 ${ord + 1} 章场景、CG与线索 (${cIdx + 1} / ${chaps.length})...`);
+            for (let sIdx = 0; sIdx < (ch.scenes || []).length; sIdx++) {
+              const sc = ch.scenes[sIdx];
+              if (sc && sc.imageUrl) {
+                const safeScKey = String(sc.id || `sc${sIdx}`).replace(/[\\/:*?"<>|]/g, '_');
+                sc.imageUrl = await installZipRefToLocalPath(sc.imageUrl, `projects/${safeProj}/scenes/ch${ord}_${sIdx}_${safeScKey}.png`);
+              }
+            }
+            for (let gIdx = 0; gIdx < (ch.cgNodes || []).length; gIdx++) {
+              const cg = ch.cgNodes[gIdx];
+              if (cg && cg.imageUrl) {
+                const safeCgKey = String(cg.id || `cg${gIdx}`).replace(/[\\/:*?"<>|]/g, '_');
+                cg.imageUrl = await installZipRefToLocalPath(cg.imageUrl, `projects/${safeProj}/cgs/ch${ord}_${gIdx}_${safeCgKey}.png`);
+              }
+              if (cg && cg.customPadImg) {
+                const safeCgKey = String(cg.id || `cg${gIdx}`).replace(/[\\/:*?"<>|]/g, '_');
+                cg.customPadImg = await installZipRefToLocalPath(cg.customPadImg, `projects/${safeProj}/cgs/pad_ch${ord}_${gIdx}_${safeCgKey}.png`);
+              }
+            }
+            for (let clIdx = 0; clIdx < (ch.clueNodes || []).length; clIdx++) {
+              const cl = ch.clueNodes[clIdx];
+              if (cl && cl.imageUrl) {
+                const safeClKey = String(cl.id || `cl${clIdx}`).replace(/[\\/:*?"<>|]/g, '_');
+                cl.imageUrl = await installZipRefToLocalPath(cl.imageUrl, `projects/${safeProj}/clues/ch${ord}_${clIdx}_${safeClKey}.png`);
+              }
+            }
             syncChapterCgLineBindings(ch);
             syncChapterClueLineBindings(ch);
             if (Array.isArray(ch.scriptLines)) {
               computeChapterStageSlots(ch.scriptLines);
             }
-          });
-          (proj.subGroups || []).forEach((sg) => {
+          }
+
+          for (let sgIdx = 0; sgIdx < (proj.subGroups || []).length; sgIdx++) {
+            const sg = proj.subGroups[sgIdx];
+            if (!sg) continue;
+            const sgId = sg.id || `sg_${sgIdx}`;
+            for (let sIdx = 0; sIdx < (sg.scenes || []).length; sIdx++) {
+              const sc = sg.scenes[sIdx];
+              if (sc && sc.imageUrl) {
+                sc.imageUrl = await installZipRefToLocalPath(sc.imageUrl, `projects/${safeProj}/scenes/${sgId}_${sIdx}_${sc.id || 'sc'}.png`);
+              }
+            }
+            for (let gIdx = 0; gIdx < (sg.cgNodes || []).length; gIdx++) {
+              const cg = sg.cgNodes[gIdx];
+              if (cg && cg.imageUrl) {
+                cg.imageUrl = await installZipRefToLocalPath(cg.imageUrl, `projects/${safeProj}/cgs/${sgId}_${gIdx}_${cg.id || 'cg'}.png`);
+              }
+              if (cg && cg.customPadImg) {
+                cg.customPadImg = await installZipRefToLocalPath(cg.customPadImg, `projects/${safeProj}/cgs/pad_${sgId}_${gIdx}_${cg.id || 'cg'}.png`);
+              }
+            }
+            for (let clIdx = 0; clIdx < (sg.clueNodes || []).length; clIdx++) {
+              const cl = sg.clueNodes[clIdx];
+              if (cl && cl.imageUrl) {
+                cl.imageUrl = await installZipRefToLocalPath(cl.imageUrl, `projects/${safeProj}/clues/${sgId}_${clIdx}_${cl.id || 'cl'}.png`);
+              }
+            }
             syncChapterCgLineBindings(sg);
             syncChapterClueLineBindings(sg);
             if (Array.isArray(sg.scriptLines)) {
               computeChapterStageSlots(sg.scriptLines);
             }
-          });
+          }
 
+          setImportProg(80, '正在将全章节角色语音与配乐写入本机数据库...');
+          const allTtsRecords = [...(pack.ttsCache || [])];
+          if (proj.ttsByChapter && typeof proj.ttsByChapter === 'object') {
+            Object.values(proj.ttsByChapter).forEach((arr) => {
+              if (Array.isArray(arr)) allTtsRecords.push(...arr);
+            });
+          }
+          const ttsRowsToPut = [];
+          const seenTtsIds = new Set();
+          for (let tIdx = 0; tIdx < allTtsRecords.length; tIdx++) {
+            const item = allTtsRecords[tIdx];
+            if (!item || !item.id || seenTtsIds.has(item.id)) continue;
+            const rawAudio = item.audioDataUrl || item.audioData || '';
+            if (!rawAudio) continue;
+            seenTtsIds.add(item.id);
+            const safeKey = String(item.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+            const localAudioUrl = await installZipRefToLocalPath(rawAudio, `audio/${safeKey}.mp3`);
+            if (localAudioUrl) {
+              const fastAudioBlob = _playableUrlRamCache.get(localAudioUrl);
+              if (fastAudioBlob) {
+                _theaterTtsRamCache.set(item.id, { src: localAudioUrl, blobUrl: fastAudioBlob });
+              }
+              const ttsRow = {
+                id: item.id,
+                speaker: item.speaker || '',
+                text: item.text || '',
+                audioDataUrl: localAudioUrl,
+                createdAt: Date.now()
+              };
+              ttsRowsToPut.push(ttsRow);
+              if (typeof registerTtsItemInFastIndex === 'function') {
+                registerTtsItemInFastIndex(ttsRow);
+              }
+            }
+          }
+          if (ttsRowsToPut.length > 0 && db && db.ttsCache) {
+            try {
+              await db.ttsCache.bulkPut(ttsRowsToPut);
+            } catch (_) {
+              for (const r of ttsRowsToPut) {
+                try { await db.ttsCache.put(r); } catch (_e) {}
+              }
+            }
+          }
+
+          if (Array.isArray(pack.bgmTracks) && pack.bgmTracks.length > 0 && db && db.bgmTracks) {
+            for (const bt of pack.bgmTracks) {
+              if (!bt || !bt.id) continue;
+              const btCopy = { ...bt };
+              if (btCopy.url) {
+                const safeBgmId = String(btCopy.id || 'bgm').replace(/[\\/:*?"<>|]/g, '_');
+                btCopy.url = await installZipRefToLocalPath(btCopy.url, `audio/bgm_${safeBgmId}.mp3`);
+              }
+              await db.bgmTracks.put(btCopy);
+            }
+            appState.bgmTracks = await db.bgmTracks.toArray();
+          }
+
+          await flushZipDiskBatch();
+          zipEntryBytesMap.clear();
+
+          proj.updatedAt = Date.now();
+          await db.replayProjects.put(proj);
+          if (typeof _mountedExternalProjects !== 'undefined') {
+            _mountedExternalProjects.delete(proj.id);
+          }
+
+          const allProjs = await db.replayProjects.toArray();
+          for (const p of allProjs) {
+            if (p.id !== proj.id && (!Array.isArray(p.chapters) || p.chapters.length === 0) && (!p.rawLog || !p.rawLog.trim())) {
+              await db.replayProjects.delete(p.id);
+            }
+          }
+
+          appState.replayProjects = await db.replayProjects.toArray();
+          appState.currentReplayProjectId = proj.id;
           appState.currentReplayChapterIdx = 0;
           appState.theaterLineIdx = 0;
           appState.theaterPureStageMode = true;
           appState.theaterEditMode = false;
+
+          await restoreAndSeparateDuplicateCharacters(false);
+          ensureModuleSpeakersInCharactersSync();
+          appState.characters = await db.characters.toArray();
+
+          if (termuxOnline) {
+            setImportProg(95, '正在同步至 Termux 本地无损存储目录...');
+            try {
+              await syncAllAssetsToLocalBridgeUI(true);
+            } catch (_) {}
+          }
+
+          populateCharacterSelects();
+          renderPersonaGrid();
+          loadCharToTachiePanel();
+          loadCharToChibiPanel();
+          renderHeightStage();
+          renderReplayBgmList();
+          renderReplayStudioUI();
           renderReplayWorkshop();
           openAppScreen('theater');
           openTheaterSelectorLobby();
+
+          setImportProg(100, `已完整导入「${proj.title}」至本机「剧本」，点击章节即可零延迟流畅观看`);
+          setTimeout(() => {
+            if (progWrap) progWrap.style.display = 'none';
+          }, 2200);
         } else {
           const text = await file.text();
           const pack = JSON.parse(text);
@@ -31382,6 +31816,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           openTheaterSelectorLobby();
         }
       } catch (err) {
+        if (progWrap) progWrap.style.display = 'none';
         alert('读取本地模组包失败：' + err.message);
       } finally {
         event.target.value = '';
@@ -33151,7 +33586,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       if (_localRelToBlobCache.has(rel)) return _localRelToBlobCache.get(rel);
       const encodedRel = rel.split('/').map((seg) => encodeURIComponent(seg)).join('/');
       if (urlStr.startsWith(baseUrl + '/') || urlStr.includes(':8765/')) {
-        if (typeof isStaticHostWithoutLocalAssets === 'function' && isStaticHostWithoutLocalAssets()) return '';
         return `/local-assets/${encodedRel}`;
       }
       if (urlStr.startsWith('/local-assets/') || urlStr.includes('/local-assets/')) {
@@ -33316,21 +33750,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const begin = Math.max(0, Number(startIdx) || 0);
       const end = Math.min(playableChap.scriptLines.length - 1, begin + 18);
       (async () => {
-        if (begin === 0) {
-          const visualNodes = [
-            ...(playableChap.scenes || []),
-            ...(playableChap.cgNodes || []),
-            ...(playableChap.clueNodes || [])
-          ];
-          for (const node of visualNodes) {
-            if (mySeq !== _spritePreloadSeq) return;
-            const rawImg = node && (node.imgData || node.imgUrl);
-            if (!rawImg || typeof rawImg !== 'string' || rawImg.startsWith('data:image/svg+xml')) continue;
-            try {
-              await resolveTheaterPlayableUrl(rawImg, 'image/png');
-            } catch (_) {}
-          }
-        }
         const seenSprites = new Set();
         for (let i = begin; i <= end; i++) {
           if (mySeq !== _spritePreloadSeq) return;
@@ -34746,12 +35165,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             }
             const encodedRel = rel ? rel.split('/').map((s) => encodeURIComponent(s)).join('/') : '';
             if (encodedRel) {
-              if (isLocalBridgeEnabled() && _termuxBridgeOnlineState) {
-                return `${baseUrl}/${encodedRel}`;
-              }
-              if (typeof isStaticHostWithoutLocalAssets !== 'function' || !isStaticHostWithoutLocalAssets()) {
-                return `/local-assets/${encodedRel}`;
-              }
+              return isLocalBridgeEnabled() ? `${baseUrl}/${encodedRel}` : `/local-assets/${encodedRel}`;
             }
           }
           return '';
