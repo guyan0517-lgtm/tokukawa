@@ -5748,7 +5748,8 @@
         }
         return src;
       }
-      if (src.startsWith('data:image/svg+xml') || src.length < 4096) {
+      const isAudioDataUrl = src.startsWith('data:audio/') || src.startsWith('data:application/octet-stream');
+      if (src.startsWith('data:image/svg+xml') || (!isAudioDataUrl && src.length < 4096)) {
         return src;
       }
       if (src.length <= 220000 && _fastBlobUrlCache.has(src)) {
@@ -5760,7 +5761,16 @@
         const header = src.slice(0, commaIdx);
         const b64 = src.slice(commaIdx + 1);
         const mimeMatch = header.match(/data:([^;]+)/);
-        const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+        let mime = (mimeMatch ? mimeMatch[1] : 'image/png').toLowerCase().trim();
+        if (mime === 'audio/mp3' || mime === 'audio/x-mp3' || mime === 'audio/mpeg3') {
+          mime = 'audio/mpeg';
+        } else if (mime === 'application/octet-stream') {
+          if (b64.startsWith('SUQz') || b64.startsWith('//') || b64.startsWith('/+')) {
+            mime = 'audio/mpeg';
+          } else if (b64.startsWith('UklGR')) {
+            mime = 'audio/wav';
+          }
+        }
         const binStr = atob(b64);
         const len = binStr.length;
         const bytes = new Uint8Array(len);
@@ -17463,6 +17473,144 @@ ${BUILTIN_CSS_TEMPLATE}`;
       renderReplayBgmList();
     }
 
+    let _sharedTheaterAudioCtx = null;
+    let _bgmGainNode = null;
+    let _ttsGainNode = null;
+    let _bgmMediaSourceNode = null;
+    let _bgmConnectedPlayerRef = null;
+    let _ttsMediaSourceNode = null;
+    let _ttsConnectedPlayerRef = null;
+    let _webAudioHardwareUnlocked = false;
+    let _currentBgmLogicalVolume = 0.65;
+    const _bgmBlobUrlRamCache = new Map();
+
+    function getOrInitTheaterAudioContext() {
+      if (_sharedTheaterAudioCtx) return _sharedTheaterAudioCtx;
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return null;
+        _sharedTheaterAudioCtx = new AudioCtx();
+        _bgmGainNode = _sharedTheaterAudioCtx.createGain();
+        _bgmGainNode.gain.value = getTargetTheaterBgmVolume();
+        _bgmGainNode.connect(_sharedTheaterAudioCtx.destination);
+        _ttsGainNode = _sharedTheaterAudioCtx.createGain();
+        const initTtsVol = Math.max(0, Math.min(1, ((typeof appState !== 'undefined' && appState.theaterTtsVolume !== undefined) ? appState.theaterTtsVolume : 90) / 100));
+        _ttsGainNode.gain.value = initTtsVol;
+        _ttsGainNode.connect(_sharedTheaterAudioCtx.destination);
+      } catch (_) {}
+      return _sharedTheaterAudioCtx;
+    }
+
+    function ensureBgmPlayerGainConnected(player, playUrl) {
+      if (!player || !playUrl) return;
+      const isSameOriginSafe = playUrl.startsWith('blob:') || playUrl.startsWith('data:');
+      if (!isSameOriginSafe) return;
+      const ctx = getOrInitTheaterAudioContext();
+      if (!ctx || !_bgmGainNode) return;
+      if (_bgmConnectedPlayerRef === player && _bgmMediaSourceNode) return;
+      try {
+        _bgmMediaSourceNode = ctx.createMediaElementSource(player);
+        _bgmMediaSourceNode.connect(_bgmGainNode);
+        _bgmConnectedPlayerRef = player;
+      } catch (_) {}
+    }
+
+    function setBgmPlayerEffectiveVolume(player, targetVol) {
+      const clamped = Math.max(0, Math.min(1, Number(targetVol) || 0));
+      _currentBgmLogicalVolume = clamped;
+      if (player) {
+        try {
+          player.volume = clamped;
+          player.muted = (clamped <= 0.001);
+        } catch (_) {}
+      }
+      if (_bgmGainNode) {
+        try {
+          _bgmGainNode.gain.value = clamped;
+          if (_sharedTheaterAudioCtx && _sharedTheaterAudioCtx.state === 'running') {
+            _bgmGainNode.gain.setTargetAtTime(clamped, _sharedTheaterAudioCtx.currentTime, 0.015);
+          }
+        } catch (_) {}
+      }
+    }
+
+    function getBgmPlayerEffectiveVolume(player) {
+      if (typeof _currentBgmLogicalVolume === 'number' && !isNaN(_currentBgmLogicalVolume)) {
+        return Math.max(0, Math.min(1, _currentBgmLogicalVolume));
+      }
+      return player ? Math.max(0, Math.min(1, Number(player.volume) || 0)) : 0.65;
+    }
+
+    function setTtsPlayerEffectiveVolume(player, targetVol) {
+      const clamped = Math.max(0, Math.min(1, Number(targetVol) || 0));
+      if (player) {
+        try {
+          player.volume = clamped;
+          player.muted = (clamped <= 0.001);
+        } catch (_) {}
+      }
+      if (_ttsGainNode) {
+        try {
+          _ttsGainNode.gain.value = clamped;
+          if (_sharedTheaterAudioCtx && _sharedTheaterAudioCtx.state === 'running') {
+            _ttsGainNode.gain.setTargetAtTime(clamped, _sharedTheaterAudioCtx.currentTime, 0.01);
+          }
+        } catch (_) {}
+      }
+    }
+
+    async function resolveBgmUrlToCorsSafeBlobUrl(rawUrl) {
+      if (!rawUrl || typeof rawUrl !== 'string') return '';
+      if (rawUrl.startsWith('blob:')) return rawUrl;
+      if (rawUrl.startsWith('data:')) {
+        return toFastDisplayUrl(rawUrl) || rawUrl;
+      }
+      if (_bgmBlobUrlRamCache.has(rawUrl)) {
+        return _bgmBlobUrlRamCache.get(rawUrl);
+      }
+      if (rawUrl.startsWith('/local-assets/') || rawUrl.startsWith('/api/workshop/asset/') || rawUrl.startsWith('__ZIP_ASSET__:') || rawUrl.includes(':8765/')) {
+        if (typeof resolveTheaterPlayableUrl === 'function') {
+          const resolved = await resolveTheaterPlayableUrl(rawUrl, 'audio/mpeg').catch(() => '');
+          if (resolved) {
+            if (resolved.startsWith('blob:')) _bgmBlobUrlRamCache.set(rawUrl, resolved);
+            return resolved;
+          }
+        }
+      }
+      if (/^https?:\/\//i.test(rawUrl) || rawUrl.startsWith('/api/music/stream')) {
+        const fetchCandidates = [rawUrl];
+        if (/^https?:\/\//i.test(rawUrl) && !rawUrl.includes('corsproxy.io')) {
+          fetchCandidates.push('https://corsproxy.io/?' + encodeURIComponent(rawUrl));
+        }
+        for (const cUrl of fetchCandidates) {
+          try {
+            const ctrl = new AbortController();
+            const tid = setTimeout(() => ctrl.abort(), 4500);
+            try {
+              const resp = await fetch(cUrl, { signal: ctrl.signal });
+              if (resp.ok) {
+                const ct = String(resp.headers.get('content-type') || '').toLowerCase();
+                if (!ct.includes('text/html')) {
+                  const rawBlob = await resp.blob();
+                  if (rawBlob && rawBlob.size > 256) {
+                    const audioBlob = (rawBlob.type && rawBlob.type.startsWith('audio/') && rawBlob.type !== 'audio/mp3')
+                      ? rawBlob
+                      : new Blob([rawBlob], { type: 'audio/mpeg' });
+                    const bUrl = URL.createObjectURL(audioBlob);
+                    _bgmBlobUrlRamCache.set(rawUrl, bUrl);
+                    return bUrl;
+                  }
+                }
+              }
+            } finally {
+              clearTimeout(tid);
+            }
+          } catch (_) {}
+        }
+      }
+      return rawUrl;
+    }
+
     function getTargetTheaterBgmVolume() {
       const rawVol = (typeof appState.theaterBgmVolume === 'number' && !isNaN(appState.theaterBgmVolume))
         ? appState.theaterBgmVolume
@@ -17487,19 +17635,20 @@ ${BUILTIN_CSS_TEMPLATE}`;
       }
       clearBgmFadeTimer();
       const clampedTarget = Math.max(0, Math.min(1, Number(targetVol) || 0));
-      const startVol = Math.max(0, Math.min(1, Number(player.volume) || 0));
+      const startVol = getBgmPlayerEffectiveVolume(player);
       const steps = 14;
       const stepMs = Math.max(16, Math.round(durationMs / steps));
       let curStep = 0;
       _bgmFadeTimer = setInterval(() => {
         curStep += 1;
         if (curStep >= steps) {
-          player.volume = clampedTarget;
+          setBgmPlayerEffectiveVolume(player, clampedTarget);
           clearBgmFadeTimer();
           if (typeof onComplete === 'function') onComplete();
         } else {
           const ratio = curStep / steps;
-          player.volume = Math.max(0, Math.min(1, Number((startVol + (clampedTarget - startVol) * ratio).toFixed(3))));
+          const nextVol = Math.max(0, Math.min(1, Number((startVol + (clampedTarget - startVol) * ratio).toFixed(3))));
+          setBgmPlayerEffectiveVolume(player, nextVol);
         }
       }, stepMs);
     }
@@ -17521,15 +17670,40 @@ ${BUILTIN_CSS_TEMPLATE}`;
       const player = document.getElementById('bgm-audio-player');
       if (player) {
         clearBgmFadeTimer();
-        player.volume = getTargetTheaterBgmVolume();
+        setBgmPlayerEffectiveVolume(player, getTargetTheaterBgmVolume());
       }
     }
 
     function unlockBgmAudioPlayerOnUserGesture() {
+      try {
+        if (typeof navigator !== 'undefined' && navigator.audioSession && navigator.audioSession.type !== 'playback') {
+          navigator.audioSession.type = 'playback';
+        }
+      } catch (_) {}
+      const ctx = getOrInitTheaterAudioContext();
+      if (ctx) {
+        if (ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
+        if (!_webAudioHardwareUnlocked) {
+          try {
+            const silentBuf = ctx.createBuffer(1, 1, 22050);
+            const src = ctx.createBufferSource();
+            src.buffer = silentBuf;
+            src.connect(ctx.destination);
+            src.start(0);
+            _webAudioHardwareUnlocked = true;
+          } catch (_) {}
+        }
+      }
       const player = document.getElementById('bgm-audio-player');
       if (player) {
         try {
-          player.muted = false;
+          player.setAttribute('playsinline', 'true');
+          player.setAttribute('webkit-playsinline', 'true');
+          if (_currentBgmLogicalVolume > 0.001) {
+            player.muted = false;
+          }
           if (player.paused && player.src && _currentReplayBgmUrl) {
             player.play().catch(() => {});
           }
@@ -17540,8 +17714,17 @@ ${BUILTIN_CSS_TEMPLATE}`;
       }
     }
 
+    if (typeof window !== 'undefined' && !window._iosGlobalAudioUnlockBound) {
+      window._iosGlobalAudioUnlockBound = true;
+      ['touchstart', 'touchend', 'pointerdown', 'click', 'keydown'].forEach((evName) => {
+        window.addEventListener(evName, () => {
+          unlockBgmAudioPlayerOnUserGesture();
+        }, { capture: true, passive: true });
+      });
+    }
+
     function previewReplayBgmTrack(url, fallbackTag = '日常', onErrorFallback = null) {
-      const player = document.getElementById('bgm-audio-player');
+      let player = document.getElementById('bgm-audio-player');
       if (!player) return;
       const finalUrl = normalizeMusicTrackUrl(url);
       if (!finalUrl) {
@@ -17557,22 +17740,45 @@ ${BUILTIN_CSS_TEMPLATE}`;
       const myReqToken = ++_bgmPlayReqToken;
       clearBgmFadeTimer();
 
-      const startNewTrackWithFadeIn = (playUrl) => {
+      const startNewTrackWithFadeIn = async (rawPlayUrl) => {
+        if (myReqToken !== _bgmPlayReqToken) return;
+        const resolvedPlayUrl = await resolveBgmUrlToCorsSafeBlobUrl(rawPlayUrl).catch(() => rawPlayUrl) || rawPlayUrl;
         if (myReqToken !== _bgmPlayReqToken) return;
         clearBgmFadeTimer();
+        player = document.getElementById('bgm-audio-player');
+        if (!player) return;
         try {
           player.onended = null;
           player.onerror = null;
           player.pause();
         } catch (_) {}
-        _currentReplayBgmUrl = playUrl;
-        player.volume = 0;
-        player.src = playUrl;
+
+        const isBlobOrData = resolvedPlayUrl.startsWith('blob:') || resolvedPlayUrl.startsWith('data:');
+        if (!isBlobOrData && _bgmConnectedPlayerRef === player) {
+          try {
+            const freshPlayer = document.createElement('audio');
+            freshPlayer.id = 'bgm-audio-player';
+            freshPlayer.loop = true;
+            freshPlayer.style.display = 'none';
+            freshPlayer.setAttribute('playsinline', 'true');
+            freshPlayer.setAttribute('webkit-playsinline', 'true');
+            player.parentNode.replaceChild(freshPlayer, player);
+            player = freshPlayer;
+            _bgmConnectedPlayerRef = null;
+            _bgmMediaSourceNode = null;
+          } catch (_) {}
+        } else if (isBlobOrData) {
+          ensureBgmPlayerGainConnected(player, resolvedPlayUrl);
+        }
+
+        _currentReplayBgmUrl = rawPlayUrl;
+        setBgmPlayerEffectiveVolume(player, 0);
+        player.src = resolvedPlayUrl;
         let fallbackTriggered = false;
         const triggerFallbackOnce = () => {
           if (fallbackTriggered || myReqToken !== _bgmPlayReqToken) return;
           fallbackTriggered = true;
-          if (_currentReplayBgmUrl === playUrl) {
+          if (_currentReplayBgmUrl === rawPlayUrl) {
             _currentReplayBgmUrl = '';
           }
           if (typeof onErrorFallback === 'function') {
@@ -17582,6 +17788,9 @@ ${BUILTIN_CSS_TEMPLATE}`;
         player.onerror = () => {
           triggerFallbackOnce();
         };
+        if (_sharedTheaterAudioCtx && _sharedTheaterAudioCtx.state === 'suspended') {
+          _sharedTheaterAudioCtx.resume().catch(() => {});
+        }
         player.play().then(() => {
           if (myReqToken !== _bgmPlayReqToken) return;
           fadeBgmVolumeTo(player, getTargetTheaterBgmVolume(), 480);
@@ -17592,7 +17801,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
         });
       };
 
-      if (!player.paused && _currentReplayBgmUrl && _currentReplayBgmUrl !== finalUrl && player.volume > 0.04) {
+      if (!player.paused && _currentReplayBgmUrl && _currentReplayBgmUrl !== finalUrl && getBgmPlayerEffectiveVolume(player) > 0.04) {
         fadeBgmVolumeTo(player, 0, 220, () => {
           if (myReqToken !== _bgmPlayReqToken) return;
           try { player.pause(); } catch (_) {}
@@ -17608,7 +17817,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
       const myReqToken = ++_bgmPlayReqToken;
       const player = document.getElementById('bgm-audio-player');
       if (!player) return;
-      if (!useFade || player.paused || player.volume <= 0.02) {
+      if (!useFade || player.paused || getBgmPlayerEffectiveVolume(player) <= 0.02) {
         clearBgmFadeTimer();
         try { player.pause(); } catch (_) {}
         _currentReplayBgmUrl = '';
@@ -28154,9 +28363,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           const mirroredDataUrl = await getLocalAssetMirrorDataUrl(rel);
           if (mirroredDataUrl) {
             const memBlobAfter = typeof _localRelToBlobCache !== 'undefined' ? _localRelToBlobCache.get(rel) : '';
-            const fastMirror = memBlobAfter || toFastDisplayUrl(mirroredDataUrl);
-            if (fastMirror && fastMirror.startsWith('blob:')) {
-              if (typeof _localRelToBlobCache !== 'undefined') _localRelToBlobCache.set(rel, fastMirror);
+            const fastMirror = memBlobAfter || toFastDisplayUrl(mirroredDataUrl) || mirroredDataUrl;
+            if (fastMirror) {
+              if (fastMirror.startsWith('blob:') && typeof _localRelToBlobCache !== 'undefined') {
+                _localRelToBlobCache.set(rel, fastMirror);
+              }
               _playableUrlRamCache.set(rawUrl, fastMirror);
               return fastMirror;
             }
@@ -28165,12 +28376,13 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         const encodedRel = rel ? rel.split('/').map((seg) => encodeURIComponent(seg)).join('/') : '';
         const candidateUrls = [];
         const onStaticHost = isStaticHostWithoutLocalAssets();
+        const bridgeReady = Boolean(_termuxBridgeOnlineState && isLocalBridgeEnabled());
         if (encodedRel) {
           if (rawUrl.startsWith('/local-assets/')) {
             if (!onStaticHost) candidateUrls.push(`/local-assets/${encodedRel}`);
-            if (isLocalBridgeEnabled()) candidateUrls.push(`${baseUrl}/${encodedRel}`);
+            if (bridgeReady) candidateUrls.push(`${baseUrl}/${encodedRel}`);
           } else {
-            if (isLocalBridgeEnabled()) candidateUrls.push(`${baseUrl}/${encodedRel}`);
+            if (bridgeReady) candidateUrls.push(`${baseUrl}/${encodedRel}`);
             if (!onStaticHost) candidateUrls.push(`/local-assets/${encodedRel}`);
           }
         } else if (!onStaticHost) {
@@ -32418,7 +32630,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const player = document.getElementById('bgm-audio-player');
       if (!player || player.paused) return;
       if (!_bgmFadeTimer) {
-        player.volume = getTargetTheaterBgmVolume();
+        setBgmPlayerEffectiveVolume(player, getTargetTheaterBgmVolume());
       }
     }
 
@@ -32426,6 +32638,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const cleanText = String(text || '').trim();
       if (!cleanText) return null;
 
+      unlockBgmAudioPlayerOnUserGesture();
       if (_activeReplayTtsAudio) {
         try { _activeReplayTtsAudio.pause(); } catch (_) {}
         _activeReplayTtsAudio = null;
@@ -32517,7 +32730,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           throw new Error('未返回有效音频数据');
         }
         const bytes = new Uint8Array(hexAudio.match(/.{1,2}/g).map((b) => parseInt(b, 16)));
-        const blob = new Blob([bytes], { type: 'audio/mp3' });
+        const blob = new Blob([bytes], { type: 'audio/mpeg' });
         audioDataUrl = await new Promise((resolve) => {
           const r = new FileReader();
           r.onload = () => resolve(r.result);
@@ -32572,9 +32785,19 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
 
       return new Promise((resolve) => {
-        const audio = new Audio(playTargetUrl || audioDataUrl);
+        const targetSrc = playTargetUrl || audioDataUrl;
+        const audio = getSharedTheaterVoicePlayer();
+        try {
+          audio.onended = null;
+          audio.onerror = null;
+          audio.onloadedmetadata = null;
+          audio.onpause = null;
+          audio.pause();
+        } catch (_) {}
+        ensureTtsPlayerGainConnected(audio, targetSrc);
         _activeReplayTtsAudio = audio;
-        audio.volume = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
+        const volRatio = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
+        setTtsPlayerEffectiveVolume(audio, volRatio);
         setBgmDuckingActive(true);
 
         let done = false;
@@ -32584,9 +32807,21 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           if (done) return;
           done = true;
           if (timer) { clearTimeout(timer); timer = null; }
-          if (_activeReplayTtsAudio === audio) _activeReplayTtsAudio = null;
+          if (_activeReplayTtsAudio === audio || (_activeReplayTtsAudio && _activeReplayTtsAudio.isWebAudioSource)) {
+            _activeReplayTtsAudio = null;
+          }
           setBgmDuckingActive(false);
           resolve(result);
+        };
+
+        const tryWebAudioOrFinish = () => {
+          playTtsViaWebAudioBuffer(targetSrc, volRatio, () => finish(true), () => finish(false)).then((waHandle) => {
+            if (!waHandle || done) {
+              if (!done) finish(false);
+              return;
+            }
+            _activeReplayTtsAudio = waHandle;
+          }).catch(() => finish(false));
         };
 
         audio.onended = () => finish(true);
@@ -32596,14 +32831,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             const altLocal = getAlternateLocalBridgeUrl(audio.src || playTargetUrl || audioDataUrl);
             if (altLocal && altLocal !== audio.src) {
               audio.src = altLocal;
-              audio.play().catch(() => finish(false));
+              audio.play().catch(() => tryWebAudioOrFinish());
               return;
             }
           }
-          finish(false);
-        };
-        audio.onpause = () => {
-          if (audio.ended || audio.currentTime === 0) finish(true);
+          tryWebAudioOrFinish();
         };
 
         audio.onloadedmetadata = () => {
@@ -32613,7 +32845,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         };
         timer = setTimeout(() => finish(true), 12000);
 
-        audio.play().catch(() => finish(false));
+        audio.src = targetSrc;
+        audio.play().catch(() => tryWebAudioOrFinish());
       });
     }
 
@@ -32769,6 +33002,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     }
 
     async function playSingleScriptLineTts(lineIdx, forceRegen = false) {
+      unlockBgmAudioPlayerOnUserGesture();
       const chap = getCurrentReplayChapter();
       if (!chap || !chap.scriptLines || !chap.scriptLines[lineIdx]) return;
       const line = chap.scriptLines[lineIdx];
@@ -32824,8 +33058,18 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
 
         const resolvedPlayUrl = await resolveInstantTtsPlayableUrl(cacheKey, playSourceUrl);
-        const audio = new Audio(resolvedPlayUrl || playSourceUrl);
-        audio.volume = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
+        const targetSrc = resolvedPlayUrl || playSourceUrl;
+        const audio = getSharedTheaterVoicePlayer();
+        try {
+          audio.onended = null;
+          audio.onerror = null;
+          audio.onloadedmetadata = null;
+          audio.onpause = null;
+          audio.pause();
+        } catch (_) {}
+        ensureTtsPlayerGainConnected(audio, targetSrc);
+        const volRatio = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
+        setTtsPlayerEffectiveVolume(audio, volRatio);
         _activeReplayTtsAudio = audio;
         setBgmDuckingActive(true);
 
@@ -32836,7 +33080,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           if (finished) return;
           finished = true;
           if (safeTimer) { clearTimeout(safeTimer); safeTimer = null; }
-          if (_activeReplayTtsAudio === audio) _activeReplayTtsAudio = null;
+          if (_activeReplayTtsAudio === audio || (_activeReplayTtsAudio && _activeReplayTtsAudio.isWebAudioSource)) {
+            _activeReplayTtsAudio = null;
+          }
           if (_activeReplayTtsLineIdx === lineIdx) _activeReplayTtsLineIdx = null;
           setBgmDuckingActive(false);
           if (btn) {
@@ -32849,6 +33095,16 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           }
         };
 
+        const tryWebAudioOrReset = () => {
+          playTtsViaWebAudioBuffer(targetSrc, volRatio, resetStatus, resetStatus).then((waHandle) => {
+            if (!waHandle || finished) {
+              if (!finished) resetStatus();
+              return;
+            }
+            _activeReplayTtsAudio = waHandle;
+          }).catch(resetStatus);
+        };
+
         audio.onended = resetStatus;
         audio.onerror = () => {
           if (!retried) {
@@ -32856,14 +33112,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             const altUrl = getAlternateLocalBridgeUrl(audio.src || playSourceUrl);
             if (altUrl && altUrl !== audio.src) {
               audio.src = altUrl;
-              audio.play().catch(resetStatus);
+              audio.play().catch(tryWebAudioOrReset);
               return;
             }
           }
-          resetStatus();
-        };
-        audio.onpause = () => {
-          if (audio.ended || audio.currentTime === 0) resetStatus();
+          tryWebAudioOrReset();
         };
 
         audio.onloadedmetadata = () => {
@@ -32873,10 +33126,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         };
         safeTimer = setTimeout(resetStatus, 12000);
 
+        audio.src = targetSrc;
         try {
           await audio.play();
         } catch (_) {
-          resetStatus();
+          tryWebAudioOrReset();
         }
         return;
       }
@@ -32939,6 +33193,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     }
 
     async function playSingleSubGroupLineTts(sgId, lineIdx, forceRegen = false) {
+      unlockBgmAudioPlayerOnUserGesture();
       const proj = getCurrentReplayProject();
       const sg = findSubGroupById(proj, sgId);
       if (!proj || !sg || !Array.isArray(sg.scriptLines) || !sg.scriptLines[lineIdx]) return;
@@ -32989,8 +33244,18 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
 
         const resolvedPlayUrl = await resolveInstantTtsPlayableUrl(cacheKey, playSourceUrl);
-        const audio = new Audio(resolvedPlayUrl || playSourceUrl);
-        audio.volume = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
+        const targetSrc = resolvedPlayUrl || playSourceUrl;
+        const audio = getSharedTheaterVoicePlayer();
+        try {
+          audio.onended = null;
+          audio.onerror = null;
+          audio.onloadedmetadata = null;
+          audio.onpause = null;
+          audio.pause();
+        } catch (_) {}
+        ensureTtsPlayerGainConnected(audio, targetSrc);
+        const volRatio = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
+        setTtsPlayerEffectiveVolume(audio, volRatio);
         _activeReplayTtsAudio = audio;
         setBgmDuckingActive(true);
 
@@ -33001,13 +33266,25 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           if (finished) return;
           finished = true;
           if (safeTimer) { clearTimeout(safeTimer); safeTimer = null; }
-          if (_activeReplayTtsAudio === audio) _activeReplayTtsAudio = null;
+          if (_activeReplayTtsAudio === audio || (_activeReplayTtsAudio && _activeReplayTtsAudio.isWebAudioSource)) {
+            _activeReplayTtsAudio = null;
+          }
           if (_activeReplayTtsLineIdx === activeTag) _activeReplayTtsLineIdx = null;
           setBgmDuckingActive(false);
           if (voiceBtn) {
             voiceBtn.disabled = false;
             voiceBtn.textContent = '试听';
           }
+        };
+
+        const tryWebAudioOrReset = () => {
+          playTtsViaWebAudioBuffer(targetSrc, volRatio, resetStatus, resetStatus).then((waHandle) => {
+            if (!waHandle || finished) {
+              if (!finished) resetStatus();
+              return;
+            }
+            _activeReplayTtsAudio = waHandle;
+          }).catch(resetStatus);
         };
 
         audio.onended = resetStatus;
@@ -33017,14 +33294,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             const altUrl = getAlternateLocalBridgeUrl(audio.src || playSourceUrl);
             if (altUrl && altUrl !== audio.src) {
               audio.src = altUrl;
-              audio.play().catch(resetStatus);
+              audio.play().catch(tryWebAudioOrReset);
               return;
             }
           }
-          resetStatus();
-        };
-        audio.onpause = () => {
-          if (audio.ended || audio.currentTime === 0) resetStatus();
+          tryWebAudioOrReset();
         };
         audio.onloadedmetadata = () => {
           const dur = (audio.duration && !isNaN(audio.duration) && audio.duration > 0) ? (audio.duration + 2) : 10;
@@ -33032,10 +33306,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           safeTimer = setTimeout(resetStatus, Math.min(25, dur) * 1000);
         };
         safeTimer = setTimeout(resetStatus, 12000);
+        audio.src = targetSrc;
         try {
           await audio.play();
         } catch (_) {
-          resetStatus();
+          tryWebAudioOrReset();
         }
         return;
       }
@@ -34078,32 +34353,127 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     let _spritePreloadSeq = 0;
     let _sharedTheaterVoicePlayer = null;
     let _sharedTheaterVoiceUnlocked = false;
+    const _SILENT_UNLOCK_WAV_URI = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
 
     function getSharedTheaterVoicePlayer() {
       if (!_sharedTheaterVoicePlayer) {
         _sharedTheaterVoicePlayer = new Audio();
         _sharedTheaterVoicePlayer.preload = 'auto';
+        try {
+          _sharedTheaterVoicePlayer.setAttribute('playsinline', 'true');
+          _sharedTheaterVoicePlayer.setAttribute('webkit-playsinline', 'true');
+        } catch (_) {}
       }
       return _sharedTheaterVoicePlayer;
+    }
+
+    function ensureTtsPlayerGainConnected(player, playUrl) {
+      if (!player || !playUrl) return;
+      const isSameOriginSafe = String(playUrl).startsWith('blob:') || String(playUrl).startsWith('data:');
+      if (!isSameOriginSafe) return;
+      const ctx = getOrInitTheaterAudioContext();
+      if (!ctx || !_ttsGainNode) return;
+      if (_ttsConnectedPlayerRef === player && _ttsMediaSourceNode) return;
+      try {
+        _ttsMediaSourceNode = ctx.createMediaElementSource(player);
+        _ttsMediaSourceNode.connect(_ttsGainNode);
+        _ttsConnectedPlayerRef = player;
+      } catch (_) {}
+    }
+
+    async function playTtsViaWebAudioBuffer(playUrl, volumeRatio, onEnded, onError) {
+      if (!playUrl) return null;
+      const ctx = getOrInitTheaterAudioContext();
+      if (!ctx || !_ttsGainNode) return null;
+      try {
+        if (ctx.state === 'suspended') {
+          await ctx.resume().catch(() => {});
+        }
+        setTtsPlayerEffectiveVolume(null, volumeRatio);
+        let ab = null;
+        if (String(playUrl).startsWith('data:')) {
+          const commaIdx = playUrl.indexOf(',');
+          if (commaIdx !== -1) {
+            const b64 = playUrl.slice(commaIdx + 1);
+            const bin = atob(b64);
+            const bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            ab = bytes.buffer;
+          }
+        } else {
+          const resp = await fetch(playUrl);
+          if (resp.ok) {
+            ab = await resp.arrayBuffer();
+          }
+        }
+        if (!ab || ab.byteLength < 32) return null;
+        const decoded = await new Promise((resolve, reject) => {
+          try {
+            const p = ctx.decodeAudioData(ab.slice(0), resolve, reject);
+            if (p && typeof p.catch === 'function') p.catch(reject);
+          } catch (err) {
+            reject(err);
+          }
+        });
+        if (!decoded) return null;
+        const bufSource = ctx.createBufferSource();
+        bufSource.buffer = decoded;
+        bufSource.connect(_ttsGainNode);
+        let stopped = false;
+        const handle = {
+          isWebAudioSource: true,
+          duration: decoded.duration || 0,
+          pause() {
+            if (stopped) return;
+            stopped = true;
+            try {
+              bufSource.onended = null;
+              bufSource.stop(0);
+            } catch (_) {}
+          },
+          set volume(v) {
+            setTtsPlayerEffectiveVolume(null, v);
+          },
+          get volume() {
+            return _ttsGainNode ? _ttsGainNode.gain.value : 0.9;
+          }
+        };
+        bufSource.onended = () => {
+          if (stopped) return;
+          stopped = true;
+          if (typeof onEnded === 'function') onEnded();
+        };
+        bufSource.start(0);
+        return handle;
+      } catch (_) {
+        if (typeof onError === 'function') onError();
+        return null;
+      }
     }
 
     function ensureSharedTheaterVoicePlayerUnlocked() {
       const player = getSharedTheaterVoicePlayer();
       if (_sharedTheaterVoiceUnlocked || !player) return;
+      if (_activeReplayTtsAudio === player && !player.paused) {
+        _sharedTheaterVoiceUnlocked = true;
+        return;
+      }
       try {
         player.muted = false;
-        if (!player.src) {
-          player.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+        const curSrc = player.getAttribute('src') || player.src || '';
+        if (!curSrc || curSrc === _SILENT_UNLOCK_WAV_URI) {
+          player.src = _SILENT_UNLOCK_WAV_URI;
           const p = player.play();
           if (p && typeof p.then === 'function') {
             p.then(() => {
-              player.pause();
-              player.currentTime = 0;
               _sharedTheaterVoiceUnlocked = true;
+              const nowSrc = player.getAttribute('src') || player.src || '';
+              if (_activeReplayTtsAudio !== player && nowSrc === _SILENT_UNLOCK_WAV_URI) {
+                player.pause();
+                player.currentTime = 0;
+              }
             }).catch(() => {});
           }
-        } else {
-          _sharedTheaterVoiceUnlocked = true;
         }
       } catch (_) {}
     }
@@ -34148,11 +34518,13 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       if (!rel) return '';
       if (_localRelToBlobCache.has(rel)) return _localRelToBlobCache.get(rel);
       const encodedRel = rel.split('/').map((seg) => encodeURIComponent(seg)).join('/');
+      const onStaticHost = typeof isStaticHostWithoutLocalAssets === 'function' && isStaticHostWithoutLocalAssets();
+      const bridgeReady = Boolean(_termuxBridgeOnlineState && isLocalBridgeEnabled());
       if (urlStr.startsWith(baseUrl + '/') || urlStr.includes(':8765/')) {
-        return `/local-assets/${encodedRel}`;
+        return !onStaticHost ? `/local-assets/${encodedRel}` : '';
       }
       if (urlStr.startsWith('/local-assets/') || urlStr.includes('/local-assets/')) {
-        return isLocalBridgeEnabled() ? `${baseUrl}/${encodedRel}` : '';
+        return bridgeReady ? `${baseUrl}/${encodedRel}` : '';
       }
       return '';
     }
@@ -34286,7 +34658,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       (async () => {
         await ensureTheaterTtsIndexLoaded();
         let dialoguePreloaded = 0;
-        for (let i = begin; i < playableChap.scriptLines.length && dialoguePreloaded < 6; i++) {
+        for (let i = begin; i < playableChap.scriptLines.length && dialoguePreloaded < 12; i++) {
           if (mySeq !== _ttsPreloadSeq) return;
           const l = playableChap.scriptLines[i];
           if (!l || l.type === 'narration' || l.type === 'ooc' || l.type === 'dice' || !l.speaker || l.speaker === '旁白' || l.speaker === '检定') continue;
@@ -35732,7 +36104,12 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             }
             const encodedRel = rel ? rel.split('/').map((s) => encodeURIComponent(s)).join('/') : '';
             if (encodedRel) {
-              return isLocalBridgeEnabled() ? `${baseUrl}/${encodedRel}` : `/local-assets/${encodedRel}`;
+              if (_termuxBridgeOnlineState && isLocalBridgeEnabled()) {
+                return `${baseUrl}/${encodedRel}`;
+              }
+              if (!isStaticHostWithoutLocalAssets()) {
+                return `/local-assets/${encodedRel}`;
+              }
             }
           }
           return '';
@@ -35744,6 +36121,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           let safetyTimer = null;
           let fallbackStage = 0;
           const audio = getSharedTheaterVoicePlayer();
+          const volRatio = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
           const finishAudio = (ok) => {
             if (settled) return;
             settled = true;
@@ -35758,6 +36136,19 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             }
           };
 
+          const tryWebAudioFallbackOrFinish = async (candidateUrl) => {
+            if (settled || myRenderSeq !== _theaterRenderSeq) {
+              finishAudio(false);
+              return;
+            }
+            const targetUrl = candidateUrl || audio.src || playUrl;
+            if (targetUrl) {
+              const okBuf = await playTtsViaWebAudioBuffer(targetUrl, volRatio, () => finishAudio(true));
+              if (okBuf) return;
+            }
+            finishAudio(false);
+          };
+
           const tryFallbackOrFinish = async () => {
             if (settled || myRenderSeq !== _theaterRenderSeq) {
               finishAudio(false);
@@ -35767,6 +36158,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               fallbackStage = 1;
               const altLocalUrl = getAlternateLocalBridgeUrl(audio.src || playUrl || rawSourceUrl);
               if (altLocalUrl && altLocalUrl !== audio.src) {
+                ensureTtsPlayerGainConnected(audio, altLocalUrl);
+                setTtsPlayerEffectiveVolume(audio, volRatio);
                 audio.src = altLocalUrl;
                 audio.play().catch(() => tryFallbackOrFinish());
                 return;
@@ -35780,15 +36173,22 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                 return;
               }
               if (blobPlayUrl && blobPlayUrl !== audio.src) {
+                ensureTtsPlayerGainConnected(audio, blobPlayUrl);
+                setTtsPlayerEffectiveVolume(audio, volRatio);
                 audio.src = blobPlayUrl;
-                audio.play().catch(() => finishAudio(false));
+                audio.play().catch(() => tryWebAudioFallbackOrFinish(blobPlayUrl));
                 return;
               }
+              await tryWebAudioFallbackOrFinish(blobPlayUrl || playUrl);
+              return;
             }
-            finishAudio(false);
+            await tryWebAudioFallbackOrFinish(playUrl);
           };
 
           try {
+            if (typeof _activeTtsBufferStopFn === 'function') {
+              _activeTtsBufferStopFn();
+            }
             audio.onended = null;
             audio.onerror = null;
             audio.onloadedmetadata = null;
@@ -35797,7 +36197,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
           _activeReplayTtsAudio = audio;
           audio.muted = false;
-          audio.volume = Math.max(0, Math.min(1, (appState.theaterTtsVolume ?? 90) / 100));
+          ensureTtsPlayerGainConnected(audio, playUrl);
+          setTtsPlayerEffectiveVolume(audio, volRatio);
           setBgmDuckingActive(true);
           safetyTimer = setTimeout(() => finishAudio(false), 11000);
           audio.onloadedmetadata = () => {
@@ -37030,9 +37431,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       if (lbl) lbl.textContent = String(v);
       const slider = document.getElementById('theater-tts-vol-slider');
       if (slider && Number(slider.value) !== v) slider.value = String(v);
-      if (_activeReplayTtsAudio) {
-        _activeReplayTtsAudio.volume = v / 100;
-      }
+      setTtsPlayerEffectiveVolume(_activeReplayTtsAudio, v / 100);
     }
 
     function onTheaterBgmVolumeChange(val) {
