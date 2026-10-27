@@ -29836,39 +29836,54 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       let srvProj = null;
       let ghProj = null;
       let localRec = null;
-      await Promise.all([
-        (async () => {
-          try {
-            const { res, data } = await fetchBackendJsonSafe(`/api/workshop/project/${encodeURIComponent(projectId)}`);
-            if (res && res.ok && data && data.ok && data.project) {
-              srvProj = data.project;
-              srvProj._isRemoteCloud = true;
-              registerRemoteProjectPackIndex(srvProj);
+
+      const ghTask = (async () => {
+        try {
+          const p = await fetchGithubWorkshopJson(`projects/${projectId}.json`);
+          if (p && p.id) {
+            ghProj = p;
+            ghProj._isRemoteCloud = true;
+            registerRemoteProjectPackIndex(ghProj);
+          }
+        } catch (_) {}
+      })();
+
+      const localTask = (async () => {
+        try {
+          if (db && db.workshopProjects) {
+            const rec = await db.workshopProjects.get(projectId);
+            if (rec && rec.id) {
+              localRec = rec;
+              registerRemoteProjectPackIndex(localRec);
             }
-          } catch (_) {}
-        })(),
-        (async () => {
-          try {
-            const p = await fetchGithubWorkshopJson(`projects/${projectId}.json`);
-            if (p && p.id) {
-              ghProj = p;
-              ghProj._isRemoteCloud = true;
-              registerRemoteProjectPackIndex(ghProj);
-            }
-          } catch (_) {}
-        })(),
-        (async () => {
-          try {
-            if (db && db.workshopProjects) {
-              const rec = await db.workshopProjects.get(projectId);
-              if (rec && rec.id) {
-                localRec = rec;
-                registerRemoteProjectPackIndex(localRec);
-              }
-            }
-          } catch (_) {}
-        })()
-      ]);
+          }
+        } catch (_) {}
+      })();
+
+      const srvTask = (async () => {
+        try {
+          const { res, data } = await fetchBackendJsonSafe(`/api/workshop/project/${encodeURIComponent(projectId)}`);
+          if (res && res.ok && data && data.ok && data.project) {
+            srvProj = data.project;
+            srvProj._isRemoteCloud = true;
+            registerRemoteProjectPackIndex(srvProj);
+          }
+        } catch (_) {}
+      })();
+
+      await Promise.all([ghTask, localTask]);
+      if (ghProj && ghProj.id && Array.isArray(ghProj.chapters) && ghProj.chapters.length > 0) {
+        // GitHub 高速镜像已拿到完整模组工程时，最多给备用后端 300ms 合并窗口，绝不阻塞等待超时
+        await Promise.race([
+          srvTask,
+          new Promise((resolve) => setTimeout(resolve, 300))
+        ]);
+      } else {
+        await Promise.race([
+          srvTask,
+          new Promise((resolve) => setTimeout(resolve, 4500))
+        ]);
+      }
 
       const candidates = [ghProj, srvProj, localRec].filter((c) => c && c.id);
       if (candidates.length > 0) {
@@ -30282,7 +30297,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const { githubRepo } = getWorkshopSyncConfig();
       const savedPackIdx = getSavedGithubAssetPackIndex(githubRepo);
 
-      // 通道 1：优先按已注册的 GitHub 分包索引并发拉取解压
+      // 通道 1：优先按已注册的 GitHub 分包索引 8 路高并发拉取解压
       const neededPacks = new Set();
       const unpackedPacks = new Set();
       for (const h of stillMissingSet) {
@@ -30295,7 +30310,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         let packCursor = 0;
         let finishedPacks = 0;
         const runGhPackPullWorker = async () => {
-          while (packCursor < packList.length) {
+          while (packCursor < packList.length && stillMissingSet.size > 0) {
             const pIdx = packCursor++;
             const pHash = packList[pIdx];
             if (!pHash) continue;
@@ -30315,69 +30330,23 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             finishedPacks += 1;
             if (typeof onProgress === 'function') {
               const doneCnt = missingHashesToFetch.length - stillMissingSet.size;
-              const pct = 12 + (finishedPacks / Math.max(1, packList.length)) * 42;
+              const pct = 12 + (finishedPacks / Math.max(1, packList.length)) * 46;
               onProgress(pct, `正在并发拉取云端资源包 第 ${finishedPacks} / ${packList.length} 包，已就绪 ${doneCnt} 个素材...`);
             }
           }
         };
         const ghPackWorkers = [];
-        for (let w = 0; w < Math.min(4, packList.length); w++) {
+        for (let w = 0; w < Math.min(8, packList.length); w++) {
           ghPackWorkers.push(runGhPackPullWorker());
         }
         await Promise.all(ghPackWorkers);
         saveGithubAssetPackIndex(githubRepo, savedPackIdx);
       }
 
-      // 通道 2：向云端服务器批量接口请求剩余素材
-      if (stillMissingSet.size > 0) {
-        const remainArr = Array.from(stillMissingSet);
-        const BATCH_PULL_SIZE = 50;
-        const batchChunks = [];
-        for (let i = 0; i < remainArr.length; i += BATCH_PULL_SIZE) {
-          batchChunks.push(remainArr.slice(i, i + BATCH_PULL_SIZE));
-        }
-        let chunkCursor = 0;
-        let finishedChunks = 0;
-        const runCloudBatchWorker = async () => {
-          while (chunkCursor < batchChunks.length) {
-            const cIdx = chunkCursor++;
-            const chunk = batchChunks[cIdx];
-            if (!chunk || chunk.length === 0) continue;
-            try {
-              const { res, data } = await fetchBackendJsonSafe('/api/workshop/get-assets-batch', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ hashes: chunk })
-              });
-              if (res && res.ok && data && data.ok && data.assets && typeof data.assets === 'object') {
-                for (const [hKey, dUrl] of Object.entries(data.assets)) {
-                  if (typeof dUrl === 'string' && dUrl.startsWith('data:')) {
-                    stillMissingSet.delete(hKey);
-                    _workshopRawDataUrlByHash.set(hKey, dUrl);
-                    _workshopRawDataUrlByHash.set(`/api/workshop/asset/${hKey}`, dUrl);
-                  }
-                }
-              }
-            } catch (_) {}
-            finishedChunks += 1;
-            if (typeof onProgress === 'function') {
-              const doneCnt = missingHashesToFetch.length - stillMissingSet.size;
-              const pct = 54 + (finishedChunks / Math.max(1, batchChunks.length)) * 16;
-              onProgress(pct, `正在同步云端服务器素材库 ${finishedChunks} / ${batchChunks.length}，已就绪 ${doneCnt} 个素材...`);
-            }
-          }
-        };
-        const cloudWorkers = [];
-        for (let w = 0; w < Math.min(6, batchChunks.length); w++) {
-          cloudWorkers.push(runCloudBatchWorker());
-        }
-        await Promise.all(cloudWorkers);
-      }
-
-      // 通道 3：若仍有缺失，扫描有限数量的历史分包补齐
+      // 通道 2：若仍有缺失，直接检索 GitHub 仓库内其他资源分包并发补齐，避免静态网页先去等待休眠后端超时
       if (stillMissingSet.size > 0) {
         const allRepoPacks = await discoverAllGithubWorkshopPacks();
-        const extraPacks = allRepoPacks.filter((p) => !unpackedPacks.has(p)).slice(0, 16);
+        const extraPacks = allRepoPacks.filter((p) => !unpackedPacks.has(p)).slice(0, 20);
         if (extraPacks.length > 0) {
           let extraCursor = 0;
           let scannedCnt = 0;
@@ -30386,6 +30355,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               const eIdx = extraCursor++;
               const pPath = extraPacks[eIdx];
               if (!pPath) continue;
+              unpackedPacks.add(pPath);
               const assetsObj = await fetchAndUnpackWorkshopAssetPack(pPath);
               if (assetsObj && typeof assetsObj === 'object') {
                 Object.keys(assetsObj).forEach((k) => {
@@ -30401,13 +30371,13 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
               scannedCnt += 1;
               if (typeof onProgress === 'function') {
                 const doneCnt = missingHashesToFetch.length - stillMissingSet.size;
-                const pct = 70 + (scannedCnt / Math.max(1, extraPacks.length)) * 6;
+                const pct = 58 + (scannedCnt / Math.max(1, extraPacks.length)) * 12;
                 onProgress(pct, `正在检索云端备用资源包 ${scannedCnt} / ${extraPacks.length}，已找回 ${doneCnt} 个素材...`);
               }
             }
           };
           const extraWorkers = [];
-          for (let w = 0; w < Math.min(6, extraPacks.length); w++) {
+          for (let w = 0; w < Math.min(8, extraPacks.length); w++) {
             extraWorkers.push(runExtraPackWorker());
           }
           await Promise.all(extraWorkers);
@@ -30415,7 +30385,62 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
       }
 
-      // 通道 4：单文件兜底补齐
+      // 通道 3：向云端服务器批量接口请求剩余素材，设置短超时与熔断机制，防止后端不可达时拖慢朋友端下载
+      if (stillMissingSet.size > 0 && !isStaticHostWithoutLocalAssets()) {
+        const remainArr = Array.from(stillMissingSet);
+        const BATCH_PULL_SIZE = 50;
+        const batchChunks = [];
+        for (let i = 0; i < remainArr.length; i += BATCH_PULL_SIZE) {
+          batchChunks.push(remainArr.slice(i, i + BATCH_PULL_SIZE));
+        }
+        let chunkCursor = 0;
+        let finishedChunks = 0;
+        let cloudBatchFailed = false;
+        const runCloudBatchWorker = async () => {
+          while (chunkCursor < batchChunks.length && !cloudBatchFailed && stillMissingSet.size > 0) {
+            const cIdx = chunkCursor++;
+            const chunk = batchChunks[cIdx];
+            if (!chunk || chunk.length === 0) continue;
+            try {
+              const ctrl = new AbortController();
+              const tid = setTimeout(() => ctrl.abort(), 2600);
+              const { res, data } = await fetchBackendJsonSafe('/api/workshop/get-assets-batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hashes: chunk }),
+                signal: ctrl.signal
+              });
+              clearTimeout(tid);
+              if (res && res.ok && data && data.ok && data.assets && typeof data.assets === 'object') {
+                for (const [hKey, dUrl] of Object.entries(data.assets)) {
+                  if (typeof dUrl === 'string' && dUrl.startsWith('data:')) {
+                    stillMissingSet.delete(hKey);
+                    _workshopRawDataUrlByHash.set(hKey, dUrl);
+                    _workshopRawDataUrlByHash.set(`/api/workshop/asset/${hKey}`, dUrl);
+                  }
+                }
+              } else {
+                cloudBatchFailed = true;
+              }
+            } catch (_) {
+              cloudBatchFailed = true;
+            }
+            finishedChunks += 1;
+            if (typeof onProgress === 'function') {
+              const doneCnt = missingHashesToFetch.length - stillMissingSet.size;
+              const pct = 70 + (finishedChunks / Math.max(1, batchChunks.length)) * 4;
+              onProgress(pct, `正在同步云端服务器素材库 ${finishedChunks} / ${batchChunks.length}，已就绪 ${doneCnt} 个素材...`);
+            }
+          }
+        };
+        const cloudWorkers = [];
+        for (let w = 0; w < Math.min(4, batchChunks.length); w++) {
+          cloudWorkers.push(runCloudBatchWorker());
+        }
+        await Promise.all(cloudWorkers);
+      }
+
+      // 通道 4：单文件兜底补齐，优先直接从 GitHub CDN 读取
       if (stillMissingSet.size > 0) {
         const remainList = Array.from(stillMissingSet).slice(0, 60);
         let remCursor = 0;
@@ -30426,17 +30451,17 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             if (!h) continue;
             let dUrl = '';
             try {
-              const { data } = await fetchBackendJsonSafe(`/api/workshop/asset/${h}?format=dataurl`);
-              if (data && data.ok && data.dataUrl) dUrl = data.dataUrl;
+              const ghAsset = await fetchGithubWorkshopJson(`assets/${h}.json`);
+              if (ghAsset && ghAsset.base64) {
+                dUrl = `data:${ghAsset.mime || 'application/octet-stream'};base64,${ghAsset.base64}`;
+              } else if (ghAsset && ghAsset.dataUrl) {
+                dUrl = ghAsset.dataUrl;
+              }
             } catch (_) {}
-            if (!dUrl) {
+            if (!dUrl && !isStaticHostWithoutLocalAssets()) {
               try {
-                const ghAsset = await fetchGithubWorkshopJson(`assets/${h}.json`);
-                if (ghAsset && ghAsset.base64) {
-                  dUrl = `data:${ghAsset.mime || 'application/octet-stream'};base64,${ghAsset.base64}`;
-                } else if (ghAsset && ghAsset.dataUrl) {
-                  dUrl = ghAsset.dataUrl;
-                }
+                const { data } = await fetchBackendJsonSafe(`/api/workshop/asset/${h}?format=dataurl`);
+                if (data && data.ok && data.dataUrl) dUrl = data.dataUrl;
               } catch (_) {}
             }
             if (dUrl && dUrl.startsWith('data:')) {
@@ -30447,7 +30472,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           }
         };
         const remWorkers = [];
-        for (let w = 0; w < Math.min(6, remainList.length); w++) {
+        for (let w = 0; w < Math.min(8, remainList.length); w++) {
           remWorkers.push(runRemainWorker());
         }
         await Promise.all(remWorkers);
@@ -30544,9 +30569,57 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         if (typeof extraProgressCb === 'function') extraProgressCb(safePct, msg);
       };
 
-      setDlProgress(5, '正在从云端仓库读取模组工程与人员名单...');
+      setDlProgress(5, options.isUpdateMode ? '正在连接云端比对新版本差异章节与变动素材...' : '正在从云端仓库读取模组工程与人员名单...');
       const remoteProj = await fetchWorkshopFullProjectById(projectId);
       registerRemoteProjectPackIndex(remoteProj);
+
+      // 优先读取本机已下载模组的哈希映射表与本地镜像库索引，为「更新」提供独立高速增量通道
+      let existingLocalProjForDedup = (appState.replayProjects || []).find((p) => p && p.id === remoteProj.id);
+      if (!existingLocalProjForDedup && db && db.replayProjects) {
+        try {
+          existingLocalProjForDedup = await db.replayProjects.get(remoteProj.id);
+        } catch (_) {}
+      }
+      const prevRelToHash = (existingLocalProjForDedup && existingLocalProjForDedup.relPathToWorkshopHash && typeof existingLocalProjForDedup.relPathToWorkshopHash === 'object')
+        ? { ...existingLocalProjForDedup.relPathToWorkshopHash }
+        : {};
+      const existingMirrorKeys = new Set();
+      if (db && db.localAssetMirror) {
+        try {
+          const mKeys = await db.localAssetMirror.toCollection().primaryKeys();
+          if (Array.isArray(mKeys)) {
+            mKeys.forEach((k) => { if (k) existingMirrorKeys.add(String(k)); });
+          }
+        } catch (_) {}
+      }
+      const verifiedLocalHashToRelPath = new Map();
+      for (const [relP, oldH] of Object.entries(prevRelToHash)) {
+        if (relP && oldH && existingMirrorKeys.has(relP)) {
+          verifiedLocalHashToRelPath.set(oldH, relP);
+        }
+      }
+
+      // 若朋友此前是通过压缩包导入或旧版下载，本机已有完整镜像文件但缺少哈希映射，自动快速扫描本地镜像建立指纹索引，避免更新时重复下载全量素材
+      if (existingMirrorKeys.size > 0 && verifiedLocalHashToRelPath.size < existingMirrorKeys.size && db && db.localAssetMirror) {
+        try {
+          const unindexedPaths = [];
+          existingMirrorKeys.forEach((k) => {
+            if (!prevRelToHash[k]) unindexedPaths.push(k);
+          });
+          if (unindexedPaths.length > 0) {
+            const mirrorRows = await db.localAssetMirror.bulkGet(unindexedPaths);
+            for (const row of (mirrorRows || [])) {
+              if (row && row.path && typeof row.dataUrl === 'string' && row.dataUrl.startsWith('data:')) {
+                const fp = computeFastAssetFingerprint(row.dataUrl);
+                if (fp) {
+                  prevRelToHash[row.path] = fp;
+                  verifiedLocalHashToRelPath.set(fp, row.path);
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
 
       const remoteChaps = JSON.parse(JSON.stringify(remoteProj.chapters || []));
       remoteChaps.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
@@ -30557,6 +30630,58 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const targetSubGroups = isSingleChapterMode
         ? (remoteProj.subGroups || []).filter((sg) => sg && Number(sg.targetChapterIdx ?? 0) === opts.onlyChapterOrder)
         : (remoteProj.subGroups || []);
+
+      // 「更新」专用快速增量通道：比对本机章节与云端章节，未发生改动的章节直接秒级复用，仅处理有改动的章节
+      const unchangedChapterOrders = new Set();
+      if (options.isUpdateMode && !isSingleChapterMode && existingLocalProjForDedup && Array.isArray(existingLocalProjForDedup.chapters)) {
+        const localChapByOrd = new Map();
+        existingLocalProjForDedup.chapters.forEach((lc, idx) => {
+          if (lc) localChapByOrd.set(Number(lc.order ?? idx), lc);
+        });
+        const isLocalUrlReadyInMirror = (u) => {
+          if (!u || typeof u !== 'string' || u.startsWith('/api/workshop/asset/')) return false;
+          if (u.startsWith('data:') || u.startsWith('blob:')) return true;
+          const idx = u.indexOf('/local-assets/');
+          if (idx >= 0) {
+            const rel = decodeURIComponent(u.slice(idx + '/local-assets/'.length).split('?')[0]);
+            return existingMirrorKeys.has(rel);
+          }
+          const tIdx = u.indexOf(':8765/');
+          if (tIdx >= 0) {
+            const rel = decodeURIComponent(u.slice(tIdx + ':8765/'.length).split('?')[0]);
+            return existingMirrorKeys.has(rel);
+          }
+          return true;
+        };
+        targetChaps.forEach((rc, idx) => {
+          if (!rc) return;
+          const ord = Number(rc.order ?? idx);
+          const lc = localChapByOrd.get(ord);
+          if (!lc) return;
+          if (Number(rc.version || 1) !== Number(lc.version || 1)) return;
+          if (String(rc.title || '') !== String(lc.title || '')) return;
+          const rLines = Array.isArray(rc.scriptLines) ? rc.scriptLines : [];
+          const lLines = Array.isArray(lc.scriptLines) ? lc.scriptLines : [];
+          if (rLines.length === 0 || rLines.length !== lLines.length) return;
+          if ((rc.scenes || []).length !== (lc.scenes || []).length) return;
+          if ((rc.cgNodes || []).length !== (lc.cgNodes || []).length) return;
+          if ((rc.clueNodes || []).length !== (lc.clueNodes || []).length) return;
+          const sampleIndices = [0, Math.floor(rLines.length / 2), rLines.length - 1];
+          for (const sIdx of sampleIndices) {
+            const rl = rLines[sIdx] || {};
+            const ll = lLines[sIdx] || {};
+            if (String(rl.text || '') !== String(ll.text || '') || String(rl.speaker || '') !== String(ll.speaker || '') || String(rl.exp || '') !== String(ll.exp || '')) {
+              return;
+            }
+          }
+          const allScenesReady = (lc.scenes || []).every((s) => !s || !s.imageUrl || isLocalUrlReadyInMirror(s.imageUrl));
+          const allCgsReady = (lc.cgNodes || []).every((g) => !g || ((!g.imageUrl || isLocalUrlReadyInMirror(g.imageUrl)) && (!g.customPadImg || isLocalUrlReadyInMirror(g.customPadImg))));
+          const allCluesReady = (lc.clueNodes || []).every((cl) => !cl || !cl.imageUrl || isLocalUrlReadyInMirror(cl.imageUrl));
+          if (allScenesReady && allCgsReady && allCluesReady) {
+            unchangedChapterOrders.add(ord);
+          }
+        });
+      }
 
       const activeSceneNamesInScope = new Set();
       const activeExpsInScope = new Set(['默认']);
@@ -30584,7 +30709,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         });
       }
 
-      // 收集本次勾选范围内需要用到的全部工坊素材哈希
+      // 收集本次范围内需要用到的工坊素材哈希，在更新模式下自动跳过未变动章节的内部哈希扫描
       const requiredWorkshopHashes = new Set();
       const collectRefHash = (ref) => {
         if (ref && typeof ref === 'string' && ref.startsWith('/api/workshop/asset/')) {
@@ -30626,6 +30751,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
       targetChaps.forEach((ch, idx) => {
         if (!ch) return;
+        const ord = Number(ch.order ?? idx);
+        if (unchangedChapterOrders.has(ord)) return;
         if (opts.restoreScenes) {
           (ch.scenes || []).forEach((s) => s && collectRefHash(s.imageUrl));
         }
@@ -30638,7 +30765,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           (ch.clueNodes || []).forEach((cl) => cl && collectRefHash(cl.imageUrl));
         }
         if (opts.restoreTts) {
-          const ord = Number(ch.order ?? idx);
           const ttsKey = String(ch.id || `chap_${ord}`);
           const chapTts = (remoteProj.ttsByChapter && remoteProj.ttsByChapter[ttsKey]) || [];
           chapTts.forEach((rec) => rec && collectRefHash(rec.audioDataUrl || rec.audioData));
@@ -30664,32 +30790,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
       });
 
-      // 读取本机已下载模组的哈希映射表与本地镜像库索引，实现跨会话精准去重下载：未变动的素材直接复用本机文件，仅拉取新增或替换后的素材
-      let existingLocalProjForDedup = (appState.replayProjects || []).find((p) => p && p.id === remoteProj.id);
-      if (!existingLocalProjForDedup && db && db.replayProjects) {
-        try {
-          existingLocalProjForDedup = await db.replayProjects.get(remoteProj.id);
-        } catch (_) {}
-      }
-      const prevRelToHash = (existingLocalProjForDedup && existingLocalProjForDedup.relPathToWorkshopHash && typeof existingLocalProjForDedup.relPathToWorkshopHash === 'object')
-        ? existingLocalProjForDedup.relPathToWorkshopHash
-        : {};
-      const existingMirrorKeys = new Set();
-      if (db && db.localAssetMirror) {
-        try {
-          const mKeys = await db.localAssetMirror.toCollection().primaryKeys();
-          if (Array.isArray(mKeys)) {
-            mKeys.forEach((k) => { if (k) existingMirrorKeys.add(String(k)); });
-          }
-        } catch (_) {}
-      }
-      const verifiedLocalHashToRelPath = new Map();
-      for (const [relP, oldH] of Object.entries(prevRelToHash)) {
-        if (relP && oldH && existingMirrorKeys.has(relP)) {
-          verifiedLocalHashToRelPath.set(oldH, relP);
-        }
-      }
-
       const missingHashesToFetch = [];
       let skippedDedupHashCount = 0;
       for (const h of requiredWorkshopHashes) {
@@ -30713,19 +30813,21 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
       if (missingHashesToFetch.length > 0) {
         const dedupMsg = skippedDedupHashCount > 0
-          ? `正在增量拉取最新更新的 ${missingHashesToFetch.length} 项素材，已去重跳过本机已有的 ${skippedDedupHashCount} 项未变动素材...`
-          : `正在从云端仓库拉取 ${missingHashesToFetch.length} 项素材与立绘差分...`;
+          ? `正在通过增量通道拉取新增或改动的 ${missingHashesToFetch.length} 项素材，已秒级跳过 ${skippedDedupHashCount} 项未变动素材...`
+          : `正在从云端仓库高速拉取 ${missingHashesToFetch.length} 项素材与立绘差分...`;
         setDlProgress(10, dedupMsg);
         await fetchMissingWorkshopHashesFromAllChannels(missingHashesToFetch, setDlProgress);
-      } else if (skippedDedupHashCount > 0) {
-        setDlProgress(72, `本机已有全部 ${skippedDedupHashCount} 项素材且均为最新哈希，正在同步最新章节文本与配置...`);
+      } else {
+        setDlProgress(72, `本机已有全部素材且均为最新状态，正在快速同步最新章节文本与配置...`);
       }
 
-      setDlProgress(76, '正在将素材写入本机数据库并安装至「剧本」...');
+      setDlProgress(76, '正在将更新内容写入本机数据库并同步至「剧本」...');
       const baseUrl = getLocalBridgeBaseUrl();
-      const termuxInfo = await checkLocalBridgeEndpointAlive(baseUrl).catch(() => null);
-      const termuxOnline = Boolean(termuxInfo);
       const onStaticHost = isStaticHostWithoutLocalAssets();
+      const termuxInfo = (onStaticHost && !_termuxBridgeOnlineState)
+        ? null
+        : await checkLocalBridgeEndpointAlive(baseUrl).catch(() => null);
+      const termuxOnline = Boolean(termuxInfo);
       const safeProj = String(remoteProj.title || remoteProj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
 
       const pendingDiskBatch = [];
@@ -31150,6 +31252,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
       // 若是整部模组全量下载且线上章节数不少于本机章节数，直接以线上最新章节列表干净覆盖；否则始终保护本机已有章节不丢失
       let existingChaps = [];
+      const localExistingChapByOrd = new Map();
+      (Array.isArray(localProj.chapters) ? localProj.chapters : []).forEach((lc, idx) => {
+        if (lc) localChapKeySet: localExistingChapByOrd.set(Number(lc.order ?? idx), lc);
+      });
       const localExistingChapCount = Array.isArray(localProj.chapters) ? localProj.chapters.length : 0;
       if (!isSingleChapterMode && !opts.onlyMissing && remoteChaps.length >= localExistingChapCount) {
         existingChaps = [];
@@ -31173,15 +31279,26 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
 
       for (let i = 0; i < targetChaps.length; i++) {
+        const ord = Number(targetChaps[i]?.order ?? i);
+        // 更新模式下，未变动的章节直接保留本机已安装好的章节与语音，不重复遍历写入
+        if (unchangedChapterOrders.has(ord) && localExistingChapByOrd.has(ord)) {
+          const keptLocalChap = localExistingChapByOrd.get(ord);
+          const existIdx = existingChaps.findIndex((mc) => Number(mc?.order ?? -1) === ord);
+          if (existIdx >= 0) {
+            existingChaps[existIdx] = keptLocalChap;
+          } else {
+            existingChaps.push(keptLocalChap);
+          }
+          continue;
+        }
         const ch = JSON.parse(JSON.stringify(targetChaps[i]));
         delete ch._cachedMergedPlayable;
         delete ch._cachedMergedSig;
-        const ord = Number(ch.order ?? i);
         ch.order = ord;
         const isFirstOrActiveChap = isSingleChapterMode || i === 0;
 
         const writePct = 77 + Math.round(((i + 1) / Math.max(1, targetChaps.length)) * 18);
-        setDlProgress(writePct, `正在将第 ${ord + 1} 章剧本与配音安装至本机「剧本」 (${i + 1} / ${targetChaps.length})...`);
+        setDlProgress(writePct, `正在将第 ${ord + 1} 章剧本与配音安装至本机「剧本」 · 第 ${i + 1} 章...`);
 
         if (opts.restoreScenes && Array.isArray(ch.scenes)) {
           for (let sIdx = 0; sIdx < ch.scenes.length; sIdx++) {
@@ -31471,12 +31588,15 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       await flushDiskBatch();
       _workshopRawDataUrlByHash.clear();
 
-      localProj.assetPackIndex = (!isSingleChapterMode && !opts.onlyMissing)
-        ? { ...(remoteProj.assetPackIndex || {}) }
-        : { ...(localProj.assetPackIndex || {}), ...(remoteProj.assetPackIndex || {}) };
-      localProj.relPathToWorkshopHash = (!isSingleChapterMode && !opts.onlyMissing)
-        ? { ...relPathToWorkshopHash }
-        : { ...(localProj.relPathToWorkshopHash || {}), ...relPathToWorkshopHash };
+      localProj.assetPackIndex = {
+        ...(localProj.assetPackIndex || {}),
+        ...(remoteProj.assetPackIndex || {})
+      };
+      localProj.relPathToWorkshopHash = {
+        ...prevRelToHash,
+        ...(localProj.relPathToWorkshopHash || {}),
+        ...relPathToWorkshopHash
+      };
       const remoteSyncedTs = Number(remoteProj.updatedAt || Date.now());
       localProj.workshopSyncedAt = remoteSyncedTs;
       localProj.updatedAt = remoteSyncedTs;
@@ -32146,6 +32266,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           extractedSpeakers: sourceProj.extractedSpeakers || [],
           subGroups: packedSubGroups,
           chapters: packedChapters,
+          assetPackIndex: sourceProj.assetPackIndex || {},
+          relPathToWorkshopHash: sourceProj.relPathToWorkshopHash || {},
           updatedAt: sourceProj.updatedAt || Date.now()
         };
 
@@ -32226,10 +32348,13 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           if (!proj || !proj.id) throw new Error('压缩包内未找到有效的模组工程');
 
           const baseUrl = getLocalBridgeBaseUrl();
-          const termuxInfo = await checkLocalBridgeEndpointAlive(baseUrl).catch(() => null);
-          const termuxOnline = Boolean(termuxInfo);
           const onStaticHost = isStaticHostWithoutLocalAssets();
+          const termuxInfo = (onStaticHost && !_termuxBridgeOnlineState)
+            ? null
+            : await checkLocalBridgeEndpointAlive(baseUrl).catch(() => null);
+          const termuxOnline = Boolean(termuxInfo);
           const safeProj = String(proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
+          const zipRelPathToHash = { ...(proj.relPathToWorkshopHash || {}) };
 
           const uint8ToBase64 = (u8) => {
             let binary = '';
@@ -32336,6 +32461,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
             if (dataUrl && !writtenDiskPaths.has(cleanRel)) {
               writtenDiskPaths.add(cleanRel);
+              const assetFp = computeFastAssetFingerprint(dataUrl);
+              if (assetFp) {
+                zipRelPathToHash[cleanRel] = assetFp;
+              }
               pendingDiskBatch.push({ path: cleanRel, dataUrl });
               if (pendingDiskBatch.length >= 25) {
                 await flushZipDiskBatch();
@@ -32539,6 +32668,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           await flushZipDiskBatch();
           zipEntryBytesMap.clear();
 
+          proj.relPathToWorkshopHash = zipRelPathToHash;
           if (!proj.workshopSyncedAt) {
             proj.workshopSyncedAt = Number(proj.updatedAt || Date.now());
           }
