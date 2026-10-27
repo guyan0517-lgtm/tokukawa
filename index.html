@@ -28382,50 +28382,26 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
       } catch (_) {}
 
-      // 若本机当前模组章节数因早先单章测试而少于线上完整章节数（如 1 章 < 24 章），自动从线上补齐完整章节目录
-      if (proj && proj.id && mergedMap.has(proj.id)) {
-        const onlineItem = mergedMap.get(proj.id);
-        const onlineChapCnt = Number(onlineItem?.chapterCount || (Array.isArray(onlineItem?.chaptersMeta) ? onlineItem.chaptersMeta.length : 0));
-        const localChapCnt = Array.isArray(proj.chapters) ? proj.chapters.length : 0;
-        if (onlineChapCnt > localChapCnt) {
-          fetchWorkshopFullProjectById(proj.id).then(async (fullOnlineProj) => {
-            if (!fullOnlineProj || !Array.isArray(fullOnlineProj.chapters) || fullOnlineProj.chapters.length <= localChapCnt) return;
-            registerRemoteProjectPackIndex(fullOnlineProj);
-            const mergedChapMap = new Map();
-            fullOnlineProj.chapters.forEach((rc, idx) => {
-              if (!rc) return;
-              const ord = Number(rc.order ?? idx);
-              const chCopy = JSON.parse(JSON.stringify(rc));
-              chCopy.order = ord;
-              syncChapterCgLineBindings(chCopy);
-              syncChapterClueLineBindings(chCopy);
-              mergedChapMap.set(ord, chCopy);
-            });
-            (proj.chapters || []).forEach((lc, idx) => {
-              if (!lc) return;
-              const ord = Number(lc.order ?? idx);
-              if (Array.isArray(lc.scriptLines) && lc.scriptLines.length > 0) {
-                mergedChapMap.set(ord, lc);
-              }
-            });
-            proj.chapters = Array.from(mergedChapMap.values()).sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
-            if (db && db.replayProjects) await db.replayProjects.put(proj);
-            if (db && db.workshopProjects) await db.workshopProjects.put(fullOnlineProj);
-            renderReplayStudioUI();
-            renderReplayWorkshopList();
-            const cSel = document.getElementById('workshop-upload-chapter-select');
-            if (cSel) {
-              const opts = [`<option value="all" ${_workshopUploadScope === 'all' ? 'selected' : ''}>整部模组：全部 ${proj.chapters.length} 章一键上传</option>`];
-              proj.chapters.forEach((c, idx) => {
-                const lCnt = Array.isArray(c.scriptLines) ? c.scriptLines.length : 0;
-                const isS = _workshopUploadScope !== 'all' && Number(_workshopUploadScope) === idx;
-                opts.push(`<option value="${idx}" ${isS ? 'selected' : ''}>单章上传：第 ${idx + 1} 章 · ${c.title || '未命名章节'} · ${lCnt}句</option>`);
-              });
-              cSel.innerHTML = opts.join('');
-            }
-          }).catch(() => {});
+      // 若本机已存在完整模组（如 24 章），同步修正工坊列表中可能残留的 1 章缓存摘要，但绝不改动本机模组数据
+      (appState.replayProjects || []).forEach((lp) => {
+        if (!lp || !lp.id || !Array.isArray(lp.chapters) || lp.chapters.length === 0) return;
+        if (mergedMap.has(lp.id)) {
+          const item = mergedMap.get(lp.id);
+          const itemChapCnt = Number(item?.chapterCount || (Array.isArray(item?.chaptersMeta) ? item.chaptersMeta.length : 0));
+          if (lp.chapters.length > itemChapCnt) {
+            item.chapterCount = lp.chapters.length;
+            item.chaptersMeta = lp.chapters.map((ch, idx) => ({
+              id: ch.id || `chap_${idx}`,
+              order: Number(ch.order ?? idx),
+              title: ch.title || `第 ${idx + 1} 章`,
+              lineCount: Array.isArray(ch.scriptLines) ? ch.scriptLines.length : 0,
+              cgCount: Array.isArray(ch.cgNodes) ? ch.cgNodes.length : 0,
+              clueCount: Array.isArray(ch.clueNodes) ? ch.clueNodes.length : 0,
+              version: Number(ch.version || 1)
+            }));
+          }
         }
-      }
+      });
 
       _workshopItemsCache = Array.from(mergedMap.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
       renderReplayWorkshopList();
@@ -28785,7 +28761,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         return;
       }
       const scopeSel = document.getElementById('workshop-upload-chapter-select');
-      const scopeVal = scopeSel ? scopeSel.value : _workshopUploadScope;
+      const rawScopeVal = (scopeSel && scopeSel.value) ? scopeSel.value : _workshopUploadScope;
+      const scopeVal = (rawScopeVal === '' || rawScopeVal === undefined || rawScopeVal === null) ? 'all' : String(rawScopeVal);
       const isFullModule = scopeVal === 'all';
 
       const btn = document.getElementById('workshop-upload-chap-btn');
@@ -28811,7 +28788,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       setProgress(4, `正在高速扫描「${proj.title}」的立绘、场所、插图、线索与配音指纹...`);
 
       try {
-        // 先读取线上与本地已有的工坊工程记录，防止本机因单章测试只剩 1 章时覆盖掉线上已有的 24 章
+        // 仅读取线上已有工坊记录用于增量复用素材包索引，绝不改动或覆盖本机 proj.chapters
         let baselineRemoteRecord = null;
         try {
           const ghExisting = await fetchGithubWorkshopJson(`projects/${proj.id}.json`);
@@ -28833,26 +28810,6 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             }
           }
         } catch (_) {}
-
-        if (isFullModule && baselineRemoteRecord && Array.isArray(baselineRemoteRecord.chapters) && baselineRemoteRecord.chapters.length > proj.chapters.length) {
-          const mergedChapMap = new Map();
-          baselineRemoteRecord.chapters.forEach((rc, idx) => {
-            if (!rc) return;
-            const ord = Number(rc.order ?? idx);
-            const chCopy = JSON.parse(JSON.stringify(rc));
-            chCopy.order = ord;
-            mergedChapMap.set(ord, chCopy);
-          });
-          proj.chapters.forEach((lc, idx) => {
-            if (!lc) return;
-            const ord = Number(lc.order ?? idx);
-            if (Array.isArray(lc.scriptLines) && lc.scriptLines.length > 0) {
-              mergedChapMap.set(ord, lc);
-            }
-          });
-          proj.chapters = Array.from(mergedChapMap.values()).sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
-          if (db && db.replayProjects) await db.replayProjects.put(proj);
-        }
 
         const targetChapIdx = isFullModule ? 0 : Math.max(0, Math.min(proj.chapters.length - 1, parseInt(scopeVal, 10) || 0));
         const targetChaps = isFullModule ? proj.chapters : [proj.chapters[targetChapIdx]];
@@ -30738,9 +30695,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         return prevArr;
       };
 
-      // 若是整部模组全量下载，直接以线上最新章节列表干净覆盖旧版本；若是单章下载且本地章节少于线上总章节数，先补齐全部章节目录骨架
+      // 若是整部模组全量下载且线上章节数不少于本机章节数，直接以线上最新章节列表干净覆盖；否则始终保护本机已有章节不丢失
       let existingChaps = [];
-      if (!isSingleChapterMode && !opts.onlyMissing) {
+      const localExistingChapCount = Array.isArray(localProj.chapters) ? localProj.chapters.length : 0;
+      if (!isSingleChapterMode && !opts.onlyMissing && remoteChaps.length >= localExistingChapCount) {
         existingChaps = [];
       } else {
         const chapSeedMap = new Map();
