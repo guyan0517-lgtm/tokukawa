@@ -4127,9 +4127,20 @@
       }
     }
 
+    function openModal(modalId) {
+      const m = document.getElementById(modalId);
+      if (m) {
+        m.classList.add('active');
+        m.style.display = 'flex';
+      }
+    }
+
     function closeModal(modalId) {
       const m = document.getElementById(modalId);
-      if (m) m.classList.remove('active');
+      if (m) {
+        m.classList.remove('active');
+        m.style.display = '';
+      }
     }
 
     let _backGestureGuardInitialized = false;
@@ -4160,6 +4171,13 @@
       _lastBackStepTimestamp = now;
 
       // 1. 优先关闭当前打开的弹窗或浮层
+      const coCreateModal = document.getElementById('modal-replay-cocreate');
+      if (coCreateModal && (coCreateModal.classList.contains('active') || (coCreateModal.style.display && coCreateModal.style.display !== 'none'))) {
+        closeModal('modal-replay-cocreate');
+        ensureBackGestureHistoryGuard();
+        return;
+      }
+
       const restoreModal = document.getElementById('modal-workshop-restore');
       if (restoreModal && restoreModal.style.display && restoreModal.style.display !== 'none') {
         if (typeof closeWorkshopRestoreModal === 'function') {
@@ -16746,14 +16764,6 @@ ${BUILTIN_CSS_TEMPLATE}`;
         }
       };
 
-      // 1. 若当前就是静态网页且同目录包含 workshop-store，优先同源直读
-      if (isStaticHostWithoutLocalAssets() && window.location.protocol !== 'file:') {
-        try {
-          const sameOriginJson = await fetchJsonFromUrl(`./workshop-store/${cleanRel}?t=${Date.now()}`, { cache: 'no-store' }, 4500);
-          if (sameOriginJson) return sameOriginJson;
-        } catch (_) {}
-      }
-
       const cdnHosts = [
         'https://testingcf.jsdelivr.net/gh',
         'https://gcore.jsdelivr.net/gh',
@@ -16761,20 +16771,28 @@ ${BUILTIN_CSS_TEMPLATE}`;
         'https://fastly.jsdelivr.net/gh'
       ];
 
-      // 2. 针对固定哈希素材包 packs/ 与 assets/：优先单节点直连，若竞速则立即中断其余冗余下载，消除 4 倍流量拥塞
-      if (isImmutablePack && githubRepo && githubRepo.includes('/')) {
-        try {
-          const fastPack = await raceFetchJsonWithAbort(
-            cdnHosts,
-            (host) => `${host}/${githubRepo}@main/workshop-store/${cleanRel}`,
-            { cache: 'force-cache' },
-            20000
-          );
-          if (fastPack) return fastPack;
-        } catch (_) {}
+      // 1. 针对固定哈希素材包 packs/ 与 assets/：同源存在时直读，否则走多路 CDN 竞速
+      if (isImmutablePack) {
+        if (isStaticHostWithoutLocalAssets() && window.location.protocol !== 'file:') {
+          try {
+            const sameOriginPack = await fetchJsonFromUrl(`./workshop-store/${cleanRel}`, { cache: 'force-cache' }, 4500);
+            if (sameOriginPack) return sameOriginPack;
+          } catch (_) {}
+        }
+        if (githubRepo && githubRepo.includes('/')) {
+          try {
+            const fastPack = await raceFetchJsonWithAbort(
+              cdnHosts,
+              (host) => `${host}/${githubRepo}@main/workshop-store/${cleanRel}`,
+              { cache: 'force-cache' },
+              20000
+            );
+            if (fastPack) return fastPack;
+          } catch (_) {}
+        }
       }
 
-      // 3. 针对模组清单与工程 JSON：先通过最新 Commit SHA 锁定最新版本的 CDN 镜像
+      // 2. 针对可变模组清单与工程 JSON：优先通过最新 Commit SHA 锁定刚上传的最新版本，避免静态站点构建延迟读到旧清单
       if (githubRepo && githubRepo.includes('/')) {
         const latestSha = await resolveLatestGithubCommitSha(githubRepo, githubToken);
         if (latestSha) {
@@ -16788,6 +16806,14 @@ ${BUILTIN_CSS_TEMPLATE}`;
             if (shaJson) return shaJson;
           } catch (_) {}
         }
+      }
+
+      // 3. 同源静态目录兜底
+      if (isStaticHostWithoutLocalAssets() && window.location.protocol !== 'file:') {
+        try {
+          const sameOriginJson = await fetchJsonFromUrl(`./workshop-store/${cleanRel}?t=${Date.now()}`, { cache: 'no-store' }, 4500);
+          if (sameOriginJson) return sameOriginJson;
+        } catch (_) {}
       }
 
       // 4. 云端代理接口兜底
@@ -28604,8 +28630,17 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             </div>`
           : '';
 
+        const localSyncedTs = Number(localProj?.workshopSyncedAt || localProj?.updatedAt || 0);
+        const remoteItemTs = Number(item.updatedAt || 0);
+        const hasRemoteUpdate = isLocalOwner && (
+          (remoteItemTs > 0 && localSyncedTs > 0 && remoteItemTs > localSyncedTs + 2000) ||
+          (Number(item.chapterCount || 0) > (Array.isArray(localProj?.chapters) ? localProj.chapters.length : 0))
+        );
+
         const statusBadgeHtml = isLocalOwner
-          ? '<span class="vn-console-badge accent" style="flex-shrink:0;">本机已存 · 点观看直读</span>'
+          ? (hasRemoteUpdate
+              ? '<span class="vn-console-badge accent" style="flex-shrink:0;">云端有更新 · 点观看或下载自动增量替换</span>'
+              : '<span class="vn-console-badge accent" style="flex-shrink:0;">本机已存 · 点观看直读</span>')
           : (isZipMounted
               ? '<span class="vn-console-badge accent" style="flex-shrink:0;">已载入包 · 点观看直读</span>'
               : '<span class="vn-console-badge" style="flex-shrink:0;">未存本机 · 下载或压缩后秒开</span>');
@@ -29481,7 +29516,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
 
         setProgress(100, '上传完成！');
-        proj.workshopSyncedAt = Date.now();
+        const syncedTs = Number(lightweightWorkshopRecord.updatedAt || Date.now());
+        proj.workshopSyncedAt = syncedTs;
+        proj.updatedAt = syncedTs;
+        proj.assetPackIndex = { ...(proj.assetPackIndex || {}), ...(finalAssetPackIndex || {}) };
         await saveReplayProjectToDB(proj);
 
         const searchEl = document.getElementById('workshop-search-input');
@@ -29542,6 +29580,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             const { res, data } = await fetchBackendJsonSafe(`/api/workshop/project/${encodeURIComponent(projectId)}`);
             if (res && res.ok && data && data.ok && data.project) {
               srvProj = data.project;
+              srvProj._isRemoteCloud = true;
               registerRemoteProjectPackIndex(srvProj);
             }
           } catch (_) {}
@@ -29551,6 +29590,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             const p = await fetchGithubWorkshopJson(`projects/${projectId}.json`);
             if (p && p.id) {
               ghProj = p;
+              ghProj._isRemoteCloud = true;
               registerRemoteProjectPackIndex(ghProj);
             }
           } catch (_) {}
@@ -29571,12 +29611,20 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const candidates = [ghProj, srvProj, localRec].filter((c) => c && c.id);
       if (candidates.length > 0) {
         candidates.sort((a, b) => {
+          // 优先以线上云端最新时间戳为准，防止本机旧缓存抢占最新发布的云端更新
+          if (Boolean(a._isRemoteCloud) !== Boolean(b._isRemoteCloud)) {
+            const aTime = Number(a.updatedAt || 0);
+            const bTime = Number(b.updatedAt || 0);
+            if (a._isRemoteCloud && aTime >= bTime) return -1;
+            if (b._isRemoteCloud && bTime >= aTime) return 1;
+          }
           const aChaps = Array.isArray(a.chapters) ? a.chapters.length : 0;
           const bChaps = Array.isArray(b.chapters) ? b.chapters.length : 0;
           if (bChaps !== aChaps) return bChaps - aChaps;
           return Number(b.updatedAt || 0) - Number(a.updatedAt || 0);
         });
         const primary = JSON.parse(JSON.stringify(candidates[0]));
+        delete primary._isRemoteCloud;
         for (let i = 1; i < candidates.length; i++) {
           const secondary = candidates[i];
           primary.assetPackIndex = {
@@ -29612,7 +29660,17 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             primary.globalScenes = secondary.globalScenes;
           }
           if (Array.isArray(secondary.characters) && secondary.characters.length > 0) {
-            primary.characters = [...(primary.characters || []), ...secondary.characters];
+            const existingCharNames = new Set(
+              (primary.characters || []).map((c) => normalizeCharNameNoSpace(c?.name || '')).filter(Boolean)
+            );
+            secondary.characters.forEach((sc) => {
+              const sNs = normalizeCharNameNoSpace(sc?.name || '');
+              if (sNs && !existingCharNames.has(sNs)) {
+                existingCharNames.add(sNs);
+                if (!Array.isArray(primary.characters)) primary.characters = [];
+                primary.characters.push(sc);
+              }
+            });
           }
         }
         primary.chapterCount = Array.isArray(primary.chapters) ? primary.chapters.length : Number(primary.chapterCount || 0);
@@ -30344,9 +30402,40 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
       });
 
+      // 读取本机已下载模组的哈希映射表与本地镜像库索引，实现跨会话精准去重下载：未变动的素材直接复用本机文件，仅拉取新增或替换后的素材
+      let existingLocalProjForDedup = (appState.replayProjects || []).find((p) => p && p.id === remoteProj.id);
+      if (!existingLocalProjForDedup && db && db.replayProjects) {
+        try {
+          existingLocalProjForDedup = await db.replayProjects.get(remoteProj.id);
+        } catch (_) {}
+      }
+      const prevRelToHash = (existingLocalProjForDedup && existingLocalProjForDedup.relPathToWorkshopHash && typeof existingLocalProjForDedup.relPathToWorkshopHash === 'object')
+        ? existingLocalProjForDedup.relPathToWorkshopHash
+        : {};
+      const existingMirrorKeys = new Set();
+      if (db && db.localAssetMirror) {
+        try {
+          const mKeys = await db.localAssetMirror.toCollection().primaryKeys();
+          if (Array.isArray(mKeys)) {
+            mKeys.forEach((k) => { if (k) existingMirrorKeys.add(String(k)); });
+          }
+        } catch (_) {}
+      }
+      const verifiedLocalHashToRelPath = new Map();
+      for (const [relP, oldH] of Object.entries(prevRelToHash)) {
+        if (relP && oldH && existingMirrorKeys.has(relP)) {
+          verifiedLocalHashToRelPath.set(oldH, relP);
+        }
+      }
+
       const missingHashesToFetch = [];
+      let skippedDedupHashCount = 0;
       for (const h of requiredWorkshopHashes) {
         const refKey = `/api/workshop/asset/${h}`;
+        if (verifiedLocalHashToRelPath.has(h)) {
+          skippedDedupHashCount += 1;
+          continue;
+        }
         const rawCached = _workshopRawDataUrlByHash.get(h) || _workshopRawDataUrlByHash.get(refKey);
         if (rawCached && rawCached.startsWith('data:')) continue;
         if (typeof _localWorkshopAssetUrlMap === 'object' && _localWorkshopAssetUrlMap.has(refKey)) {
@@ -30361,8 +30450,13 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
 
       if (missingHashesToFetch.length > 0) {
-        setDlProgress(10, `正在从云端仓库拉取 ${missingHashesToFetch.length} 项素材与立绘差分...`);
+        const dedupMsg = skippedDedupHashCount > 0
+          ? `正在增量拉取最新更新的 ${missingHashesToFetch.length} 项素材，已去重跳过本机已有的 ${skippedDedupHashCount} 项未变动素材...`
+          : `正在从云端仓库拉取 ${missingHashesToFetch.length} 项素材与立绘差分...`;
+        setDlProgress(10, dedupMsg);
         await fetchMissingWorkshopHashesFromAllChannels(missingHashesToFetch, setDlProgress);
+      } else if (skippedDedupHashCount > 0) {
+        setDlProgress(72, `本机已有全部 ${skippedDedupHashCount} 项素材且均为最新哈希，正在同步最新章节文本与配置...`);
       }
 
       setDlProgress(76, '正在将素材写入本机数据库并安装至「剧本」...');
@@ -30374,10 +30468,11 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
       const pendingDiskBatch = [];
       const writtenDiskPathsInSession = new Set();
+      const updatedDiskPathsInSession = new Set();
       const flushDiskBatch = async () => {
         if (pendingDiskBatch.length === 0) return;
         const chunk = pendingDiskBatch.splice(0, pendingDiskBatch.length);
-        // 1. 永久写入浏览器本地 IndexedDB 镜像库（db.localAssetMirror），确保静态网页与手机端离线 0 延迟秒读
+        // 1. 永久写入浏览器本地 IndexedDB 镜像库，确保静态网页与手机端离线 0 延迟秒读
         await bulkPutLocalAssetMirror(chunk);
         // 2. 若当前非纯静态网页，同时同步写入后端本地目录
         if (!onStaticHost) {
@@ -30435,6 +30530,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         const encodedRel = cleanRel.split('/').map((s) => encodeURIComponent(s)).join('/');
         const targetLocalUrl = termuxOnline ? `${baseUrl}/${encodedRel}` : `/local-assets/${encodedRel}`;
         const altLocalUrl = termuxOnline ? `/local-assets/${encodedRel}` : `${baseUrl}/${encodedRel}`;
+        const prevHashForRel = prevRelToHash[cleanRel] || '';
 
         let dataUrl = '';
         let hash = '';
@@ -30443,10 +30539,30 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           if (hash && cleanRel) {
             relPathToWorkshopHash[cleanRel] = hash;
           }
+          // 若本机该路径已存有完全相同哈希的素材，直接去重复用，不重复写盘
+          if (hash && prevHashForRel === hash && existingMirrorKeys.has(cleanRel)) {
+            _localWorkshopAssetUrlMap.set(refOrUrl, targetLocalUrl);
+            _localWorkshopAssetUrlMap.set(hash, targetLocalUrl);
+            return targetLocalUrl;
+          }
           const rawData = _workshopRawDataUrlByHash.get(hash) || _workshopRawDataUrlByHash.get(refOrUrl);
           if (rawData && rawData.startsWith('data:')) {
             dataUrl = rawData;
-          } else {
+          } else if (hash && verifiedLocalHashToRelPath.has(hash) && db && db.localAssetMirror) {
+            const reuseRel = verifiedLocalHashToRelPath.get(hash);
+            if (reuseRel === cleanRel) {
+              _localWorkshopAssetUrlMap.set(refOrUrl, targetLocalUrl);
+              _localWorkshopAssetUrlMap.set(hash, targetLocalUrl);
+              return targetLocalUrl;
+            }
+            try {
+              const reuseRec = await db.localAssetMirror.get(reuseRel);
+              if (reuseRec && typeof reuseRec.dataUrl === 'string' && reuseRec.dataUrl.startsWith('data:')) {
+                dataUrl = reuseRec.dataUrl;
+              }
+            } catch (_) {}
+          }
+          if (!dataUrl) {
             const mapped = _localWorkshopAssetUrlMap.get(refOrUrl) || (hash ? _localWorkshopAssetUrlMap.get(hash) : '');
             if (mapped && mapped.startsWith('data:')) {
               dataUrl = mapped;
@@ -30464,7 +30580,24 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           return hash ? refOrUrl : '';
         }
 
-        if (createImmediateBlob) {
+        const isReplacedExistingAsset = Boolean(prevHashForRel && hash && prevHashForRel !== hash);
+        if (isReplacedExistingAsset) {
+          updatedDiskPathsInSession.add(cleanRel);
+          _localRelToBlobCache.delete(cleanRel);
+          _playableUrlRamCache.delete(targetLocalUrl);
+          _playableUrlRamCache.delete(altLocalUrl);
+          _playableUrlRamCache.delete(`/local-assets/${cleanRel}`);
+          _playableUrlRamCache.delete(`${baseUrl}/${cleanRel}`);
+          _playableUrlRamCache.delete(`/api/workshop/asset/${prevHashForRel}`);
+          if (typeof evictCroppedSpriteCacheForSourceUrl === 'function') {
+            evictCroppedSpriteCacheForSourceUrl(targetLocalUrl);
+            evictCroppedSpriteCacheForSourceUrl(altLocalUrl);
+            evictCroppedSpriteCacheForSourceUrl(`/local-assets/${cleanRel}`);
+            evictCroppedSpriteCacheForSourceUrl(`${baseUrl}/${cleanRel}`);
+          }
+        }
+
+        if (createImmediateBlob || isReplacedExistingAsset) {
           const fastBlob = toFastDisplayUrl(dataUrl);
           if (fastBlob && fastBlob.startsWith('blob:')) {
             _localRelToBlobCache.set(cleanRel, fastBlob);
@@ -30487,6 +30620,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
 
         if (!writtenDiskPathsInSession.has(cleanRel)) {
           writtenDiskPathsInSession.add(cleanRel);
+          existingMirrorKeys.add(cleanRel);
           pendingDiskBatch.push({ path: cleanRel, dataUrl, hash });
           savedAssetCount += 1;
           if (pendingDiskBatch.length >= 25) {
@@ -30843,6 +30977,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                 const fastAudioBlob = _playableUrlRamCache.get(localAudioUrl);
                 if (fastAudioBlob) {
                   _theaterTtsRamCache.set(rec.id, { src: localAudioUrl, blobUrl: fastAudioBlob });
+                } else if (updatedDiskPathsInSession.has(`audio/${safeKey}.mp3`)) {
+                  _theaterTtsRamCache.delete(rec.id);
                 }
                 const ttsRow = {
                   id: rec.id,
@@ -31003,6 +31139,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                   const fastAudioBlob = _playableUrlRamCache.get(localAudioUrl);
                   if (fastAudioBlob) {
                     _theaterTtsRamCache.set(rec.id, { src: localAudioUrl, blobUrl: fastAudioBlob });
+                  } else if (updatedDiskPathsInSession.has(`audio/${safeKey}.mp3`)) {
+                    _theaterTtsRamCache.delete(rec.id);
                   }
                   const ttsRow = {
                     id: rec.id,
@@ -31077,7 +31215,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       localProj.relPathToWorkshopHash = (!isSingleChapterMode && !opts.onlyMissing)
         ? { ...relPathToWorkshopHash }
         : { ...(localProj.relPathToWorkshopHash || {}), ...relPathToWorkshopHash };
-      localProj.updatedAt = Date.now();
+      const remoteSyncedTs = Number(remoteProj.updatedAt || Date.now());
+      localProj.workshopSyncedAt = remoteSyncedTs;
+      localProj.updatedAt = remoteSyncedTs;
       await db.replayProjects.put(localProj);
 
       try {
@@ -32156,6 +32296,78 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
     }
 
+    let _lastWorkshopIndexCheckTs = 0;
+
+    async function checkAndAutoIncrementalUpdateWorkshopProject(localProj, targetChapterOrder = -1, onProgressCb = null) {
+      if (!localProj || !localProj.id) return localProj;
+      const isWorkshopLinked = Boolean(
+        localProj.relPathToWorkshopHash ||
+        localProj.assetPackIndex ||
+        localProj.workshopSyncedAt ||
+        (Array.isArray(_workshopItemsCache) && _workshopItemsCache.some((it) => it && it.id === localProj.id))
+      );
+      if (!isWorkshopLinked) return localProj;
+
+      try {
+        // 若距上次刷新工坊索引超过 8 秒，轻量拉取一次最新 workshop-index.json 以感知作者刚刚发布的更新
+        if (Date.now() - _lastWorkshopIndexCheckTs > 8000) {
+          _lastWorkshopIndexCheckTs = Date.now();
+          const ghItems = await Promise.race([
+            fetchGithubWorkshopJson('workshop-index.json'),
+            new Promise((resolve) => setTimeout(() => resolve(null), 4500))
+          ]);
+          const listArr = Array.isArray(ghItems) ? ghItems : (ghItems && Array.isArray(ghItems.items) ? ghItems.items : []);
+          if (listArr.length > 0) {
+            listArr.forEach((it) => {
+              if (!it || !it.id) return;
+              const existIdx = (_workshopItemsCache || []).findIndex((x) => x && x.id === it.id);
+              if (existIdx >= 0) {
+                if (Number(it.updatedAt || 0) >= Number(_workshopItemsCache[existIdx].updatedAt || 0)) {
+                  _workshopItemsCache[existIdx] = it;
+                }
+              } else if (Array.isArray(_workshopItemsCache)) {
+                _workshopItemsCache.push(it);
+              }
+            });
+          }
+        }
+
+        const remoteSummary = (Array.isArray(_workshopItemsCache) ? _workshopItemsCache : []).find((it) => it && it.id === localProj.id);
+        const localSyncedTs = Number(localProj.workshopSyncedAt || localProj.updatedAt || 0);
+        const localEditTs = Number(localProj.updatedAt || 0);
+        const remoteTs = Number(remoteSummary?.updatedAt || 0);
+        const localChapCount = Array.isArray(localProj.chapters) ? localProj.chapters.length : 0;
+        const remoteChapCount = Number(remoteSummary?.chapterCount || (Array.isArray(remoteSummary?.chaptersMeta) ? remoteSummary.chaptersMeta.length : 0));
+        const missingTargetChap = targetChapterOrder >= 0 && !(localProj.chapters || []).some((c, idx) => Number(c.order ?? idx) === Number(targetChapterOrder));
+
+        const needsIncrementalUpdate = Boolean(
+          missingTargetChap ||
+          (remoteChapCount > localChapCount) ||
+          (remoteTs > 0 && localSyncedTs > 0 && remoteTs > localSyncedTs + 2000 && remoteTs >= localEditTs)
+        );
+
+        if (needsIncrementalUpdate) {
+          await restoreWorkshopProjectToLocalEngine(
+            localProj.id,
+            {
+              restoreChapters: true,
+              restoreChars: true,
+              restoreScenes: true,
+              restoreCgsAndClues: true,
+              restoreTts: true,
+              restoreBgm: true,
+              onlyMissing: false,
+              onlyChapterOrder: -1
+            },
+            onProgressCb
+          );
+          const refreshed = (appState.replayProjects || []).find((p) => p && p.id === localProj.id);
+          if (refreshed) return refreshed;
+        }
+      } catch (_) {}
+      return localProj;
+    }
+
     async function openWorkshopModuleInTheater(projectId, chapterOrder = 0) {
       requestTheaterNativeFullscreen();
       unlockBgmAudioPlayerOnUserGesture();
@@ -32174,13 +32386,24 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           return;
         }
       }
-      // 2. 若已下载保存在本机数据库，点击观看直接打开本机已下载的章节，绝不重复联网下载
-      const localProj = (appState.replayProjects || []).find((p) => p && p.id === projectId && Array.isArray(p.chapters) && p.chapters.length > 0);
+      // 2. 若已下载保存在本机数据库，自动检测云端是否有新版本：若作者已更新则自动执行去重增量下载并替换最新素材，若无更新则零延迟直读本机
+      let localProj = (appState.replayProjects || []).find((p) => p && p.id === projectId && Array.isArray(p.chapters) && p.chapters.length > 0);
       if (localProj) {
+        const watchBtn = document.getElementById(`workshop-watch-btn-${projectId}`);
+        localProj = await checkAndAutoIncrementalUpdateWorkshopProject(localProj, chapterOrder, (pct) => {
+          if (watchBtn) {
+            watchBtn.disabled = true;
+            watchBtn.textContent = `更新 ${Math.max(2, Math.min(100, Math.round(pct)))}%`;
+          }
+        });
+        if (watchBtn) {
+          watchBtn.disabled = false;
+          watchBtn.textContent = '观看';
+        }
         const foundIdx = (localProj.chapters || []).findIndex((c, idx) => Number(c.order ?? idx) === Number(chapterOrder));
-        if (foundIdx >= 0) {
+        if (foundIdx >= 0 || (localProj.chapters || []).length > 0) {
           appState.currentReplayProjectId = localProj.id;
-          appState.currentReplayChapterIdx = foundIdx;
+          appState.currentReplayChapterIdx = foundIdx >= 0 ? foundIdx : 0;
           openTheaterForCurrentChapter();
           return;
         }
@@ -34565,9 +34788,12 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const targetChapIdx = Number(chapIdx) || 0;
       appState.currentReplayChapterIdx = targetChapIdx;
       appState.theaterLineIdx = 0;
-      const curProj = getCurrentReplayProject();
+      let curProj = getCurrentReplayProject();
       if (curProj && curProj.isOnlineStream && curProj._remoteProjRef && typeof prewarmOnlineProjectChapterAssets === 'function') {
         await prewarmOnlineProjectChapterAssets(curProj._remoteProjRef, targetChapIdx);
+      } else if (curProj && !curProj.isOnlineStream && typeof checkAndAutoIncrementalUpdateWorkshopProject === 'function') {
+        curProj = await checkAndAutoIncrementalUpdateWorkshopProject(curProj, targetChapIdx);
+        appState.currentReplayChapterIdx = Math.min(targetChapIdx, Math.max(0, ((curProj && curProj.chapters) ? curProj.chapters.length : 1) - 1));
       }
       renderReplayProjectSelectors();
       closeTheaterSelectorLobby();
