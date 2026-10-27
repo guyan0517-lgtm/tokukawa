@@ -2438,14 +2438,16 @@
         <div class="moe-card">
           <div class="moe-card-header">
             <span class="moe-card-title">第一步：选择或新建模组回放工程</span>
-            <div style="display:flex;gap:6px;">
-              <button type="button" class="moe-btn" onclick="createNewReplayProject()">新建</button>
-              <button type="button" class="moe-btn secondary" onclick="document.getElementById('replay-import-pack-input').click()">导入</button>
-              <input type="file" id="replay-import-pack-input" accept=".zip,.json" style="display:none;" onchange="importReplayProjectJson(event)" />
-              <button type="button" class="moe-btn secondary" onclick="exportCurrentReplayProjectJson()">导出</button>
-              <button type="button" class="moe-btn secondary" onclick="deleteCurrentReplayProject(this)">删除</button>
-            </div>
           </div>
+          <div class="script-top-btn-grid" style="grid-template-columns:repeat(3, 1fr);gap:6px;margin-bottom:10px;">
+            <button type="button" class="moe-btn" onclick="createNewReplayProject()">新建</button>
+            <button type="button" class="moe-btn secondary" onclick="duplicateCurrentReplayProjectAsCopy(this)">副本</button>
+            <button type="button" class="moe-btn secondary" id="replay-open-cocreate-btn" onclick="openCoCreateModal()">共创</button>
+            <button type="button" class="moe-btn secondary" onclick="document.getElementById('replay-import-pack-input').click()">导入</button>
+            <button type="button" class="moe-btn secondary" onclick="exportCurrentReplayProjectJson()">导出</button>
+            <button type="button" class="moe-btn secondary" onclick="deleteCurrentReplayProject(this)">删除</button>
+          </div>
+          <input type="file" id="replay-import-pack-input" accept=".zip,.json" style="display:none;" onchange="importReplayProjectJson(event)" />
           <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
             <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
               <div id="replay-project-avatar-box" style="width:42px;height:42px;border-radius:10px;border:1px solid var(--border-color);background:var(--secondary-bg);overflow:hidden;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;" onclick="document.getElementById('replay-project-avatar-input').click()">
@@ -2466,6 +2468,16 @@
                 <button type="button" class="moe-btn secondary" onclick="saveCurrentReplayProjectTitle(document.getElementById('replay-project-title').value, false)">改名</button>
               </div>
             </div>
+          </div>
+          <div id="replay-cocreate-inline-bar" class="setting-item" style="display:none;margin-top:8px;margin-bottom:0;cursor:pointer;" onclick="openCoCreateModal()">
+            <div class="setting-item-left" style="width:28px;height:28px;border-radius:8px;background:var(--secondary-bg);border:1px solid var(--border-color);display:flex;align-items:center;justify-content:center;color:var(--accent-color);flex-shrink:0;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div class="setting-item-center">
+              <div class="setting-item-title" id="replay-cocreate-inline-title">共创房间</div>
+              <div class="setting-item-sub" id="replay-cocreate-inline-sub">实时同步已开启</div>
+            </div>
+            <div class="setting-item-right" style="font-size:11px;font-weight:700;color:var(--accent-color);" id="replay-cocreate-inline-badge">在线</div>
           </div>
           <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;line-height:1.5;">
             按键说明：点头像可设置模组专属封面图；点右上角新建可开启一个新模组工程；修改标题或点改名可同步修改本模组工程与角色档案夹名称；点导出可打包分享。
@@ -2492,9 +2504,24 @@
             </div>
             <textarea id="replay-split-prompt-textarea" class="moe-input" style="min-height:130px;font-size:11px;line-height:1.5;"></textarea>
           </div>
-          <div class="form-group" style="margin-bottom:6px;">
+          <div class="form-group" style="margin-bottom:8px;">
             <textarea id="replay-raw-log-input" class="moe-input" style="min-height:175px;font-size:12px;" placeholder="在此一次性粘贴整篇跑团日志，支持几十万至上百万字长文，或点击上方上传按钮导入txt文件..."></textarea>
           </div>
+          <div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px;">
+            <div class="form-group" style="flex:1;min-width:110px;margin-bottom:0;">
+              <label>查找内容</label>
+              <input type="text" id="replay-find-text-input" list="replay-find-replace-datalist" class="moe-input" placeholder="输入或下拉选词" onfocus="refreshReplayFindReplaceDatalist()" />
+            </div>
+            <div class="form-group" style="flex:1;min-width:110px;margin-bottom:0;">
+              <label>替换为</label>
+              <input type="text" id="replay-replace-text-input" list="replay-find-replace-datalist" class="moe-input" placeholder="输入或下拉选词" onfocus="refreshReplayFindReplaceDatalist()" />
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0;">
+              <button type="button" class="moe-btn secondary" onclick="findTextInCurrentReplayModule()">查找</button>
+              <button type="button" class="moe-btn" onclick="replaceTextInCurrentReplayModule(this)">替换</button>
+            </div>
+          </div>
+          <datalist id="replay-find-replace-datalist"></datalist>
           <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
             <div class="form-group" style="width:136px;flex-shrink:0;margin-bottom:0;">
               <label>长文分卷 分批调用AI</label>
@@ -3496,6 +3523,46 @@
           <div class="setting-item-sub">神明私下托人办事与抵扣酒账硬通货</div>
         </div>
         <div class="setting-item-right" style="font-weight:800;" id="status-modal-silver">48</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-replay-cocreate" class="modal">
+    <div class="modal-content" style="max-width:440px;">
+      <div class="moe-card-header">
+        <span class="moe-card-title">多人实时共创</span>
+        <button type="button" class="moe-btn secondary" onclick="closeModal('modal-replay-cocreate')">关闭</button>
+      </div>
+      <div class="form-group">
+        <label>共创署名昵称</label>
+        <input type="text" id="cocreate-my-nickname" class="moe-input" placeholder="输入你的共创昵称" onchange="saveCoCreateNickname(this.value)" />
+      </div>
+      <div class="setting-item">
+        <div class="setting-item-left" style="width:32px;height:32px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);display:flex;align-items:center;justify-content:center;color:var(--accent-color);flex-shrink:0;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <div class="setting-item-center">
+          <div class="setting-item-title" id="cocreate-cur-proj-title">当前工程</div>
+          <div class="setting-item-sub" id="cocreate-cur-proj-sub">尚未开启共创房间</div>
+        </div>
+        <div class="setting-item-right" style="font-size:11px;font-weight:800;color:var(--accent-color);" id="cocreate-room-code-badge">未连</div>
+      </div>
+      <div class="script-top-btn-grid" style="grid-template-columns:repeat(4, 1fr);gap:6px;margin-bottom:12px;">
+        <button type="button" class="moe-btn" id="cocreate-host-btn" onclick="startOrSyncCoCreateCurrentProject(this)">创建</button>
+        <button type="button" class="moe-btn secondary" onclick="copyCoCreateRoomCode(this)">复制</button>
+        <button type="button" class="moe-btn secondary" onclick="pushFullCoCreateSnapshotNow(this)">同步</button>
+        <button type="button" class="moe-btn secondary" onclick="leaveCurrentCoCreateRoom(this)">退出</button>
+      </div>
+      <div class="form-group">
+        <label>输入房间码加入好友共创</label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="text" id="cocreate-join-code-input" class="moe-input" style="flex:1;" placeholder="粘贴好友分享的房间码" />
+          <button type="button" class="moe-btn" id="cocreate-join-btn" onclick="joinCoCreateRoomByCode(this)">加入</button>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label>房间在线成员与同步动态</label>
+        <div id="cocreate-members-list" style="display:flex;flex-direction:column;gap:6px;"></div>
       </div>
     </div>
   </div>
@@ -17763,7 +17830,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
         appState.replayProjects.forEach((p) => {
           const opt = document.createElement('option');
           opt.value = p.id;
-          opt.textContent = p.title;
+          opt.textContent = (p.title || '未命名模组') + (p.coCreateRoomCode ? ' · 共创' : '');
           sel.appendChild(opt);
         });
         if (curProj) sel.value = curProj.id;
@@ -17773,7 +17840,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
         appState.replayProjects.forEach((p) => {
           const opt = document.createElement('option');
           opt.value = p.id;
-          opt.textContent = p.title || '未命名模组';
+          opt.textContent = (p.title || '未命名模组') + (p.coCreateRoomCode ? ' · 共创' : '');
           wsProjSel.appendChild(opt);
         });
         if (curProj) wsProjSel.value = curProj.id;
@@ -17782,6 +17849,9 @@ ${BUILTIN_CSS_TEMPLATE}`;
         titleInput.value = curProj.title || '';
       }
       updateReplayProjectAvatarPreviewDOM(curProj);
+      if (typeof refreshCoCreateUIState === 'function') {
+        refreshCoCreateUIState();
+      }
 
       const chapSelectIds = ['replay-script-chapter-select', 'replay-stagefx-chapter-select', 'replay-voice-chapter-select', 'replay-cg-chapter-select', 'replay-clue-chapter-select', 'theater-chapter-select'];
       chapSelectIds.forEach((id) => {
@@ -18063,31 +18133,7 @@ ${BUILTIN_CSS_TEMPLATE}`;
       const para = String(rawParagraph || '').replace(/^[\s\u3000]+/gm, '').trim();
       if (!para) return [];
       if (speakerName === '旁白') {
-        let kpText = para;
-        const proj = getCurrentReplayProject();
-        const pcNames = (proj?.extractedSpeakers || [])
-          .filter((s) => s.trpgType === '调查员' && (s.trueName || s.name) && (s.trueName || s.name) !== '旁白')
-          .map((s) => s.trueName || s.name);
-        if (pcNames.length === 0) {
-          (appState.characters || []).forEach((c) => {
-            if ((c.trpgType === '调查员' || c.trpgRoleType === '调查员') && c.name && c.name !== '旁白') {
-              pcNames.push(c.name);
-            }
-          });
-        }
-        const activePc = targetPcNameForKp || pcNames[0] || '';
-        const groupPcLabel = pcNames.length > 1 ? pcNames.slice(0, 2).join('与') + (pcNames.length > 2 ? '等人' : '') : (activePc ? `${activePc}等人` : '调查员们');
-        if (kpText.includes('你')) {
-          kpText = kpText
-            .replace(/你们的/g, `${groupPcLabel}的`)
-            .replace(/你们/g, groupPcLabel);
-          if (activePc) {
-            kpText = kpText
-              .replace(/你的/g, `${activePc}的`)
-              .replace(/你/g, activePc);
-          }
-        }
-        return splitOverlongSegmentIntoChunks('narration', '旁白', kpText);
+        return splitOverlongSegmentIntoChunks('narration', '旁白', para);
       }
 
       // 将第一人称动作描写自然转换为第三人称旁白，不改动玩家原有修辞文笔
@@ -19509,7 +19555,9 @@ ${splitSamplesText ? '第 ' + volNum + ' 卷各章节切分点上下文：\n' + 
         const displayName = item.trueName || item.name;
         const rawNote = item.rawName && item.rawName !== displayName ? `原昵称 ${item.rawName} · ` : '';
         const displayNoSpace = normalizeCharNameNoSpace(displayName);
-        const matchedChar = appState.characters.find((c) => (item.charId && c.id === item.charId) || normalizeCharNameNoSpace(c.name) === displayNoSpace);
+        const matchedChar = (item.charId && appState.characters.find((c) => c.id === item.charId))
+          || appState.characters.find((c) => c.moduleId === proj?.id && normalizeCharNameNoSpace(c.name) === displayNoSpace)
+          || appState.characters.find((c) => normalizeCharNameNoSpace(c.name) === displayNoSpace);
         const expCountLabel = item.trpgType === '次要NPC' ? `${MINOR_NPC_8_EXPRESSIONS.length}基础差分` : (item.trpgType === '调查员' || item.trpgType === '主要NPC' ? `${TACHIE_25_EXPRESSIONS.length}基础差分` : '');
         const importTag = item.isImported ? '<span style="font-size:10px;padding:1px 5px;border-radius:6px;background:var(--secondary-bg);color:var(--accent-color);border:1px solid var(--border-color);margin-left:4px;">导入</span>' : '';
         const statusText = item.trpgType === '场外'
@@ -21738,17 +21786,6 @@ ${numberedChapterPreview}`;
             }
             if (l.type === 'narration' || l.speaker === '旁白') {
               l.jpText = '';
-              if (l.text.includes('你')) {
-                const targetPc = lastRecentPcName || investigatorNames[0] || '';
-                l.text = l.text
-                  .replace(/你们的/g, `${groupPcLabel}的`)
-                  .replace(/你们/g, groupPcLabel);
-                if (targetPc) {
-                  l.text = l.text
-                    .replace(/你的/g, `${targetPc}的`)
-                    .replace(/你/g, targetPc);
-                }
-              }
             }
             const subChunks = splitOverlongSegmentIntoChunks(l.type, l.speaker, l.text, 96);
             if (subChunks.length <= 1) {
@@ -24433,11 +24470,6 @@ ${numberedSubGroupLines}`;
                         .replace(/^[“"「『](.*)[”"」』]$/, '$1')
                         .trim();
                       if (cleanedAiText) newText = cleanedAiText;
-                    }
-                    if (newType === 'narration' || newSpeaker === '旁白') {
-                      newText = newText
-                        .replace(/你们/g, multiInvestigatorNames)
-                        .replace(/你/g, primaryInvestigatorName);
                     }
                     let newJp = '';
                     let newTtsEmotion = 'neutral';
@@ -27820,6 +27852,25 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         });
         if (extChar) return extChar;
       }
+      const curProj = typeof getCurrentReplayProject === 'function' ? getCurrentReplayProject() : null;
+      const curModId = curProj ? curProj.id : (appState.currentReplayProjectId || '');
+      if (curModId) {
+        const modSpk = (curProj?.extractedSpeakers || []).find((s) => {
+          if (!s) return false;
+          const sNorm = typeof normalizeSpeakerName === 'function' ? normalizeSpeakerName(s.trueName || s.name) : String(s.trueName || s.name || '').trim();
+          return sNorm === normCanon && s.charId;
+        });
+        if (modSpk && modSpk.charId) {
+          const byId = (appState.characters || []).find((c) => c && c.id === modSpk.charId);
+          if (byId) return byId;
+        }
+        const modChar = (appState.characters || []).find((c) => {
+          if (!c || c.trpgType === '旁白' || c.moduleId !== curModId) return false;
+          const cNorm = typeof normalizeSpeakerName === 'function' ? normalizeSpeakerName(c.name) : String(c.name || '').trim();
+          return c.name === canon || cNorm === normCanon;
+        });
+        if (modChar) return modChar;
+      }
       return (appState.characters || []).find((c) => {
         if (!c || c.trpgType === '旁白') return false;
         const cNorm = typeof normalizeSpeakerName === 'function' ? normalizeSpeakerName(c.name) : String(c.name || '').trim();
@@ -27840,7 +27891,13 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         });
         return merged;
       }
-      return appState.characters || [];
+      const curProj = typeof getCurrentReplayProject === 'function' ? getCurrentReplayProject() : null;
+      const curModId = curProj ? curProj.id : (appState.currentReplayProjectId || '');
+      const allChars = appState.characters || [];
+      if (!curModId) return allChars;
+      const modChars = allChars.filter((c) => c && c.moduleId === curModId);
+      const otherChars = allChars.filter((c) => c && c.moduleId !== curModId);
+      return [...modChars, ...otherChars];
     }
 
     const _playableUrlRamCache = new Map();
@@ -32340,15 +32397,19 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     function getSpeakerVoiceId(speakerName) {
       let norm = normalizeSpeakerName(speakerName);
       if (!norm) return '';
-      let found = appState.characters.find((c) => normalizeSpeakerName(c.name) === norm) || findTheaterCharacterByName(speakerName);
+      const proj = getCurrentReplayProject();
+      let found = findTheaterCharacterByName(speakerName)
+        || (proj && appState.characters.find((c) => c.moduleId === proj.id && normalizeSpeakerName(c.name) === norm))
+        || appState.characters.find((c) => normalizeSpeakerName(c.name) === norm);
       if (!found) {
-        const proj = getCurrentReplayProject();
         const mappedSpk = (proj?.extractedSpeakers || []).find(
           (s) => s && (normalizeSpeakerName(s.rawName) === norm || normalizeSpeakerName(s.name) === norm)
         );
         if (mappedSpk && (mappedSpk.trueName || mappedSpk.name)) {
           norm = normalizeSpeakerName(mappedSpk.trueName || mappedSpk.name);
-          found = appState.characters.find((c) => normalizeSpeakerName(c.name) === norm) || findTheaterCharacterByName(mappedSpk.trueName || mappedSpk.name);
+          found = findTheaterCharacterByName(mappedSpk.trueName || mappedSpk.name)
+            || (proj && appState.characters.find((c) => c.moduleId === proj.id && normalizeSpeakerName(c.name) === norm))
+            || appState.characters.find((c) => normalizeSpeakerName(c.name) === norm);
         }
       }
       if (found && found.voiceId && String(found.voiceId).trim()) {
@@ -32384,7 +32445,10 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       const newPitch = isNaN(rawPitch) ? 0 : Number(Math.max(-12, Math.min(12, rawPitch)).toFixed(2));
 
       const normTarget = normalizeSpeakerName(_voiceSpeakerFilter);
-      const foundChar = appState.characters.find((c) => normalizeSpeakerName(c.name) === normTarget);
+      const curProjForVoice = getCurrentReplayProject();
+      const foundChar = findTheaterCharacterByName(_voiceSpeakerFilter)
+        || (curProjForVoice && appState.characters.find((c) => c.moduleId === curProjForVoice.id && normalizeSpeakerName(c.name) === normTarget))
+        || appState.characters.find((c) => normalizeSpeakerName(c.name) === normTarget);
       if (foundChar) {
         foundChar.voiceId = newVoiceId;
         foundChar.voiceSpeedDefault = newSpeed;
@@ -34232,7 +34296,8 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         const opt = document.createElement('option');
         opt.value = p.id;
         const mBundle = typeof _mountedExternalProjects !== 'undefined' ? _mountedExternalProjects.get(p.id) : null;
-        const suffixTag = mBundle ? (mBundle.mode === 'online' ? ' · 在线流式' : ' · 本地包') : '';
+        const coTag = p.coCreateRoomCode ? ' · 共创' : '';
+        const suffixTag = mBundle ? (mBundle.mode === 'online' ? ' · 在线流式' : ' · 本地包') : coTag;
         opt.textContent = (p.title || '未命名模组') + suffixTag;
         if (p.id === appState.currentReplayProjectId) opt.selected = true;
         sel.appendChild(opt);
@@ -38306,6 +38371,1588 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       }
     });
 
+    // =========================================================================
+    // 模组工程独立副本导出与多人实时共创同步引擎
+    // =========================================================================
+    let _coCreateApplyingRemote = false;
+    let _coCreateMqttClients = [];
+    let _coCreateBc = null;
+    let _coCreateSubscribedRooms = new Set();
+    let _coCreateSeenPacketIds = new Set();
+    let _coCreateSentAssetHashes = new Map();
+    let _coCreateLocalAssetDataUrlMap = new Map();
+    let _coCreateLocalAssetPathMap = new Map();
+    let _coCreateIncomingChunks = new Map();
+    let _coCreatePendingAssetWatchers = new Map();
+    let _coCreateRoomMembers = new Map();
+    let _coCreateActivityLog = [];
+    let _coCreateProjectBroadcastTimer = null;
+    let _coCreateCharBroadcastTimers = new Map();
+    let _coCreateHeartbeatTimer = null;
+
+    const COCREATE_MQTT_BROKERS = [
+      'wss://broker.emqx.io:8084/mqtt',
+      'wss://broker.hivemq.com:8884/mqtt'
+    ];
+    const COCREATE_MQTT_CDNS = [
+      'https://unpkg.com/mqtt@5.3.5/dist/mqtt.min.js',
+      'https://cdn.jsdelivr.net/npm/mqtt@5.3.5/dist/mqtt.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.5/mqtt.min.js'
+    ];
+    const COCREATE_TOPIC_PREFIX = 'tukey_ephone_peer_v2/cocreate';
+    const COCREATE_CHUNK_SIZE = 26000;
+
+    function getCoCreateClientId() {
+      let cid = localStorage.getItem('tukey_cocreate_client_id');
+      if (!cid) {
+        cid = 'ccu_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+        localStorage.setItem('tukey_cocreate_client_id', cid);
+      }
+      return cid;
+    }
+
+    function getCoCreateNickname() {
+      return localStorage.getItem('tukey_cocreate_nickname') || localStorage.getItem('home-user-nickname') || '共创作者';
+    }
+
+    function saveCoCreateNickname(val) {
+      const clean = String(val || '').trim() || '共创作者';
+      localStorage.setItem('tukey_cocreate_nickname', clean);
+      broadcastCoCreatePresence();
+      refreshCoCreateUIState();
+    }
+
+    function fastCoCreateHash(str) {
+      const s = String(str || '');
+      let h1 = 0xdeadbeef ^ s.length;
+      let h2 = 0x41c6ce57 ^ s.length;
+      const step = Math.max(1, Math.floor(s.length / 4096));
+      for (let i = 0; i < s.length; i += step) {
+        const ch = s.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+      }
+      h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+      h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+      return 'h' + (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36) + '_' + s.length.toString(36);
+    }
+
+    function addCoCreateActivity(text) {
+      if (!text) return;
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      const ss = String(now.getSeconds()).padStart(2, '0');
+      _coCreateActivityLog.unshift({ time: `${hh}:${mm}:${ss}`, text });
+      if (_coCreateActivityLog.length > 15) _coCreateActivityLog.length = 15;
+      refreshCoCreateUIState();
+    }
+
+    // 为指定工程隔离克隆专属角色，确保不覆盖原工程或其他模组的同名角色
+    async function ensureIsolatedCharactersForProject(proj, sourceProjIdForLookup = '') {
+      if (!proj) return [];
+      const refNames = new Set();
+      (proj.extractedSpeakers || []).forEach((s) => {
+        if (!s || s.trpgType === '旁白' || s.trpgType === '场外' || s.trpgType === '骰子') return;
+        const n = normalizeSpeakerName(s.trueName || s.name);
+        if (n && n !== '旁白') refNames.add(n);
+      });
+      (proj.chapters || []).forEach((ch) => {
+        (ch.scriptLines || []).forEach((line) => {
+          if (line && line.type === 'dialogue' && line.speaker) {
+            const n = normalizeSpeakerName(line.speaker);
+            if (n && n !== '旁白' && n !== '检定') refNames.add(n);
+          }
+        });
+      });
+
+      const clonedChars = [];
+      const charIdRemap = new Map();
+      const allChars = appState.characters || [];
+      const lookupModId = sourceProjIdForLookup || proj.id;
+
+      // 1. 先收集原模组已绑定的角色
+      const candidateChars = [];
+      const seenNormNames = new Set();
+      allChars.forEach((c) => {
+        if (!c || c.id === 'narrator_kp' || c.trpgType === '旁白') return;
+        const cNorm = normalizeSpeakerName(c.name);
+        if (c.moduleId === lookupModId) {
+          candidateChars.push(c);
+          if (cNorm) seenNormNames.add(cNorm);
+        }
+      });
+
+      // 2. 再补充本工程出场但原本挂在通用或其他模组下的角色
+      refNames.forEach((normName) => {
+        if (seenNormNames.has(normName)) return;
+        const matched = allChars.find((c) => c && c.id !== 'narrator_kp' && normalizeSpeakerName(c.name) === normName);
+        if (matched) {
+          candidateChars.push(matched);
+          seenNormNames.add(normName);
+        }
+      });
+
+      for (let i = 0; i < candidateChars.length; i++) {
+        const srcChar = candidateChars[i];
+        if (srcChar.moduleId === proj.id && srcChar.isUniversal === false && !sourceProjIdForLookup) {
+          clonedChars.push(srcChar);
+          continue;
+        }
+        const newChar = JSON.parse(JSON.stringify(srcChar));
+        const newId = `char_${proj.id}_${i}_${Math.random().toString(36).slice(2, 6)}`;
+        charIdRemap.set(srcChar.id, newId);
+        newChar.id = newId;
+        newChar.moduleId = proj.id;
+        newChar.moduleTitle = proj.title || '共创模组';
+        newChar.isUniversal = false;
+        await db.characters.put(newChar);
+        clonedChars.push(newChar);
+      }
+
+      if (Array.isArray(proj.extractedSpeakers)) {
+        proj.extractedSpeakers.forEach((spk) => {
+          if (!spk) return;
+          if (spk.charId && charIdRemap.has(spk.charId)) {
+            spk.charId = charIdRemap.get(spk.charId);
+          } else {
+            const sNorm = normalizeSpeakerName(spk.trueName || spk.name);
+            const hit = clonedChars.find((c) => normalizeSpeakerName(c.name) === sNorm);
+            if (hit) spk.charId = hit.id;
+          }
+        });
+      }
+
+      appState.characters = await db.characters.toArray();
+      return clonedChars;
+    }
+
+    // 导出当前工程为独立本地副本，包含独立章节、独立配音缓存与独立角色立绘档案
+    async function duplicateCurrentReplayProjectAsCopy(btnEl) {
+      const srcProj = getCurrentReplayProject();
+      if (!srcProj) return;
+      const origText = btnEl ? btnEl.textContent : '副本';
+      if (btnEl) btnEl.textContent = '复制';
+      try {
+        const copyProj = JSON.parse(JSON.stringify(srcProj));
+        const newProjId = 'replay_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+        copyProj.id = newProjId;
+        const baseTitle = String(srcProj.title || '跑团模组工程').replace(/\s*·\s*副本.*$/, '');
+        copyProj.title = `${baseTitle} · 副本`;
+        copyProj.coCreateRoomCode = '';
+        copyProj.updatedAt = Date.now();
+
+        const chapIdMap = new Map();
+        (copyProj.chapters || []).forEach((ch, idx) => {
+          const oldId = ch.id;
+          const newChapId = `chap_${newProjId}_${idx + 1}`;
+          if (oldId) chapIdMap.set(oldId, newChapId);
+          ch.id = newChapId;
+        });
+
+        // 复制对应的章节语音缓存
+        if (chapIdMap.size > 0) {
+          const allTts = await db.ttsCache.toArray();
+          const newTtsItems = [];
+          for (const item of allTts) {
+            if (!item || !item.id) continue;
+            for (const [oldCid, newCid] of chapIdMap.entries()) {
+              if (item.id.startsWith(oldCid + '_')) {
+                const clonedTts = JSON.parse(JSON.stringify(item));
+                clonedTts.id = newCid + item.id.slice(oldCid.length);
+                clonedTts.chapterId = newCid;
+                newTtsItems.push(clonedTts);
+                break;
+              }
+            }
+          }
+          if (newTtsItems.length > 0) {
+            await db.ttsCache.bulkPut(newTtsItems);
+          }
+        }
+
+        // 为副本克隆专属角色与立绘档案，绝不污染原工程
+        await ensureIsolatedCharactersForProject(copyProj, srcProj.id);
+        await saveReplayProjectToDB(copyProj);
+
+        appState.currentReplayProjectId = copyProj.id;
+        appState.currentReplayChapterIdx = 0;
+        populateCharacterSelects();
+        populatePersonaModuleFilterSelect();
+        renderPersonaGrid();
+        renderReplayStudioUI();
+        if (typeof renderTheaterSelectorLobby === 'function') {
+          renderTheaterSelectorLobby();
+        }
+        if (btnEl) {
+          btnEl.textContent = '已建';
+          setTimeout(() => { btnEl.textContent = origText; }, 1200);
+        }
+      } catch (err) {
+        if (btnEl) btnEl.textContent = origText;
+        alert('创建工程副本失败：' + (err?.message || err));
+      }
+    }
+
+    function ensureMqttScriptLoaded() {
+      if (typeof window.mqtt !== 'undefined') return Promise.resolve(window.mqtt);
+      if (window._coCreateMqttLoadingPromise) return window._coCreateMqttLoadingPromise;
+      window._coCreateMqttLoadingPromise = new Promise((resolve) => {
+        let idx = 0;
+        const tryNext = () => {
+          if (typeof window.mqtt !== 'undefined') {
+            resolve(window.mqtt);
+            return;
+          }
+          if (idx >= COCREATE_MQTT_CDNS.length) {
+            resolve(null);
+            return;
+          }
+          const script = document.createElement('script');
+          script.src = COCREATE_MQTT_CDNS[idx++];
+          script.async = true;
+          script.onload = () => {
+            if (typeof window.mqtt !== 'undefined') resolve(window.mqtt);
+            else tryNext();
+          };
+          script.onerror = () => tryNext();
+          document.head.appendChild(script);
+        };
+        tryNext();
+      });
+      return window._coCreateMqttLoadingPromise;
+    }
+
+    async function ensureCoCreateTransportReady() {
+      if (!_coCreateBc && typeof BroadcastChannel !== 'undefined') {
+        try {
+          _coCreateBc = new BroadcastChannel('tukey_cocreate_bus_v1');
+          _coCreateBc.onmessage = (ev) => {
+            if (ev && ev.data) handleIncomingCoCreatePacket(ev.data);
+          };
+        } catch (_) {}
+      }
+
+      const mqttLib = await ensureMqttScriptLoaded();
+      if (!mqttLib) return;
+      if (_coCreateMqttClients.length > 0) {
+        subscribeAllActiveCoCreateRooms();
+        return;
+      }
+
+      COCREATE_MQTT_BROKERS.forEach((brokerUrl, bIdx) => {
+        try {
+          const client = mqttLib.connect(brokerUrl, {
+            clientId: `${getCoCreateClientId()}_b${bIdx}_${Math.random().toString(36).slice(2, 5)}`,
+            clean: true,
+            keepalive: 30,
+            reconnectPeriod: 3500,
+            connectTimeout: 10000
+          });
+          client.on('connect', () => {
+            subscribeAllActiveCoCreateRooms();
+            broadcastCoCreatePresence();
+            refreshCoCreateUIState();
+          });
+          client.on('reconnect', () => {
+            refreshCoCreateUIState();
+          });
+          client.on('offline', () => {
+            refreshCoCreateUIState();
+          });
+          client.on('message', (topic, payload) => {
+            try {
+              const str = typeof payload === 'string' ? payload : new TextDecoder().decode(payload);
+              if (!str) return;
+              const pkt = JSON.parse(str);
+              handleIncomingCoCreatePacket(pkt);
+            } catch (_) {}
+          });
+          _coCreateMqttClients.push(client);
+        } catch (_) {}
+      });
+    }
+
+    function getCoCreateTopicsForRoom(roomCode) {
+      const code = String(roomCode || '').trim().toUpperCase();
+      return {
+        event: `${COCREATE_TOPIC_PREFIX}/${code}/event`,
+        snapshot: `${COCREATE_TOPIC_PREFIX}/${code}/snapshot`,
+        chunk: `${COCREATE_TOPIC_PREFIX}/${code}/chunk`
+      };
+    }
+
+    function subscribeAllActiveCoCreateRooms() {
+      const rooms = new Set();
+      (appState.replayProjects || []).forEach((p) => {
+        if (p && p.coCreateRoomCode) {
+          rooms.add(String(p.coCreateRoomCode).trim().toUpperCase());
+        }
+      });
+      _coCreateSubscribedRooms.forEach((r) => rooms.add(r));
+      rooms.forEach((code) => {
+        if (!code) return;
+        _coCreateSubscribedRooms.add(code);
+        const topics = getCoCreateTopicsForRoom(code);
+        _coCreateMqttClients.forEach((client) => {
+          if (client && client.connected) {
+            client.subscribe([topics.event, topics.snapshot, topics.chunk], { qos: 1 }, () => {});
+          }
+        });
+      });
+    }
+
+    function publishCoCreatePacket(roomCode, packet, options = {}) {
+      const code = String(roomCode || '').trim().toUpperCase();
+      if (!code || !packet) return;
+      const pkt = {
+        ...packet,
+        roomCode: code,
+        senderId: getCoCreateClientId(),
+        senderName: getCoCreateNickname(),
+        packetId: packet.packetId || ('pkt_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8)),
+        ts: Date.now()
+      };
+      _coCreateSeenPacketIds.add(pkt.packetId);
+      if (_coCreateSeenPacketIds.size > 4000) {
+        const first = _coCreateSeenPacketIds.values().next().value;
+        _coCreateSeenPacketIds.delete(first);
+      }
+
+      if (_coCreateBc) {
+        try { _coCreateBc.postMessage(pkt); } catch (_) {}
+      }
+
+      const topics = getCoCreateTopicsForRoom(code);
+      const targetTopic = options.isSnapshot
+        ? topics.snapshot
+        : (options.isChunk ? topics.chunk : topics.event);
+      const payloadStr = JSON.stringify(pkt);
+      const mqttOpts = {
+        qos: 1,
+        retain: Boolean(options.retain)
+      };
+
+      _coCreateMqttClients.forEach((client) => {
+        if (client && client.connected) {
+          try {
+            client.publish(targetTopic, payloadStr, mqttOpts);
+          } catch (_) {}
+        }
+      });
+    }
+
+    // 将任意本地资源URL打包为可跨网传输的哈希引用并按分片流式推送
+    async function dehydrateUrlForCoCreate(rawUrl, roomCode, assetQueue, saveRelPathHint) {
+      if (!rawUrl || typeof rawUrl !== 'string') return rawUrl;
+      if (rawUrl.startsWith('data:image/svg+xml')) return rawUrl;
+      if (rawUrl.startsWith('__CC_ASSET__:')) return rawUrl;
+      const dataUrl = await packAssetUrlToPortableDataUrl(rawUrl);
+      if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) {
+        return rawUrl;
+      }
+      const mimeMatch = dataUrl.match(/^data:([^;,]+)/);
+      const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+      const hash = fastCoCreateHash(dataUrl);
+      _coCreateLocalAssetDataUrlMap.set(hash, dataUrl);
+      if (saveRelPathHint) {
+        _coCreateLocalAssetPathMap.set(hash, saveRelPathHint);
+      }
+      if (assetQueue && !assetQueue.some((a) => a.hash === hash)) {
+        assetQueue.push({ hash, mime, dataUrl, savePath: saveRelPathHint || `cocreate/${hash}` });
+      }
+      return `__CC_ASSET__:${hash}:${mime}:${encodeURIComponent(saveRelPathHint || `cocreate/${hash}`)}`;
+    }
+
+    async function hydrateUrlFromCoCreate(tokenOrUrl, roomCode, onLateHydrated) {
+      if (!tokenOrUrl || typeof tokenOrUrl !== 'string') return tokenOrUrl;
+      if (!tokenOrUrl.startsWith('__CC_ASSET__:')) return tokenOrUrl;
+      const parts = tokenOrUrl.split(':');
+      const hash = parts[1] || '';
+      const mime = parts[2] || 'image/png';
+      const savePath = parts[3] ? decodeURIComponent(parts[3]) : `cocreate/${hash}`;
+      if (!hash) return '';
+
+      if (_coCreateLocalAssetPathMap.has(hash)) {
+        const existingLocalUrl = _coCreateLocalAssetPathMap.get(hash);
+        if (existingLocalUrl && !existingLocalUrl.startsWith('cocreate/')) {
+          return existingLocalUrl;
+        }
+      }
+
+      if (_coCreateLocalAssetDataUrlMap.has(hash)) {
+        const dataUrl = _coCreateLocalAssetDataUrlMap.get(hash);
+        const savedUrl = await saveAssetToLocalBridge(savePath, dataUrl);
+        _coCreateLocalAssetPathMap.set(hash, savedUrl);
+        return savedUrl;
+      }
+
+      // 尚未收到完整分片，注册回调并向房间请求该资源分片
+      if (onLateHydrated) {
+        if (!_coCreatePendingAssetWatchers.has(hash)) {
+          _coCreatePendingAssetWatchers.set(hash, []);
+        }
+        _coCreatePendingAssetWatchers.get(hash).push({ savePath, cb: onLateHydrated });
+      }
+      if (roomCode) {
+        publishCoCreatePacket(roomCode, {
+          type: 'REQUEST_ASSET',
+          hash,
+          mime,
+          savePath
+        });
+      }
+      return '';
+    }
+
+    async function streamAssetQueueToCoCreateRoom(roomCode, assetQueue, forceResend = false) {
+      const code = String(roomCode || '').trim().toUpperCase();
+      if (!code || !Array.isArray(assetQueue) || assetQueue.length === 0) return;
+      if (!_coCreateSentAssetHashes.has(code)) {
+        _coCreateSentAssetHashes.set(code, new Set());
+      }
+      const sentSet = _coCreateSentAssetHashes.get(code);
+
+      for (const item of assetQueue) {
+        if (!item || !item.hash || !item.dataUrl) continue;
+        if (!forceResend && sentSet.has(item.hash)) continue;
+        sentSet.add(item.hash);
+
+        const raw = item.dataUrl;
+        const total = Math.max(1, Math.ceil(raw.length / COCREATE_CHUNK_SIZE));
+        for (let idx = 0; idx < total; idx++) {
+          const slice = raw.slice(idx * COCREATE_CHUNK_SIZE, (idx + 1) * COCREATE_CHUNK_SIZE);
+          publishCoCreatePacket(code, {
+            type: 'ASSET_CHUNK',
+            hash: item.hash,
+            mime: item.mime || 'image/png',
+            savePath: item.savePath || `cocreate/${item.hash}`,
+            idx,
+            total,
+            data: slice
+          }, { isChunk: true });
+          if (idx % 3 === 2) {
+            await new Promise((r) => setTimeout(r, 18));
+          }
+        }
+      }
+    }
+
+    async function buildDehydratedProjectPayload(proj, roomCode) {
+      const clone = JSON.parse(JSON.stringify(proj));
+      const assetQueue = [];
+      const safeProj = String(clone.id || 'proj').replace(/[^a-zA-Z0-9_-]/g, '_');
+      if (clone.avatarUrl) {
+        clone.avatarUrl = await dehydrateUrlForCoCreate(clone.avatarUrl, roomCode, assetQueue, `projects/${safeProj}/avatar.jpg`);
+      }
+      for (let i = 0; i < (clone.globalScenes || []).length; i++) {
+        const gsc = clone.globalScenes[i];
+        if (gsc && gsc.imageUrl) {
+          gsc.imageUrl = await dehydrateUrlForCoCreate(gsc.imageUrl, roomCode, assetQueue, `projects/${safeProj}/scenes/global_${gsc.id || i}.png`);
+        }
+      }
+      for (let cIdx = 0; cIdx < (clone.chapters || []).length; cIdx++) {
+        const ch = clone.chapters[cIdx];
+        for (let sIdx = 0; sIdx < (ch.scenes || []).length; sIdx++) {
+          const sc = ch.scenes[sIdx];
+          if (sc && sc.imageUrl) {
+            sc.imageUrl = await dehydrateUrlForCoCreate(sc.imageUrl, roomCode, assetQueue, `projects/${safeProj}/scenes/${sc.id || sIdx}.png`);
+          }
+        }
+        for (let gIdx = 0; gIdx < (ch.cgNodes || []).length; gIdx++) {
+          const cg = ch.cgNodes[gIdx];
+          if (cg && cg.imageUrl) {
+            cg.imageUrl = await dehydrateUrlForCoCreate(cg.imageUrl, roomCode, assetQueue, `projects/${safeProj}/cgs/${cg.id || gIdx}.png`);
+          }
+          if (cg && cg.customPadImg) {
+            cg.customPadImg = await dehydrateUrlForCoCreate(cg.customPadImg, roomCode, assetQueue, `projects/${safeProj}/cgs/pad_${cg.id || gIdx}.png`);
+          }
+        }
+        for (let lIdx = 0; lIdx < (ch.clueNodes || []).length; lIdx++) {
+          const cl = ch.clueNodes[lIdx];
+          if (cl && cl.imageUrl) {
+            cl.imageUrl = await dehydrateUrlForCoCreate(cl.imageUrl, roomCode, assetQueue, `projects/${safeProj}/clues/${cl.id || lIdx}.png`);
+          }
+        }
+      }
+      for (let sgIdx = 0; sgIdx < (clone.subGroups || []).length; sgIdx++) {
+        const sg = clone.subGroups[sgIdx];
+        for (let sIdx = 0; sIdx < (sg.scenes || []).length; sIdx++) {
+          const sc = sg.scenes[sIdx];
+          if (sc && sc.imageUrl) {
+            sc.imageUrl = await dehydrateUrlForCoCreate(sc.imageUrl, roomCode, assetQueue, `projects/${safeProj}/scenes/sg_${sc.id || sIdx}.png`);
+          }
+        }
+        for (let gIdx = 0; gIdx < (sg.cgNodes || []).length; gIdx++) {
+          const cg = sg.cgNodes[gIdx];
+          if (cg && cg.imageUrl) {
+            cg.imageUrl = await dehydrateUrlForCoCreate(cg.imageUrl, roomCode, assetQueue, `projects/${safeProj}/cgs/sg_${cg.id || gIdx}.png`);
+          }
+          if (cg && cg.customPadImg) {
+            cg.customPadImg = await dehydrateUrlForCoCreate(cg.customPadImg, roomCode, assetQueue, `projects/${safeProj}/cgs/sg_pad_${cg.id || gIdx}.png`);
+          }
+        }
+        for (let lIdx = 0; lIdx < (sg.clueNodes || []).length; lIdx++) {
+          const cl = sg.clueNodes[lIdx];
+          if (cl && cl.imageUrl) {
+            cl.imageUrl = await dehydrateUrlForCoCreate(cl.imageUrl, roomCode, assetQueue, `projects/${safeProj}/clues/sg_${cl.id || lIdx}.png`);
+          }
+        }
+      }
+      return { dehydratedProject: clone, assetQueue };
+    }
+
+    async function buildDehydratedCharacterPayload(charObj, roomCode) {
+      const c = JSON.parse(JSON.stringify(charObj));
+      const assetQueue = [];
+      const safeId = String(c.id || c.name || 'char').replace(/[^a-zA-Z0-9_-]/g, '_');
+      if (c.profileAvatar) c.profileAvatar = await dehydrateUrlForCoCreate(c.profileAvatar, roomCode, assetQueue, `characters/${safeId}/profile_avatar.png`);
+      if (c.stageBustAvatar) c.stageBustAvatar = await dehydrateUrlForCoCreate(c.stageBustAvatar, roomCode, assetQueue, `characters/${safeId}/stage_bust.png`);
+      if (c.tachieBase) c.tachieBase = await dehydrateUrlForCoCreate(c.tachieBase, roomCode, assetQueue, `characters/${safeId}/base.png`);
+      if (c.charLockImg) c.charLockImg = await dehydrateUrlForCoCreate(c.charLockImg, roomCode, assetQueue, `characters/${safeId}/lock.png`);
+      if (c.chibiImg) c.chibiImg = await dehydrateUrlForCoCreate(c.chibiImg, roomCode, assetQueue, `characters/${safeId}/chibiImg.png`);
+      if (c.tachieExpressions && typeof c.tachieExpressions === 'object') {
+        for (const k of Object.keys(c.tachieExpressions)) {
+          const safeExp = String(k).replace(/[\\/:*?"<>|]/g, '_');
+          c.tachieExpressions[k] = await dehydrateUrlForCoCreate(c.tachieExpressions[k], roomCode, assetQueue, `characters/${safeId}/${safeExp}.png`);
+        }
+      }
+      if (c.tachieRawExpressions && typeof c.tachieRawExpressions === 'object') {
+        for (const k of Object.keys(c.tachieRawExpressions)) {
+          const safeExp = String(k).replace(/[\\/:*?"<>|]/g, '_');
+          c.tachieRawExpressions[k] = await dehydrateUrlForCoCreate(c.tachieRawExpressions[k], roomCode, assetQueue, `characters/${safeId}/raw_${safeExp}.png`);
+        }
+      }
+      return { dehydratedChar: c, assetQueue };
+    }
+
+    async function buildDehydratedTtsPayload(ttsItem, roomCode) {
+      const item = JSON.parse(JSON.stringify(ttsItem));
+      const assetQueue = [];
+      if (item.audioDataUrl) {
+        const safeId = String(item.id || 'tts').replace(/[^a-zA-Z0-9_-]/g, '_');
+        item.audioDataUrl = await dehydrateUrlForCoCreate(item.audioDataUrl, roomCode, assetQueue, `audio/${safeId}.mp3`);
+      }
+      return { dehydratedTts: item, assetQueue };
+    }
+
+    async function hydrateIncomingProjectObject(rawProj, roomCode) {
+      const proj = JSON.parse(JSON.stringify(rawProj));
+      proj.coCreateRoomCode = roomCode;
+      if (proj.avatarUrl) {
+        proj.avatarUrl = await hydrateUrlFromCoCreate(proj.avatarUrl, roomCode, async (resolvedUrl) => {
+          const target = appState.replayProjects.find((p) => p && p.id === proj.id);
+          if (target) {
+            target.avatarUrl = resolvedUrl;
+            _coCreateApplyingRemote = true;
+            await db.replayProjects.put(target);
+            _coCreateApplyingRemote = false;
+            updateReplayProjectAvatarPreviewDOM(target);
+          }
+        });
+      }
+      for (const gsc of (proj.globalScenes || [])) {
+        if (gsc && gsc.imageUrl) {
+          gsc.imageUrl = await hydrateUrlFromCoCreate(gsc.imageUrl, roomCode, async (resolvedUrl) => {
+            gsc.imageUrl = resolvedUrl;
+            await saveRemoteHydratedProject(proj);
+          });
+        }
+      }
+      for (const ch of (proj.chapters || [])) {
+        for (const sc of (ch.scenes || [])) {
+          if (sc && sc.imageUrl) {
+            sc.imageUrl = await hydrateUrlFromCoCreate(sc.imageUrl, roomCode, async (resolvedUrl) => {
+              sc.imageUrl = resolvedUrl;
+              await saveRemoteHydratedProject(proj);
+            });
+          }
+        }
+        for (const cg of (ch.cgNodes || [])) {
+          if (cg && cg.imageUrl) {
+            cg.imageUrl = await hydrateUrlFromCoCreate(cg.imageUrl, roomCode, async (resolvedUrl) => {
+              cg.imageUrl = resolvedUrl;
+              await saveRemoteHydratedProject(proj);
+            });
+          }
+          if (cg && cg.customPadImg) {
+            cg.customPadImg = await hydrateUrlFromCoCreate(cg.customPadImg, roomCode, async (resolvedUrl) => {
+              cg.customPadImg = resolvedUrl;
+              await saveRemoteHydratedProject(proj);
+            });
+          }
+        }
+        for (const cl of (ch.clueNodes || [])) {
+          if (cl && cl.imageUrl) {
+            cl.imageUrl = await hydrateUrlFromCoCreate(cl.imageUrl, roomCode, async (resolvedUrl) => {
+              cl.imageUrl = resolvedUrl;
+              await saveRemoteHydratedProject(proj);
+            });
+          }
+        }
+        if (typeof syncChapterCgLineBindings === 'function') syncChapterCgLineBindings(ch);
+        if (typeof syncChapterClueLineBindings === 'function') syncChapterClueLineBindings(ch);
+      }
+      for (const sg of (proj.subGroups || [])) {
+        for (const sc of (sg.scenes || [])) {
+          if (sc && sc.imageUrl) {
+            sc.imageUrl = await hydrateUrlFromCoCreate(sc.imageUrl, roomCode, async (resolvedUrl) => {
+              sc.imageUrl = resolvedUrl;
+              await saveRemoteHydratedProject(proj);
+            });
+          }
+        }
+        for (const cg of (sg.cgNodes || [])) {
+          if (cg && cg.imageUrl) {
+            cg.imageUrl = await hydrateUrlFromCoCreate(cg.imageUrl, roomCode, async (resolvedUrl) => {
+              cg.imageUrl = resolvedUrl;
+              await saveRemoteHydratedProject(proj);
+            });
+          }
+          if (cg && cg.customPadImg) {
+            cg.customPadImg = await hydrateUrlFromCoCreate(cg.customPadImg, roomCode, async (resolvedUrl) => {
+              cg.customPadImg = resolvedUrl;
+              await saveRemoteHydratedProject(proj);
+            });
+          }
+        }
+        for (const cl of (sg.clueNodes || [])) {
+          if (cl && cl.imageUrl) {
+            cl.imageUrl = await hydrateUrlFromCoCreate(cl.imageUrl, roomCode, async (resolvedUrl) => {
+              cl.imageUrl = resolvedUrl;
+              await saveRemoteHydratedProject(proj);
+            });
+          }
+        }
+        if (typeof syncChapterCgLineBindings === 'function') syncChapterCgLineBindings(sg);
+        if (typeof syncChapterClueLineBindings === 'function') syncChapterClueLineBindings(sg);
+      }
+      return proj;
+    }
+
+    async function saveRemoteHydratedProject(proj) {
+      if (!proj) return;
+      _coCreateApplyingRemote = true;
+      try {
+        const idx = appState.replayProjects.findIndex((p) => p && p.id === proj.id);
+        if (idx >= 0) appState.replayProjects[idx] = proj;
+        else appState.replayProjects.unshift(proj);
+        await db.replayProjects.put(proj);
+      } finally {
+        _coCreateApplyingRemote = false;
+      }
+      refreshActiveViewsAfterRemoteSync(proj.id);
+    }
+
+    async function hydrateIncomingCharacterObject(rawChar, roomCode, targetProjectId, targetProjectTitle) {
+      const c = JSON.parse(JSON.stringify(rawChar));
+      if (targetProjectId) {
+        c.moduleId = targetProjectId;
+        c.moduleTitle = targetProjectTitle || c.moduleTitle || '共创模组';
+        c.isUniversal = false;
+      }
+      const saveCharLate = async () => {
+        _coCreateApplyingRemote = true;
+        try {
+          await db.characters.put(c);
+          const idx = appState.characters.findIndex((x) => x && x.id === c.id);
+          if (idx >= 0) appState.characters[idx] = c;
+          else appState.characters.push(c);
+        } finally {
+          _coCreateApplyingRemote = false;
+        }
+        refreshActiveViewsAfterRemoteSync(targetProjectId);
+      };
+
+      if (c.profileAvatar) c.profileAvatar = await hydrateUrlFromCoCreate(c.profileAvatar, roomCode, async (u) => { c.profileAvatar = u; await saveCharLate(); });
+      if (c.stageBustAvatar) c.stageBustAvatar = await hydrateUrlFromCoCreate(c.stageBustAvatar, roomCode, async (u) => { c.stageBustAvatar = u; await saveCharLate(); });
+      if (c.tachieBase) c.tachieBase = await hydrateUrlFromCoCreate(c.tachieBase, roomCode, async (u) => { c.tachieBase = u; await saveCharLate(); });
+      if (c.charLockImg) c.charLockImg = await hydrateUrlFromCoCreate(c.charLockImg, roomCode, async (u) => { c.charLockImg = u; await saveCharLate(); });
+      if (c.chibiImg) c.chibiImg = await hydrateUrlFromCoCreate(c.chibiImg, roomCode, async (u) => { c.chibiImg = u; await saveCharLate(); });
+      if (c.tachieExpressions && typeof c.tachieExpressions === 'object') {
+        for (const k of Object.keys(c.tachieExpressions)) {
+          c.tachieExpressions[k] = await hydrateUrlFromCoCreate(c.tachieExpressions[k], roomCode, async (u) => {
+            c.tachieExpressions[k] = u;
+            await saveCharLate();
+          });
+        }
+      }
+      if (c.tachieRawExpressions && typeof c.tachieRawExpressions === 'object') {
+        for (const k of Object.keys(c.tachieRawExpressions)) {
+          c.tachieRawExpressions[k] = await hydrateUrlFromCoCreate(c.tachieRawExpressions[k], roomCode, async (u) => {
+            c.tachieRawExpressions[k] = u;
+            await saveCharLate();
+          });
+        }
+      }
+      return c;
+    }
+
+    async function hydrateIncomingTtsObject(rawTts, roomCode, targetProjectId) {
+      const item = JSON.parse(JSON.stringify(rawTts));
+      if (item.audioDataUrl) {
+        item.audioDataUrl = await hydrateUrlFromCoCreate(item.audioDataUrl, roomCode, async (u) => {
+          item.audioDataUrl = u;
+          _coCreateApplyingRemote = true;
+          try {
+            await db.ttsCache.put(item);
+          } finally {
+            _coCreateApplyingRemote = false;
+          }
+          if (typeof _chapterPreloadedTtsMap !== 'undefined') {
+            _chapterPreloadedTtsMap.delete(item.id);
+          }
+          refreshActiveViewsAfterRemoteSync(targetProjectId);
+        });
+      }
+      return item;
+    }
+
+    function refreshActiveViewsAfterRemoteSync(updatedProjectId) {
+      try {
+        populateCharacterSelects();
+        populatePersonaModuleFilterSelect();
+        const activeScreen = document.querySelector('.screen.active')?.id || '';
+        if (activeScreen === 'screen-persona') {
+          renderPersonaGrid();
+        } else if (activeScreen === 'screen-tachie') {
+          if (typeof renderTachieStudio === 'function') renderTachieStudio();
+        } else if (activeScreen === 'screen-replay') {
+          renderReplayProjectSelectors();
+          if (!updatedProjectId || updatedProjectId === appState.currentReplayProjectId) {
+            const activeTag = document.activeElement?.tagName;
+            const isTyping = activeTag === 'INPUT' || activeTag === 'TEXTAREA';
+            if (!isTyping) {
+              renderReplayStudioUI();
+            } else {
+              renderExtractedSpeakersList();
+              renderReplayChapterList();
+            }
+          }
+        } else if (activeScreen === 'screen-theater') {
+          if (typeof renderTheaterSelectorLobby === 'function') {
+            const lobby = document.getElementById('vn-theater-selector-lobby');
+            if (lobby && lobby.classList.contains('active')) {
+              renderTheaterSelectorLobby();
+            }
+          }
+          if (!updatedProjectId || updatedProjectId === appState.currentReplayProjectId) {
+            if (typeof renderTheaterCurrentLine === 'function') {
+              renderTheaterCurrentLine();
+            }
+          }
+        }
+        refreshCoCreateUIState();
+      } catch (_) {}
+    }
+
+    async function handleIncomingCoCreatePacket(pkt) {
+      if (!pkt || typeof pkt !== 'object') return;
+      if (pkt.senderId && pkt.senderId === getCoCreateClientId()) return;
+      if (pkt.packetId) {
+        if (_coCreateSeenPacketIds.has(pkt.packetId)) return;
+        _coCreateSeenPacketIds.add(pkt.packetId);
+      }
+      const roomCode = String(pkt.roomCode || '').trim().toUpperCase();
+      if (!roomCode || !_coCreateSubscribedRooms.has(roomCode)) return;
+
+      // 更新在线成员状态
+      if (pkt.senderId) {
+        if (!_coCreateRoomMembers.has(roomCode)) {
+          _coCreateRoomMembers.set(roomCode, new Map());
+        }
+        _coCreateRoomMembers.get(roomCode).set(pkt.senderId, {
+          id: pkt.senderId,
+          name: pkt.senderName || '共创好友',
+          lastSeen: Date.now()
+        });
+      }
+
+      if (pkt.type === 'PRESENCE') {
+        refreshCoCreateUIState();
+        return;
+      }
+
+      if (pkt.type === 'ASSET_CHUNK') {
+        const { hash, idx, total, data, savePath } = pkt;
+        if (!hash || typeof idx !== 'number' || typeof total !== 'number') return;
+        if (!_coCreateIncomingChunks.has(hash)) {
+          _coCreateIncomingChunks.set(hash, { parts: new Array(total), received: 0, total, savePath });
+        }
+        const entry = _coCreateIncomingChunks.get(hash);
+        if (!entry.parts[idx]) {
+          entry.parts[idx] = data || '';
+          entry.received += 1;
+        }
+        if (entry.received >= entry.total) {
+          const fullDataUrl = entry.parts.join('');
+          _coCreateIncomingChunks.delete(hash);
+          _coCreateLocalAssetDataUrlMap.set(hash, fullDataUrl);
+          const finalPath = entry.savePath || savePath || `cocreate/${hash}`;
+          const savedUrl = await saveAssetToLocalBridge(finalPath, fullDataUrl);
+          _coCreateLocalAssetPathMap.set(hash, savedUrl);
+          const watchers = _coCreatePendingAssetWatchers.get(hash) || [];
+          _coCreatePendingAssetWatchers.delete(hash);
+          for (const w of watchers) {
+            try { await w.cb(savedUrl); } catch (_) {}
+          }
+        }
+        return;
+      }
+
+      if (pkt.type === 'REQUEST_ASSET') {
+        const hash = pkt.hash;
+        if (hash && _coCreateLocalAssetDataUrlMap.has(hash)) {
+          const dataUrl = _coCreateLocalAssetDataUrlMap.get(hash);
+          await streamAssetQueueToCoCreateRoom(roomCode, [{
+            hash,
+            mime: pkt.mime || 'image/png',
+            dataUrl,
+            savePath: pkt.savePath || `cocreate/${hash}`
+          }], true);
+        }
+        return;
+      }
+
+      if (pkt.type === 'REQUEST_SNAPSHOT') {
+        const localProj = (appState.replayProjects || []).find((p) => p && String(p.coCreateRoomCode || '').toUpperCase() === roomCode);
+        if (localProj) {
+          await broadcastFullProjectSnapshotToRoom(localProj, false);
+        }
+        return;
+      }
+
+      if (pkt.type === 'FULL_SNAPSHOT' || pkt.type === 'PROJECT_UPDATE') {
+        if (!pkt.project) return;
+        let localProj = (appState.replayProjects || []).find((p) => p && String(p.coCreateRoomCode || '').toUpperCase() === roomCode);
+        const incomingProj = await hydrateIncomingProjectObject(pkt.project, roomCode);
+        if (localProj && localProj.id !== incomingProj.id) {
+          // 统一使用房间主工程ID以确保章节与角色关联一致，但绝不覆盖非本房间的工程
+          const oldPlaceholderId = localProj.id;
+          appState.replayProjects = appState.replayProjects.filter((p) => p && p.id !== oldPlaceholderId);
+          _coCreateApplyingRemote = true;
+          try { await db.replayProjects.delete(oldPlaceholderId); } catch (_) {}
+          _coCreateApplyingRemote = false;
+          if (appState.currentReplayProjectId === oldPlaceholderId) {
+            appState.currentReplayProjectId = incomingProj.id;
+          }
+        }
+        incomingProj.coCreateRoomCode = roomCode;
+        await saveRemoteHydratedProject(incomingProj);
+
+        if (Array.isArray(pkt.characters)) {
+          _coCreateApplyingRemote = true;
+          try {
+            for (const rawC of pkt.characters) {
+              const hydratedC = await hydrateIncomingCharacterObject(rawC, roomCode, incomingProj.id, incomingProj.title);
+              await db.characters.put(hydratedC);
+            }
+            appState.characters = await db.characters.toArray();
+          } finally {
+            _coCreateApplyingRemote = false;
+          }
+        }
+
+        if (Array.isArray(pkt.ttsCache)) {
+          _coCreateApplyingRemote = true;
+          try {
+            for (const rawT of pkt.ttsCache) {
+              const hydratedT = await hydrateIncomingTtsObject(rawT, roomCode, incomingProj.id);
+              await db.ttsCache.put(hydratedT);
+            }
+          } finally {
+            _coCreateApplyingRemote = false;
+          }
+        }
+
+        addCoCreateActivity(`${pkt.senderName || '好友'} 同步了模组工程 ${incomingProj.title || ''}`);
+        refreshActiveViewsAfterRemoteSync(incomingProj.id);
+        return;
+      }
+
+      if (pkt.type === 'CHAR_UPDATE' && pkt.character) {
+        const localProj = (appState.replayProjects || []).find((p) => p && String(p.coCreateRoomCode || '').toUpperCase() === roomCode);
+        const targetProjId = localProj ? localProj.id : pkt.character.moduleId;
+        const targetProjTitle = localProj ? localProj.title : pkt.character.moduleTitle;
+        const hydratedC = await hydrateIncomingCharacterObject(pkt.character, roomCode, targetProjId, targetProjTitle);
+        _coCreateApplyingRemote = true;
+        try {
+          await db.characters.put(hydratedC);
+          const idx = appState.characters.findIndex((c) => c && c.id === hydratedC.id);
+          if (idx >= 0) appState.characters[idx] = hydratedC;
+          else appState.characters.push(hydratedC);
+        } finally {
+          _coCreateApplyingRemote = false;
+        }
+        addCoCreateActivity(`${pkt.senderName || '好友'} 更新了角色与立绘 ${hydratedC.name || ''}`);
+        refreshActiveViewsAfterRemoteSync(targetProjId);
+        return;
+      }
+
+      if (pkt.type === 'TTS_UPDATE' && Array.isArray(pkt.ttsItems)) {
+        const localProj = (appState.replayProjects || []).find((p) => p && String(p.coCreateRoomCode || '').toUpperCase() === roomCode);
+        _coCreateApplyingRemote = true;
+        try {
+          for (const rawT of pkt.ttsItems) {
+            const hydratedT = await hydrateIncomingTtsObject(rawT, roomCode, localProj?.id);
+            await db.ttsCache.put(hydratedT);
+            if (typeof _chapterPreloadedTtsMap !== 'undefined') {
+              _chapterPreloadedTtsMap.delete(hydratedT.id);
+            }
+          }
+        } finally {
+          _coCreateApplyingRemote = false;
+        }
+        addCoCreateActivity(`${pkt.senderName || '好友'} 更新了配音语音`);
+        refreshActiveViewsAfterRemoteSync(localProj?.id);
+      }
+    }
+
+    async function broadcastFullProjectSnapshotToRoom(proj, isRetainedSnapshot = true) {
+      if (!proj || !proj.coCreateRoomCode) return;
+      const roomCode = String(proj.coCreateRoomCode).trim().toUpperCase();
+      await ensureCoCreateTransportReady();
+      subscribeAllActiveCoCreateRooms();
+
+      const { dehydratedProject, assetQueue: projAssets } = await buildDehydratedProjectPayload(proj, roomCode);
+      const boundChars = (appState.characters || []).filter((c) => c && c.moduleId === proj.id);
+      const dehydratedChars = [];
+      const allAssets = [...projAssets];
+
+      for (const c of boundChars) {
+        const { dehydratedChar, assetQueue: charAssets } = await buildDehydratedCharacterPayload(c, roomCode);
+        dehydratedChars.push(dehydratedChar);
+        charAssets.forEach((a) => {
+          if (!allAssets.some((x) => x.hash === a.hash)) allAssets.push(a);
+        });
+      }
+
+      const chapIds = new Set((proj.chapters || []).map((ch) => ch && ch.id).filter(Boolean));
+      const allTts = await db.ttsCache.toArray();
+      const projTts = allTts.filter((item) => {
+        if (!item || !item.id) return false;
+        if (item.chapterId && chapIds.has(item.chapterId)) return true;
+        for (const cid of chapIds) {
+          if (item.id.startsWith(cid + '_')) return true;
+        }
+        return false;
+      });
+      const dehydratedTtsList = [];
+      for (const tItem of projTts) {
+        const { dehydratedTts, assetQueue: ttsAssets } = await buildDehydratedTtsPayload(tItem, roomCode);
+        dehydratedTtsList.push(dehydratedTts);
+        ttsAssets.forEach((a) => {
+          if (!allAssets.some((x) => x.hash === a.hash)) allAssets.push(a);
+        });
+      }
+
+      publishCoCreatePacket(roomCode, {
+        type: 'FULL_SNAPSHOT',
+        project: dehydratedProject,
+        characters: dehydratedChars,
+        ttsCache: dehydratedTtsList
+      }, { isSnapshot: isRetainedSnapshot, retain: isRetainedSnapshot });
+
+      await streamAssetQueueToCoCreateRoom(roomCode, allAssets, false);
+    }
+
+    function scheduleCoCreateProjectBroadcast(proj) {
+      if (_coCreateApplyingRemote || !proj || !proj.coCreateRoomCode) return;
+      if (_coCreateProjectBroadcastTimer) clearTimeout(_coCreateProjectBroadcastTimer);
+      _coCreateProjectBroadcastTimer = setTimeout(async () => {
+        const roomCode = String(proj.coCreateRoomCode).trim().toUpperCase();
+        await ensureCoCreateTransportReady();
+        const { dehydratedProject, assetQueue } = await buildDehydratedProjectPayload(proj, roomCode);
+        publishCoCreatePacket(roomCode, {
+          type: 'PROJECT_UPDATE',
+          project: dehydratedProject
+        });
+        await streamAssetQueueToCoCreateRoom(roomCode, assetQueue, false);
+      }, 350);
+    }
+
+    function scheduleCoCreateCharacterBroadcast(charObj) {
+      if (_coCreateApplyingRemote || !charObj) return;
+      const relatedProjects = (appState.replayProjects || []).filter((p) => {
+        if (!p || !p.coCreateRoomCode) return false;
+        if (charObj.moduleId && charObj.moduleId === p.id) return true;
+        return (p.extractedSpeakers || []).some((s) => s && (s.charId === charObj.id || normalizeSpeakerName(s.trueName || s.name) === normalizeSpeakerName(charObj.name)));
+      });
+      if (relatedProjects.length === 0) return;
+
+      const key = charObj.id || charObj.name;
+      if (_coCreateCharBroadcastTimers.has(key)) {
+        clearTimeout(_coCreateCharBroadcastTimers.get(key));
+      }
+      _coCreateCharBroadcastTimers.set(key, setTimeout(async () => {
+        await ensureCoCreateTransportReady();
+        for (const proj of relatedProjects) {
+          const roomCode = String(proj.coCreateRoomCode).trim().toUpperCase();
+          const { dehydratedChar, assetQueue } = await buildDehydratedCharacterPayload(charObj, roomCode);
+          publishCoCreatePacket(roomCode, {
+            type: 'CHAR_UPDATE',
+            character: dehydratedChar
+          });
+          await streamAssetQueueToCoCreateRoom(roomCode, assetQueue, false);
+        }
+      }, 350));
+    }
+
+    async function broadcastCoCreateTtsItems(ttsItems) {
+      if (_coCreateApplyingRemote || !Array.isArray(ttsItems) || ttsItems.length === 0) return;
+      const coProjects = (appState.replayProjects || []).filter((p) => p && p.coCreateRoomCode);
+      if (coProjects.length === 0) return;
+
+      for (const proj of coProjects) {
+        const chapIds = new Set((proj.chapters || []).map((ch) => ch && ch.id).filter(Boolean));
+        const matched = ttsItems.filter((item) => {
+          if (!item || !item.id) return false;
+          if (item.chapterId && chapIds.has(item.chapterId)) return true;
+          for (const cid of chapIds) {
+            if (item.id.startsWith(cid + '_')) return true;
+          }
+          return false;
+        });
+        if (matched.length === 0) continue;
+        const roomCode = String(proj.coCreateRoomCode).trim().toUpperCase();
+        await ensureCoCreateTransportReady();
+        const dehydratedList = [];
+        const assetQueue = [];
+        for (const m of matched) {
+          const { dehydratedTts, assetQueue: tAssets } = await buildDehydratedTtsPayload(m, roomCode);
+          dehydratedList.push(dehydratedTts);
+          tAssets.forEach((a) => {
+            if (!assetQueue.some((x) => x.hash === a.hash)) assetQueue.push(a);
+          });
+        }
+        publishCoCreatePacket(roomCode, {
+          type: 'TTS_UPDATE',
+          ttsItems: dehydratedList
+        });
+        await streamAssetQueueToCoCreateRoom(roomCode, assetQueue, false);
+      }
+    }
+
+    function broadcastCoCreatePresence() {
+      _coCreateSubscribedRooms.forEach((roomCode) => {
+        publishCoCreatePacket(roomCode, { type: 'PRESENCE' });
+      });
+    }
+
+    function openCoCreateModal() {
+      const nickInput = document.getElementById('cocreate-my-nickname');
+      if (nickInput) nickInput.value = getCoCreateNickname();
+      ensureCoCreateTransportReady().then(() => {
+        refreshCoCreateUIState();
+      });
+      refreshCoCreateUIState();
+      openModal('modal-replay-cocreate');
+    }
+
+    async function startOrSyncCoCreateCurrentProject(btnEl) {
+      const proj = getCurrentReplayProject();
+      if (!proj) return;
+      const origText = btnEl ? btnEl.textContent : '创建';
+      if (btnEl) btnEl.textContent = '连接';
+      try {
+        if (!proj.coCreateRoomCode) {
+          const randCode = 'CC' + Math.random().toString(36).slice(2, 8).toUpperCase();
+          proj.coCreateRoomCode = randCode;
+        }
+        const roomCode = String(proj.coCreateRoomCode).trim().toUpperCase();
+        _coCreateSubscribedRooms.add(roomCode);
+        await ensureIsolatedCharactersForProject(proj);
+        await saveReplayProjectToDB(proj);
+        await ensureCoCreateTransportReady();
+        subscribeAllActiveCoCreateRooms();
+        await broadcastFullProjectSnapshotToRoom(proj, true);
+        addCoCreateActivity(`已开启共创房间 ${roomCode}`);
+        renderReplayStudioUI();
+        refreshCoCreateUIState();
+        if (btnEl) {
+          btnEl.textContent = '已开';
+          setTimeout(() => { btnEl.textContent = '创建'; }, 1200);
+        }
+      } catch (err) {
+        if (btnEl) btnEl.textContent = origText;
+        alert('开启共创失败：' + (err?.message || err));
+      }
+    }
+
+    async function pushFullCoCreateSnapshotNow(btnEl) {
+      const proj = getCurrentReplayProject();
+      if (!proj || !proj.coCreateRoomCode) {
+        await startOrSyncCoCreateCurrentProject(btnEl);
+        return;
+      }
+      const origText = btnEl ? btnEl.textContent : '同步';
+      if (btnEl) btnEl.textContent = '发送';
+      try {
+        await ensureIsolatedCharactersForProject(proj);
+        await broadcastFullProjectSnapshotToRoom(proj, true);
+        addCoCreateActivity(`已向房间 ${proj.coCreateRoomCode} 推送全量同步`);
+        if (btnEl) {
+          btnEl.textContent = '已推';
+          setTimeout(() => { btnEl.textContent = origText; }, 1200);
+        }
+      } catch (_) {
+        if (btnEl) btnEl.textContent = origText;
+      }
+    }
+
+    function copyCoCreateRoomCode(btnEl) {
+      const proj = getCurrentReplayProject();
+      const code = proj?.coCreateRoomCode || '';
+      if (!code) {
+        alert('当前工程尚未创建或加入共创房间，请先点击创建');
+        return;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).catch(() => {});
+      }
+      const joinInput = document.getElementById('cocreate-join-code-input');
+      if (joinInput && !joinInput.value) joinInput.value = code;
+      if (btnEl) {
+        const orig = btnEl.textContent;
+        btnEl.textContent = '已复';
+        setTimeout(() => { btnEl.textContent = orig; }, 1200);
+      }
+    }
+
+    async function joinCoCreateRoomByCode(btnEl) {
+      const inputEl = document.getElementById('cocreate-join-code-input');
+      const rawCode = String(inputEl?.value || '').trim().toUpperCase();
+      if (!rawCode) {
+        alert('请先输入好友分享的共创房间码');
+        return;
+      }
+      const origText = btnEl ? btnEl.textContent : '加入';
+      if (btnEl) btnEl.textContent = '连接';
+      try {
+        _coCreateSubscribedRooms.add(rawCode);
+        let existingProj = (appState.replayProjects || []).find((p) => p && String(p.coCreateRoomCode || '').toUpperCase() === rawCode);
+        if (!existingProj) {
+          existingProj = {
+            id: 'replay_cc_' + rawCode.toLowerCase() + '_' + Date.now().toString(36),
+            title: `共创模组 · ${rawCode}`,
+            rawLog: '',
+            extractedSpeakers: [],
+            chapters: [],
+            coCreateRoomCode: rawCode,
+            updatedAt: Date.now()
+          };
+          _coCreateApplyingRemote = true;
+          await saveReplayProjectToDB(existingProj);
+          _coCreateApplyingRemote = false;
+        }
+        appState.currentReplayProjectId = existingProj.id;
+        appState.currentReplayChapterIdx = 0;
+
+        await ensureCoCreateTransportReady();
+        subscribeAllActiveCoCreateRooms();
+        publishCoCreatePacket(rawCode, { type: 'PRESENCE' });
+        publishCoCreatePacket(rawCode, { type: 'REQUEST_SNAPSHOT' });
+
+        addCoCreateActivity(`已加入共创房间 ${rawCode}，正在同步工程与立绘语音`);
+        renderReplayStudioUI();
+        refreshCoCreateUIState();
+        if (btnEl) {
+          btnEl.textContent = '已加';
+          setTimeout(() => { btnEl.textContent = origText; }, 1200);
+        }
+      } catch (err) {
+        if (btnEl) btnEl.textContent = origText;
+        alert('加入共创房间失败：' + (err?.message || err));
+      }
+    }
+
+    async function leaveCurrentCoCreateRoom(btnEl) {
+      const proj = getCurrentReplayProject();
+      if (!proj || !proj.coCreateRoomCode) return;
+      const oldCode = String(proj.coCreateRoomCode).trim().toUpperCase();
+      proj.coCreateRoomCode = '';
+      _coCreateSubscribedRooms.delete(oldCode);
+      _coCreateApplyingRemote = true;
+      await saveReplayProjectToDB(proj);
+      _coCreateApplyingRemote = false;
+      addCoCreateActivity(`已退出共创房间 ${oldCode}，工程已保留在本地`);
+      renderReplayStudioUI();
+      refreshCoCreateUIState();
+      if (btnEl) {
+        const orig = btnEl.textContent;
+        btnEl.textContent = '已退';
+        setTimeout(() => { btnEl.textContent = orig; }, 1200);
+      }
+    }
+
+    function refreshCoCreateUIState() {
+      const curProj = getCurrentReplayProject();
+      const roomCode = curProj?.coCreateRoomCode ? String(curProj.coCreateRoomCode).trim().toUpperCase() : '';
+      const connectedCount = _coCreateMqttClients.filter((c) => c && c.connected).length;
+      const isOnline = connectedCount > 0 || Boolean(_coCreateBc);
+
+      const inlineBar = document.getElementById('replay-cocreate-inline-bar');
+      const inlineTitle = document.getElementById('replay-cocreate-inline-title');
+      const inlineSub = document.getElementById('replay-cocreate-inline-sub');
+      const inlineBadge = document.getElementById('replay-cocreate-inline-badge');
+
+      const peerMap = roomCode && _coCreateRoomMembers.has(roomCode) ? _coCreateRoomMembers.get(roomCode) : new Map();
+      const now = Date.now();
+      const activePeers = [];
+      peerMap.forEach((m) => {
+        if (now - (m.lastSeen || 0) < 120000) activePeers.push(m);
+      });
+
+      if (inlineBar) {
+        if (roomCode) {
+          inlineBar.style.display = 'flex';
+          if (inlineTitle) inlineTitle.textContent = `共创房间 ${roomCode}`;
+          if (inlineSub) inlineSub.textContent = `在线同创 ${activePeers.length + 1} 人 · 修改立绘语音剧本实时同步`;
+          if (inlineBadge) inlineBadge.textContent = isOnline ? '已连' : '连接';
+        } else {
+          inlineBar.style.display = 'none';
+        }
+      }
+
+      const modalProjTitle = document.getElementById('cocreate-cur-proj-title');
+      const modalProjSub = document.getElementById('cocreate-cur-proj-sub');
+      const modalBadge = document.getElementById('cocreate-room-code-badge');
+      if (modalProjTitle) {
+        modalProjTitle.textContent = curProj ? (curProj.title || '未命名工程') : '未选择工程';
+      }
+      if (modalProjSub) {
+        modalProjSub.textContent = roomCode
+          ? `房间码 ${roomCode} · 云端双线路实时同步已激活`
+          : '点击下方创建即可生成房间码与好友实时共创';
+      }
+      if (modalBadge) {
+        modalBadge.textContent = roomCode ? roomCode : (isOnline ? '待命' : '连接');
+      }
+
+      const listEl = document.getElementById('cocreate-members-list');
+      if (listEl) {
+        listEl.innerHTML = '';
+        const myRow = document.createElement('div');
+        myRow.className = 'setting-item';
+        myRow.innerHTML = `
+          <div class="setting-item-left" style="width:26px;height:26px;border-radius:8px;background:var(--secondary-bg);border:1px solid var(--border-color);display:flex;align-items:center;justify-content:center;color:var(--accent-color);flex-shrink:0;font-size:11px;font-weight:800;">我</div>
+          <div class="setting-item-center">
+            <div class="setting-item-title">${getCoCreateNickname()}</div>
+            <div class="setting-item-sub">${roomCode ? ('当前房间 ' + roomCode) : '本地编辑模式'}</div>
+          </div>
+          <div class="setting-item-right" style="font-size:11px;color:var(--accent-color);font-weight:700;">在线</div>
+        `;
+        listEl.appendChild(myRow);
+
+        activePeers.forEach((peer) => {
+          const row = document.createElement('div');
+          row.className = 'setting-item';
+          row.innerHTML = `
+            <div class="setting-item-left" style="width:26px;height:26px;border-radius:8px;background:var(--secondary-bg);border:1px solid var(--border-color);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);flex-shrink:0;font-size:11px;font-weight:800;">友</div>
+            <div class="setting-item-center">
+              <div class="setting-item-title">${peer.name}</div>
+              <div class="setting-item-sub">实时共创连接正常</div>
+            </div>
+            <div class="setting-item-right" style="font-size:11px;color:var(--accent-color);font-weight:700;">同步</div>
+          `;
+          listEl.appendChild(row);
+        });
+
+        _coCreateActivityLog.slice(0, 5).forEach((log) => {
+          const item = document.createElement('div');
+          item.className = 'setting-item';
+          item.innerHTML = `
+            <div class="setting-item-left" style="font-size:10px;color:var(--text-secondary);width:46px;flex-shrink:0;">${log.time}</div>
+            <div class="setting-item-center">
+              <div class="setting-item-sub" style="color:var(--text-primary);">${log.text}</div>
+            </div>
+          `;
+          listEl.appendChild(item);
+        });
+      }
+    }
+
+    function installCoCreateDatabaseHooks() {
+      if (window._coCreateDbHooksInstalled) return;
+      window._coCreateDbHooksInstalled = true;
+
+      // 拦截 saveReplayProjectToDB
+      const origSaveProj = saveReplayProjectToDB;
+      saveReplayProjectToDB = async function (proj) {
+        const res = await origSaveProj.apply(this, arguments);
+        if (!_coCreateApplyingRemote && proj && proj.coCreateRoomCode) {
+          scheduleCoCreateProjectBroadcast(proj);
+        }
+        return res;
+      };
+
+      // 拦截 db.characters.put
+      if (db && db.characters && typeof db.characters.put === 'function') {
+        const origCharPut = db.characters.put.bind(db.characters);
+        db.characters.put = async function (charObj) {
+          const res = await origCharPut(charObj);
+          if (!_coCreateApplyingRemote && charObj) {
+            scheduleCoCreateCharacterBroadcast(charObj);
+          }
+          return res;
+        };
+      }
+
+      // 拦截 db.ttsCache.put 与 bulkPut
+      if (db && db.ttsCache) {
+        if (typeof db.ttsCache.put === 'function') {
+          const origTtsPut = db.ttsCache.put.bind(db.ttsCache);
+          db.ttsCache.put = async function (ttsItem) {
+            const res = await origTtsPut(ttsItem);
+            if (!_coCreateApplyingRemote && ttsItem) {
+              broadcastCoCreateTtsItems([ttsItem]);
+            }
+            return res;
+          };
+        }
+        if (typeof db.ttsCache.bulkPut === 'function') {
+          const origTtsBulkPut = db.ttsCache.bulkPut.bind(db.ttsCache);
+          db.ttsCache.bulkPut = async function (ttsItems) {
+            const res = await origTtsBulkPut(ttsItems);
+            if (!_coCreateApplyingRemote && Array.isArray(ttsItems)) {
+              broadcastCoCreateTtsItems(ttsItems);
+            }
+            return res;
+          };
+        }
+      }
+    }
+
+    function initCoCreateEngineAfterBoot() {
+      installCoCreateDatabaseHooks();
+      const hasCoCreateProj = (appState.replayProjects || []).some((p) => p && p.coCreateRoomCode);
+      if (hasCoCreateProj) {
+        ensureCoCreateTransportReady().then(() => {
+          subscribeAllActiveCoCreateRooms();
+          broadcastCoCreatePresence();
+          refreshCoCreateUIState();
+        });
+      }
+      if (!_coCreateHeartbeatTimer) {
+        _coCreateHeartbeatTimer = setInterval(() => {
+          if (_coCreateSubscribedRooms.size > 0) {
+            broadcastCoCreatePresence();
+          }
+        }, 25000);
+      }
+      refreshCoCreateUIState();
+    }
+
+    // =========================================================================
+    // 模组分章页面：支持带空格文本的全局查找与替换
+    // =========================================================================
+    let _lastReplayFindCursor = 0;
+    let _lastReplayFindKeyword = '';
+
+    function countExactSubstringOccurrences(sourceStr, searchStr) {
+      if (!sourceStr || !searchStr) return 0;
+      const s = String(sourceStr);
+      const t = String(searchStr);
+      if (t.length === 0) return 0;
+      return s.split(t).length - 1;
+    }
+
+    function refreshReplayFindReplaceDatalist() {
+      const dl = document.getElementById('replay-find-replace-datalist');
+      if (!dl) return;
+      const proj = typeof getCurrentReplayProject === 'function' ? getCurrentReplayProject() : null;
+      const candidates = ['你', '你们', '你的'];
+      const addWord = (w) => {
+        if (!w || typeof w !== 'string') return;
+        if (!candidates.includes(w)) candidates.push(w);
+        const noSpace = w.replace(/\s+/g, '');
+        if (noSpace && noSpace !== w && !candidates.includes(noSpace)) {
+          candidates.push(noSpace);
+        }
+      };
+      (proj?.extractedSpeakers || []).forEach((s) => {
+        if (!s) return;
+        addWord(s.trueName);
+        addWord(s.name);
+        addWord(s.rawName);
+      });
+      (appState.characters || []).forEach((c) => {
+        if (!c || c.id === 'narrator_kp') return;
+        if (!proj || c.moduleId === proj.id || c.isUniversal) {
+          addWord(c.name);
+        }
+      });
+      dl.innerHTML = '';
+      candidates.forEach((word) => {
+        const opt = document.createElement('option');
+        opt.value = word;
+        dl.appendChild(opt);
+      });
+    }
+
+    function findTextInCurrentReplayModule() {
+      const findInput = document.getElementById('replay-find-text-input');
+      const statusEl = document.getElementById('replay-split-status-bar');
+      // 严禁调用 trim，完整保留用户输入的前后或中间空格
+      const findStr = findInput ? String(findInput.value) : '';
+      if (findStr.length === 0) {
+        if (statusEl) statusEl.textContent = '请先在查找内容框输入要查找的文字，支持包含空格';
+        return;
+      }
+
+      const proj = getCurrentReplayProject();
+      const rawLogEl = document.getElementById('replay-raw-log-input');
+      const rawLogText = rawLogEl ? String(rawLogEl.value || '') : String(proj?.rawLog || '');
+      const rawLogHits = countExactSubstringOccurrences(rawLogText, findStr);
+
+      let chapRawHits = 0;
+      let scriptLineHits = 0;
+      if (proj) {
+        (proj.chapters || []).forEach((ch) => {
+          if (!ch) return;
+          chapRawHits += countExactSubstringOccurrences(ch.rawText || '', findStr);
+          (ch.scriptLines || []).forEach((line) => {
+            if (line && line.text) {
+              scriptLineHits += countExactSubstringOccurrences(line.text, findStr);
+            }
+          });
+        });
+        (proj.subGroups || []).forEach((sg) => {
+          if (!sg) return;
+          chapRawHits += countExactSubstringOccurrences(sg.rawText || '', findStr);
+          (sg.scriptLines || []).forEach((line) => {
+            if (line && line.text) {
+              scriptLineHits += countExactSubstringOccurrences(line.text, findStr);
+            }
+          });
+        });
+      }
+
+      // 在原始日志输入框中定位并高亮下一处匹配
+      if (rawLogEl && rawLogHits > 0) {
+        if (_lastReplayFindKeyword !== findStr) {
+          _lastReplayFindKeyword = findStr;
+          _lastReplayFindCursor = 0;
+        }
+        let nextPos = rawLogText.indexOf(findStr, _lastReplayFindCursor);
+        if (nextPos === -1) {
+          nextPos = rawLogText.indexOf(findStr, 0);
+        }
+        if (nextPos !== -1) {
+          _lastReplayFindCursor = nextPos + findStr.length;
+          try {
+            rawLogEl.focus();
+            rawLogEl.setSelectionRange(nextPos, nextPos + findStr.length);
+          } catch (_) {}
+        }
+      }
+
+      if (statusEl) {
+        const total = rawLogHits + chapRawHits + scriptLineHits;
+        if (total === 0) {
+          statusEl.textContent = `未找到匹配内容：${findStr}`;
+        } else {
+          statusEl.textContent = `查找完成：原始日志 ${rawLogHits} 处，章节原文 ${chapRawHits} 处，已整理剧本台词 ${scriptLineHits} 处`;
+        }
+      }
+    }
+
+    async function replaceTextInCurrentReplayModule(btnEl) {
+      const findInput = document.getElementById('replay-find-text-input');
+      const replaceInput = document.getElementById('replay-replace-text-input');
+      const statusEl = document.getElementById('replay-split-status-bar');
+      // 严禁调用 trim，完整保留人名或词组中的空格
+      const findStr = findInput ? String(findInput.value) : '';
+      const replaceStr = replaceInput ? String(replaceInput.value) : '';
+      if (findStr.length === 0) {
+        if (statusEl) statusEl.textContent = '请先在查找内容框输入要被替换的文字，支持包含空格';
+        return;
+      }
+      if (findStr === replaceStr) {
+        if (statusEl) statusEl.textContent = '查找内容与替换内容相同，无需替换';
+        return;
+      }
+
+      const proj = getCurrentReplayProject();
+      const rawLogEl = document.getElementById('replay-raw-log-input');
+      let totalReplaced = 0;
+
+      const replaceAndCount = (str) => {
+        if (typeof str !== 'string' || !str.includes(findStr)) return str;
+        const count = str.split(findStr).length - 1;
+        totalReplaced += count;
+        return str.split(findStr).join(replaceStr);
+      };
+
+      if (rawLogEl && rawLogEl.value && rawLogEl.value.includes(findStr)) {
+        rawLogEl.value = replaceAndCount(rawLogEl.value);
+        if (proj) proj.rawLog = rawLogEl.value;
+      } else if (proj && typeof proj.rawLog === 'string' && proj.rawLog.includes(findStr)) {
+        proj.rawLog = replaceAndCount(proj.rawLog);
+        if (rawLogEl) rawLogEl.value = proj.rawLog;
+      }
+
+      if (proj) {
+        (proj.chapters || []).forEach((ch) => {
+          if (!ch) return;
+          if (typeof ch.rawText === 'string') {
+            ch.rawText = replaceAndCount(ch.rawText);
+          }
+          (ch.blocks || []).forEach((b) => {
+            if (b && typeof b.text === 'string') {
+              b.text = replaceAndCount(b.text);
+            }
+          });
+          (ch.scriptLines || []).forEach((line) => {
+            if (line && typeof line.text === 'string') {
+              line.text = replaceAndCount(line.text);
+            }
+          });
+          (ch.cgNodes || []).forEach((cg) => {
+            if (!cg) return;
+            if (typeof cg.lineText === 'string') cg.lineText = replaceAndCount(cg.lineText);
+            if (typeof cg.zhDesc === 'string') cg.zhDesc = replaceAndCount(cg.zhDesc);
+          });
+          (ch.clueNodes || []).forEach((cl) => {
+            if (cl && typeof cl.desc === 'string') cl.desc = replaceAndCount(cl.desc);
+          });
+          (ch.danmakuList || []).forEach((dm) => {
+            if (dm && typeof dm.text === 'string') dm.text = replaceAndCount(dm.text);
+          });
+        });
+
+        (proj.subGroups || []).forEach((sg) => {
+          if (!sg) return;
+          if (typeof sg.rawText === 'string') {
+            sg.rawText = replaceAndCount(sg.rawText);
+          }
+          (sg.scriptLines || []).forEach((line) => {
+            if (line && typeof line.text === 'string') {
+              line.text = replaceAndCount(line.text);
+            }
+          });
+          (sg.danmakuList || []).forEach((dm) => {
+            if (dm && typeof dm.text === 'string') dm.text = replaceAndCount(dm.text);
+          });
+        });
+
+        await saveReplayProjectToDB(proj);
+        renderReplayChapterList();
+        renderReplayScriptEditor();
+      }
+
+      if (btnEl) {
+        const orig = btnEl.textContent;
+        btnEl.textContent = '已换';
+        setTimeout(() => { btnEl.textContent = orig; }, 1200);
+      }
+      if (statusEl) {
+        statusEl.textContent = totalReplaced > 0
+          ? `已完成替换：共将 ${totalReplaced} 处 ${findStr} 替换为 ${replaceStr}`
+          : `未找到需要替换的 ${findStr}`;
+      }
+    }
+
     window.addEventListener('DOMContentLoaded', async () => {
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js').then((reg) => {
@@ -38322,6 +39969,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       loadAllApiSettings();
       initMapSelectors();
       await loadAllDataFromDB();
+      initCoCreateEngineAfterBoot();
       syncPwaAppNameWithDesktopTitle();
     });
   </script>
