@@ -2081,7 +2081,6 @@
             <div style="display:flex;gap:6px;">
               <button type="button" class="moe-btn secondary" onclick="testLocalBridgeConnectionUI()">检测</button>
               <button type="button" class="moe-btn secondary" onclick="hideLocalGalleryImagesUI()">隐图</button>
-              <button type="button" class="moe-btn secondary" onclick="cleanupUnusedAssetsUI(false)">清理</button>
               <button type="button" class="moe-btn" onclick="syncAllAssetsToLocalBridgeUI()">同步</button>
             </div>
           </div>
@@ -2998,8 +2997,12 @@
         <div class="moe-card">
           <div class="moe-card-header">
             <span class="moe-card-title">二、 线上工坊模组列表与追更</span>
-            <button type="button" class="moe-btn secondary" onclick="refreshWorkshopAll()">刷新</button>
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="moe-btn secondary" onclick="cleanupUnusedAssetsUI(false, this)">清理</button>
+              <button type="button" class="moe-btn secondary" onclick="refreshWorkshopAll()">刷新</button>
+            </div>
           </div>
+          <div id="workshop-cleanup-status-box" style="display:none;font-size:11px;color:var(--text-secondary);padding:8px 10px;margin-bottom:8px;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:8px;line-height:1.5;"></div>
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;">
             <input type="text" id="workshop-search-input" class="moe-input" style="flex:1;" placeholder="输入模组名称、作者或章节名精准锁定..." oninput="renderReplayWorkshopList()" />
             <button type="button" class="moe-btn" onclick="searchWorkshopByKeyword()">搜索</button>
@@ -6183,310 +6186,562 @@
       return typeof u === 'string' && u.length > 5 && !u.startsWith('data:image/svg+xml');
     }
 
-    async function cleanupUnusedAssetsUI(silentMode = false) {
+    async function cleanupUnusedAssetsUI(silentMode = false, btnEl = null) {
       if (silentMode) return 0;
       const statusBox = document.getElementById('local-bridge-status-box');
-      const baseUrl = getLocalBridgeBaseUrl();
-      let dbCleanedCount = 0;
-
-      if (statusBox) {
-        statusBox.textContent = '正在先将当前所有立绘、场景、CG与配音写入本地文件夹，随后去重清理未被引用的多余缓存...';
-      }
-
-      try {
-        await syncAllAssetsToLocalBridgeUI(true);
-      } catch (_) {}
-
-      if (db?.characters) appState.characters = await db.characters.toArray();
-      if (db?.replayProjects) appState.replayProjects = await db.replayProjects.toArray();
-      if (db?.furnitures) appState.furnitures = await db.furnitures.toArray();
-      if (db?.foods) appState.foods = await db.foods.toArray();
-
-      for (const c of (appState.characters || [])) {
-        let changed = false;
-        const validActNames = new Set((getCharActionList(c) || []).map((a) => a.name));
-        validActNames.add('默认');
-        if (c.tachieExpressions && typeof c.tachieExpressions === 'object') {
-          for (const k of Object.keys(c.tachieExpressions)) {
-            if (!isRealNonSvgAsset(c.tachieExpressions[k])) {
-              evictAssetFromMemoryCaches(c.tachieExpressions[k]);
-              delete c.tachieExpressions[k];
-              changed = true;
-              dbCleanedCount += 1;
-            }
-          }
-        }
-        if (c.tachieExpressions && isRealNonSvgAsset(c.tachieExpressions['默认']) && c.tachieBase !== c.tachieExpressions['默认']) {
-          evictAssetFromMemoryCaches(c.tachieBase);
-          c.tachieBase = c.tachieExpressions['默认'];
-          changed = true;
-        }
-        if (c.tachieRawExpressions && typeof c.tachieRawExpressions === 'object') {
-          for (const k of Object.keys(c.tachieRawExpressions)) {
-            const hasActiveCutout = Boolean(c.tachieExpressions && isRealNonSvgAsset(c.tachieExpressions[k]));
-            if (!validActNames.has(k) || hasActiveCutout || !isRealNonSvgAsset(c.tachieRawExpressions[k])) {
-              evictAssetFromMemoryCaches(c.tachieRawExpressions[k]);
-              delete c.tachieRawExpressions[k];
-              changed = true;
-              dbCleanedCount += 1;
-            }
-          }
-        }
-        ['chibiRawImg', 'chibiAlignedRawImg'].forEach((rawKey) => {
-          if (c[rawKey] && isRealNonSvgAsset(c.chibiImg)) {
-            evictAssetFromMemoryCaches(c[rawKey]);
-            c[rawKey] = '';
-            changed = true;
-            dbCleanedCount += 1;
-          }
-        });
-        ['chibiPoseRawImgs', 'chibiPoseAlignedRawImgs'].forEach((rawStoreKey) => {
-          if (c[rawStoreKey] && typeof c[rawStoreKey] === 'object' && Object.keys(c[rawStoreKey]).length > 0) {
-            Object.values(c[rawStoreKey]).forEach((u) => evictAssetFromMemoryCaches(u));
-            c[rawStoreKey] = {};
-            changed = true;
-            dbCleanedCount += 1;
-          }
-        });
-        if (changed) {
-          await db.characters.put(c);
-        }
-      }
-
-      for (const f of (appState.furnitures || [])) {
-        if (f.rawImg && isRealNonSvgAsset(f.img)) {
-          evictAssetFromMemoryCaches(f.rawImg);
-          f.rawImg = '';
-          await db.furnitures.put(f);
-          dbCleanedCount += 1;
-        }
-      }
-
-      const activePaths = new Set(['.nomedia', 'characters/.nomedia', 'styles/.nomedia', 'scenes/.nomedia', 'cgs/.nomedia', 'audio/.nomedia', 'tts/.nomedia']);
-      const collectUrl = (u, fallbackRel = '') => {
-        if (!isRealNonSvgAsset(u)) return;
-        let resolvedU = u;
-        if (typeof u === 'string' && u.startsWith('/api/workshop/asset/') && typeof _localWorkshopAssetUrlMap === 'object') {
-          const hash = u.replace('/api/workshop/asset/', '').split('?')[0].trim();
-          const mapped = _localWorkshopAssetUrlMap.get(u) || (hash ? _localWorkshopAssetUrlMap.get(hash) : '');
-          if (mapped && !mapped.startsWith('data:')) resolvedU = mapped;
-        }
-        const rel = extractRelativeAssetPath(resolvedU, baseUrl) || fallbackRel;
-        if (rel) {
-          activePaths.add(rel);
-          const dirParts = rel.split('/');
-          if (dirParts.length > 1) {
-            activePaths.add(dirParts.slice(0, -1).join('/') + '/.nomedia');
-          }
-        }
-        if (fallbackRel && fallbackRel !== rel) {
-          activePaths.add(fallbackRel);
+      const wsStatusBox = document.getElementById('workshop-cleanup-status-box');
+      const updateCleanupStatus = (msg) => {
+        if (statusBox) statusBox.textContent = msg;
+        if (wsStatusBox) {
+          wsStatusBox.style.display = 'block';
+          wsStatusBox.textContent = msg;
         }
       };
 
-      for (const c of (appState.characters || [])) {
-        const safeName = (c.name || c.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
-        activePaths.add(`characters/${safeName}/.nomedia`);
-        collectUrl(c.profileAvatar, `characters/${safeName}/profile_avatar.png`);
-        collectUrl(c.stageBustAvatar, `characters/${safeName}/stage_bust.png`);
-        collectUrl(c.tachieBase, c.tachieExpressions?.['默认'] ? `characters/${safeName}/默认.png` : `characters/${safeName}/base.png`);
-        collectUrl(c.charLockImg, `characters/${safeName}/lock.png`);
-        Object.entries(c.tachieExpressions || {}).forEach(([exp, u]) => {
-          const safeExp = String(exp).replace(/[\\/:*?"<>|]/g, '_');
-          collectUrl(u, `characters/${safeName}/${safeExp}.png`);
-        });
-        const chibiKeepFields = ['chibiImg', 'chibiBackImg', 'chibiSideImg', 'chibiRightImg', 'chibiSeatedImg'];
-        chibiKeepFields.forEach((fKey) => {
-          collectUrl(c[fKey], `characters/${safeName}/${fKey}.png`);
-        });
-        const chibiPoseStores = ['chibiPoseImgs'];
-        chibiPoseStores.forEach((sKey) => {
-          if (c[sKey] && typeof c[sKey] === 'object') {
-            Object.entries(c[sKey]).forEach(([pKey, u]) => {
-              collectUrl(u, `characters/${safeName}/${sKey}_${pKey}.png`);
-            });
-          }
-        });
+      const origBtnText = btnEl ? btnEl.textContent : '';
+      if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.textContent = '清理';
       }
 
-      for (const proj of (appState.replayProjects || [])) {
-        const safeProj = (proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
-        if (proj.avatarUrl) {
-          collectUrl(proj.avatarUrl, `projects/${safeProj}/avatar.jpg`);
-        }
-        (proj.globalScenes || []).forEach((gsc, gIdx) => {
-          if (gsc && gsc.imageUrl) {
-            collectUrl(gsc.imageUrl, `projects/${safeProj}/scenes/${gsc.id || gIdx}.png`);
-            activePaths.add(`projects/${safeProj}/scenes/global_${gsc.id || gIdx}.png`);
-          }
-        });
-        (proj.chapters || []).forEach((ch, cIdx) => {
-          const ord = Number(ch?.order ?? cIdx);
-          (ch.scenes || []).forEach((sc, sIdx) => {
-            if (sc && sc.imageUrl) {
-              collectUrl(sc.imageUrl, `projects/${safeProj}/scenes/${sc.id || sIdx}.png`);
-              activePaths.add(`projects/${safeProj}/scenes/ch${ord}_${sc.id || sIdx}.png`);
-            }
-          });
-          (ch.cgNodes || []).forEach((cg, gIdx) => {
-            if (cg && cg.imageUrl) {
-              collectUrl(cg.imageUrl, `projects/${safeProj}/cgs/${cg.id || gIdx}.png`);
-              activePaths.add(`projects/${safeProj}/cgs/ch${ord}_${cg.id || gIdx}.png`);
-            }
-            if (cg && cg.customPadImg) {
-              collectUrl(cg.customPadImg, `projects/${safeProj}/cgs/pad_${cg.id || gIdx}.png`);
-              activePaths.add(`projects/${safeProj}/cgs/ch${ord}_${cg.id || gIdx}_pad.png`);
-            }
-          });
-          (ch.clueNodes || []).forEach((cl, clIdx) => {
-            if (cl && cl.imageUrl) {
-              collectUrl(cl.imageUrl, `projects/${safeProj}/clues/${cl.id || clIdx}.png`);
-              activePaths.add(`projects/${safeProj}/clues/ch${ord}_${cl.id || clIdx}.png`);
-            }
-          });
-        });
-        (proj.subGroups || []).forEach((sg, sgIdx) => {
-          const sgId = sg?.id || `sg_${sgIdx}`;
-          (sg.scenes || []).forEach((sc, sIdx) => {
-            if (sc && sc.imageUrl) {
-              collectUrl(sc.imageUrl, `projects/${safeProj}/scenes/${sc.id || sIdx}.png`);
-              activePaths.add(`projects/${safeProj}/scenes/${sgId}_${sc.id || sIdx}.png`);
-            }
-          });
-          (sg.cgNodes || []).forEach((cg, gIdx) => {
-            if (cg && cg.imageUrl) {
-              collectUrl(cg.imageUrl, `projects/${safeProj}/cgs/${cg.id || gIdx}.png`);
-              activePaths.add(`projects/${safeProj}/cgs/${sgId}_${cg.id || gIdx}.png`);
-            }
-            if (cg && cg.customPadImg) {
-              collectUrl(cg.customPadImg, `projects/${safeProj}/cgs/pad_${cg.id || gIdx}.png`);
-              activePaths.add(`projects/${safeProj}/cgs/${sgId}_${cg.id || gIdx}_pad.png`);
-            }
-          });
-          (sg.clueNodes || []).forEach((cl, clIdx) => {
-            if (cl && cl.imageUrl) {
-              collectUrl(cl.imageUrl, `projects/${safeProj}/clues/${cl.id || clIdx}.png`);
-              activePaths.add(`projects/${safeProj}/clues/${sgId}_${cl.id || clIdx}.png`);
-            }
-          });
-        });
-      }
+      const baseUrl = getLocalBridgeBaseUrl();
+      let dbCleanedCount = 0;
+      let freedBytesApprox = 0;
 
-      (appState.styleRefList || []).forEach((item, idx) => {
-        if (item?.base64) collectUrl(item.base64, `styles/active_ref_${item.id || idx}.png`);
-      });
-      const stylePresetList = await db.styles.toArray();
-      stylePresetList.forEach((sp) => {
-        const safeSp = String(sp.name || sp.id || 'style').replace(/[\\/:*?"<>|]/g, '_');
-        (sp.refs || []).forEach((r, idx) => {
-          if (r?.base64) collectUrl(r.base64, `styles/${safeSp}_${idx + 1}.png`);
-        });
-      });
-      const mapList = await db.maps.toArray();
-      mapList.forEach((m) => {
-        const safeMapId = String(m.id || 'map').replace(/[\\/:*?"<>|]/g, '_');
-        collectUrl(m.bgDataUrl, `maps/${safeMapId}.png`);
-        collectUrl(m.tableSurfaceUrl, `maps/${safeMapId}_table.png`);
-      });
-      (appState.furnitures || []).forEach((f) => {
-        const safeFId = String(f.id || 'furn').replace(/[\\/:*?"<>|]/g, '_');
-        collectUrl(f.img, `furnitures/${safeFId}.png`);
-        collectUrl(f.spriteUrl, `furnitures/${safeFId}.png`);
-      });
-      (appState.foods || []).forEach((fd) => {
-        const safeFdId = String(fd.id || 'food').replace(/[\\/:*?"<>|]/g, '_');
-        collectUrl(fd.img, `foods/${safeFdId}.png`);
-      });
-      const ttsList = await db.ttsCache.toArray();
-      ttsList.forEach((item) => {
-        const safeId = String(item.id || 'tts').replace(/[\\/:*?"<>|]/g, '_');
-        collectUrl(item.audioDataUrl, `audio/${safeId}.mp3`);
-        activePaths.add(`tts/${safeId}.mp3`);
-      });
-      const bgmList = await db.bgmTracks.toArray();
-      bgmList.forEach((t) => {
-        if (!t || !t.url) return;
-        const safeBgmId = String(t.id || 'bgm').replace(/[\\/:*?"<>|]/g, '_');
-        if (t.url.startsWith('data:') || t.url.includes('/local-assets/') || t.url.includes(':8765/')) {
-          collectUrl(t.url, `audio/bgm_${safeBgmId}.mp3`);
-        }
-      });
-      if (typeof getCustomAppIconsConfig === 'function') {
-        const iconCfg = getCustomAppIconsConfig() || {};
-        Object.entries(iconCfg).forEach(([appKey, info]) => {
-          if (info?.iconUrl) collectUrl(info.iconUrl, `theme/icon_${appKey}.png`);
-        });
-      }
-      const bgsCfg = appState.customBgsConfig || {};
-      ['desktopBg', 'screenBg', 'cardBg', 'homeAvatar', 'homeBg', 'chatBg'].forEach((bgKey) => {
-        const bgVal = bgsCfg[bgKey] || localStorage.getItem(`custom-bg-${bgKey}`) || '';
-        const ext = bgKey === 'homeAvatar' ? 'png' : 'jpg';
-        if (bgVal) collectUrl(bgVal, `theme/bg_${bgKey}.${ext}`);
-      });
-      const customFontVal = localStorage.getItem('user-custom-font-url') || '';
-      if (customFontVal) collectUrl(customFontVal, 'fonts/custom_user_font.ttf');
-      activePaths.add('fonts/custom_user_font');
+      try {
+        updateCleanupStatus('正在扫描本机所有模组、角色立绘、场景插图与配音，精准识别重复下载与失效残留文件...');
 
-      const activePathsArr = Array.from(activePaths);
-      let diskRemovedCount = 0;
-
-      if (isLocalBridgeEnabled()) {
         try {
-          const res = await fetch(baseUrl + '/cleanup', {
+          if (typeof _workshopRawDataUrlByHash !== 'undefined' && _workshopRawDataUrlByHash instanceof Map) {
+            for (const val of _workshopRawDataUrlByHash.values()) {
+              if (typeof val === 'string') freedBytesApprox += val.length;
+            }
+            dbCleanedCount += _workshopRawDataUrlByHash.size;
+            _workshopRawDataUrlByHash.clear();
+          }
+        } catch (_) {}
+
+        if (db?.characters) appState.characters = await db.characters.toArray();
+        if (db?.replayProjects) appState.replayProjects = await db.replayProjects.toArray();
+        if (db?.furnitures) appState.furnitures = await db.furnitures.toArray();
+        if (db?.foods) appState.foods = await db.foods.toArray();
+
+        for (const c of (appState.characters || [])) {
+          let changed = false;
+          const validActNames = new Set((getCharActionList(c) || []).map((a) => a.name));
+          validActNames.add('默认');
+          if (c.tachieExpressions && typeof c.tachieExpressions === 'object') {
+            for (const k of Object.keys(c.tachieExpressions)) {
+              if (!isRealNonSvgAsset(c.tachieExpressions[k])) {
+                evictAssetFromMemoryCaches(c.tachieExpressions[k]);
+                delete c.tachieExpressions[k];
+                changed = true;
+                dbCleanedCount += 1;
+              }
+            }
+          }
+          if (c.tachieExpressions && isRealNonSvgAsset(c.tachieExpressions['默认']) && c.tachieBase !== c.tachieExpressions['默认']) {
+            evictAssetFromMemoryCaches(c.tachieBase);
+            c.tachieBase = c.tachieExpressions['默认'];
+            changed = true;
+          }
+          if (c.tachieRawExpressions && typeof c.tachieRawExpressions === 'object') {
+            for (const k of Object.keys(c.tachieRawExpressions)) {
+              const hasActiveCutout = Boolean(c.tachieExpressions && isRealNonSvgAsset(c.tachieExpressions[k]));
+              if (!validActNames.has(k) || hasActiveCutout || !isRealNonSvgAsset(c.tachieRawExpressions[k])) {
+                if (typeof c.tachieRawExpressions[k] === 'string') freedBytesApprox += c.tachieRawExpressions[k].length;
+                evictAssetFromMemoryCaches(c.tachieRawExpressions[k]);
+                delete c.tachieRawExpressions[k];
+                changed = true;
+                dbCleanedCount += 1;
+              }
+            }
+          }
+          ['chibiRawImg', 'chibiAlignedRawImg'].forEach((rawKey) => {
+            if (c[rawKey] && isRealNonSvgAsset(c.chibiImg)) {
+              if (typeof c[rawKey] === 'string') freedBytesApprox += c[rawKey].length;
+              evictAssetFromMemoryCaches(c[rawKey]);
+              c[rawKey] = '';
+              changed = true;
+              dbCleanedCount += 1;
+            }
+          });
+          ['chibiPoseRawImgs', 'chibiPoseAlignedRawImgs'].forEach((rawStoreKey) => {
+            if (c[rawStoreKey] && typeof c[rawStoreKey] === 'object' && Object.keys(c[rawStoreKey]).length > 0) {
+              Object.values(c[rawStoreKey]).forEach((u) => {
+                if (typeof u === 'string') freedBytesApprox += u.length;
+                evictAssetFromMemoryCaches(u);
+              });
+              c[rawStoreKey] = {};
+              changed = true;
+              dbCleanedCount += 1;
+            }
+          });
+          if (changed) {
+            await db.characters.put(c);
+          }
+        }
+
+        for (const f of (appState.furnitures || [])) {
+          if (f.rawImg && isRealNonSvgAsset(f.img)) {
+            if (typeof f.rawImg === 'string') freedBytesApprox += f.rawImg.length;
+            evictAssetFromMemoryCaches(f.rawImg);
+            f.rawImg = '';
+            await db.furnitures.put(f);
+            dbCleanedCount += 1;
+          }
+        }
+
+        const activePaths = new Set(['.nomedia', 'characters/.nomedia', 'styles/.nomedia', 'scenes/.nomedia', 'cgs/.nomedia', 'audio/.nomedia', 'tts/.nomedia']);
+        const activeWorkshopHashes = new Set();
+        const addCleanRelPath = (p) => {
+          if (!p || typeof p !== 'string') return;
+          const clean = p.split('?')[0].replace(/^\/+/, '').replace(/^local-assets\/+/i, '').replace(/\.\./g, '_').replace(/\.hknw$/, '').trim();
+          if (!clean) return;
+          activePaths.add(clean);
+          try {
+            const dec = decodeURIComponent(clean);
+            if (dec) activePaths.add(dec);
+          } catch (_) {}
+          const dirParts = clean.split('/');
+          if (dirParts.length > 1) {
+            activePaths.add(dirParts.slice(0, -1).join('/') + '/.nomedia');
+          }
+        };
+
+        const collectUrl = (u, fallbackRel = '') => {
+          if (fallbackRel) addCleanRelPath(fallbackRel);
+          if (!isRealNonSvgAsset(u)) return;
+          let resolvedU = u;
+          if (typeof u === 'string' && u.startsWith('/api/workshop/asset/')) {
+            const hash = u.replace('/api/workshop/asset/', '').split('?')[0].trim();
+            if (hash) {
+              activeWorkshopHashes.add(hash);
+              addCleanRelPath(`workshop_assets/${hash}`);
+            }
+            if (typeof _localWorkshopAssetUrlMap === 'object') {
+              const mapped = _localWorkshopAssetUrlMap.get(u) || (hash ? _localWorkshopAssetUrlMap.get(hash) : '');
+              if (mapped && !mapped.startsWith('data:')) resolvedU = mapped;
+            }
+          }
+          const rel = extractRelativeAssetPath(resolvedU, baseUrl) || fallbackRel;
+          if (rel) addCleanRelPath(rel);
+        };
+
+        for (const c of (appState.characters || [])) {
+          const safeName = (c.name || c.id || 'char').replace(/[\\/:*?"<>|]/g, '_');
+          addCleanRelPath(`characters/${safeName}/.nomedia`);
+          collectUrl(c.profileAvatar, `characters/${safeName}/profile_avatar.png`);
+          collectUrl(c.stageBustAvatar, `characters/${safeName}/stage_bust.png`);
+          collectUrl(c.tachieBase, c.tachieExpressions?.['默认'] ? `characters/${safeName}/默认.png` : `characters/${safeName}/base.png`);
+          collectUrl(c.charLockImg, `characters/${safeName}/lock.png`);
+          Object.entries(c.tachieExpressions || {}).forEach(([exp, u]) => {
+            const safeExp = String(exp).replace(/[\\/:*?"<>|]/g, '_');
+            collectUrl(u, `characters/${safeName}/${safeExp}.png`);
+          });
+          const chibiKeepFields = ['chibiImg', 'chibiBackImg', 'chibiSideImg', 'chibiRightImg', 'chibiSeatedImg'];
+          chibiKeepFields.forEach((fKey) => {
+            collectUrl(c[fKey], `characters/${safeName}/${fKey}.png`);
+          });
+          const chibiPoseStores = ['chibiPoseImgs'];
+          chibiPoseStores.forEach((sKey) => {
+            if (c[sKey] && typeof c[sKey] === 'object') {
+              Object.entries(c[sKey]).forEach(([pKey, u]) => {
+                collectUrl(u, `characters/${safeName}/${sKey}_${pKey}.png`);
+              });
+            }
+          });
+        }
+
+        const activeScriptLineIdSet = new Set();
+        const activeLineKeysSet = new Set();
+        const activeNormalizedTextsSet = new Set();
+
+        for (const proj of (appState.replayProjects || [])) {
+          const safeProj = (proj.title || proj.id || 'project').replace(/[\\/:*?"<>|]/g, '_');
+          if (proj.relPathToWorkshopHash && typeof proj.relPathToWorkshopHash === 'object') {
+            for (const [rPath, hVal] of Object.entries(proj.relPathToWorkshopHash)) {
+              if (rPath && !String(rPath).startsWith('cache_hash/')) {
+                addCleanRelPath(rPath);
+              }
+              if (hVal && typeof hVal === 'string') {
+                activeWorkshopHashes.add(hVal);
+              }
+            }
+          }
+          if (proj.avatarUrl) {
+            collectUrl(proj.avatarUrl, `projects/${safeProj}/avatar.jpg`);
+          }
+          (proj.globalScenes || []).forEach((gsc, gIdx) => {
+            if (gsc && gsc.imageUrl) {
+              const safeGName = String(gsc.name || gsc.id || gIdx).replace(/[\\/:*?"<>|]/g, '_');
+              collectUrl(gsc.imageUrl, `projects/${safeProj}/scenes/global_${gIdx}_${safeGName}.png`);
+              addCleanRelPath(`projects/${safeProj}/scenes/${gsc.id || gIdx}.png`);
+              addCleanRelPath(`projects/${safeProj}/scenes/global_${gsc.id || gIdx}.png`);
+            }
+          });
+          (proj.chapters || []).forEach((ch, cIdx) => {
+            if (!ch) return;
+            const ord = Number(ch?.order ?? cIdx);
+            const chId = ch.id || `chap_${ord}`;
+            (ch.scenes || []).forEach((sc, sIdx) => {
+              if (sc && sc.imageUrl) {
+                const safeScKey = String(sc.id || `sc${sIdx}`).replace(/[\\/:*?"<>|]/g, '_');
+                collectUrl(sc.imageUrl, `projects/${safeProj}/scenes/ch${ord}_${sIdx}_${safeScKey}.png`);
+                addCleanRelPath(`projects/${safeProj}/scenes/${sc.id || sIdx}.png`);
+                addCleanRelPath(`projects/${safeProj}/scenes/ch${ord}_${sc.id || sIdx}.png`);
+              }
+            });
+            (ch.cgNodes || []).forEach((cg, gIdx) => {
+              if (cg && cg.imageUrl) {
+                const safeCgKey = String(cg.id || `cg${gIdx}`).replace(/[\\/:*?"<>|]/g, '_');
+                collectUrl(cg.imageUrl, `projects/${safeProj}/cgs/ch${ord}_${gIdx}_${safeCgKey}.png`);
+                addCleanRelPath(`projects/${safeProj}/cgs/${cg.id || gIdx}.png`);
+                addCleanRelPath(`projects/${safeProj}/cgs/ch${ord}_${cg.id || gIdx}.png`);
+              }
+              if (cg && cg.customPadImg) {
+                const safeCgKey = String(cg.id || `cg${gIdx}`).replace(/[\\/:*?"<>|]/g, '_');
+                collectUrl(cg.customPadImg, `projects/${safeProj}/cgs/pad_ch${ord}_${gIdx}_${safeCgKey}.png`);
+                addCleanRelPath(`projects/${safeProj}/cgs/pad_${cg.id || gIdx}.png`);
+                addCleanRelPath(`projects/${safeProj}/cgs/ch${ord}_${cg.id || gIdx}_pad.png`);
+              }
+            });
+            (ch.clueNodes || []).forEach((cl, clIdx) => {
+              if (cl && cl.imageUrl) {
+                const safeClKey = String(cl.id || `cl${clIdx}`).replace(/[\\/:*?"<>|]/g, '_');
+                collectUrl(cl.imageUrl, `projects/${safeProj}/clues/ch${ord}_${clIdx}_${safeClKey}.png`);
+                addCleanRelPath(`projects/${safeProj}/clues/${cl.id || clIdx}.png`);
+                addCleanRelPath(`projects/${safeProj}/clues/ch${ord}_${cl.id || clIdx}.png`);
+              }
+            });
+            (ch.scriptLines || []).forEach((line) => {
+              if (!line) return;
+              if (line.id) {
+                activeScriptLineIdSet.add(String(line.id));
+                activeLineKeysSet.add(`line_${chId}_${line.id}_jp`);
+                activeLineKeysSet.add(`line_${chId}_${line.id}_zh`);
+              }
+              if (line.ttsKey) activeLineKeysSet.add(String(line.ttsKey));
+              if (typeof normalizeTtsMatchText === 'function') {
+                const nt = normalizeTtsMatchText(line.text);
+                const nj = normalizeTtsMatchText(line.jpText);
+                if (nt) activeNormalizedTextsSet.add(nt);
+                if (nj) activeNormalizedTextsSet.add(nj);
+              }
+            });
+          });
+          (proj.subGroups || []).forEach((sg, sgIdx) => {
+            if (!sg) return;
+            const sgId = sg?.id || `sg_${sgIdx}`;
+            (sg.scenes || []).forEach((sc, sIdx) => {
+              if (sc && sc.imageUrl) {
+                collectUrl(sc.imageUrl, `projects/${safeProj}/scenes/${sgId}_${sIdx}_${sc.id || 'sc'}.png`);
+                addCleanRelPath(`projects/${safeProj}/scenes/${sc.id || sIdx}.png`);
+                addCleanRelPath(`projects/${safeProj}/scenes/${sgId}_${sc.id || sIdx}.png`);
+              }
+            });
+            (sg.cgNodes || []).forEach((cg, gIdx) => {
+              if (cg && cg.imageUrl) {
+                collectUrl(cg.imageUrl, `projects/${safeProj}/cgs/${sgId}_${gIdx}_${cg.id || 'cg'}.png`);
+                addCleanRelPath(`projects/${safeProj}/cgs/${cg.id || gIdx}.png`);
+                addCleanRelPath(`projects/${safeProj}/cgs/${sgId}_${cg.id || gIdx}.png`);
+              }
+              if (cg && cg.customPadImg) {
+                collectUrl(cg.customPadImg, `projects/${safeProj}/cgs/pad_${sgId}_${gIdx}_${cg.id || 'cg'}.png`);
+                addCleanRelPath(`projects/${safeProj}/cgs/pad_${cg.id || gIdx}.png`);
+                addCleanRelPath(`projects/${safeProj}/cgs/${sgId}_${cg.id || gIdx}_pad.png`);
+              }
+            });
+            (sg.clueNodes || []).forEach((cl, clIdx) => {
+              if (cl && cl.imageUrl) {
+                collectUrl(cl.imageUrl, `projects/${safeProj}/clues/${sgId}_${clIdx}_${cl.id || 'cl'}.png`);
+                addCleanRelPath(`projects/${safeProj}/clues/${cl.id || clIdx}.png`);
+                addCleanRelPath(`projects/${safeProj}/clues/${sgId}_${cl.id || clIdx}.png`);
+              }
+            });
+            (sg.scriptLines || []).forEach((line) => {
+              if (!line) return;
+              if (line.id) {
+                activeScriptLineIdSet.add(String(line.id));
+                activeLineKeysSet.add(`line_${sgId}_${line.id}_jp`);
+                activeLineKeysSet.add(`line_${sgId}_${line.id}_zh`);
+              }
+              if (line.ttsKey) activeLineKeysSet.add(String(line.ttsKey));
+              if (typeof normalizeTtsMatchText === 'function') {
+                const nt = normalizeTtsMatchText(line.text);
+                const nj = normalizeTtsMatchText(line.jpText);
+                if (nt) activeNormalizedTextsSet.add(nt);
+                if (nj) activeNormalizedTextsSet.add(nj);
+              }
+            });
+          });
+        }
+
+        (appState.styleRefList || []).forEach((item, idx) => {
+          if (item?.base64) collectUrl(item.base64, `styles/active_ref_${item.id || idx}.png`);
+        });
+        const stylePresetList = db?.styles ? await db.styles.toArray() : [];
+        stylePresetList.forEach((sp) => {
+          const safeSp = String(sp.name || sp.id || 'style').replace(/[\\/:*?"<>|]/g, '_');
+          (sp.refs || []).forEach((r, idx) => {
+            if (r?.base64) collectUrl(r.base64, `styles/${safeSp}_${idx + 1}.png`);
+          });
+        });
+        const mapList = db?.maps ? await db.maps.toArray() : [];
+        mapList.forEach((m) => {
+          const safeMapId = String(m.id || 'map').replace(/[\\/:*?"<>|]/g, '_');
+          collectUrl(m.bgDataUrl, `maps/${safeMapId}.png`);
+          collectUrl(m.tableSurfaceUrl, `maps/${safeMapId}_table.png`);
+        });
+        (appState.furnitures || []).forEach((f) => {
+          const safeFId = String(f.id || 'furn').replace(/[\\/:*?"<>|]/g, '_');
+          collectUrl(f.img, `furnitures/${safeFId}.png`);
+          collectUrl(f.spriteUrl, `furnitures/${safeFId}.png`);
+        });
+        (appState.foods || []).forEach((fd) => {
+          const safeFdId = String(fd.id || 'food').replace(/[\\/:*?"<>|]/g, '_');
+          collectUrl(fd.img, `foods/${safeFdId}.png`);
+        });
+
+        // 扫描并去重压缩 db.ttsCache：清理失效语音与重复存储的音频体积，保留全部有效配音
+        try {
+          if (db && db.ttsCache) {
+            const allTtsKeys = await db.ttsCache.toCollection().primaryKeys();
+            const TTS_BATCH = 40;
+            for (let i = 0; i < allTtsKeys.length; i += TTS_BATCH) {
+              const bKeys = allTtsKeys.slice(i, i + TTS_BATCH);
+              const rows = await db.ttsCache.bulkGet(bKeys);
+              for (const tRow of rows) {
+                if (!tRow || !tRow.id) continue;
+                const tid = String(tRow.id);
+                let isReferencedTts = activeLineKeysSet.has(tid) || !tid.startsWith('line_');
+                if (!isReferencedTts) {
+                  const sufMatch = tid.match(/_(line_[^_]+|\d+)_(jp|zh)$/);
+                  if (sufMatch && activeScriptLineIdSet.has(sufMatch[1])) {
+                    isReferencedTts = true;
+                  }
+                }
+                if (!isReferencedTts && tRow.text && typeof normalizeTtsMatchText === 'function') {
+                  const normT = normalizeTtsMatchText(tRow.text);
+                  if (normT && activeNormalizedTextsSet.has(normT)) {
+                    isReferencedTts = true;
+                  }
+                }
+
+                if (!isReferencedTts && (appState.replayProjects || []).length > 0) {
+                  if (typeof tRow.audioDataUrl === 'string' && tRow.audioDataUrl.startsWith('data:')) {
+                    freedBytesApprox += tRow.audioDataUrl.length;
+                  }
+                  if (typeof tRow.audioData === 'string' && tRow.audioData.startsWith('data:')) {
+                    freedBytesApprox += tRow.audioData.length;
+                  }
+                  await db.ttsCache.delete(tid);
+                  dbCleanedCount += 1;
+                  continue;
+                }
+
+                const safeId = tid.replace(/[^a-zA-Z0-9_-]/g, '_');
+                const safeIdAlt = tid.replace(/[\\/:*?"<>|]/g, '_');
+                const targetAudioRel = `audio/${safeId}.mp3`;
+                addCleanRelPath(targetAudioRel);
+                addCleanRelPath(`audio/${safeIdAlt}.mp3`);
+                addCleanRelPath(`tts/${safeId}.mp3`);
+                addCleanRelPath(`tts/${safeIdAlt}.mp3`);
+
+                let rowUpdated = false;
+                const rawAudioStr = tRow.audioDataUrl || tRow.audioData || '';
+                if (rawAudioStr && rawAudioStr.startsWith('data:') && db.localAssetMirror) {
+                  const existingMirror = await db.localAssetMirror.get(targetAudioRel);
+                  if (!existingMirror || !existingMirror.dataUrl) {
+                    await db.localAssetMirror.put({
+                      path: targetAudioRel,
+                      dataUrl: rawAudioStr,
+                      updatedAt: Date.now()
+                    });
+                  }
+                  freedBytesApprox += rawAudioStr.length;
+                  tRow.audioDataUrl = `/local-assets/${targetAudioRel}`;
+                  delete tRow.audioData;
+                  rowUpdated = true;
+                  dbCleanedCount += 1;
+                } else if (tRow.audioData) {
+                  if (!tRow.audioDataUrl) tRow.audioDataUrl = tRow.audioData;
+                  if (typeof tRow.audioData === 'string') freedBytesApprox += tRow.audioData.length;
+                  delete tRow.audioData;
+                  rowUpdated = true;
+                  dbCleanedCount += 1;
+                }
+                collectUrl(tRow.audioDataUrl, targetAudioRel);
+                if (rowUpdated) {
+                  await db.ttsCache.put(tRow);
+                }
+              }
+            }
+          }
+        } catch (_) {}
+
+        const bgmList = db?.bgmTracks ? await db.bgmTracks.toArray() : [];
+        bgmList.forEach((t) => {
+          if (!t || !t.url) return;
+          const safeBgmId = String(t.id || 'bgm').replace(/[\\/:*?"<>|]/g, '_');
+          if (t.url.startsWith('data:') || t.url.includes('/local-assets/') || t.url.includes(':8765/') || t.url.startsWith('/api/workshop/asset/')) {
+            collectUrl(t.url, `audio/bgm_${safeBgmId}.mp3`);
+          }
+        });
+        if (typeof getCustomAppIconsConfig === 'function') {
+          const iconCfg = getCustomAppIconsConfig() || {};
+          Object.entries(iconCfg).forEach(([appKey, info]) => {
+            if (info?.iconUrl) collectUrl(info.iconUrl, `theme/icon_${appKey}.png`);
+          });
+        }
+        const bgsCfg = appState.customBgsConfig || {};
+        ['desktopBg', 'screenBg', 'cardBg', 'homeAvatar', 'homeBg', 'chatBg'].forEach((bgKey) => {
+          const bgVal = bgsCfg[bgKey] || localStorage.getItem(`custom-bg-${bgKey}`) || '';
+          const ext = bgKey === 'homeAvatar' ? 'png' : 'jpg';
+          if (bgVal) collectUrl(bgVal, `theme/bg_${bgKey}.${ext}`);
+        });
+        const customFontVal = localStorage.getItem('user-custom-font-url') || '';
+        if (customFontVal) collectUrl(customFontVal, 'fonts/custom_user_font.ttf');
+        addCleanRelPath('fonts/custom_user_font');
+
+        // 清理 db.workshopProjects 中冗余的巨型剧本与语音副本，仅保留轻量元数据，绝不影响本机已下载的 db.replayProjects 剧本工程
+        try {
+          if (db && db.workshopProjects) {
+            const wsProjs = await db.workshopProjects.toArray();
+            const activeLocalProjIds = new Set((appState.replayProjects || []).map((p) => p && p.id).filter(Boolean));
+            for (const wp of wsProjs) {
+              if (!wp || !wp.id) continue;
+              if (!activeLocalProjIds.has(wp.id)) {
+                const approxStr = JSON.stringify(wp);
+                freedBytesApprox += approxStr.length;
+                await db.workshopProjects.delete(wp.id);
+                dbCleanedCount += 1;
+              } else if (wp.ttsByChapter || (Array.isArray(wp.chapters) && wp.chapters.some((c) => Array.isArray(c?.scriptLines) && c.scriptLines.length > 0))) {
+                const beforeLen = JSON.stringify(wp).length;
+                const slimChaps = Array.isArray(wp.chapters)
+                  ? wp.chapters.map((ch, idx) => ({
+                      id: ch?.id || `chap_${idx}`,
+                      order: Number(ch?.order ?? idx),
+                      title: ch?.title || `第 ${idx + 1} 章`,
+                      version: Number(ch?.version || 1)
+                    }))
+                  : [];
+                const slimRecord = {
+                  id: wp.id,
+                  title: wp.title,
+                  author: wp.author,
+                  desc: wp.desc,
+                  avatarUrl: wp.avatarUrl,
+                  uiTheme: wp.uiTheme,
+                  chapterCount: wp.chapterCount || slimChaps.length,
+                  chaptersMeta: wp.chaptersMeta || slimChaps,
+                  assetPackIndex: wp.assetPackIndex || {},
+                  sizeBytes: wp.sizeBytes || 0,
+                  updatedAt: wp.updatedAt || Date.now()
+                };
+                const afterLen = JSON.stringify(slimRecord).length;
+                if (beforeLen > afterLen) {
+                  freedBytesApprox += (beforeLen - afterLen);
+                }
+                await db.workshopProjects.put(slimRecord);
+                dbCleanedCount += 1;
+              }
+            }
+          }
+        } catch (_) {}
+
+        // 分批扫描浏览器离线镜像库 db.localAssetMirror，仅清理未被引用的失效文件、临时哈希缓存与同哈希重复冗余文件，严格保留全部在用素材
+        try {
+          if (db && db.localAssetMirror) {
+            const allMirrorKeys = await db.localAssetMirror.toCollection().primaryKeys();
+            const seenInactiveHashToKey = new Map();
+            const MIRROR_BATCH = 25;
+            for (let i = 0; i < allMirrorKeys.length; i += MIRROR_BATCH) {
+              const batchKeys = allMirrorKeys.slice(i, i + MIRROR_BATCH);
+              const rows = await db.localAssetMirror.bulkGet(batchKeys);
+              for (let j = 0; j < batchKeys.length; j++) {
+                const mKey = String(batchKeys[j] || '');
+                const row = rows[j];
+                if (!mKey || mKey === 'fonts/custom_user_font') continue;
+                const cleanKey = mKey.split('?')[0].replace(/^\/+/, '').replace(/^local-assets\/+/i, '').replace(/\.\./g, '_').replace(/\.hknw$/, '').trim();
+                let decodedKey = cleanKey;
+                try { decodedKey = decodeURIComponent(cleanKey); } catch (_) {}
+
+                const isTempHashCache = cleanKey.startsWith('cache_hash/');
+                const isDirectlyActive = !isTempHashCache && (
+                  activePaths.has(mKey) ||
+                  activePaths.has(cleanKey) ||
+                  activePaths.has(decodedKey)
+                );
+
+                if (isDirectlyActive) {
+                  continue;
+                }
+
+                // 若该条目带有有效工坊哈希且被引用，仅在没有任何正式路径持有该哈希时保留一份，否则作为重复或失效文件清理
+                const rowHash = row && typeof row.hash === 'string' ? row.hash.trim() : '';
+                if (!isTempHashCache && rowHash && activeWorkshopHashes.has(rowHash) && !seenInactiveHashToKey.has(rowHash)) {
+                  seenInactiveHashToKey.set(rowHash, mKey);
+                  continue;
+                }
+
+                if (row && typeof row.dataUrl === 'string') {
+                  freedBytesApprox += row.dataUrl.length;
+                }
+                await db.localAssetMirror.delete(mKey);
+                _localRelToBlobCache.delete(mKey);
+                _localRelToBlobCache.delete(cleanKey);
+                dbCleanedCount += 1;
+              }
+              if (i + MIRROR_BATCH < allMirrorKeys.length) {
+                await new Promise((r) => setTimeout(r, 0));
+              }
+            }
+          }
+        } catch (_) {}
+
+        const activePathsArr = Array.from(activePaths);
+        let diskRemovedCount = 0;
+
+        if (isLocalBridgeEnabled()) {
+          try {
+            const res = await fetch(baseUrl + '/cleanup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ activePaths: activePathsArr })
+            });
+            if (res.ok) {
+              const info = await res.json();
+              diskRemovedCount += Number(info?.removedCount || 0);
+            }
+          } catch (_) {}
+        }
+
+        try {
+          const srvRes = await fetch('/api/local-assets/cleanup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ activePaths: activePathsArr })
           });
-          if (res.ok) {
-            const info = await res.json();
-            diskRemovedCount += Number(info?.removedCount || 0);
+          if (srvRes.ok) {
+            const srvInfo = await srvRes.json();
+            diskRemovedCount = Math.max(diskRemovedCount, Number(srvInfo?.removedCount || 0));
           }
         } catch (_) {}
+
+        const totalRemoved = diskRemovedCount + dbCleanedCount;
+        const freedMb = (freedBytesApprox * 0.75 / (1024 * 1024)).toFixed(1);
+        const doneMsg = totalRemoved > 0
+          ? `清理完成！共清理 ${totalRemoved} 项重复下载缓存与失效残留文件，释放约 ${freedMb} MB 浏览器存储空间，当前所有模组剧本、角色立绘、场景插图与配音均完好保留。`
+          : `扫描完成！本机当前没有失效或重复残留文件，所有模组剧本、角色立绘、场景插图与配音均处于最佳状态。`;
+        updateCleanupStatus(doneMsg);
+        return totalRemoved;
+      } finally {
+        if (btnEl) {
+          btnEl.disabled = false;
+          btnEl.textContent = origBtnText || '清理';
+        }
       }
-
-      try {
-        const srvRes = await fetch('/api/local-assets/cleanup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ activePaths: activePathsArr })
-        });
-        if (srvRes.ok) {
-          const srvInfo = await srvRes.json();
-          diskRemovedCount = Math.max(diskRemovedCount, Number(srvInfo?.removedCount || 0));
-        }
-      } catch (_) {}
-
-      try {
-        if (db && db.ttsCache) {
-          const allTts = await db.ttsCache.toArray();
-          for (const tRow of allTts) {
-            if (tRow && tRow.audioData) {
-              if (!tRow.audioDataUrl) tRow.audioDataUrl = tRow.audioData;
-              delete tRow.audioData;
-              await db.ttsCache.put(tRow);
-              dbCleanedCount += 1;
-            }
-          }
-        }
-      } catch (_) {}
-
-      try {
-        if (db && db.localAssetMirror) {
-          const allMirrorRows = await db.localAssetMirror.toArray();
-          for (const row of allMirrorRows) {
-            if (row && row.path && row.path !== 'fonts/custom_user_font') {
-              await db.localAssetMirror.delete(row.path);
-              dbCleanedCount += 1;
-            }
-          }
-        }
-      } catch (_) {}
-
-      const totalRemoved = diskRemovedCount + dbCleanedCount;
-      if (statusBox) {
-        statusBox.textContent = `清理完成！已先将当前使用的所有文件写入本地目录，随后清理 ${totalRemoved} 项未引用或重复缓存，所有正在使用的立绘、CG与配音均完好保留。`;
-      }
-      return totalRemoved;
     }
 
     async function resolveImageToDataUrl(src) {
@@ -31003,7 +31258,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           if (hash && cleanRel) {
             relPathToWorkshopHash[cleanRel] = hash;
           }
-          // 若本机该路径已存有完全相同哈希的素材，直接去重复用，不重复写盘''' + '''
+          // 若本机该路径已存有完全相同哈希的素材，直接去重复用，不重复写盘
           if (hash && prevHashForRel === hash && existingMirrorKeys.has(cleanRel)) {
             _localWorkshopAssetUrlMap.set(refOrUrl, targetLocalUrl);
             _localWorkshopAssetUrlMap.set(hash, targetLocalUrl);
