@@ -28608,6 +28608,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         return Number(next.updatedAt || 0) >= Number(prev.updatedAt || 0);
       };
 
+      _cachedGhBranchSha = '';
+      _cachedGhBranchShaTs = 0;
+
       const mergedMap = new Map();
       try {
         const { data } = await fetchBackendJsonSafe('/api/workshop/list');
@@ -28648,11 +28651,15 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
       } catch (_) {}
 
+      _localWsSyncedTimestampMap.clear();
       try {
         if (db && db.workshopProjects) {
           const localWsRows = await db.workshopProjects.toArray();
           if (Array.isArray(localWsRows)) {
             for (const row of localWsRows) {
+              if (row && row.id && row.updatedAt) {
+                _localWsSyncedTimestampMap.set(row.id, Number(row.updatedAt));
+              }
               const summary = buildWorkshopSummaryItemFromProject(row);
               if (!summary) continue;
               const prev = mergedMap.get(summary.id);
@@ -28677,13 +28684,15 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
       } catch (_) {}
 
-      // 若本机已存在完整模组（如 24 章），同步修正工坊列表中可能残留的 1 章缓存摘要，但绝不改动本机模组数据
+      // 若本机已存在完整模组且本机同步时间不早于线上记录，同步修正工坊列表中可能残留的旧章节缓存摘要，但绝不覆盖线上发布的新版本信息
       (appState.replayProjects || []).forEach((lp) => {
         if (!lp || !lp.id || !Array.isArray(lp.chapters) || lp.chapters.length === 0) return;
         if (mergedMap.has(lp.id)) {
           const item = mergedMap.get(lp.id);
           const itemChapCnt = Number(item?.chapterCount || (Array.isArray(item?.chaptersMeta) ? item.chaptersMeta.length : 0));
-          if (lp.chapters.length > itemChapCnt) {
+          const lpSyncTs = Number(lp.workshopSyncedAt || _localWsSyncedTimestampMap.get(lp.id) || 0);
+          const itemTs = Number(item?.updatedAt || 0);
+          if (lp.chapters.length > itemChapCnt && (!itemTs || lpSyncTs >= itemTs)) {
             item.chapterCount = lp.chapters.length;
             item.chaptersMeta = lp.chapters.map((ch, idx) => ({
               id: ch.id || `chap_${idx}`,
@@ -28712,6 +28721,7 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
     }
 
     const _workshopMetaHydratedIds = new Set();
+    const _localWsSyncedTimestampMap = new Map();
 
     function renderReplayWorkshopList() {
       const box = document.getElementById('workshop-projects-list-container');
@@ -28783,15 +28793,21 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
                   id: ch.id || `chap_${idx}`,
                   order: Number(ch.order ?? idx),
                   title: ch.title || `第 ${idx + 1} 章`,
-                  lineCount: Array.isArray(ch.scriptLines) ? ch.scriptLines.length : 0
+                  lineCount: Array.isArray(ch.scriptLines) ? ch.scriptLines.length : 0,
+                  version: Number(ch.version || 1)
                 }));
                 item.chapterCount = remoteProj.chapters.length;
+                if (remoteProj.updatedAt && Number(remoteProj.updatedAt) > Number(item.updatedAt || 0)) {
+                  item.updatedAt = Number(remoteProj.updatedAt);
+                }
                 renderReplayWorkshopList();
               }
             }).catch(() => {});
           }
         }
 
+        const localBaseProj = localProj || mountedBundle?.project || null;
+        const localChapsArr = Array.isArray(localBaseProj?.chapters) ? localBaseProj.chapters : [];
         const localChaptersSet = new Set(
           (localProj && Array.isArray(localProj.chapters) ? localProj.chapters : [])
             .map((ch, idx) => Number(ch.order ?? idx))
@@ -28842,20 +28858,40 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
             </div>`
           : '';
 
-        const localSyncedTs = Number(localProj?.workshopSyncedAt || localProj?.updatedAt || 0);
-        const remoteItemTs = Number(item.updatedAt || 0);
-        const hasRemoteUpdate = isLocalOwner && (
-          (remoteItemTs > 0 && localSyncedTs > 0 && remoteItemTs > localSyncedTs + 2000) ||
-          (Number(item.chapterCount || 0) > (Array.isArray(localProj?.chapters) ? localProj.chapters.length : 0))
+        const localSyncedTs = Number(
+          localBaseProj?.workshopSyncedAt ||
+          _localWsSyncedTimestampMap.get(item.id) ||
+          localBaseProj?.updatedAt ||
+          0
         );
+        const remoteItemTs = Number(item.updatedAt || 0);
+        const hasNewerTimestamp = remoteItemTs > 0 && localSyncedTs > 0 && remoteItemTs > localSyncedTs + 1500;
+        const hasMoreChapters = Number(item.chapterCount || 0) > localChapsArr.length;
+        const hasNewerChapterVer = Array.isArray(item.chaptersMeta) && item.chaptersMeta.some((cm, idx) => {
+          const ord = Number(cm.order ?? idx);
+          const lc = localChapsArr.find((c, cIdx) => Number(c.order ?? cIdx) === ord);
+          if (!lc) return true;
+          if (Number(cm.version || 1) > Number(lc.version || 1)) return true;
+          return false;
+        });
+        const hasRemoteUpdate = (isLocalOwner || isZipMounted) && (hasNewerTimestamp || hasMoreChapters || hasNewerChapterVer);
 
         const statusBadgeHtml = isLocalOwner
           ? (hasRemoteUpdate
-              ? '<span class="vn-console-badge accent" style="flex-shrink:0;">云端有更新 · 点观看或下载自动增量替换</span>'
-              : '<span class="vn-console-badge accent" style="flex-shrink:0;">本机已存 · 点观看直读</span>')
+              ? '<span class="vn-console-badge accent" style="flex-shrink:0;">有新版本 · 请点更新</span>'
+              : '<span class="vn-console-badge accent" style="flex-shrink:0;">本机已存 · 已是最新</span>')
           : (isZipMounted
-              ? '<span class="vn-console-badge accent" style="flex-shrink:0;">已载入包 · 点观看直读</span>'
+              ? (hasRemoteUpdate
+                  ? '<span class="vn-console-badge accent" style="flex-shrink:0;">有新版本 · 请点更新</span>'
+                  : '<span class="vn-console-badge accent" style="flex-shrink:0;">已载入包 · 点观看直读</span>')
               : '<span class="vn-console-badge" style="flex-shrink:0;">未存本机 · 下载或压缩后秒开</span>');
+
+        const updateNoticeBannerHtml = hasRemoteUpdate
+          ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--accent-color);font-size:11px;font-weight:700;color:var(--accent-color);min-width:0;width:100%;box-sizing:border-box;">
+              <span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">检测到云端已发布新版本，点击下方更新即可拉取最新内容到本地</span>
+              <span style="flex-shrink:0;">新版本</span>
+            </div>`
+          : '';
 
         const card = document.createElement('div');
         card.className = 'setting-item';
@@ -28892,14 +28928,16 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           </div>
           ${chaptersListHtml}
           ${scopeSelectHtml}
+          ${updateNoticeBannerHtml}
           <div id="workshop-card-prog-wrap-${item.id}" style="display:none;flex-direction:column;gap:4px;padding:6px 8px;border-radius:10px;background:var(--secondary-bg);border:1px solid var(--border-color);min-width:0;width:100%;box-sizing:border-box;">
             <div style="width:100%;height:6px;border-radius:999px;background:var(--border-color);overflow:hidden;">
               <div id="workshop-card-prog-bar-${item.id}" style="width:0%;height:100%;background:var(--accent-color);transition:width 0.2s ease;"></div>
             </div>
             <div id="workshop-card-prog-txt-${item.id}" style="font-size:11px;color:var(--text-secondary);line-height:1.4;word-break:break-word;">正在准备...</div>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:8px;min-width:0;width:100%;">
+          <div style="display:grid;grid-template-columns:repeat(4, minmax(0, 1fr));gap:8px;min-width:0;width:100%;">
             <button type="button" class="moe-btn secondary" id="workshop-dl-btn-${item.id}" style="width:100%;justify-content:center;" onclick="downloadOrUpdateWorkshopProject('${item.id}', getWorkshopCardSelectedOrder('${item.id}'))">下载</button>
+            <button type="button" class="moe-btn${hasRemoteUpdate ? '' : ' secondary'}" id="workshop-upd-btn-${item.id}" style="width:100%;justify-content:center;" onclick="pullWorkshopProjectUpdate('${item.id}', getWorkshopCardSelectedOrder('${item.id}'))">更新</button>
             <button type="button" class="moe-btn secondary" id="workshop-zip-btn-${item.id}" style="width:100%;justify-content:center;" onclick="downloadWorkshopProjectAsZip('${item.id}', getWorkshopCardSelectedOrder('${item.id}'))">压缩</button>
             <button type="button" class="moe-btn" id="workshop-watch-btn-${item.id}" style="width:100%;justify-content:center;" onclick="openWorkshopModuleInTheater('${item.id}', Math.max(0, getWorkshopCardSelectedOrder('${item.id}')))">观看</button>
           </div>
@@ -29728,9 +29766,21 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
         }
 
         setProgress(100, '上传完成！');
+        _cachedGhBranchSha = '';
+        _cachedGhBranchShaTs = 0;
         const syncedTs = Number(lightweightWorkshopRecord.updatedAt || Date.now());
         proj.workshopSyncedAt = syncedTs;
         proj.updatedAt = syncedTs;
+        if (Array.isArray(proj.chapters) && Array.isArray(finalChapters)) {
+          proj.chapters.forEach((ch, idx) => {
+            if (!ch) return;
+            const ord = Number(ch.order ?? idx);
+            const matchedFinal = finalChapters.find((fc, fIdx) => fc && (Number(fc.order ?? fIdx) === ord || (fc.id && fc.id === ch.id)));
+            if (matchedFinal && matchedFinal.version) {
+              ch.version = Number(matchedFinal.version);
+            }
+          });
+        }
         proj.assetPackIndex = { ...(proj.assetPackIndex || {}), ...(finalAssetPackIndex || {}) };
         await saveReplayProjectToDB(proj);
 
@@ -31432,6 +31482,26 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       localProj.updatedAt = remoteSyncedTs;
       await db.replayProjects.put(localProj);
 
+      _localWsSyncedTimestampMap.set(localProj.id, remoteSyncedTs);
+      if (Array.isArray(_workshopItemsCache)) {
+        const cachedWsItem = _workshopItemsCache.find((it) => it && it.id === localProj.id);
+        if (cachedWsItem) {
+          cachedWsItem.updatedAt = remoteSyncedTs;
+          cachedWsItem.chapterCount = Array.isArray(localProj.chapters) ? localProj.chapters.length : cachedWsItem.chapterCount;
+          if (Array.isArray(localProj.chapters) && localProj.chapters.length > 0) {
+            cachedWsItem.chaptersMeta = localProj.chapters.map((ch, idx) => ({
+              id: ch.id || `chap_${idx}`,
+              order: Number(ch.order ?? idx),
+              title: ch.title || `第 ${idx + 1} 章`,
+              lineCount: Array.isArray(ch.scriptLines) ? ch.scriptLines.length : 0,
+              cgCount: Array.isArray(ch.cgNodes) ? ch.cgNodes.length : 0,
+              clueCount: Array.isArray(ch.clueNodes) ? ch.clueNodes.length : 0,
+              version: Number(ch.version || 1)
+            }));
+          }
+        }
+      }
+
       try {
         if (db && db.workshopProjects) {
           await db.workshopProjects.put(remoteProj);
@@ -31485,11 +31555,69 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
       renderReplayWorkshopList();
       renderTheaterSelectorLobby();
 
-      setDlProgress(100, `已完整下载「${localProj.title}」并安装至本机「剧本」 · 共写入 ${localProj.chapters.length} 章剧本与 ${savedAssetCount} 个素材`);
+      const doneMsg = options.isUpdateMode
+        ? `已将「${localProj.title}」更新至最新版本 · 本次新增或替换 ${savedAssetCount} 项素材，复用 ${skippedDedupHashCount} 项已有素材`
+        : `已完整下载「${localProj.title}」并安装至本机「剧本」 · 共写入 ${localProj.chapters.length} 章剧本与 ${savedAssetCount} 个素材`;
+      setDlProgress(100, doneMsg);
       setTimeout(() => {
         if (progWrap) progWrap.style.display = 'none';
         setWorkshopCardProgress(projectId, 100, '', true);
-      }, 2000);
+      }, 2400);
+      return {
+        savedAssetCount,
+        skippedDedupHashCount,
+        chapterCount: localProj.chapters.length,
+        title: localProj.title
+      };
+    }
+
+    // 更新按钮统一入口：强制拉取云端与GitHub最新版本，通过哈希去重仅下载有变动或新增的章节与素材并覆盖更新到本地
+    async function pullWorkshopProjectUpdate(projectId, onlyChapterOrder = -1) {
+      unlockBgmAudioPlayerOnUserGesture();
+      if (typeof ensureSharedTheaterVoicePlayerUnlocked === 'function') {
+        ensureSharedTheaterVoicePlayerUnlocked();
+      }
+      _cachedGhBranchSha = '';
+      _cachedGhBranchShaTs = 0;
+      const btn = document.getElementById(`workshop-upd-btn-${projectId}`);
+      if (btn) { btn.textContent = '更新 2%'; btn.disabled = true; }
+      try {
+        await restoreWorkshopProjectToLocalEngine(
+          projectId,
+          {
+            restoreChapters: true,
+            restoreChars: true,
+            restoreScenes: true,
+            restoreCgsAndClues: true,
+            restoreTts: true,
+            restoreBgm: true,
+            onlyMissing: false,
+            onlyChapterOrder,
+            isUpdateMode: true
+          },
+          (pct) => {
+            if (btn && btn.disabled) {
+              btn.textContent = `更新 ${Math.max(2, Math.min(100, Math.round(pct)))}%`;
+            }
+          }
+        );
+        const doneBtn = document.getElementById(`workshop-upd-btn-${projectId}`);
+        if (doneBtn) {
+          doneBtn.textContent = '已更';
+          doneBtn.disabled = false;
+          setTimeout(() => {
+            if (doneBtn.isConnected) doneBtn.textContent = '更新';
+          }, 1500);
+        }
+      } catch (err) {
+        setWorkshopCardProgress(projectId, 0, '', true);
+        alert('拉取模组更新失败：' + err.message);
+      } finally {
+        if (btn && btn.isConnected && btn.disabled) {
+          btn.textContent = '更新';
+          btn.disabled = false;
+        }
+      }
     }
 
     // 下载与恢复按钮统一入口：直接从云端下载写入本机「剧本」数据库与本地镜像库，并在「剧本」中立即流畅观看
@@ -32411,6 +32539,9 @@ STAGE_FX: 行号数字|transition值|ambient值|textFx值|mysteryMode值|sticker
           await flushZipDiskBatch();
           zipEntryBytesMap.clear();
 
+          if (!proj.workshopSyncedAt) {
+            proj.workshopSyncedAt = Number(proj.updatedAt || Date.now());
+          }
           proj.updatedAt = Date.now();
           await db.replayProjects.put(proj);
           if (typeof _mountedExternalProjects !== 'undefined') {
